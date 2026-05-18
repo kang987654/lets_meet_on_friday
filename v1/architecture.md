@@ -1,10 +1,12 @@
 # architecture.md — Local Friday
 ## Android Offline-First Personal AI Assistant
 
-**문서 버전**: 1.0
-**기준 PRD**: PRD.md v1.0
+**문서 버전**: 1.2
+**기준 PRD**: PRD.md v1.2
+**기준 계약 문서**: api_spec.yaml v1.2.0
 **아키텍처 패턴**: Modular Monolith (Single Android App)
-**대상 환경**: Samsung Galaxy S25 Ultra / Android
+**v0(MVP) 대상 환경**: Samsung Galaxy S25 Ultra / Android
+**버전 경계**: v0(MVP) = 핵심 기능 / v1 = v0 이후 확장 / v2 = Windows 및 고도화
 
 ---
 
@@ -18,7 +20,7 @@
 6. Data Flow
 7. State Management
 8. Database Design Overview
-9. API Architecture
+9. Internal Contract Architecture
 10. Authentication Strategy
 11. Error Handling Strategy
 12. Logging Strategy
@@ -34,7 +36,7 @@
 **Modular Monolith 채택**
 
 이 프로젝트는 단일 Android APK로 배포되는 오프라인 우선 앱이다.
-마이크로서비스나 멀티모듈 분리는 MVP 단계에서 과잉 설계이므로
+마이크로서비스나 멀티모듈 분리는 v0(MVP) 단계에서 과잉 설계이므로
 **단일 앱 내에서 레이어와 도메인 경계를 명확히 분리**하는
 Modular Monolith 구조를 채택한다.
 
@@ -42,36 +44,37 @@ Modular Monolith 구조를 채택한다.
 - 레이어 간 의존은 **단방향 하향**만 허용
 - Domain 레이어는 Android 프레임워크 의존성 **금지**
 - 각 레이어는 **인터페이스**를 통해서만 하위 레이어와 통신
-- AI agent가 **파일 단위**로 작업 가능한 크기로 분리
+- `api_spec.yaml`을 **내부 계약의 source of truth**로 사용한다
+- AI agent가 **파일 단위**로 작업 가능한 크기로 분리한다
 
 ### 1-2. 레이어 구조
 
-```
+```text
 ┌─────────────────────────────────────────────────────┐
 │                  Presentation Layer                  │
 │         (Compose UI / ViewModel / Navigation)        │
 ├─────────────────────────────────────────────────────┤
 │               Assistant Core Layer                   │
-│   (Orchestrator / Router / Planner / Approval)       │
+│   (Orchestrator / Router / Classifier / Approval)    │
 ├─────────────────────────────────────────────────────┤
 │                  Domain Layer                        │
-│      (Models / Use Cases / Repository Interfaces     │
-│             / Policy Interfaces)                     │
+│    (Models / Use Cases / Repository Interfaces       │
+│      / Tool Interfaces / Policy Interfaces)          │
 ├─────────────────────────────────────────────────────┤
 │                   Data Layer                         │
 │    (Room DB / DataStore / Repository Impls           │
-│              / Export-Import)                        │
+│              / Export-Import(v1))                    │
 ├──────────────────────┬──────────────────────────────┤
 │    Runtime Layer     │      Platform Layer           │
-│  (Model Runner /     │  (Calendar / STT / File /    │
-│   Multimodal /       │   Search / Share)             │
-│   Metrics)           │                               │
+│  (Model Runner /     │  (Calendar / STT / File(v1) /│
+│   Multimodal /       │   Search(v1) / Share(v1))     │
+│   Metrics(v1))       │                               │
 └──────────────────────┴──────────────────────────────┘
 ```
 
 ### 1-3. 레이어별 의존 방향 규칙
 
-```
+```text
 Presentation
     │ depends on
     ▼
@@ -97,33 +100,48 @@ Data / Runtime / Platform
 
 | 분류 | 선택 | 버전 기준 | 선택 이유 |
 |---|---|---|---|
-| 언어 | Kotlin | 2.0+ | Android 표준 |
-| UI | Jetpack Compose | BOM 최신 | 선언형 UI, StateFlow 연동 |
-| Navigation | Compose Navigation | - | Compose 공식 통합 |
-| DI | **Hilt** | 2.52+ | 컴파일 타임 안전성, Jetpack 통합 |
-| DI 처리기 | **KSP** | - | KAPT 대비 빌드 속도 향상 |
-| DB | Room | 2.6+ | SQLite 추상화, AutoMigration 지원 |
-| 설정 저장 | DataStore (Preferences) | - | 비동기 설정 저장 |
-| 비동기 | Coroutines + Flow | - | Android 표준 비동기 |
+| 언어 | Kotlin | 2.3.21 | Android 최신 안정 계열 |
+| Android Gradle Plugin | AGP | 9.2.0 | 최신 빌드 툴체인 |
+| UI | Jetpack Compose | BOM 2026.04.01 | 선언형 UI, StateFlow 연동 |
+| Navigation | Compose Navigation | 2.9.7 | Compose 공식 내비게이션 |
+| DI | **Hilt** | 2.59 | 컴파일 타임 안전성, Jetpack 통합 |
+| DI 처리기 | **KSP** | 2.3.7 | KAPT 대비 빌드 속도 향상 |
+| DB | Room | 2.8.4 | SQLite 추상화, Paging 연동 |
+| 설정 저장 | DataStore (Preferences) | 1.2.1 | 비동기 설정 저장 |
+| 비동기 | Coroutines + Flow | 1.11.0 | Android 표준 비동기 |
 | 상태 관리 | StateFlow + ViewModel | - | Lifecycle-aware 상태 |
 | 로컬 모델 | **LiteRT-LM** | 최신 | Gemma 4 공식 Android 런타임 |
 | 모델 포맷 | `.litertlm` (INT4) | - | 모바일 최적화 양자화 포맷 |
 | STT | Android SpeechRecognizer | - | 온디바이스 오프라인 STT |
 | 이미지 처리 | Android BitmapFactory | - | 별도 라이브러리 없이 처리 |
-| JSON 직렬화 | kotlinx.serialization | - | Kotlin 네이티브 |
-| 페이지네이션 | Paging 3 | - | Room PagingSource 연동 |
+| JSON 직렬화 | kotlinx.serialization | JSON 1.9.0 / plugin 2.3.21 | Kotlin 친화적 직렬화 |
+| 페이지네이션 | Paging 3 | 3.4.2 | Room PagingSource 연동 |
+| Hilt-Compose Navigation | androidx.hilt.navigation.compose | 1.3.0 | Compose Navigation + Hilt ViewModel 연동 |
 
-### 2-2. 미사용 / 보류 항목
+### 2-2. 빌드 툴체인 원칙
+
+- Kotlin / KSP / Hilt / AGP는 상호 호환성이 민감하므로 **항상 함께 검증**한다
+- Compose BOM / Navigation / Room / DataStore / Paging은 stable 최신판을 우선 사용한다
+- bootstrap 시 반드시 아래 조합을 하나의 세트로 검증한다:
+  - AGP
+  - Gradle wrapper
+  - JDK
+  - Kotlin plugin
+  - Kotlin serialization plugin
+  - KSP
+  - Hilt
+
+### 2-3. 미사용 / 보류 항목
 
 | 항목 | 상태 | 이유 |
 |---|---|---|
-| Retrofit / OkHttp | MVP 미사용 | 외부 REST API 없음 |
+| Retrofit / OkHttp | v0 미사용 | 외부 REST API 없음 |
 | Koin | 미채택 | Hilt 확정 |
 | KAPT | 미사용 | KSP로 대체 |
-| Vector DB | v2 보류 | MVP 과잉 설계 |
+| Vector DB | v2 보류 | v0 과잉 설계 |
 | Whisper (로컬 STT) | v1 검토 | 현재 Android SpeechRecognizer 사용 |
 | WorkManager | 필요 시 추가 | 모델 로드 백그라운드 처리 검토용 |
-| MediaPipe LLM Inference API | 미채택 | deprecated, LiteRT-LM으로 대체 |
+| MediaPipe LLM Inference API | 미채택 | LiteRT-LM으로 대체 |
 
 ---
 
@@ -134,16 +152,16 @@ Data / Runtime / Platform
 이 앱은 하나의 Android 앱 안에서 아래 6개의 도메인으로
 책임을 분리한다. 각 도메인은 독립적으로 테스트 가능해야 한다.
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                     App Domain                          │
-│              (초기화 / DI / Navigation)                  │
+│              (초기화 / DI / Navigation)                │
 ├──────────────┬──────────────┬──────────────────────────┤
 │ Chat Domain  │Calendar Domain│   Memory Domain          │
-│ (대화 / 응답) │(일정 조회/생성)│(저장/조회/export)        │
+│ (대화 / 응답) │(일정 조회/생성)│(v0 저장 / v1 export)     │
 ├──────────────┴──────┬───────┴──────────────────────────┤
-│   Assistant Domain  │         Settings Domain           │
-│ (의도 분석/오케스트레│  (모델 정보 / 정책 / 로그)          │
+│   Assistant Domain  │         Settings Domain          │
+│ (의도 분석/오케스트레│  (모델 정보 / 정책 / 로그)         │
 │  이션/승인)          │                                   │
 └─────────────────────┴───────────────────────────────────┘
 ```
@@ -154,18 +172,24 @@ Data / Runtime / Platform
 |---|---|---|
 | **Chat** | 사용자 입력 수신, 응답 생성 조율 | SendChatMessage, ProcessVoiceInput, ProcessImageInput |
 | **Calendar** | 캘린더 조회 및 일정 초안 생성 | GetTodaySchedule, CreateCalendarDraft, ApproveAndSaveEvent |
-| **Memory** | 5계층 메모리 저장/조회/관리 | SaveConversation, SearchKnowledge, ExportMemory, ImportMemory |
+| **Memory** | v0 Profile / Conversation / 필수 Audit 저장, v1 Task / Knowledge / 전체 Audit / Export-Import 확장 | SearchKnowledge(v1), ExportMemory(v1), ImportMemory(v1) |
 | **Assistant** | 의도 분류, 도구 선택, 승인 조율 | ClassifyIntent, RouteToAgent, RequestApproval |
 | **Settings** | 모델 설정, 응답 스타일, 정책 | UpdateModelConfig, UpdatePersonaProfile, GetAuditLog |
 | **App** | 전역 초기화, DI 조립, 화면 이동 | AppInit, PermissionCheck |
+
+> **버전 주석**
+> 이 문서의 디렉토리와 인터페이스는 확장 가능한 최종 구조를 함께 보여준다.
+> 파일명 뒤의 `(v1)`, `(v2)` 표기가 있는 항목은 v0(MVP)에서 구현 대상이 아니며,
+> v0에서는 인터페이스 또는 빈 확장 지점만 둘 수 있다.
 
 ### 3-3. 도메인 간 통신 규칙
 
 - 도메인 간 직접 의존 **금지**
 - Chat Domain이 Calendar 기능이 필요하면
-  **Assistant Domain을 통해 라우팅**
-- 공유 데이터는 Domain Layer의 공통 모델을 사용
-- 이벤트 기반 통신이 필요한 경우 SharedFlow 사용
+  **Assistant Core를 통해 라우팅**한다
+- 공유 데이터는 Domain Layer의 공통 모델을 사용한다
+- 이벤트 기반 통신이 필요한 경우 SharedFlow를 사용한다
+- 세부 필드/타입 정의는 **api_spec.yaml 기준**으로 정렬한다
 
 ---
 
@@ -183,50 +207,51 @@ Data / Runtime / Platform
 | `di/AgentModule.kt` | Orchestrator / Agent 바인딩 |
 | `di/PlatformModule.kt` | Tool 구현체 바인딩 |
 
-> **AI agent 작업 단위**: `di/` 파일은 각각 독립적으로 생성 가능.
+> **AI agent 작업 단위**
+> `di/` 파일은 각각 독립적으로 생성 가능하다.
 > 새로운 의존성 추가 시 해당 모듈 파일만 수정한다.
 
 ---
 
 ### 4-2. `core/` — 공통 기반
 
-**어떤 레이어에서도 import 가능한 공통 타입만 포함.**
+**어떤 레이어에서도 import 가능한 공통 타입만 포함한다.**
 Android 의존성 최소화.
 
 | 파일 | 책임 |
 |---|---|
-| `common/Result.kt` | `sealed class Result<out T>` — 성공/실패 래퍼 |
-| `common/AppError.kt` | 에러 타입 열거 (ModelError / DBError / PermissionError 등) |
-| `common/Constants.kt` | 앱 전역 상수 (토큰 제한, 온도 임계값 등) |
+| `common/AppResult.kt` | `sealed class AppResult<out T>` — 성공/실패 래퍼 |
+| `common/AppError.kt` | 에러 타입 열거 |
+| `common/Constants.kt` | 앱 전역 상수 |
 | `config/AppConfig.kt` | 런타임 설정 값 |
 | `config/FeatureFlags.kt` | 기능 ON/OFF 플래그 |
 | `config/ModelConfig.kt` | 모델 경로, 컨텍스트 제한 등 |
 | `logging/AppLogger.kt` | 개발용 로그 래퍼 |
 | `logging/AuditLogger.kt` | 감사 로그 기록 인터페이스 |
 | `security/PermissionPolicy.kt` | 권한 정책 정의 |
-| `security/ApprovalPolicy.kt` | 승인 필요 작업 정의 |
-| `security/Redaction.kt` | 민감 정보 마스킹 (감사 로그용) |
+| `security/ApprovalRules.kt` | 승인 필요 작업 정의 |
+| `security/Redaction.kt` | 민감 정보 마스킹 |
+| `mapper/ErrorCodeMapper.kt` | AppError ↔ ErrorCode 매핑 규칙 |
+| `mapper/TimeMapper.kt` | Long(ms) ↔ ISO 8601 string 변환 유틸(권장) |
 
 **`Constants.kt` 주요 상수**
 
 ```kotlin
 object Constants {
-    // 컨텍스트 설정
     const val MAX_CONTEXT_TOKENS = 4096
     const val MAX_CONVERSATION_TURNS = 5
     const val MAX_KNOWLEDGE_CONTEXT_ITEMS = 3
-    const val MAX_INPUT_TOKENS = 2048
+    const val MAX_INPUT_CHARS = 8192
 
-    // 이미지 제한
-    const val MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024  // 10MB
+    const val MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
     const val MAX_IMAGE_DIMENSION_PX = 1024
 
-    // 발열 임계값
     const val THERMAL_WARNING_CELSIUS = 43f
     const val THERMAL_SHUTDOWN_CELSIUS = 48f
     const val THERMAL_COOLDOWN_INFERENCE_COUNT = 5
 
-    // 모델 경로
+    const val CALENDAR_DRAFT_MIN_CONFIDENCE = 0.7f
+
     const val MODEL_DIR_NAME = "models"
     const val DEFAULT_MODEL_FILENAME = "gemma4-e4b-it-q4.litertlm"
 }
@@ -242,16 +267,26 @@ object Constants {
 
 | 파일 | 책임 |
 |---|---|
-| `ChatMessage.kt` | 채팅 메시지 (role, content, inputType, timestamp) |
-| `AssistantResponse.kt` | 비서 응답 (content, actionCard, searchUsed) |
-| `UserProfile.kt` | 사용자 프로필 (name, responseStyle) |
-| `CalendarEvent.kt` | 캘린더 일정 도메인 모델 |
-| `CalendarDraft.kt` | 일정 초안 (title, startIso, endIso, note, confidence) |
-| `KnowledgeNote.kt` | 지식 메모 (title, content, tags, sourceType) |
-| `TaskItem.kt` | 작업 아이템 (title, status, priority) |
-| `AuditEvent.kt` | 감사 이벤트 (eventType, detail, approvalStatus, networkUsed) |
-| `SearchRequest.kt` | 검색 요청 (query, reason) |
-| `ApprovalRequest.kt` | 승인 요청 (actionType, payload, riskLevel) |
+| `ChatMessage.kt` | 채팅 메시지 |
+| `AssistantResponse.kt` | 비서 응답 |
+| `ActionCard.kt` | 액션 카드 (typed payload) |
+| `ChatRequest.kt` | Orchestrator 내부 입력 모델 |
+| `UserProfile.kt` | 사용자 프로필 |
+| `CalendarEvent.kt` | 캘린더 일정 모델 |
+| `CalendarDraft.kt` | 일정 초안 |
+| `ScheduleData.kt` | 일정 조회 결과 |
+| `KnowledgeNote.kt` | 지식 메모 (v1) |
+| `TaskItem.kt` | 작업 아이템 (v1) |
+| `AuditEvent.kt` | 감사 이벤트 |
+| `SearchRequest.kt` | 검색 요청 (v1) |
+| `SearchResultItem.kt` | 검색 결과 항목 (v1) |
+| `ApprovalRequest.kt` | 승인 요청 |
+| `ModelOutput.kt` | 모델 구조화 출력 sealed class |
+
+**모델 표현 원칙**
+- `ActionCard.payload`는 `Any`가 아니라 **typed payload**로 표현한다
+- `ModelOutput`은 `TextOutput`, `CalendarDraftOutput`, `SearchOutput`, `KnowledgeSaveOutput`의 sealed class로 정의한다
+- `ChatRequest`는 `AssistantOrchestrator` 내부 입력 모델이며, 화면/UseCase 입력과 구분한다
 
 #### `domain/memory/` — 메모리 저장소 인터페이스
 
@@ -259,8 +294,8 @@ object Constants {
 |---|---|
 | `ProfileRepository.kt` | 프로필 CRUD 인터페이스 |
 | `ConversationRepository.kt` | 대화 저장/조회 인터페이스 |
-| `TaskRepository.kt` | 작업 저장/조회 인터페이스 |
-| `KnowledgeRepository.kt` | 지식 메모 저장/검색 인터페이스 |
+| `TaskRepository.kt` | 작업 저장/조회 인터페이스 (v1) |
+| `KnowledgeRepository.kt` | 지식 메모 저장/검색 인터페이스 (v1) |
 | `AuditRepository.kt` | 감사 로그 저장/조회 인터페이스 |
 
 #### `domain/modelrunner/` — 모델 추상화
@@ -268,7 +303,9 @@ object Constants {
 | 파일 | 책임 |
 |---|---|
 | `ModelRunner.kt` | `interface ModelRunner` — generate / generateWithImage / cancel |
-| `ModelLoadState.kt` | 모델 로드 상태 (Loading / Ready / Error / NotFound) |
+| `ModelLoadState.kt` | 모델 로드 상태 모델 |
+| `ModelInfo.kt` | 현재 모델 메타 정보 |
+| `InferenceMetrics.kt` | 추론 성능 메트릭 (v1) |
 
 **`ModelRunner` 인터페이스**
 
@@ -278,18 +315,27 @@ interface ModelRunner {
 
     suspend fun generate(
         prompt: String,
-        onToken: ((String) -> Unit)? = null  // 스트리밍 콜백 (선택)
-    ): Result<String, AppError>
+        onToken: ((String) -> Unit)? = null
+    ): AppResult<String>
 
     suspend fun generateWithImage(
         prompt: String,
         imageBytes: ByteArray
-    ): Result<String, AppError>
+    ): AppResult<String>
 
     suspend fun cancel()
     suspend fun warmUp()
 }
 ```
+
+**`ModelLoadState` 표현 원칙**
+- `ModelLoadState`는 단순 문자열 enum이 아니다
+- 상태 + 부가 정보를 담는 도메인 모델이다
+- 예시:
+  - `Loading`
+  - `Ready(modelInfo)`
+  - `Error(error)`
+  - `NotFound(expectedPath)`
 
 #### `domain/agent/` — 에이전트 인터페이스
 
@@ -302,10 +348,15 @@ interface ModelRunner {
 
 | 파일 | 책임 |
 |---|---|
-| `CalendarTool.kt` | readEvents / createDraft / insert 인터페이스 |
-| `SpeechToTextTool.kt` | start / stop / cancel 인터페이스 |
-| `WebSearchTool.kt` | search 인터페이스 |
-| `FileTool.kt` | read / write / resolveUri 인터페이스 |
+| `CalendarTool.kt` | readEvents / insert 인터페이스 |
+| `SpeechToTextTool.kt` | start / stop / cancel / transcript state 인터페이스 |
+| `WebSearchTool.kt` | search 인터페이스 (v1) |
+| `FileTool.kt` | read / write / resolveUri 인터페이스 (v1) |
+
+> 주의:
+> 캘린더 초안 생성(createDraft)은 Tool의 책임이 아니다.
+> 초안 생성은 `CreateCalendarDraftUseCase + ModelRunner` 책임이며,
+> `CalendarTool`은 Android Calendar Provider 읽기/쓰기만 담당한다.
 
 #### `domain/policy/` — 정책 인터페이스
 
@@ -313,24 +364,6 @@ interface ModelRunner {
 |---|---|
 | `ExecutionPolicy.kt` | 실행 허용/거부 판단 인터페이스 |
 | `ApprovalPolicy.kt` | 승인 필요 여부 판단 인터페이스 |
-
-#### `domain/usecase/` — 유스케이스
-
-각 유스케이스는 **단일 책임**을 가진다.
-하나의 파일이 하나의 비즈니스 동작을 담당한다.
-
-| 파일 | 책임 |
-|---|---|
-| `SendChatMessageUseCase.kt` | 텍스트 채팅 메시지 전송 및 응답 처리 |
-| `ProcessVoiceInputUseCase.kt` | 음성 입력을 채팅 흐름으로 변환 |
-| `ProcessImageInputUseCase.kt` | 이미지 첨부 질의응답 처리 |
-| `GetTodayScheduleUseCase.kt` | 오늘/주간 일정 조회 |
-| `CreateCalendarDraftUseCase.kt` | 자연어 → 캘린더 초안 생성 |
-| `ApproveAndSaveEventUseCase.kt` | 승인 후 캘린더 저장 |
-| `SearchKnowledgeUseCase.kt` | 로컬 지식 메모 검색 |
-| `ExportMemoryUseCase.kt` | 메모리 export |
-| `ImportMemoryUseCase.kt` | 메모리 import 및 검증 |
-| `SaveConversationUseCase.kt` | 대화 저장 |
 
 ---
 
@@ -343,38 +376,39 @@ Domain 레이어의 인터페이스만 사용한다.
 |---|---|
 | `orchestrator/AssistantOrchestrator.kt` | 전체 입력→출력 흐름 총괄 |
 | `orchestrator/TaskRouter.kt` | 의도에 따른 Agent 선택 및 라우팅 |
-| `orchestrator/IntentClassifier.kt` | 입력 의도 분류 (chat / calendar / search / knowledge) |
+| `orchestrator/IntentClassifier.kt` | 입력 의도 분류 |
 | `context/ContextBuilder.kt` | 대화 + 메모리 컨텍스트 조합 |
 | `context/PromptAssembler.kt` | 시스템 프롬프트 + 컨텍스트 + 입력 조립 |
 | `context/ResponseParser.kt` | 모델 출력 JSON 파싱 및 타입 판별 |
-| `approval/ApprovalCoordinator.kt` | 승인 플로우 제어 |
-| `guard/PreExecutionGuard.kt` | 실행 전 정책 검사 (승인 필요 여부, 검색 허용 여부) |
+| `approval/ApprovalCoordinator.kt` | 승인 대기 상태 관리 |
+| `guard/PreExecutionGuard.kt` | 실행 전 정책 검사 |
 | `guard/PostExecutionValidator.kt` | 실행 결과 검증 |
 | `audit/AuditTrailService.kt` | 감사 이벤트 기록 서비스 |
 | `persona/PersonaProfileManager.kt` | 페르소나 프로필 관리 |
 | `agent/CalendarAgent.kt` | 캘린더 관련 작업 처리 |
-| `agent/SearchAgent.kt` | 웹 검색 처리 |
-| `agent/KnowledgeAgent.kt` | 지식 메모 처리 |
+| `agent/SearchAgent.kt` | 웹 검색 처리 (v1) |
+| `agent/KnowledgeAgent.kt` | 지식 메모 처리 (v1) |
 
 **`PromptAssembler` 프롬프트 구조 (4블록)**
 
-```
-[시스템 블록]          ~300 tokens  (고정)
-  - 페르소나 / 응답 스타일 / 날짜 / 정책
-
+```text
+[시스템 블록]          ~300 tokens
 [메모리 블록]          ~500 tokens
-  - KnowledgeRepository 최근 3개 항목
-
 [대화 블록]            ~1200 tokens
-  - ConversationRepository 최근 5턴
-  - 토큰 초과 시 오래된 턴부터 FIFO 제거
-
-[현재 입력 블록]       ~500 tokens (최대)
-
+[현재 입력 블록]       ~500 tokens
 [응답 여유 공간]       ~1596 tokens
 ─────────────────────────────────────
-총합: 4096 tokens (MVP 기준)
+총합: 4096 tokens
 ```
+
+**출력 형식 정책**
+- 채팅/에이전트 응답: 기본적으로 `ModelOutput` 구조화 JSON을 기대한다
+- 일정 요약 등 보조 UseCase: plain text 응답을 기대할 수 있다
+
+**승인 책임 분리**
+- `ApprovalCoordinator`는 **승인 대기 상태**만 관리한다
+- 실제 저장 및 Audit 기록은 `ApproveAndSaveEventUseCase`가 담당한다
+- 승인/거부 Audit은 한 곳에서만 기록되도록 유지한다
 
 ---
 
@@ -384,30 +418,31 @@ Domain 레이어의 인터페이스만 사용한다.
 
 | 파일 | 책임 |
 |---|---|
-| `LocalFridayDatabase.kt` | Room DB 진입점, version 관리, AutoMigration 등록 |
+| `LocalFridayDatabase.kt` | Room DB 진입점 |
 | `dao/ProfileDao.kt` | profiles 테이블 접근 |
 | `dao/ConversationDao.kt` | conversations 테이블 접근 |
-| `dao/TaskDao.kt` | tasks 테이블 접근 |
-| `dao/KnowledgeDao.kt` | knowledge_notes 테이블 접근 |
+| `dao/TaskDao.kt` | tasks 테이블 접근 (v1) |
+| `dao/KnowledgeDao.kt` | knowledge_notes 테이블 접근 (v1) |
 | `dao/AuditDao.kt` | audit_events 테이블 접근 |
-| `entity/ProfileEntity.kt` | profiles 테이블 엔티티 |
-| `entity/ConversationEntity.kt` | conversations 테이블 엔티티 |
-| `entity/TaskEntity.kt` | tasks 테이블 엔티티 |
-| `entity/KnowledgeEntity.kt` | knowledge_notes 테이블 엔티티 |
-| `entity/AuditEntity.kt` | audit_events 테이블 엔티티 |
+| `entity/ProfileEntity.kt` | profiles 엔티티 |
+| `entity/ConversationEntity.kt` | conversations 엔티티 |
+| `entity/TaskEntity.kt` | tasks 엔티티 (v1) |
+| `entity/KnowledgeEntity.kt` | knowledge_notes 엔티티 (v1) |
+| `entity/AuditEntity.kt` | audit_events 엔티티 |
 
 #### `data/local/prefs/`
 
 | 파일 | 책임 |
 |---|---|
-| `SettingsDataStore.kt` | 앱 설정 저장 (DataStore) |
+| `SettingsDataStore.kt` | 앱 설정 저장 |
 | `ModelRegistryStore.kt` | 모델 경로 / 버전 정보 저장 |
+| `SessionStore.kt` | 현재 활성 세션 ID 저장/복원 |
 
 #### `data/local/file/`
 
 | 파일 | 책임 |
 |---|---|
-| `ExportImportManager.kt` | export (JSON+SQLite 묶음) / import 처리 |
+| `ExportImportManager.kt` | export/import 처리 (v1) |
 | `ExportManifest.kt` | export_manifest.json 데이터 클래스 |
 
 #### `data/repository/`
@@ -416,8 +451,8 @@ Domain 레이어의 인터페이스만 사용한다.
 |---|---|
 | `ProfileRepositoryImpl.kt` | ProfileRepository 구현 |
 | `ConversationRepositoryImpl.kt` | ConversationRepository 구현 |
-| `TaskRepositoryImpl.kt` | TaskRepository 구현 |
-| `KnowledgeRepositoryImpl.kt` | KnowledgeRepository 구현 |
+| `TaskRepositoryImpl.kt` | TaskRepository 구현 (v1) |
+| `KnowledgeRepositoryImpl.kt` | KnowledgeRepository 구현 (v1) |
 | `AuditRepositoryImpl.kt` | AuditRepository 구현 |
 
 ---
@@ -426,12 +461,11 @@ Domain 레이어의 인터페이스만 사용한다.
 
 | 파일 | 책임 |
 |---|---|
-| `gemma/GemmaModelRunner.kt` | `ModelRunner` 구현 — LiteRT-LM 연결 |
+| `gemma/GemmaModelRunner.kt` | `ModelRunner` 구현 |
 | `gemma/GemmaRuntimeManager.kt` | 모델 로드 / 언로드 / 상태 관리 |
+| `gemma/FakeModelRunner.kt` | 테스트용 FakeModelRunner |
 | `multimodal/ImageInputAdapter.kt` | 이미지 URI → 리사이즈 → ByteArray 변환 |
-| `metrics/RuntimeMetricsCollector.kt` | 추론 시간 / 온도 / 연속 횟수 기록 |
-
-> **AI agent 주의**: `benchmark/` 디렉토리는 MVP에서 생성하지 않는다.
+| `metrics/RuntimeMetricsCollector.kt` | 추론 시간 / 온도 / 연속 횟수 기록 (v1) |
 
 ---
 
@@ -443,24 +477,40 @@ Domain 레이어의 인터페이스만 사용한다.
 | 파일 | 책임 |
 |---|---|
 | `calendar/AndroidCalendarTool.kt` | Android Calendar Provider 접근 |
+| `calendar/FakeCalendarTool.kt` | 테스트용 Fake Calendar Tool |
 | `speech/AndroidSpeechToTextTool.kt` | Android SpeechRecognizer 연결 |
-| `share/ShareIntentHandler.kt` | 공유 인텐트 수신 처리 |
-| `storage/AndroidFileTool.kt` | 파일 / URI 접근 |
-| `network/WebSearchGateway.kt` | 웹 검색 추상화 (MVP는 Stub 구현) |
+| `speech/FakeSpeechToTextTool.kt` | 테스트용 Fake STT Tool |
+| `share/ShareIntentHandler.kt` | 공유 인텐트 수신 처리 (v1) |
+| `storage/AndroidFileTool.kt` | 파일 / URI 접근 (v1) |
+| `network/WebSearchGateway.kt` | 웹 검색 추상화 (v1) |
 | `permissions/PermissionManager.kt` | 런타임 권한 요청 / 상태 확인 |
 
-**`AndroidSpeechToTextTool` 정책**
-
+**`SpeechToTextTool` 계약**
 ```kotlin
-// 반드시 오프라인 우선 설정
-intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+interface SpeechToTextTool {
+    val state: StateFlow<SttState>
+    val transcript: StateFlow<String?>
+    fun start(preferOffline: Boolean = true, language: String = "ko-KR")
+    fun stop()
+    fun cancel()
+}
 ```
+
+**STT 결과 전달 원칙**
+- callback보다 `StateFlow` 기반 상태 관찰을 기본 계약으로 사용한다
+- UI/ViewModel은 `state`와 `transcript`를 함께 구독한다
+- transcript는 자동 전송하지 않고 사용자 확인 후 전송하는 UX를 기본 권장으로 둔다
+
+**권한 책임 분리**
+- `PermissionManager`: 사전 확인 / 요청 / 설정 이동 유도
+- Platform Tool: 최종 방어선 (`SecurityException` → `AppError.PermissionDenied`)
+- UseCase: 권한 오류를 상위로 전달하거나 UX에 맞게 변환
 
 ---
 
 ### 4-8. `feature/` — 화면 단위 UI
 
-각 feature는 **ViewModel + Screen + UiState**의 3파일 구조로 유지한다.
+각 feature는 **ViewModel + Screen + UiState**의 3파일 구조를 유지한다.
 
 | 디렉토리 | 파일 구성 | 책임 |
 |---|---|---|
@@ -468,8 +518,14 @@ intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
 | `feature/voice/` | `VoiceOverlay.kt` / `VoiceViewModel.kt` / `VoiceUiState.kt` | 음성 입력 오버레이 |
 | `feature/calendar/` | `CalendarScreen.kt` / `CalendarViewModel.kt` / `CalendarUiState.kt` | 일정 화면 |
 | `feature/approval/` | `ApprovalSheet.kt` / `ApprovalViewModel.kt` / `ApprovalUiState.kt` | 승인 바텀시트 |
-| `feature/memory/` | `MemoryScreen.kt` / `MemoryViewModel.kt` / `MemoryUiState.kt` | 메모리 관리 화면 |
+| `feature/memory/` | `MemoryScreen.kt` / `MemoryViewModel.kt` / `MemoryUiState.kt` | 메모리 관리 화면 (v1) |
 | `feature/settings/` | `SettingsScreen.kt` / `SettingsViewModel.kt` / `SettingsUiState.kt` | 설정 화면 |
+
+**세션 정책**
+- v0에서는 하나의 활성 채팅 세션을 유지한다
+- 사용자가 명시적으로 “새 대화 시작”을 하기 전까지 동일 세션을 유지한다
+- `ChatViewModel`은 `SavedStateHandle` + 필요 시 `SessionStore`를 통해 sessionId를 복원한다
+- 화면 회전, 일시적 프로세스 재생성에서도 sessionId 복원이 가능해야 한다
 
 ---
 
@@ -484,7 +540,7 @@ intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
 
 ## 5. Directory Structure
 
-```
+```text
 com.localfriday.app
 │
 ├── app/
@@ -499,7 +555,7 @@ com.localfriday.app
 │
 ├── core/
 │   ├── common/
-│   │   ├── Result.kt
+│   │   ├── AppResult.kt
 │   │   ├── AppError.kt
 │   │   └── Constants.kt
 │   ├── config/
@@ -509,23 +565,31 @@ com.localfriday.app
 │   ├── logging/
 │   │   ├── AppLogger.kt
 │   │   └── AuditLogger.kt
+│   ├── mapper/
+│   │   ├── ErrorCodeMapper.kt
+│   │   └── TimeMapper.kt
 │   └── security/
 │       ├── PermissionPolicy.kt
-│       ├── ApprovalPolicy.kt
+│       ├── ApprovalRules.kt
 │       └── Redaction.kt
 │
 ├── domain/
 │   ├── model/
 │   │   ├── ChatMessage.kt
 │   │   ├── AssistantResponse.kt
+│   │   ├── ActionCard.kt
+│   │   ├── ChatRequest.kt
 │   │   ├── UserProfile.kt
 │   │   ├── CalendarEvent.kt
 │   │   ├── CalendarDraft.kt
+│   │   ├── ScheduleData.kt
 │   │   ├── KnowledgeNote.kt
 │   │   ├── TaskItem.kt
 │   │   ├── AuditEvent.kt
 │   │   ├── SearchRequest.kt
-│   │   └── ApprovalRequest.kt
+│   │   ├── SearchResultItem.kt
+│   │   ├── ApprovalRequest.kt
+│   │   └── ModelOutput.kt
 │   ├── memory/
 │   │   ├── ProfileRepository.kt
 │   │   ├── ConversationRepository.kt
@@ -534,7 +598,9 @@ com.localfriday.app
 │   │   └── AuditRepository.kt
 │   ├── modelrunner/
 │   │   ├── ModelRunner.kt
-│   │   └── ModelLoadState.kt
+│   │   ├── ModelLoadState.kt
+│   │   ├── ModelInfo.kt
+│   │   └── InferenceMetrics.kt
 │   ├── agent/
 │   │   ├── Agent.kt
 │   │   └── AgentResult.kt
@@ -555,8 +621,7 @@ com.localfriday.app
 │       ├── ApproveAndSaveEventUseCase.kt
 │       ├── SearchKnowledgeUseCase.kt
 │       ├── ExportMemoryUseCase.kt
-│       ├── ImportMemoryUseCase.kt
-│       └── SaveConversationUseCase.kt
+│       └── ImportMemoryUseCase.kt
 │
 ├── assistant/
 │   ├── orchestrator/
@@ -599,7 +664,8 @@ com.localfriday.app
 │       │       └── AuditEntity.kt
 │       ├── prefs/
 │       │   ├── SettingsDataStore.kt
-│       │   └── ModelRegistryStore.kt
+│       │   ├── ModelRegistryStore.kt
+│       │   └── SessionStore.kt
 │       ├── file/
 │       │   ├── ExportImportManager.kt
 │       │   └── ExportManifest.kt
@@ -613,7 +679,8 @@ com.localfriday.app
 ├── runtime/
 │   ├── gemma/
 │   │   ├── GemmaModelRunner.kt
-│   │   └── GemmaRuntimeManager.kt
+│   │   ├── GemmaRuntimeManager.kt
+│   │   └── FakeModelRunner.kt
 │   ├── multimodal/
 │   │   └── ImageInputAdapter.kt
 │   └── metrics/
@@ -621,9 +688,11 @@ com.localfriday.app
 │
 ├── platform/
 │   ├── calendar/
-│   │   └── AndroidCalendarTool.kt
+│   │   ├── AndroidCalendarTool.kt
+│   │   └── FakeCalendarTool.kt
 │   ├── speech/
-│   │   └── AndroidSpeechToTextTool.kt
+│   │   ├── AndroidSpeechToTextTool.kt
+│   │   └── FakeSpeechToTextTool.kt
 │   ├── share/
 │   │   └── ShareIntentHandler.kt
 │   ├── storage/
@@ -670,41 +739,39 @@ com.localfriday.app
 
 ### 6-1. 텍스트 채팅 데이터 흐름
 
-```
+```text
 [ChatScreen]
     │ 사용자 입력 이벤트
     ▼
 [ChatViewModel]
+    │ sessionId 확보(SavedStateHandle/SessionStore)
     │ SendChatMessageUseCase 호출
     ▼
 [SendChatMessageUseCase]
-    │ AssistantOrchestrator 호출
+    │ 입력 검증
+    │ ChatRequest 구성
     ▼
 [AssistantOrchestrator]
-    ├─ PreExecutionGuard.check()
-    │   ├─ 검색 ON 여부 확인
-    │   └─ 승인 필요 여부 확인
-    │
     ├─ ContextBuilder.build()
-    │   ├─ ConversationRepository → 최근 5턴 조회
-    │   └─ KnowledgeRepository → 관련 항목 3개 조회
+    │   ├─ ConversationRepository → 최근 5턴 조회 (v0)
+    │   └─ KnowledgeRepository → 관련 항목 3개 조회 (v1)
     │
     ├─ PromptAssembler.assemble()
-    │   └─ 4블록 프롬프트 조합
     │
     ├─ ModelRunner.generate()
-    │   └─ GemmaModelRunner → LiteRT-LM 추론
     │
     ├─ ResponseParser.parse()
-    │   ├─ TextResponse → 화면 표시
-    │   └─ ActionDraft → ApprovalCoordinator
+    │   ├─ TextOutput → 일반 응답
+    │   ├─ CalendarDraftOutput → 승인 필요
+    │   ├─ SearchOutput → v0 차단 / v1 SearchAgent
+    │   └─ KnowledgeSaveOutput → v0 차단 / v1 KnowledgeAgent
     │
-    ├─ SaveConversationUseCase()
-    │   └─ ConversationRepository.save()
+    ├─ PreExecutionGuard.check()
+    │
+    ├─ ConversationRepository.save(user)
+    ├─ ConversationRepository.save(assistant)
     │
     └─ AuditTrailService.record()
-        └─ AuditRepository.save()
-    │
     ▼
 [ChatViewModel]
     │ UiState 업데이트
@@ -713,9 +780,15 @@ com.localfriday.app
     └─ 응답 표시
 ```
 
+**정책**
+- v0에서 검색/지식 저장 출력은 실행하지 않고 안내 응답 또는 차단 처리한다
+- 사용자 메시지는 optimistic append 가능
+- assistant 메시지는 응답 확정 후 append 및 저장한다
+- v0에서는 UI 메시지 리스트와 DB 저장은 분리하며, 실시간 DB observe는 도입하지 않는다
+
 ### 6-2. 일정 초안 생성 및 승인 흐름
 
-```
+```text
 [ChatScreen / CalendarScreen]
     │ "내일 3시 병원 일정" 입력
     ▼
@@ -731,39 +804,69 @@ com.localfriday.app
     │ → CalendarDraft JSON 파싱
     ▼
 [ApprovalCoordinator]
-    │ ApprovalRequest 생성
+    │ ApprovalRequest 생성 및 pending state 관리
     ▼
 [ApprovalViewModel → ApprovalSheet]
     │ 사용자 승인 / 거부
-    ├─ 승인 → ApproveAndSaveEventUseCase
-    │           └─ AndroidCalendarTool.insert()
-    │           └─ AuditRepository.save(APPROVED)
-    └─ 거부 → AuditRepository.save(REJECTED)
+    ├─ 승인/거부 결과 전달 → ApproveAndSaveEventUseCase
+    │
+    └─ ApproveAndSaveEventUseCase
+         ├─ 승인 시 AndroidCalendarTool.insert()
+         ├─ 거부 시 저장 생략
+         └─ 승인/거부 Audit 기록
 ```
 
-### 6-3. 모델 구조화 출력 스키마
+**책임 분리 원칙**
+- `ApprovalCoordinator`는 승인 대기 상태를 관리한다
+- `ApproveAndSaveEventUseCase`는 승인 결과에 따라 실제 저장 및 Audit 기록을 담당한다
+- 승인/거부 Audit은 한 곳에서만 기록되도록 유지한다
 
-모델은 아래 4가지 중 하나의 JSON을 반환한다.
-`ResponseParser`가 action 필드로 타입을 판별한다.
+### 6-3. 음성 입력 데이터 흐름
 
-```kotlin
-// 1. 일반 텍스트 응답
+```text
+[VoiceOverlay]
+    │ 녹음 시작
+    ▼
+[VoiceViewModel]
+    │ SpeechToTextTool.start()
+    ▼
+[AndroidSpeechToTextTool]
+    │ state: LISTENING → TRANSCRIBING → DONE
+    │ transcript: null → "인식된 텍스트"
+    ▼
+[VoiceViewModel]
+    │ transcript 구독
+    │ 사용자 확인 후 전송
+    ▼
+[ProcessVoiceInputUseCase]
+    │ SendChatMessageUseCase로 위임
+    ▼
+[AssistantOrchestrator]
+    └─ 일반 채팅 흐름 재사용
+```
+
+### 6-4. 모델 구조화 출력 스키마
+
+```json
 { "action": "text", "content": "응답 내용" }
+```
 
-// 2. 캘린더 초안
+```json
 {
   "action": "calendar_draft",
   "title": "병원 진료",
-  "startIso": "2025-05-12T15:00:00",
-  "endIso": "2025-05-12T16:00:00",
+  "startIso": "2025-05-12T15:00:00+09:00",
+  "endIso": "2025-05-12T16:00:00+09:00",
   "note": "내과 진료",
   "confidence": 0.92
 }
+```
 
-// 3. 검색 요청
+```json
 { "action": "search", "query": "검색어", "reason": "최신 정보 필요" }
+```
 
-// 4. 지식 저장 요청
+```json
 {
   "action": "save_knowledge",
   "title": "메모 제목",
@@ -773,8 +876,9 @@ com.localfriday.app
 ```
 
 **파싱 실패 처리**
-- JSON 파싱 실패 → TextResponse로 fallback
+- JSON 파싱 실패 → TextOutput fallback
 - `confidence < 0.7`인 CalendarDraft → 자동 승인 불가, 반드시 ApprovalSheet 표시
+- v0에서 `SearchOutput`, `KnowledgeSaveOutput`은 실행하지 않고 차단/안내 처리
 
 ---
 
@@ -798,60 +902,49 @@ sealed class UiState<out T> {
 
 ```kotlin
 class ChatViewModel @Inject constructor(
-    private val sendChatMessageUseCase: SendChatMessageUseCase
+    private val sendChatMessageUseCase: SendChatMessageUseCase,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<ChatUiState>(ChatUiState.Idle)
+    private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
-    // 중복 전송 차단
     private var isInFlight = false
 
+    private val sessionId: String =
+        savedStateHandle["session_id"] ?: UUID.randomUUID().toString().also {
+            savedStateHandle["session_id"] = it
+        }
+
     fun sendMessage(input: String) {
-        if (isInFlight) return          // 중복 전송 차단
-        if (input.isBlank()) return     // 빈 입력 차단
+        if (isInFlight) return
+        if (input.isBlank()) return
 
         isInFlight = true
-        _uiState.value = ChatUiState.Loading
 
         viewModelScope.launch {
-            sendChatMessageUseCase(input)
-                .onSuccess { response ->
-                    _uiState.value = ChatUiState.Success(response)
+            try {
+                when (val result = sendChatMessageUseCase(...)) {
+                    is AppResult.Success -> { ... }
+                    is AppResult.Failure -> { ... }
                 }
-                .onFailure { error ->
-                    _uiState.value = ChatUiState.Error(error)
-                }
-            isInFlight = false
+            } finally {
+                isInFlight = false
+            }
         }
     }
 }
 ```
 
-### 7-3. 상태 전환 규칙
-
-```
-Idle ──────────────► Loading
-                         │
-              ┌──────────┼──────────┐
-              ▼          ▼          ▼
-           Success     Empty      Error
-              │                     │
-              └──────────┬──────────┘
-                         ▼
-                        Idle (다음 입력 대기)
-```
-
-### 7-4. 공유 상태 관리
-
-화면 간 공유가 필요한 상태는 ViewModel 범위로 관리한다.
+### 7-3. 공유 상태 관리
 
 | 상태 | 관리 위치 | 공유 범위 |
 |---|---|---|
-| 모델 로드 상태 | `GemmaRuntimeManager` (싱글턴) | 전체 앱 |
-| 현재 세션 ID | `ChatViewModel` | Chat 화면 |
+| 모델 로드 상태 | `GemmaRuntimeManager` | 전체 앱 |
+| 현재 세션 ID | `ChatViewModel` + `SessionStore` | Chat 화면 / 앱 |
 | 승인 요청 | `ApprovalCoordinator` | Chat + Approval |
-| 검색 토글 상태 | `ChatViewModel` | Chat 화면 (질문 단위로 초기화) |
+| 검색 토글 상태 | `ChatViewModel` | Chat 화면 (v1) |
+| STT transcript | `SpeechToTextTool` | Voice UI |
 
 ---
 
@@ -862,7 +955,7 @@ Idle ──────────────► Loading
 | 저장소 | 용도 | 형식 |
 |---|---|---|
 | Room (SQLite) | 대화, 작업, 지식, 감사 로그 | 관계형 테이블 |
-| DataStore | 앱 설정, 모델 정보 | Key-Value (Proto/Preferences) |
+| DataStore | 앱 설정, 모델 정보, 활성 세션 ID | Key-Value |
 | 파일 시스템 | 모델 파일, export 파일 | Binary / ZIP |
 
 ### 8-2. Room DB 테이블 스키마
@@ -879,96 +972,10 @@ Idle ──────────────► Loading
         KnowledgeEntity::class,
         AuditEntity::class
     ],
-    exportSchema = true,       // 반드시 true — AutoMigration 필수 조건
-    autoMigrations = []        // 버전 업 시 여기에 추가
+    exportSchema = true,
+    autoMigrations = []
 )
 abstract class LocalFridayDatabase : RoomDatabase()
-```
-
----
-
-**`profiles` 테이블**
-
-```sql
-CREATE TABLE profiles (
-    id          TEXT PRIMARY KEY,
-    user_name   TEXT NOT NULL,
-    response_style  TEXT NOT NULL DEFAULT 'concise',
-    persona_description TEXT,
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL
-)
-```
-
----
-
-**`conversations` 테이블**
-
-```sql
-CREATE TABLE conversations (
-    id          TEXT PRIMARY KEY,
-    session_id  TEXT NOT NULL,
-    role        TEXT NOT NULL,        -- 'user' | 'assistant'
-    content     TEXT NOT NULL,
-    input_type  TEXT NOT NULL DEFAULT 'text',  -- 'text' | 'voice' | 'image'
-    search_used INTEGER NOT NULL DEFAULT 0,
-    created_at  INTEGER NOT NULL
-)
--- 인덱스: session_id, created_at
-```
-
----
-
-**`tasks` 테이블**
-
-```sql
-CREATE TABLE tasks (
-    id          TEXT PRIMARY KEY,
-    title       TEXT NOT NULL,
-    description TEXT,
-    status      TEXT NOT NULL DEFAULT 'pending',  -- 'pending' | 'done' | 'cancelled'
-    priority    TEXT NOT NULL DEFAULT 'normal',
-    source_session_id TEXT,
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL
-)
-```
-
----
-
-**`knowledge_notes` 테이블**
-
-```sql
-CREATE TABLE knowledge_notes (
-    id          TEXT PRIMARY KEY,
-    title       TEXT NOT NULL,
-    content     TEXT NOT NULL,
-    source_type TEXT NOT NULL,   -- 'manual' | 'image_summary' | 'chat_extract'
-    tags        TEXT,            -- JSON 배열 문자열
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL
-)
--- 인덱스: created_at, source_type
-```
-
----
-
-**`audit_events` 테이블**
-
-```sql
-CREATE TABLE audit_events (
-    id              TEXT PRIMARY KEY,
-    event_type      TEXT NOT NULL,
-    -- 'model_run' | 'tool_call' | 'approval_granted' |
-    -- 'approval_rejected' | 'search_used' | 'export' | 'import' | 'error'
-    event_detail    TEXT,            -- 민감 본문은 Redaction 처리
-    approval_status TEXT,            -- 'granted' | 'rejected' | null
-    network_used    INTEGER NOT NULL DEFAULT 0,
-    error_code      TEXT,
-    session_id      TEXT,
-    created_at      INTEGER NOT NULL
-)
--- 인덱스: event_type, created_at
 ```
 
 ### 8-3. DataStore 키 목록
@@ -988,139 +995,105 @@ object ModelRegistryKeys {
     val QUANTIZATION = stringPreferencesKey("quantization")
     val LAST_LOADED_AT = longPreferencesKey("last_loaded_at")
 }
+
+object SessionKeys {
+    val ACTIVE_SESSION_ID = stringPreferencesKey("active_session_id")
+}
 ```
 
-### 8-4. Export Manifest 구조
+### 8-4. 시간 표현 원칙
 
-```kotlin
-@Serializable
-data class ExportManifest(
-    val version: String = "1.0",
-    val appVersion: String,
-    val dbSchemaVersion: Int,
-    val createdAt: String,          // ISO 8601
-    val encrypted: Boolean = false,
-    val includes: List<String>      // ["profiles", "conversations", ...]
-)
-```
+- **DB 저장**: Unix timestamp(ms)
+- **도메인 내부**: Long(ms) 또는 명시적 ISO 문자열
+- **계약/경계 타입**: ISO 8601 string 우선
+- mapper 계층에서만 변환한다
 
-### 8-5. Room Migration 전략
+### 8-5. 모델 파일 경로 규칙
 
-```
-개발 단계 (version = 1 유지):
-  └─ fallbackToDestructiveMigration() 허용
-     (데이터 손실 허용, 개발 편의 우선)
-
-실사용 시작 이후:
-  ├─ 컬럼 추가 / 테이블 추가: @AutoMigration 사용
-  ├─ 테이블명 변경 / 컬럼 삭제: AutoMigrationSpec + 수동 Migration
-  └─ fallbackToDestructiveMigration() 제거
-
-공통 규칙:
-  - 스키마 변경 시 반드시 version +1
-  - exportSchema = true 유지 (schemas/ 폴더 Git 커밋)
-  - 모든 Migration은 MigrationManager.kt 한 곳에서 관리
-```
-
-### 8-6. 모델 파일 경로 규칙
-
-```
-기본 경로:
-  getExternalFilesDir("models")
-  → /sdcard/Android/data/com.localfriday.app/files/models/
-
-파일명 규칙:
-  {model_id}-{quantization}.litertlm
-  예: gemma4-e4b-it-q4.litertlm
-
-선택 이유:
-  - 추가 권한 없이 접근 가능
-  - Scoped Storage 정책 준수
-  - 앱 삭제 시 자동 정리
-  - 파일 관리자로 직접 sideload 가능
+```text
+getExternalFilesDir("models")
+→ /sdcard/Android/data/com.localfriday.app/files/models/
 ```
 
 ---
 
-## 9. API Architecture
+## 9. Internal Contract Architecture
 
 ### 9-1. 외부 API 없음 원칙
 
-이 프로젝트는 MVP 범위에서 **외부 REST API를 사용하지 않는다.**
+이 프로젝트는 v0(MVP) 범위에서 **외부 REST API를 사용하지 않는다.**
 모든 기능은 로컬 함수 호출로 처리된다.
 
-### 9-2. 내부 인터페이스 계약
+### 9-2. 내부 계약 문서 기준
 
-외부 API 대신 레이어 간 **인터페이스 계약**으로 통신한다.
+이 프로젝트의 내부 계약은 **api_spec.yaml**을 기준 문서로 사용한다.
+
+역할 분리:
+- **PRD.md**: 제품 정책 / 범위 / UX 기준
+- **api_spec.yaml**: 내부 계약의 source of truth
+- **architecture.md**: 구조 / 레이어 책임 / 의존 방향
+- **tasks.md**: 구현 순서 / 작업 단위
+
+### 9-3. 핵심 계약 예시
 
 **ModelRunner 계약**
-
 ```kotlin
 interface ModelRunner {
     val loadState: StateFlow<ModelLoadState>
-    suspend fun generate(prompt: String, onToken: ((String) -> Unit)? = null): Result<String, AppError>
-    suspend fun generateWithImage(prompt: String, imageBytes: ByteArray): Result<String, AppError>
+    suspend fun generate(prompt: String, onToken: ((String) -> Unit)? = null): AppResult<String>
+    suspend fun generateWithImage(prompt: String, imageBytes: ByteArray): AppResult<String>
     suspend fun cancel()
     suspend fun warmUp()
 }
 ```
 
 **CalendarTool 계약**
-
 ```kotlin
 interface CalendarTool {
-    suspend fun readEvents(startMs: Long, endMs: Long): Result<List<CalendarEvent>, AppError>
-    suspend fun insert(draft: CalendarDraft): Result<Long, AppError>  // Long = event ID
+    suspend fun readEvents(startMs: Long, endMs: Long): AppResult<List<CalendarEvent>>
+    suspend fun insert(draft: CalendarDraft): AppResult<Long>
 }
 ```
 
 **SpeechToTextTool 계약**
-
 ```kotlin
 interface SpeechToTextTool {
-    val state: StateFlow<SttState>       // Idle / Listening / Transcribing / Done / Error
-    fun start()
+    val state: StateFlow<SttState>
+    val transcript: StateFlow<String?>
+    fun start(preferOffline: Boolean = true, language: String = "ko-KR")
     fun stop()
     fun cancel()
 }
 ```
 
 **WebSearchTool 계약**
-
 ```kotlin
 interface WebSearchTool {
-    // MVP: Stub 구현 (항상 빈 결과 반환)
-    // v1: 실제 검색 엔진 연결
-    suspend fun search(request: SearchRequest): Result<List<SearchResult>, AppError>
+    suspend fun search(request: SearchRequest): AppResult<List<SearchResultItem>>
 }
 ```
 
-### 9-3. Fake / Stub 구현 정책
-
-AI agent가 상위 레이어 구현 시 하위 레이어 Fake를 먼저 만든다.
+### 9-4. Fake / Stub 구현 정책
 
 | 인터페이스 | Fake 파일 위치 | 생성 시점 |
 |---|---|---|
-| `ModelRunner` | `runtime/gemma/FakeModelRunner.kt` | Phase 2 시작 시 필수 |
-| `CalendarTool` | `platform/calendar/FakeCalendarTool.kt` | Phase 8 시작 시 |
-| `WebSearchTool` | `platform/network/StubWebSearchGateway.kt` | Phase 12 시작 시 |
+| `ModelRunner` | `runtime/gemma/FakeModelRunner.kt` | v0 초기 |
+| `CalendarTool` | `platform/calendar/FakeCalendarTool.kt` | 캘린더 기능 구현 시 |
+| `SpeechToTextTool` | `platform/speech/FakeSpeechToTextTool.kt` | 음성 기능 구현 시 |
+| `ConversationRepository` | `data/repository/fake/FakeConversationRepository.kt` | Assistant 테스트 시 |
+| `AuditRepository` | `data/repository/fake/FakeAuditRepository.kt` | Audit 테스트 시 |
+| `WebSearchTool` | `platform/network/FakeWebSearchTool.kt` | v1 검색 시 |
 
 ---
 
 ## 10. Authentication Strategy
 
-### MVP 인증 방식: 없음
+### v0(MVP) 인증 방식: 없음
 
-MVP는 단일 기기 / 단일 사용자 구조이므로
-JWT / OAuth / 생체인증 등 별도 인증 메커니즘을 사용하지 않는다.
-
-```
-접근 제어 방식:
-  - 앱 자체가 기기 잠금으로 보호됨
-  - 로컬 프로필은 앱 설치 시 자동 생성
-  - 다중 사용자 지원 없음
-  - export 파일은 파일 시스템 권한으로 보호
-```
+- 앱 자체가 기기 잠금으로 보호됨
+- 로컬 프로필은 앱 설치 시 자동 생성
+- 다중 사용자 지원 없음
+- export 파일은 파일 시스템 권한으로 보호
 
 ### 향후 확장 (v2)
 
@@ -1132,73 +1105,41 @@ export 파일의 profile 정보 기반 import로 처리한다.
 
 ## 11. Error Handling Strategy
 
-### 11-1. `Result<T, AppError>` 래퍼
-
-모든 비동기 작업의 반환 타입은 `Result<T, AppError>`를 사용한다.
-Exception을 직접 throw하지 않는다.
+### 11-1. `AppResult<T>` 래퍼
 
 ```kotlin
-sealed class Result<out T, out E> {
-    data class Success<T>(val data: T) : Result<T, Nothing>()
-    data class Failure<E>(val error: E) : Result<Nothing, E>()
-}
-
-sealed class AppError {
-    // 모델 관련
-    data class ModelNotFound(val path: String) : AppError()
-    data class ModelLoadFailed(val reason: String) : AppError()
-    data class ModelInferenceTimeout(val durationMs: Long) : AppError()
-    data class ModelInferenceError(val reason: String) : AppError()
-
-    // DB 관련
-    data class DbWriteError(val table: String) : AppError()
-    data class DbMigrationError(val fromVersion: Int, val toVersion: Int) : AppError()
-
-    // 권한 관련
-    data class PermissionDenied(val permission: String) : AppError()
-
-    // 플랫폼 관련
-    data class CalendarReadError(val reason: String) : AppError()
-    data class CalendarWriteError(val reason: String) : AppError()
-    data class SttError(val reason: String) : AppError()
-
-    // 입력 관련
-    data class ValidationError(val field: String, val reason: String) : AppError()
-    data class ImageTooLarge(val sizeBytes: Long) : AppError()
-    data class UnsupportedImageFormat(val mimeType: String) : AppError()
-
-    // 네트워크 관련
-    data class SearchError(val reason: String) : AppError()
-    data class NetworkUnavailable(val reason: String) : AppError()
-
-    // Export/Import 관련
-    data class ExportFailed(val reason: String) : AppError()
-    data class ImportManifestMismatch(val expected: String, val actual: String) : AppError()
-    data class ImportSchemaMismatch(val reason: String) : AppError()
-    data class InsufficientStorage(val requiredBytes: Long) : AppError()
+sealed class AppResult<out T> {
+    data class Success<T>(val data: T) : AppResult<T>()
+    data class Failure(val error: AppError) : AppResult<Nothing>()
 }
 ```
 
-### 11-2. 레이어별 에러 처리 원칙
+### 11-2. `AppError` 원칙
+
+- 내부 로직: `AppError`
+- 계약/직렬화: `ErrorCode`
+- 매핑은 `ErrorCodeMapper`에서 단일 책임으로 관리한다
+
+### 11-3. 레이어별 에러 처리 원칙
 
 | 레이어 | 처리 원칙 |
 |---|---|
-| **Presentation** | `AppError`를 사용자 친화적 메시지로 변환하여 표시 |
-| **ViewModel** | `Result` 분기 처리, UiState.Error로 변환 |
-| **UseCase** | `Result`를 그대로 상위로 전달 (변환하지 않음) |
-| **Orchestrator** | `Result` 분기 후 fallback 처리 (예: 검색 실패 시 로컬 응답 유지) |
-| **Repository / Tool** | try-catch 후 `Result.Failure(AppError)` 반환 |
+| Presentation | `AppError`를 사용자 친화적 메시지로 변환 |
+| ViewModel | `AppResult` 분기 처리 |
+| UseCase | `AppResult`를 그대로 상위로 전달 |
+| Orchestrator | fallback 처리 |
+| Repository / Tool | try-catch 후 `AppResult.Failure(AppError)` 반환 |
 
-### 11-3. 주요 에러 fallback 정책
+### 11-4. 주요 fallback 정책
 
 | 에러 상황 | fallback 처리 |
 |---|---|
-| 검색 실패 | 로컬 응답만 유지 + '웹 검색 보강 실패' 안내 |
-| JSON 파싱 실패 | TextResponse로 fallback |
-| 모델 추론 timeout | 오류 메시지 + 재시도 버튼 |
-| STT 실패 | 텍스트 직접 입력 유도 |
-| 캘린더 쓰기 실패 | 오류 메시지 + Audit 기록 |
-| DB 쓰기 실패 | 오류 기록 + 사용자 안내 (데이터 유실 가능성 없음) |
+| v1 검색 실패 | 로컬 응답만 유지 + 안내 |
+| JSON 파싱 실패 | TextOutput fallback |
+| 모델 timeout | 오류 메시지 + 재시도 |
+| STT 실패 | 텍스트 입력 유도 |
+| 캘린더 쓰기 실패 | 오류 메시지 + Audit |
+| 일정 시간 누락 | 내부 계약상 validation 실패, UX에서는 재확인 질문으로 변환 |
 
 ---
 
@@ -1208,113 +1149,75 @@ sealed class AppError {
 
 | 분류 | 도구 | 저장 위치 | 목적 |
 |---|---|---|---|
-| **개발 로그** | `AppLogger` (Timber 래퍼) | 메모리 / Logcat | 디버깅 |
-| **감사 로그** | `AuditTrailService` | `audit_events` 테이블 | 실행 이력 추적 |
-| **성능 로그** | `RuntimeMetricsCollector` | `audit_events` + 메모리 | 발열 / 추론 시간 모니터링 |
+| 개발 로그 | `AppLogger` | Logcat | 디버깅 |
+| 감사 로그 | `AuditTrailService` | `audit_events` | 실행 이력 추적 |
+| 성능 로그 | `RuntimeMetricsCollector` | `audit_events` + 메모리 | 발열/추론 시간 모니터링 |
 
 ### 12-2. 감사 로그 기록 기준
 
-아래 이벤트는 **반드시** `audit_events`에 기록한다.
+v0 필수:
+- MODEL_RUN
+- TOOL_CALL
+- APPROVAL_GRANTED
+- APPROVAL_REJECTED
+- ERROR
 
-```kotlin
-enum class AuditEventType {
-    MODEL_RUN,          // 모델 추론 실행
-    TOOL_CALL,          // Android API 호출 (Calendar, STT 등)
-    APPROVAL_GRANTED,   // 사용자 승인
-    APPROVAL_REJECTED,  // 사용자 거부
-    SEARCH_USED,        // 웹 검색 실행 (네트워크 사용 이력)
-    EXPORT,             // 메모리 export
-    IMPORT,             // 메모리 import
-    THERMAL_WARNING,    // 발열 경고
-    THERMAL_SHUTDOWN,   // 발열로 인한 추론 중단
-    ERROR               // 오류 발생
-}
-```
+v1 확장:
+- SEARCH_USED
+- EXPORT
+- IMPORT
+- THERMAL_WARNING
+- THERMAL_SHUTDOWN
 
 ### 12-3. 민감 정보 처리
 
 ```kotlin
-// Redaction.kt — 감사 로그 저장 전 처리
 object Redaction {
     fun sanitize(text: String): String {
-        // 기본: 전문 저장 (단일 사용자이므로 허용)
-        // 설정에서 "민감 본문 저장" 비활성화 시:
-        // 100자 초과 텍스트를 "[내용 생략 - {length}자]"로 대체
         return if (isRedactionEnabled) truncate(text) else text
     }
 }
-```
-
-### 12-4. 성능 로그 수집 항목
-
-```kotlin
-data class InferenceMetrics(
-    val promptTokens: Int,
-    val responseTokens: Int,
-    val timeToFirstTokenMs: Long,
-    val totalInferenceMs: Long,
-    val deviceTemperatureCelsius: Float,
-    val consecutiveInferenceCount: Int
-)
 ```
 
 ---
 
 ## 13. Scalability Boundaries
 
-### 13-1. MVP에서의 의도적 제한
+### 13-1. v0(MVP)에서의 의도적 제한
 
-아래 항목은 MVP에서 **의도적으로 단순화**한 부분이다.
-이 경계를 인식하고 구현해야 향후 확장이 용이하다.
-
-| 항목 | MVP 제한 | 확장 포인트 |
+| 항목 | v0 제한 | 확장 포인트 |
 |---|---|---|
-| 컨텍스트 길이 | 4096 tokens | `Constants.MAX_CONTEXT_TOKENS` 값 변경 |
-| 대화 히스토리 | 최근 5턴 | `Constants.MAX_CONVERSATION_TURNS` 값 변경 |
-| 메모리 검색 | 최신순 / 태그 기반 | `KnowledgeRepository`에 벡터 검색 메서드 추가 |
-| 검색 구현 | Stub (빈 결과) | `WebSearchTool` 구현체 교체 |
-| 모델 | Gemma 4 E4B-it | `ModelRunner` 구현체 교체 |
-| 페이지네이션 | LazyColumn 단순 로드 | `PagingSource` 전환 (데이터 100건 이상 시) |
-| 스트리밍 응답 | 비스트리밍 기본 | `ModelRunner.generate(onToken)` 콜백 활성화 |
+| 컨텍스트 길이 | 4096 tokens | Constants 변경 |
+| 대화 히스토리 | 최근 5턴 | Constants 변경 |
+| 메모리 검색 | Conversation 중심 | v1 Knowledge, v2 벡터 검색 |
+| 검색 구현 | 구현하지 않음 | v1 WebSearchTool |
+| 모델 | Gemma 4 E4B-it | ModelRunner 교체 |
+| 스트리밍 응답 | 비스트리밍 고정 | v1 onToken 활성화 |
+| 문서 요약 | 문서 이미지 기반 | 파일 직접 파싱은 후속 버전 |
+| 세션 | 단일 활성 세션 | 다중 세션은 후속 검토 |
 
-### 13-2. 레이어별 확장 방법
+### 13-2. 확장 방법
 
 **모델 교체**
-```
+```text
 GemmaModelRunner → {새모델}ModelRunner
-ModelRunner 인터페이스 유지
-ModelModule.kt 바인딩만 변경
 ```
 
-**새로운 Tool 추가**
-```
-1. domain/tool/에 인터페이스 정의
-2. platform/에 Android 구현체 추가
-3. PlatformModule.kt에 바인딩 추가
-4. TaskRouter에 라우팅 규칙 추가
-```
-
-**새로운 Agent 추가**
-```
-1. domain/agent/Agent.kt 구현
-2. assistant/agent/에 구현체 추가
-3. AgentModule.kt에 바인딩 추가
-4. TaskRouter에 라우팅 규칙 추가
+**새 Tool 추가**
+```text
+1. domain/tool 인터페이스 정의
+2. platform 구현체 추가
+3. PlatformModule 바인딩
+4. TaskRouter 규칙 추가
 ```
 
-### 13-3. 데이터 규모 예측
-
-| 테이블 | 월 예상 행수 | 1년 예상 크기 |
-|---|---|---|
-| conversations | ~3,000행 | ~5MB |
-| knowledge_notes | ~100행 | ~1MB |
-| audit_events | ~5,000행 | ~3MB |
-| tasks | ~50행 | <1MB |
-| profiles | 1행 | <1KB |
-
-> 단일 사용자 1년 기준 총 DB 크기 ~10MB 예상.
-> Paging 3 도입 없이도 1년간 성능 이슈 없을 것으로 예측.
-> 다만 `ConversationDao`에는 `created_at` 인덱스를 반드시 추가한다.
+**새 Agent 추가**
+```text
+1. domain/agent 구현
+2. assistant/agent 추가
+3. AgentModule 바인딩
+4. TaskRouter 규칙 추가
+```
 
 ---
 
@@ -1324,52 +1227,31 @@ ModelModule.kt 바인딩만 변경
 
 | 항목 | 준비된 구조 |
 |---|---|
-| 웹 검색 실제 구현 | `WebSearchTool` 인터페이스 교체만 필요 |
-| 스트리밍 응답 | `ModelRunner.generate(onToken)` 콜백 활성화 |
-| Export 암호화 | `ExportImportManager`에 AES-256-GCM 레이어 추가 |
-| Paging 3 전환 | DAO를 `PagingSource` 반환으로 변경 |
+| 웹 검색 실제 구현 | `WebSearchTool` 인터페이스 준비 |
+| 스트리밍 응답 | `onToken` 콜백 준비 |
+| Export / Import | manifest 검증 구조 준비 |
+| Paging 3 전환 | DAO 확장 구조 준비 |
+| Task / Knowledge Memory | Repository / Entity / DAO 구조 준비 |
 
 ### 14-2. v2 확장 항목 (Windows)
 
-```
-현재 구조에서 변경 없이 활용 가능한 부분:
-  - domain/model/ — 공통 도메인 모델 재사용
-  - domain/usecase/ — 비즈니스 로직 재사용
-  - data/local/ — SQLite 스키마 공유 (export/import로 이동)
+- `domain/model/` 재사용 가능
+- `domain/usecase/` 재사용 가능
+- `data/local/`의 SQLite 구조 공유 가능
+- 새로 필요한 것:
+  - Windows ModelRunner
+  - Windows UI
+  - Windows Platform Tool 구현체
 
-새로 구현이 필요한 부분:
-  - Windows용 ModelRunner (Gemma 4 26B-A4B / llama.cpp)
-  - Windows UI (Compose Desktop 또는 별도)
-  - Windows용 Platform Tool 구현체
-```
+### 14-3. 과잉 설계 경고
 
-### 14-3. 벡터 RAG 확장 경로
-
-```
-현재: KnowledgeRepository — 최신순 / 태그 기반 검색
-           │
-           ▼ (v2 이후)
-향후: KnowledgeRepository — 벡터 유사도 검색 메서드 추가
-      + VectorIndexStore (로컬 벡터 인덱스 파일)
-      + EmbeddingModelRunner (임베딩 모델 별도)
-
-변경 범위:
-  - KnowledgeRepository 인터페이스에 메서드 추가
-  - KnowledgeRepositoryImpl 구현 확장
-  - ContextBuilder가 벡터 검색 결과 활용하도록 수정
-  - 기존 태그 기반 검색은 fallback으로 유지
-```
-
-### 14-4. 과잉 설계 경고
-
-> ⚠️ **MVP에서 구현하지 말아야 할 것들**
+> ⚠️ v0(MVP)에서 구현하지 말아야 할 것들
 >
-> 아래 항목은 설계는 되어 있으나 MVP에서 실제 구현하면 안 된다.
-> TODO 주석만 남기고 구현을 건너뛴다.
->
-> - `assistant/harness/` — MVP에서 불필요. Orchestrator만으로 충분.
-> - `assistant/planner/` — 복잡한 멀티스텝 계획 수립. MVP 과잉 설계.
-> - `assistant/session/` — 세션 관리 고도화. ConversationRepository로 충분.
-> - `runtime/benchmark/` — 성능 벤치마크. RuntimeMetricsCollector로 충분.
-> - Vector DB / 임베딩 모델 — v2 이후.
-> - 멀티모듈 Gradle 분리 — 현재 규모에서 불필요.
+> - `assistant/harness/`
+> - `assistant/planner/`
+> - `assistant/session/` 고도화
+> - `runtime/benchmark/`
+> - Vector DB / 임베딩 모델
+> - 멀티모듈 Gradle 분리
+> - 문서 파일 직접 파싱 기반 요약
+> - 세션 전체 웹 검색 ON
