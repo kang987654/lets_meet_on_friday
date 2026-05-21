@@ -2,14 +2,20 @@
 
 ## 작업 기준 문서
 
-이 저장소에서 Codex는 **반드시 `documents/v1/` 아래 문서만 참고**한다.
+이 저장소에서 **반드시 `documents/v1/` 아래 문서만 참고**한다.
 
 - `documents/v1/PRD.md` → 제품 정책 / 범위 / UX 기준
 - `documents/v1/architecture.md` → 구조 / 책임 / 레이어 / 의존 방향
 - `documents/v1/api_spec.yaml` → 내부 계약의 source of truth
 - `documents/v1/tasks.md` → 구현 계획 / 작업 단위 / 완료 기준
+- `documents/v1/DESIGN.md` → UI 디자인 시스템 / 시각 언어 / 컴포넌트 스타일 기준
 
 `documents/project_journey`, `documents/v0/`는 참고하지 않는다.
+
+### UI 작업 추가 규칙
+- UI를 작성하거나 수정할 때는 반드시 `documents/v1/DESIGN.md`를 먼저 참고한다.
+- UI 구조와 동작은 `PRD.md`, `tasks.md`를 따르고,
+  시각 표현과 컴포넌트 스타일은 `DESIGN.md`를 따른다.
 
 ---
 
@@ -60,6 +66,34 @@ task/task-040-chat-viewmodel
   - DB 저장: `Long(ms)`
   - 경계 계약: `ISO 8601 string`
   - 변환은 mapper 계층에서 수행
+
+---
+
+## UI 구현 규칙
+
+- UI를 구현할 때는 `documents/v1/DESIGN.md`를 시각적 기준으로 사용한다.
+- 화면의 기능, 상태, 흐름은 `PRD.md`와 `tasks.md`를 따른다.
+- 타입/상태/계약은 `api_spec.yaml`을 따른다.
+- 구조/레이어 책임은 `architecture.md`를 따른다.
+
+특히 아래 화면/컴포넌트는 `DESIGN.md` 기준을 우선 반영한다.
+
+- `ChatScreen`
+- `ApprovalSheet`
+- `VoiceOverlay`
+- `CalendarScreen`
+- `SettingsScreen`
+- `MemoryScreen` (v1)
+
+다음 항목은 `DESIGN.md`에 맞춰 구현한다.
+
+- 컬러 사용 방식
+- 타이포그래피 계층
+- spacing / padding / radius
+- 카드 / 버튼 / 입력창 스타일
+- 상태 카드 / 경고 배지 / 승인 시트 스타일
+- chat bubble 스타일
+- 그림자보다 border 중심의 depth 표현
 
 ---
 
