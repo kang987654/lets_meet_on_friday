@@ -1,9 +1,17 @@
 package com.localfriday.app.app.di
 
+import com.localfriday.app.domain.modelrunner.ModelRunner
+import com.localfriday.app.runtime.gemma.GemmaModelRunner
+import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 
 @Module
 @InstallIn(SingletonComponent::class)
-object ModelModule
+abstract class ModelModule {
+    @Binds
+    abstract fun bindModelRunner(
+        impl: GemmaModelRunner
+    ): ModelRunner
+}
