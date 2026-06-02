@@ -1704,7 +1704,7 @@ class ApprovalCoordinator @Inject constructor() {
 ---
 
 ### TASK-047 `v0`
-**GetTodayScheduleUseCase 구현**
+**[x] GetTodayScheduleUseCase 구현**
 
 | 항목 | 내용 |
 |---|---|
@@ -1719,10 +1719,10 @@ class ApprovalCoordinator @Inject constructor() {
 - 구조화 JSON 파서와 분리된 프롬프트 정책 허용
 
 **Done Criteria**
-- [ ] TODAY / WEEK 범위 지원
-- [ ] 빈 일정 시 empty 반환
-- [ ] AI 요약 실패 시 요약 없이 일정만 반환
-- [ ] `ScheduleData` 도메인 타입 반환
+- [x] TODAY / WEEK 범위 지원
+- [x] 빈 일정 시 empty 반환
+- [x] AI 요약 실패 시 요약 없이 일정만 반환
+- [x] `ScheduleData` 도메인 타입 반환
 
 **Test Criteria**
 - 빈 캘린더 → 오류 없음 확인
