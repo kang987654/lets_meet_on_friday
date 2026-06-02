@@ -2,6 +2,8 @@ package com.localfriday.app.app.di
 
 import com.localfriday.app.domain.tool.SpeechToTextTool
 import com.localfriday.app.platform.speech.AndroidSpeechToTextTool
+import com.localfriday.app.domain.tool.CalendarTool
+import com.localfriday.app.platform.calendar.AndroidCalendarTool
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -14,4 +16,9 @@ abstract class PlatformModule {
     abstract fun bindSpeechToTextTool(
         impl: AndroidSpeechToTextTool
     ): SpeechToTextTool
+
+    @Binds
+    abstract fun bindCalendarTool(
+        impl: AndroidCalendarTool
+    ): CalendarTool
 }
