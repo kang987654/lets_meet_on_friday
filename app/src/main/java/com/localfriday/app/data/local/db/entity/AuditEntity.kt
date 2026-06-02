@@ -16,6 +16,6 @@ data class AuditEntity(
     val id: String,
     val eventType: String, // e.g. "MODEL_RUN", "TOOL_CALL"
     val details: String,
-    val isSuccess: Boolean,
+    val sessionId: String,
     val timestamp: Long
 )
