@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
@@ -42,6 +43,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.localfriday.app.domain.model.ChatMessage
+import com.localfriday.app.ui.feature.voice.VoiceOverlay
 import com.localfriday.app.ui.theme.Hairline
 import com.localfriday.app.ui.theme.Ink
 import com.localfriday.app.ui.theme.MutedText
@@ -56,6 +58,7 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
+    var showVoiceOverlay by remember { mutableStateOf(false) }
 
     // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(uiState.messages.size, uiState.isInFlight) {
@@ -81,7 +84,8 @@ fun ChatScreen(
                     if (text.isNotBlank()) {
                         viewModel.sendMessage(text)
                     }
-                }
+                },
+                onMicClick = { showVoiceOverlay = true }
             )
         }
     ) { innerPadding ->
@@ -108,6 +112,17 @@ fun ChatScreen(
                 }
             }
         }
+    }
+
+    if (showVoiceOverlay) {
+        VoiceOverlay(
+            sessionId = uiState.sessionId,
+            onDismiss = { showVoiceOverlay = false },
+            onMessageSent = { transcript ->
+                // Use optimistic UI append
+                viewModel.sendMessage(transcript)
+            }
+        )
     }
 }
 
@@ -178,7 +193,8 @@ fun TypingIndicator() {
 @Composable
 fun ChatInputBar(
     isLoading: Boolean,
-    onSend: (String) -> Unit
+    onSend: (String) -> Unit,
+    onMicClick: () -> Unit
 ) {
     var textState by remember { mutableStateOf(TextFieldValue("")) }
 
@@ -216,24 +232,37 @@ fun ChatInputBar(
         
         Spacer(modifier = Modifier.width(8.dp))
         
-        IconButton(
-            onClick = {
-                onSend(textState.text)
-                textState = TextFieldValue("")
-            },
-            enabled = textState.text.isNotBlank() && !isLoading,
-            modifier = Modifier
-                .size(48.dp)
-                .background(if (textState.text.isNotBlank() && !isLoading) SkyBlue else Hairline, shape = RoundedCornerShape(24.dp))
-        ) {
-            // Note: In real app, we use an icon resource. We'll use text as placeholder if icon is not available, 
-            // but Compose provides Icons.Default.Send. However, material-icons-extended might not be added.
-            // Using a simple Text for now.
-            Text(
-                text = "↑", 
-                color = if (textState.text.isNotBlank() && !isLoading) SurfaceCard else MutedText,
-                style = MaterialTheme.typography.titleMedium
-            )
+        if (textState.text.isNotBlank()) {
+            IconButton(
+                onClick = {
+                    onSend(textState.text)
+                    textState = TextFieldValue("")
+                },
+                enabled = !isLoading,
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(if (!isLoading) SkyBlue else Hairline, shape = RoundedCornerShape(24.dp))
+            ) {
+                Text(
+                    text = "↑", 
+                    color = if (!isLoading) SurfaceCard else MutedText,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+        } else {
+            IconButton(
+                onClick = { onMicClick() },
+                enabled = !isLoading,
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(if (!isLoading) Ink else Hairline, shape = RoundedCornerShape(24.dp))
+            ) {
+                Text(
+                    text = "M", // Mic placeholder
+                    color = if (!isLoading) SurfaceCard else MutedText,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
         }
     }
 }

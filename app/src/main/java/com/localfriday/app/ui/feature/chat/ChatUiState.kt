@@ -5,6 +5,7 @@ import com.localfriday.app.domain.assistant.approval.ApprovalRequest
 import com.localfriday.app.domain.model.ChatMessage
 
 data class ChatUiState(
+    val sessionId: String = "",
     val messages: List<ChatMessage> = emptyList(),
     val isInFlight: Boolean = false,
     val pendingApproval: ApprovalRequest? = null,
