@@ -1,7 +1,0 @@
-com.localfriday.app-updated_navigation_xml-0 C:\Users\J\Desktop\J-Dev\lets_meet_on_friday\app\build\generated\updated_navigation_xml\release
-com.localfriday.app-packageReleaseResources-1 C:\Users\J\Desktop\J-Dev\lets_meet_on_friday\app\build\intermediates\incremental\release\packageReleaseResources\merged.dir
-com.localfriday.app-packageReleaseResources-2 C:\Users\J\Desktop\J-Dev\lets_meet_on_friday\app\build\intermediates\incremental\release\packageReleaseResources\stripped.dir
-com.localfriday.app-release-3 C:\Users\J\Desktop\J-Dev\lets_meet_on_friday\app\build\intermediates\merged_res\release\mergeReleaseResources
-com.localfriday.app-main-4 C:\Users\J\Desktop\J-Dev\lets_meet_on_friday\app\src\main\res
-com.localfriday.app-release-5 C:\Users\J\Desktop\J-Dev\lets_meet_on_friday\app\src\release\res
-gradleHome-0 C:\Users\J\.gradle
