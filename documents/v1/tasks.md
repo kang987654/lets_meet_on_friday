@@ -1536,7 +1536,7 @@ class ApprovalCoordinator @Inject constructor() {
 ---
 
 ### TASK-041 `v0`
-**ChatScreen Composable 구현**
+**[x] ChatScreen Composable 구현**
 
 | 항목 | 내용 |
 |---|---|
