@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "5e79b2a68a3433d8131b8f989a3fd0d7",
+    "identityHash": "26768d11c5722e58591b2f1b0b67501a",
     "entities": [
       {
         "tableName": "profile",
@@ -116,7 +116,7 @@
       },
       {
         "tableName": "audit_log",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `eventType` TEXT NOT NULL, `details` TEXT NOT NULL, `isSuccess` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `eventType` TEXT NOT NULL, `details` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -137,9 +137,9 @@
             "notNull": true
           },
           {
-            "fieldPath": "isSuccess",
-            "columnName": "isSuccess",
-            "affinity": "INTEGER",
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
             "notNull": true
           },
           {
@@ -277,7 +277,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5e79b2a68a3433d8131b8f989a3fd0d7')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '26768d11c5722e58591b2f1b0b67501a')"
     ]
   }
 }
