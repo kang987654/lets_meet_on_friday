@@ -33,3 +33,11 @@
   - 수정 후 빌드 정상 통과(`BUILD SUCCESSFUL`).
 
 ---
+
+## 4. AppError 생성자 및 클래스 누락에 따른 빌드 에러 (Phase 9, TASK-039)
+- **증상**: `SendChatMessageUseCase` 구현 중 `ValidationError`와 `UnknownError`를 반환하려 했으나 빌드 에러 발생. (`No value passed for parameter 'reason'`, `Unresolved reference 'UnknownError'`)
+- **원인**: 작업 지침서(`tasks.md`)에는 "빈 입력 ValidationError 반환"이라고 추상적(High-level)으로만 명시되어 있었습니다. 기존 베이스 코드(`AppError.kt`)에 정의된 `ValidationError`는 `(field, reason)` 두 개의 인자를 받도록 되어 있었고, `UnknownError`라는 타입은 존재하지 않았으나, 이를 사전 확인하지 않고 임의의 생성자(`reason` 단일 인자)로 호출한 것이 원인이었습니다.
+- **해결 방안**: 
+  - 코드를 확인하여 `ValidationError("message", "...")` 형태로 인자를 모두 채워주었습니다.
+  - 존재하지 않는 `UnknownError` 대신, 기존에 존재하는 범용적 에러인 `ModelInferenceError`로 대체하여 에러를 매핑했습니다.
+  - (교훈): `tasks.md`는 큰 틀의 방향과 완료 조건을 제시하는 문서이므로, 세부 도메인 모델이나 에러 클래스를 사용할 때는 반드시 기존에 구현된 코드를 미리 조회(View)하여 스펙을 맞추는 것이 중요합니다.
