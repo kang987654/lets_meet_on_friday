@@ -1591,7 +1591,7 @@ class ApprovalCoordinator @Inject constructor() {
 ---
 
 ### TASK-043 `v0`
-**AndroidSpeechToTextTool 구현**
+**[x] AndroidSpeechToTextTool 구현**
 
 | 항목 | 내용 |
 |---|---|
