@@ -1673,7 +1673,7 @@ class ApprovalCoordinator @Inject constructor() {
 ---
 
 ### TASK-046 `v0`
-**AndroidCalendarTool 구현**
+**[x] AndroidCalendarTool 구현**
 
 | 항목 | 내용 |
 |---|---|
@@ -1690,12 +1690,12 @@ class ApprovalCoordinator @Inject constructor() {
 - 실제 경고 표시는 ApprovalSheet 또는 CalendarScreen 상위 레이어에서 담당한다
 
 **Done Criteria**
-- [ ] `readEvents` 구현
-- [ ] `insert` 구현
-- [ ] SecurityException → PermissionDenied 변환
-- [ ] Dispatchers.IO 사용
-- [ ] `FakeCalendarTool` 제공
-- [ ] 중복/겹침 일정 감지 시 경고 우선 정책 주석 명시
+- [x] `readEvents` 구현
+- [x] `insert` 구현
+- [x] SecurityException → PermissionDenied 변환
+- [x] Dispatchers.IO 사용
+- [x] `FakeCalendarTool` 제공
+- [x] 중복/겹침 일정 감지 시 경고 우선 정책 주석 명시
 
 **Test Criteria**
 - 권한 없을 때 PermissionDenied 반환
