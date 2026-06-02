@@ -1646,7 +1646,7 @@ class ApprovalCoordinator @Inject constructor() {
 ---
 
 ### TASK-045 `v0`
-**ProcessImageInputUseCase 구현**
+**[x] ProcessImageInputUseCase 구현**
 
 | 항목 | 내용 |
 |---|---|
@@ -1660,8 +1660,8 @@ class ApprovalCoordinator @Inject constructor() {
 - `SendChatMessageUseCase.imageBytes` 경로는 내부 재사용용
 
 **Done Criteria**
-- [ ] ImageInputAdapter 전처리 후 UseCase 위임
-- [ ] 이미지 유효성 오류 그대로 전파
+- [x] ImageInputAdapter 전처리 후 UseCase 위임
+- [x] 이미지 유효성 오류 그대로 전파
 
 **Test Criteria**
 - 10MB 초과 이미지 → `ImageTooLarge`
