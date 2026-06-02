@@ -55,3 +55,17 @@
   - `SessionStore` 임포트 경로를 수정하고, 동기적 처리가 불가능한 Flow 수집 대신 `SavedStateHandle`을 1차 기준으로 Session ID를 즉각 유지하도록 `ChatViewModel` 로직 재설계.
   - `agentResult.text` -> `agentResult.content`로 프로퍼티명 교정.
   - `ModelModule`에 `@Binds` 코드를 추가하여 `ModelRunner` 구현체 제공.
+
+## 6. VoiceOverlay 컴파일 중 캐시 문제 (Unresolved reference)
+
+**문제 현상:**
+`VoiceOverlay`를 포함하여 UI 상태에 `sessionId`를 추가하고 접근하려 할 때, `ChatScreen.kt`에서 다음과 같은 컴파일 에러 발생:
+```text
+Unresolved reference 'sessionId'.
+```
+
+**원인:**
+`ChatUiState.kt` 파일에 `sessionId` 속성을 추가한 코드 갱신 내용이 빌드 툴(Kotlin/KSP/Hilt)의 기존 캐시와 엉키면서, IDE나 빌드 도구가 수정된 구조체를 올바르게 인식하지 못해 발생함. 부분 증분 빌드(Incremental Build) 과정에서 발생하기 쉬운 캐시 불일치.
+
+**해결 방안:**
+`./gradlew clean build` 명령어를 실행하여 기존 `/build` 폴더의 중간 컴파일 산출물과 Hilt/KSP가 생성한 코드를 전부 삭제(Clean)한 뒤, 처음부터 새로 빌드하여 해결.
