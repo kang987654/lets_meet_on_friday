@@ -39,5 +39,19 @@
 - **원인**: 작업 지침서(`tasks.md`)에는 "빈 입력 ValidationError 반환"이라고 추상적(High-level)으로만 명시되어 있었습니다. 기존 베이스 코드(`AppError.kt`)에 정의된 `ValidationError`는 `(field, reason)` 두 개의 인자를 받도록 되어 있었고, `UnknownError`라는 타입은 존재하지 않았으나, 이를 사전 확인하지 않고 임의의 생성자(`reason` 단일 인자)로 호출한 것이 원인이었습니다.
 - **해결 방안**: 
   - 코드를 확인하여 `ValidationError("message", "...")` 형태로 인자를 모두 채워주었습니다.
-  - 존재하지 않는 `UnknownError` 대신, 기존에 존재하는 범용적 에러인 `ModelInferenceError`로 대체하여 에러를 매핑했습니다.
+  - 존재하지 않는 `UnknownError` 대신, 기존에 존재하는 범용적 에러인 `ModelInferenceError`로 대체하여 에러 매핑.
   - (교훈): `tasks.md`는 큰 틀의 방향과 완료 조건을 제시하는 문서이므로, 세부 도메인 모델이나 에러 클래스를 사용할 때는 반드시 기존에 구현된 코드를 미리 조회(View)하여 스펙을 맞추는 것이 중요합니다.
+
+## 5. 뷰모델 구현 시 DI 인터페이스 바인딩 누락 및 프로퍼티명 불일치 (Phase 9, TASK-040)
+- **증상**: `ChatViewModel` 작성 후 빌드 시 다음 오류들이 연쇄적으로 발생.
+  - `SessionStore` unresolved reference 및 `getActiveSessionId` 미존재
+  - `AgentResult.Text` 모델의 `text` 속성 없음 (Unresolved reference 'text')
+  - `ModelRunner` DI 바인딩 누락 (`MissingBinding` 에러)
+- **원인**: 
+  - `SessionStore` 패키지 경로를 도메인 계층(`domain.memory`)으로 임의 추측했으나 실제로는 데이터 계층(`data.local.prefs`)에 있었음.
+  - 메서드명(Flow인 `activeSessionIdFlow` 대신 `getActiveSessionId` 호출 등)이나 프로퍼티명(`content` 대신 `text`)을 소스 코드 조회 없이 직감에 의존해 작성함.
+  - `ModelRunner` 인터페이스와 `GemmaModelRunner` 구현체를 이어주는 Hilt `@Binds` 설정을 깜빡함.
+- **해결 방안**:
+  - `SessionStore` 임포트 경로를 수정하고, 동기적 처리가 불가능한 Flow 수집 대신 `SavedStateHandle`을 1차 기준으로 Session ID를 즉각 유지하도록 `ChatViewModel` 로직 재설계.
+  - `agentResult.text` -> `agentResult.content`로 프로퍼티명 교정.
+  - `ModelModule`에 `@Binds` 코드를 추가하여 `ModelRunner` 구현체 제공.
