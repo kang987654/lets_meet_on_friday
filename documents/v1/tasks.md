@@ -1620,7 +1620,7 @@ class ApprovalCoordinator @Inject constructor() {
 ---
 
 ### TASK-044 `v0`
-**ProcessVoiceInputUseCase / VoiceViewModel / VoiceOverlay 구현**
+**[x] ProcessVoiceInputUseCase / VoiceViewModel / VoiceOverlay 구현**
 
 | 항목 | 내용 |
 |---|---|

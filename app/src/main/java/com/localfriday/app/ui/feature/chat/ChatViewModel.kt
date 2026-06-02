@@ -40,6 +40,7 @@ class ChatViewModel @Inject constructor(
         sessionId = savedSessionId ?: UUID.randomUUID().toString()
         
         savedStateHandle[KEY_SESSION_ID] = sessionId
+        _uiState.update { it.copy(sessionId = sessionId) }
         viewModelScope.launch {
             sessionStore.saveActiveSessionId(sessionId)
         }
