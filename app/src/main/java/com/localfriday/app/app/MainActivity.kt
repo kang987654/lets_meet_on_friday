@@ -15,8 +15,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "Local Friday")
+            com.localfriday.app.ui.theme.LocalFridayTheme {
+                com.localfriday.app.ui.feature.chat.ChatScreen()
             }
         }
     }
