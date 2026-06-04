@@ -17,8 +17,8 @@ class SendChatMessageUseCase @Inject constructor(
     suspend operator fun invoke(
         sessionId: String, 
         message: String,
-        imageBytes: ByteArray? = null
-        // TODO(v1): searchEnabled: Boolean = false
+        imageBytes: ByteArray? = null,
+        onToken: ((String) -> Unit)? = null
     ): AppResult<AgentResult> {
         val trimmedMessage = message.trim()
 
@@ -36,7 +36,8 @@ class SendChatMessageUseCase @Inject constructor(
         val request = ChatRequest(
             sessionId = sessionId,
             message = trimmedMessage,
-            imageBytes = imageBytes
+            imageBytes = imageBytes,
+            onToken = onToken
         )
         
         return try {
