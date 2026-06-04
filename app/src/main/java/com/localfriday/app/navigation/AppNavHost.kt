@@ -33,7 +33,7 @@ fun AppNavHost(
         }
         
         composable(route = AppDestination.Memory.route) {
-            PlaceholderScreen("Memory 화면 (v1 준비 중)")
+            com.localfriday.app.ui.feature.memory.MemoryScreen()
         }
         
         composable(route = AppDestination.Settings.route) {

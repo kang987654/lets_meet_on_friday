@@ -14,5 +14,5 @@ interface KnowledgeRepository {
     suspend fun search(query: String, limit: Int = 10): AppResult<List<KnowledgeNote>>
     suspend fun searchRecent(limit: Int = 10): AppResult<List<KnowledgeNote>>
     suspend fun searchByTags(tags: List<String>, limit: Int = 10): AppResult<List<KnowledgeNote>>
-    fun getPaged(): PagingSource<Int, KnowledgeNote>
+    fun getPagedData(): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<KnowledgeNote>>
 }
