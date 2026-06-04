@@ -128,24 +128,24 @@ fun ChatScreen(
             val query = request.action.query
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { viewModel.rejectPendingRequest() },
-                title = { Text("웹 검색 승인 요청", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+                title = { Text(androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.web_search_approval_title), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
                 text = { 
                     Column {
-                        Text("AI가 다음 쿼리로 웹 검색을 원합니다:")
+                        Text(androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.web_search_approval_message))
                         Spacer(modifier = Modifier.size(8.dp))
                         Text("'$query'", color = SkyBlue, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                         Spacer(modifier = Modifier.size(8.dp))
-                        Text("⚠️ 이 검색에는 사용자님의 개인정보나 민감한 정보가 포함되어 외부 검색 엔진으로 전송될 수 있습니다. 진행하시겠습니까?", color = androidx.compose.ui.graphics.Color.Red, style = MaterialTheme.typography.bodySmall)
+                        Text(androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.web_search_approval_warning), color = androidx.compose.ui.graphics.Color.Red, style = MaterialTheme.typography.bodySmall)
                     }
                 },
                 confirmButton = {
                     androidx.compose.material3.TextButton(onClick = { viewModel.approvePendingRequest() }) {
-                        Text("승인 (1회 허용)")
+                        Text(androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.web_search_approve_once))
                     }
                 },
                 dismissButton = {
                     androidx.compose.material3.TextButton(onClick = { viewModel.rejectPendingRequest() }) {
-                        Text("거절")
+                        Text(androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.web_search_reject))
                     }
                 }
             )
@@ -265,8 +265,8 @@ fun ChatInputBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("이미지가 첨부되었습니다.", color = SkyBlue, style = MaterialTheme.typography.bodyMedium)
-                        Text("크기: ${sharedInput.sizeBytes / 1024} KB", color = MutedText, style = MaterialTheme.typography.bodySmall)
+                        Text(androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.image_attached), color = SkyBlue, style = MaterialTheme.typography.bodyMedium)
+                        Text(androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.image_size_kb, sharedInput.sizeBytes / 1024), color = MutedText, style = MaterialTheme.typography.bodySmall)
                     }
                     IconButton(onClick = { onClearSharedInput() }) {
                         Text("X", color = MutedText)
@@ -290,7 +290,7 @@ fun ChatInputBar(
         ) {
             if (textState.text.isEmpty()) {
                 Text(
-                    text = "메시지를 입력하세요...",
+                    text = androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.chat_input_hint),
                     color = MutedText,
                     style = MaterialTheme.typography.bodyMedium
                 )

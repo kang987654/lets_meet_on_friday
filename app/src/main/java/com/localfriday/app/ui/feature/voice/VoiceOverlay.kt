@@ -71,7 +71,7 @@ fun VoiceOverlay(
             when (val state = uiState) {
                 is VoiceUiState.Idle, is VoiceUiState.Listening -> {
                     Text(
-                        text = "듣고 있습니다...",
+                        text = androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.voice_listening),
                         style = MaterialTheme.typography.headlineMedium,
                         color = Ink
                     )
@@ -93,12 +93,12 @@ fun VoiceOverlay(
                         onClick = { viewModel.stopListening() },
                         colors = ButtonDefaults.buttonColors(containerColor = Ink)
                     ) {
-                        Text("완료")
+                        Text(androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.done))
                     }
                 }
                 is VoiceUiState.Transcribing -> {
                     Text(
-                        text = "분석 중...",
+                        text = androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.voice_transcribing),
                         style = MaterialTheme.typography.headlineMedium,
                         color = Ink
                     )
@@ -108,7 +108,7 @@ fun VoiceOverlay(
                 }
                 is VoiceUiState.Success -> {
                     Text(
-                        text = "다음 내용으로 전송할까요?",
+                        text = androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.voice_confirm_title),
                         style = MaterialTheme.typography.headlineMedium,
                         color = Ink
                     )
@@ -142,7 +142,7 @@ fun VoiceOverlay(
                             },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("취소", color = MutedText)
+                            Text(androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.cancel), color = MutedText)
                         }
                         Button(
                             onClick = {
@@ -153,13 +153,13 @@ fun VoiceOverlay(
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = SkyBlue)
                         ) {
-                            Text("전송")
+                            Text(androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.send))
                         }
                     }
                 }
                 is VoiceUiState.Error -> {
                     Text(
-                        text = "오류 발생",
+                        text = androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.voice_error_title),
                         style = MaterialTheme.typography.headlineMedium,
                         color = SemanticDanger
                     )
@@ -177,7 +177,7 @@ fun VoiceOverlay(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Ink)
                     ) {
-                        Text("닫기")
+                        Text(androidx.compose.ui.res.stringResource(com.localfriday.app.R.string.close))
                     }
                 }
             }
