@@ -99,3 +99,18 @@ Unresolved reference 'sessionId'.
 - **증상**: `ImportFailed` 예외를 `AppError`에 새로 추가한 뒤 빌드 시, `ErrorCodeMapper` 내부의 `when` 구문에서 `exhaustive`(분기 누락) 에러 발생.
 - **원인**: `AppError`가 `sealed class`로 선언되어 있어, 하위 클래스가 추가되면 이를 처리하는 모든 `when` 구문에서 해당 케이스(`is AppError.ImportFailed`)를 반드시 명시해야 함. 그러나 `ErrorCode` 및 `ErrorCodeMapper` 업데이트를 깜빡함.
 - **해결 방안**: `ErrorCode` enum에 `IMPORT_FAILED`를 추가하고, `ErrorCodeMapper`에 `is AppError.ImportFailed -> ErrorCode.IMPORT_FAILED` 매핑을 추가하여 해결.
+
+## 12. Room Database 덮어쓰기 복원 시 Lock 에러 (Phase 16)
+- **증상**: `Room` 데이터베이스 파일(`local_friday.db`, `-shm`, `-wal`)을 ZIP으로 묶어 내보낸 후 덮어쓰기 복원 시, 곧바로 다시 조회를 시도하면 "database is locked" 등 무결성 깨짐 에러 발생.
+- **원인**: Room 데이터베이스 엔진이 아직 파일을 잡고 있거나 WAL(Write-Ahead Logging) 모드 동기화가 제대로 끝나지 않은 상태에서 OS 레벨로 파일을 강제 덮어쓰기 했기 때문.
+- **해결 방안**: 데이터베이스 파일을 복원(덮어쓰기)한 직후 앱의 프로세스를 강제로 완전히 종료(`exitProcess(0)`)하여 시스템이 앱을 처음부터 다시 띄우고 DB를 새롭게 Open하게 함으로써 무결성 이슈를 해결함.
+
+## 13. Hilt `@Binds` 누락 에러 (Phase 17)
+- **증상**: `[Dagger/MissingBinding] com.localfriday.app.domain.tool.WebSearchTool cannot be provided without an @Provides-annotated method.`
+- **원인**: `WebSearchGateway` 구현체를 새로 만들고 `SearchAgent`에 주입하려 했으나, 인터페이스인 `WebSearchTool`과 구현체 `WebSearchGateway`를 매핑해주는 DI 설정(`PlatformModule.kt`)을 누락함.
+- **해결 방안**: `PlatformModule.kt`에 `@Binds` 어노테이션을 사용하여 `bindWebSearchTool` 매핑 함수 추가.
+
+## 14. `AppError` 타입 불일치 및 파라미터 누락 에러 (Phase 18)
+- **증상**: `Argument type mismatch: actual type is 'Unit', but 'AppError' was expected. Classifier 'data class ImageTooLarge : AppError' does not have a companion object...`
+- **원인**: `AppError.ImageTooLarge(val sizeBytes: Long)` 처럼 인자가 필요한 데이터 클래스인데 인자 없이 `AppError.ImageTooLarge` 형태로 객체를 반환하려 했거나, 존재하지 않는 `EmptyInput`을 쓰려 함.
+- **해결 방안**: 정해진 도메인 에러 규격에 맞게 `AppError.ValidationError("Share", "Empty text")`나 `AppError.ImageTooLarge(sizeBytes)` 처럼 적절한 파라미터를 담아 에러 인스턴스를 생성하도록 수정.

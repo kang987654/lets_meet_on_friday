@@ -26,4 +26,9 @@ abstract class PlatformModule {
     abstract fun bindWebSearchTool(
         impl: com.localfriday.app.platform.network.WebSearchGateway
     ): com.localfriday.app.domain.tool.WebSearchTool
+
+    @Binds
+    abstract fun bindTemperatureProvider(
+        impl: com.localfriday.app.platform.device.BatteryTemperatureProvider
+    ): com.localfriday.app.platform.device.TemperatureProvider
 }
