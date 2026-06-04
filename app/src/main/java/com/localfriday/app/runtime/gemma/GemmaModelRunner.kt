@@ -38,6 +38,15 @@ class GemmaModelRunner @Inject constructor(
         try {
             ensureInferenceInitialized(currentState.modelInfo.modelPath)
             
+            // 추론 전 발열 점검
+            val preconditionResult = metricsCollector.checkPreconditions()
+            if (preconditionResult is AppResult.Failure) {
+                return@withContext AppResult.Failure(preconditionResult.error)
+            }
+
+            // 연속 추론 쿨다운
+            metricsCollector.handleCooldownIfNecessary()
+
             metricsCollector.recordStart()
             val startTime = System.currentTimeMillis()
 
