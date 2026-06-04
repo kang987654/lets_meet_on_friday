@@ -1,6 +1,5 @@
 package com.localfriday.app.domain.assistant.audit
 
-import android.util.Log
 import com.localfriday.app.domain.memory.AuditRepository
 import com.localfriday.app.domain.model.AuditEvent
 import com.localfriday.app.domain.model.AuditEventType
@@ -39,7 +38,7 @@ class AuditTrailService @Inject constructor(
             auditRepository.save(event)
         } catch (e: Exception) {
             // 앱 크래시 방지를 위한 Fallback 로깅
-            Log.e("AuditTrailService", "Failed to save audit event: ${e.message}", e)
+            println("AuditTrailService: Failed to save audit event: ${e.message}")
         }
     }
 
