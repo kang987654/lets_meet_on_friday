@@ -97,6 +97,9 @@ class AssistantOrchestrator @Inject constructor(
     suspend fun resumeAction(sessionId: String, action: ModelOutput): AgentResult {
         return when (action) {
             is ModelOutput.SearchOutput -> {
+                // 검색 이벤트 감사 로그 기록
+                auditTrailService.logSearchEvent(sessionId, action.query)
+                
                 // 1. 실제 검색 수행
                 val searchRes = searchAgent.executeSearch(action.query)
                 val searchContext = when (searchRes) {
