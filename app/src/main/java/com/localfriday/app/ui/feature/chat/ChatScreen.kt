@@ -80,6 +80,8 @@ fun ChatScreen(
         bottomBar = {
             ChatInputBar(
                 isLoading = uiState.isInFlight,
+                sharedInput = uiState.sharedInput,
+                onClearSharedInput = { viewModel.clearSharedInput() },
                 onSend = { text ->
                     if (text.isNotBlank()) {
                         viewModel.sendMessage(text)
@@ -223,18 +225,56 @@ fun TypingIndicator() {
 @Composable
 fun ChatInputBar(
     isLoading: Boolean,
+    sharedInput: com.localfriday.app.platform.share.SharedInput?,
+    onClearSharedInput: () -> Unit,
     onSend: (String) -> Unit,
     onMicClick: () -> Unit
 ) {
     var textState by remember { mutableStateOf(TextFieldValue("")) }
 
-    Row(
+    LaunchedEffect(sharedInput) {
+        if (sharedInput is com.localfriday.app.platform.share.SharedInput.Text) {
+            textState = TextFieldValue(sharedInput.content)
+            onClearSharedInput() // Consume the shared input text
+        }
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.Bottom
     ) {
+        if (sharedInput is com.localfriday.app.platform.share.SharedInput.Image) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .background(SurfaceCard, shape = RoundedCornerShape(12.dp))
+                    .border(1.dp, Hairline, shape = RoundedCornerShape(12.dp))
+                    .padding(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("이미지가 첨부되었습니다.", color = SkyBlue, style = MaterialTheme.typography.bodyMedium)
+                        Text("크기: ${sharedInput.sizeBytes / 1024} KB", color = MutedText, style = MaterialTheme.typography.bodySmall)
+                    }
+                    IconButton(onClick = { onClearSharedInput() }) {
+                        Text("X", color = MutedText)
+                    }
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -294,5 +334,6 @@ fun ChatInputBar(
                 )
             }
         }
+    }
     }
 }

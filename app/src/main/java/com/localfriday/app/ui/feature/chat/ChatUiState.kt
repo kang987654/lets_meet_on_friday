@@ -9,5 +9,6 @@ data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val isInFlight: Boolean = false,
     val pendingApproval: ApprovalRequest? = null,
+    val sharedInput: com.localfriday.app.platform.share.SharedInput? = null,
     val error: AppError? = null
 )
