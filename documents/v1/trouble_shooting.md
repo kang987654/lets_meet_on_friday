@@ -94,3 +94,8 @@ Unresolved reference 'sessionId'.
 - **증상**: `SettingsScreen`에서 `ModelLoadState.Error` 분기가 없어 `when` 문 컴파일 에러가 나고, `NotFound`에서 `message` 변수를 찾지 못함.
 - **원인**: sealed class의 프로퍼티 구조를 착각함(`expectedPath`인데 `message`로 호출).
 - **해결 방안**: 클래스 선언부를 조회(view)한 뒤 분기문과 변수명을 올바르게 고쳐 통과.
+
+## 11. AppError 확장 및 ErrorCodeMapper 누락 (Phase 16, Import 기능)
+- **증상**: `ImportFailed` 예외를 `AppError`에 새로 추가한 뒤 빌드 시, `ErrorCodeMapper` 내부의 `when` 구문에서 `exhaustive`(분기 누락) 에러 발생.
+- **원인**: `AppError`가 `sealed class`로 선언되어 있어, 하위 클래스가 추가되면 이를 처리하는 모든 `when` 구문에서 해당 케이스(`is AppError.ImportFailed`)를 반드시 명시해야 함. 그러나 `ErrorCode` 및 `ErrorCodeMapper` 업데이트를 깜빡함.
+- **해결 방안**: `ErrorCode` enum에 `IMPORT_FAILED`를 추가하고, `ErrorCodeMapper`에 `is AppError.ImportFailed -> ErrorCode.IMPORT_FAILED` 매핑을 추가하여 해결.

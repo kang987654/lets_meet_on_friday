@@ -130,6 +130,39 @@ class ChatViewModel @Inject constructor(
         _uiState.update { it.copy(error = null) }
     }
 
+    fun approvePendingRequest() {
+        val request = approvalCoordinator.consumePending() ?: return
+        // TASK-061에서 실제 승인된 액션(WebSearch 등)을 Orchestrator를 통해 재개하도록 구현 예정.
+        // 임시로 승인 완료 상태만 UI에 반영
+        _uiState.update { state ->
+            val sysMessage = ChatMessage(
+                id = UUID.randomUUID().toString(),
+                sessionId = sessionId,
+                role = ChatMessage.Role.ASSISTANT,
+                content = "[System: 사용자가 작업을 승인했습니다. 다음 단계(TASK-061)에서 실행됩니다.]",
+                inputType = InputType.TEXT,
+                createdAt = System.currentTimeMillis()
+            )
+            state.copy(messages = state.messages + sysMessage)
+        }
+    }
+
+    fun rejectPendingRequest() {
+        val request = approvalCoordinator.consumePending() ?: return
+        // 거절 시
+        _uiState.update { state ->
+            val sysMessage = ChatMessage(
+                id = UUID.randomUUID().toString(),
+                sessionId = sessionId,
+                role = ChatMessage.Role.ASSISTANT,
+                content = "보안 정책에 의해 작업이 거부되었습니다.",
+                inputType = InputType.TEXT,
+                createdAt = System.currentTimeMillis()
+            )
+            state.copy(messages = state.messages + sysMessage)
+        }
+    }
+
     companion object {
         private const val KEY_SESSION_ID = "chat_session_id"
     }
