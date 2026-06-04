@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- General -->
+    <string name="app_name">Local Friday</string>
+    <string name="cancel">취소</string>
+    <string name="send">전송</string>
+    <string name="close">닫기</string>
+    <string name="done">완료</string>
+
+    <!-- ChatScreen -->
+    <string name="web_search_approval_title">웹 검색 승인 요청</string>
+    <string name="web_search_approval_message">AI가 다음 쿼리로 웹 검색을 원합니다:</string>
+    <string name="web_search_approval_warning">⚠️ 이 검색에는 사용자님의 개인정보나 민감한 정보가 포함되어 외부 검색 엔진으로 전송될 수 있습니다. 진행하시겠습니까?</string>
+    <string name="web_search_approve_once">승인 (1회 허용)</string>
+    <string name="web_search_reject">거절</string>
+    <string name="image_attached">이미지가 첨부되었습니다.</string>
+    <string name="image_size_kb">크기: %1$d KB</string>
+    <string name="chat_input_hint">메시지를 입력하세요...</string>
+
+    <!-- VoiceOverlay -->
+    <string name="voice_listening">듣고 있습니다...</string>
+    <string name="voice_transcribing">분석 중...</string>
+    <string name="voice_confirm_title">다음 내용으로 전송할까요?</string>
+    <string name="voice_error_title">오류 발생</string>
+</resources>
