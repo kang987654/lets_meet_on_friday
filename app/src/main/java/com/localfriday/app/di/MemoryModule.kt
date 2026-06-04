@@ -1,11 +1,9 @@
 package com.localfriday.app.di
 
-import com.localfriday.app.data.local.repository.AuditRepositoryImpl
-import com.localfriday.app.data.local.repository.ConversationRepositoryImpl
-import com.localfriday.app.data.local.repository.ProfileRepositoryImpl
-import com.localfriday.app.domain.memory.AuditRepository
-import com.localfriday.app.domain.memory.ConversationRepository
-import com.localfriday.app.domain.memory.ProfileRepository
+import com.localfriday.app.data.local.repository.KnowledgeRepositoryImpl
+import com.localfriday.app.data.local.repository.TaskRepositoryImpl
+import com.localfriday.app.domain.memory.KnowledgeRepository
+import com.localfriday.app.domain.memory.TaskRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -18,19 +16,31 @@ abstract class MemoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindProfileRepository(
-        profileRepositoryImpl: ProfileRepositoryImpl
-    ): ProfileRepository
+    abstract fun bindKnowledgeRepository(
+        impl: KnowledgeRepositoryImpl
+    ): KnowledgeRepository
 
     @Binds
     @Singleton
-    abstract fun bindConversationRepository(
-        conversationRepositoryImpl: ConversationRepositoryImpl
-    ): ConversationRepository
+    abstract fun bindTaskRepository(
+        impl: TaskRepositoryImpl
+    ): TaskRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProfileRepository(
+        impl: com.localfriday.app.data.local.repository.ProfileRepositoryImpl
+    ): com.localfriday.app.domain.memory.ProfileRepository
 
     @Binds
     @Singleton
     abstract fun bindAuditRepository(
-        auditRepositoryImpl: AuditRepositoryImpl
-    ): AuditRepository
+        impl: com.localfriday.app.data.local.repository.AuditRepositoryImpl
+    ): com.localfriday.app.domain.memory.AuditRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindConversationRepository(
+        impl: com.localfriday.app.data.local.repository.ConversationRepositoryImpl
+    ): com.localfriday.app.domain.memory.ConversationRepository
 }
