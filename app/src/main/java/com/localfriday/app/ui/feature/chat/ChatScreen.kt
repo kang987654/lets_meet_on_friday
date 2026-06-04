@@ -114,6 +114,36 @@ fun ChatScreen(
         }
     }
 
+    if (uiState.pendingApproval != null) {
+        val request = uiState.pendingApproval!!
+        if (request.action is com.localfriday.app.domain.model.ModelOutput.SearchOutput) {
+            val query = request.action.query
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { viewModel.rejectPendingRequest() },
+                title = { Text("웹 검색 승인 요청", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+                text = { 
+                    Column {
+                        Text("AI가 다음 쿼리로 웹 검색을 원합니다:")
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text("'$query'", color = SkyBlue, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text("⚠️ 이 검색에는 사용자님의 개인정보나 민감한 정보가 포함되어 외부 검색 엔진으로 전송될 수 있습니다. 진행하시겠습니까?", color = androidx.compose.ui.graphics.Color.Red, style = MaterialTheme.typography.bodySmall)
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = { viewModel.approvePendingRequest() }) {
+                        Text("승인 (1회 허용)")
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { viewModel.rejectPendingRequest() }) {
+                        Text("거절")
+                    }
+                }
+            )
+        }
+    }
+
     if (showVoiceOverlay) {
         VoiceOverlay(
             sessionId = uiState.sessionId,
