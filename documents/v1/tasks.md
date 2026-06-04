@@ -1502,7 +1502,7 @@ class ApprovalCoordinator @Inject constructor() {
 ---
 
 ### TASK-040 `v0`
-**[x] ChatUiState 및 ChatViewModel 구현**
+**ChatUiState 및 ChatViewModel 구현**
 
 | 항목 | 내용 |
 |---|---|
@@ -1521,13 +1521,13 @@ class ApprovalCoordinator @Inject constructor() {
 - v0에서는 UI 메시지 리스트와 DB 저장은 분리하며, 실시간 DB observe는 도입하지 않는다
 
 **Done Criteria**
-- [x] 중복 전송 차단
-- [x] 세션 ID 복원
-- [x] 사용자 메시지 optimistic append
-- [x] 성공 시 assistant 메시지 append
-- [x] v0에서는 검색 토글 상태 없음
-- [x] sessionId source of truth 원칙 주석 명시
-- [x] UI append와 DB 저장이 중복 source of truth가 되지 않음
+- [ ] 중복 전송 차단
+- [ ] 세션 ID 복원
+- [ ] 사용자 메시지 optimistic append
+- [ ] 성공 시 assistant 메시지 append
+- [ ] v0에서는 검색 토글 상태 없음
+- [ ] sessionId source of truth 원칙 주석 명시
+- [ ] UI append와 DB 저장이 중복 source of truth가 되지 않음
 
 **Test Criteria**
 - 동시 전송 2회 → 두 번째 무시 확인
@@ -1555,11 +1555,11 @@ class ApprovalCoordinator @Inject constructor() {
 - 오류 시 재시도 버튼
 
 **Done Criteria**
-- [x] 5가지 UiState 표현
-- [x] v0 검색 토글 UI 없음
-- [x] TODO(v1): 검색 토글 위치 주석
-- [x] 음성 FAB 포함
-- [x] empty state 표시
+- [ ] 5가지 UiState 표현
+- [ ] v0 검색 토글 UI 없음
+- [ ] TODO(v1): 검색 토글 위치 주석
+- [ ] 음성 FAB 포함
+- [ ] empty state 표시
 
 **Test Criteria**
 - 로딩/오류/빈 상태 확인
@@ -1567,7 +1567,7 @@ class ApprovalCoordinator @Inject constructor() {
 ---
 
 ### TASK-042 `v0`
-**[x] DI 바인딩 — AgentModule / ModelModule**
+**DI 바인딩 — AgentModule / ModelModule**
 
 | 항목 | 내용 |
 |---|---|
@@ -1577,9 +1577,9 @@ class ApprovalCoordinator @Inject constructor() {
 | **Dependencies** | TASK-037, TASK-038, TASK-039, TASK-022 |
 
 **Done Criteria**
-- [x] `ModelRunner` → `GemmaModelRunner` 바인딩
-- [x] `AuditLogger` → `AuditTrailService` 바인딩
-- [x] Hilt 그래프 컴파일 성공
+- [ ] `ModelRunner` → `GemmaModelRunner` 바인딩
+- [ ] `AuditLogger` → `AuditTrailService` 바인딩
+- [ ] Hilt 그래프 컴파일 성공
 
 **Test Criteria**
 - ChatViewModel 주입 시 크래시 없음
@@ -1607,11 +1607,11 @@ class ApprovalCoordinator @Inject constructor() {
 - 테스트를 위해 Fake 구현 제공
 
 **Done Criteria**
-- [x] 5가지 SttState 전환
-- [x] transcript StateFlow 구현
-- [x] 실패 시 ERROR 상태 전환
-- [x] 오프라인 우선 설정
-- [x] `FakeSpeechToTextTool` 제공
+- [ ] 5가지 SttState 전환
+- [ ] transcript StateFlow 구현
+- [ ] 실패 시 ERROR 상태 전환
+- [ ] 오프라인 우선 설정
+- [ ] `FakeSpeechToTextTool` 제공
 
 **Test Criteria**
 - 권한 없을 때 ERROR 상태 확인
@@ -1630,11 +1630,11 @@ class ApprovalCoordinator @Inject constructor() {
 | **Dependencies** | TASK-039, TASK-043 |
 
 **Done Criteria**
-- [x] `SpeechToTextTool.transcript` 구독 후 SendChatMessageUseCase 위임
-- [x] transcript 자동 전송하지 않고 사용자 확인 후 전송
-- [x] 오버레이 상태: idle / listening / transcribing / success / error
-- [x] 취소/전송 버튼 포함
-- [x] 빈 STT 결과 처리
+- [ ] `SpeechToTextTool.transcript` 구독 후 SendChatMessageUseCase 위임
+- [ ] transcript 자동 전송하지 않고 사용자 확인 후 전송
+- [ ] 오버레이 상태: idle / listening / transcribing / success / error
+- [ ] 취소/전송 버튼 포함
+- [ ] 빈 STT 결과 처리
 
 **Test Criteria**
 - STT 결과 → sendMessage 호출 확인
@@ -1673,7 +1673,7 @@ class ApprovalCoordinator @Inject constructor() {
 ---
 
 ### TASK-046 `v0`
-**[x] AndroidCalendarTool 구현**
+**AndroidCalendarTool 구현**
 
 | 항목 | 내용 |
 |---|---|
@@ -1690,12 +1690,12 @@ class ApprovalCoordinator @Inject constructor() {
 - 실제 경고 표시는 ApprovalSheet 또는 CalendarScreen 상위 레이어에서 담당한다
 
 **Done Criteria**
-- [x] `readEvents` 구현
-- [x] `insert` 구현
-- [x] SecurityException → PermissionDenied 변환
-- [x] Dispatchers.IO 사용
-- [x] `FakeCalendarTool` 제공
-- [x] 중복/겹침 일정 감지 시 경고 우선 정책 주석 명시
+- [ ] `readEvents` 구현
+- [ ] `insert` 구현
+- [ ] SecurityException → PermissionDenied 변환
+- [ ] Dispatchers.IO 사용
+- [ ] `FakeCalendarTool` 제공
+- [ ] 중복/겹침 일정 감지 시 경고 우선 정책 주석 명시
 
 **Test Criteria**
 - 권한 없을 때 PermissionDenied 반환
@@ -1704,7 +1704,7 @@ class ApprovalCoordinator @Inject constructor() {
 ---
 
 ### TASK-047 `v0`
-**[x] GetTodayScheduleUseCase 구현**
+**GetTodayScheduleUseCase 구현**
 
 | 항목 | 내용 |
 |---|---|
@@ -1719,10 +1719,10 @@ class ApprovalCoordinator @Inject constructor() {
 - 구조화 JSON 파서와 분리된 프롬프트 정책 허용
 
 **Done Criteria**
-- [x] TODAY / WEEK 범위 지원
-- [x] 빈 일정 시 empty 반환
-- [x] AI 요약 실패 시 요약 없이 일정만 반환
-- [x] `ScheduleData` 도메인 타입 반환
+- [ ] TODAY / WEEK 범위 지원
+- [ ] 빈 일정 시 empty 반환
+- [ ] AI 요약 실패 시 요약 없이 일정만 반환
+- [ ] `ScheduleData` 도메인 타입 반환
 
 **Test Criteria**
 - 빈 캘린더 → 오류 없음 확인
