@@ -55,6 +55,7 @@ object ErrorCodeMapper {
         is AppError.DbMigrationError -> ErrorCode.DB_MIGRATION_ERROR
 
         is AppError.ExportFailed -> ErrorCode.EXPORT_FAILED
+        is AppError.ImportFailed -> ErrorCode.IMPORT_FAILED
         is AppError.ImportManifestMismatch -> ErrorCode.IMPORT_MANIFEST_MISMATCH
         is AppError.ImportSchemaMismatch -> ErrorCode.IMPORT_SCHEMA_MISMATCH
         is AppError.InsufficientStorage -> ErrorCode.INSUFFICIENT_STORAGE
