@@ -57,7 +57,7 @@ class AssistantOrchestrator @Inject constructor(
         val prompt = promptAssembler.assemble(context, request.message)
 
         // 5. LLM 추론 실행
-        val modelRes = modelRunner.generate(prompt)
+        val modelRes = modelRunner.generate(prompt, request.onToken)
         val rawOutput = when (modelRes) {
             is AppResult.Success -> modelRes.data
             is AppResult.Failure -> {

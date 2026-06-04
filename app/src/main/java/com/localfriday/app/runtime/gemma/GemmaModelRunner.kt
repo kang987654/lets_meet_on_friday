@@ -36,7 +36,7 @@ class GemmaModelRunner @Inject constructor(
         }
 
         try {
-            ensureInferenceInitialized(currentState.modelInfo.modelPath)
+            ensureInferenceInitialized(currentState.modelInfo.modelPath, onToken)
             
             // 추론 전 발열 점검
             val preconditionResult = metricsCollector.checkPreconditions()
@@ -50,25 +50,53 @@ class GemmaModelRunner @Inject constructor(
             metricsCollector.recordStart()
             val startTime = System.currentTimeMillis()
 
-            // v0 에서는 비스트리밍 방식(generateResponse) 사용
-            val response = llmInference?.generateResponse(prompt)
-            
-            val durationMs = System.currentTimeMillis() - startTime
-            val metricsResult = metricsCollector.recordEnd(durationMs)
+            if (onToken != null) {
+                // 스트리밍 방식 (비동기)
+                val channel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+                resultChannel = channel
+                
+                var error: Throwable? = null
+                var finalResponse = ""
+                
+                llmInference?.generateResponseAsync(prompt)
+                
+                try {
+                    for (token in channel) {
+                        onToken.invoke(token)
+                        finalResponse += token
+                    }
+                } catch (e: Exception) {
+                    error = e
+                }
 
-            // 48도 이상 중단 예외 처리
-            if (metricsResult is AppResult.Failure && metricsResult.error is AppError.TemperatureCritical) {
-                return@withContext AppResult.Failure(metricsResult.error)
-            }
-            
-            // 43도 이상 경고 시 로깅 등 가능 (현재는 진행 허용)
-
-            if (response != null) {
-                // 테스트용 onToken 콜백 호출
-                onToken?.invoke(response)
-                AppResult.Success(response)
+                val durationMs = System.currentTimeMillis() - startTime
+                val metricsResult = metricsCollector.recordEnd(durationMs)
+                if (metricsResult is AppResult.Failure && metricsResult.error is AppError.TemperatureCritical) {
+                    return@withContext AppResult.Failure(metricsResult.error)
+                }
+                
+                if (error != null) {
+                    AppResult.Failure(AppError.ModelInferenceError(error.message ?: "스트리밍 중 에러 발생"))
+                } else {
+                    AppResult.Success(finalResponse)
+                }
             } else {
-                AppResult.Failure(AppError.ModelInferenceError("응답 생성 결과가 null입니다."))
+                // 비스트리밍 방식
+                val response = llmInference?.generateResponse(prompt)
+                
+                val durationMs = System.currentTimeMillis() - startTime
+                val metricsResult = metricsCollector.recordEnd(durationMs)
+
+                // 48도 이상 중단 예외 처리
+                if (metricsResult is AppResult.Failure && metricsResult.error is AppError.TemperatureCritical) {
+                    return@withContext AppResult.Failure(metricsResult.error)
+                }
+
+                if (response != null) {
+                    AppResult.Success(response)
+                } else {
+                    AppResult.Failure(AppError.ModelInferenceError("응답 생성 결과가 null입니다."))
+                }
             }
         } catch (e: Exception) {
             AppResult.Failure(AppError.ModelInferenceError(e.message ?: "추론 중 알 수 없는 오류 발생"))
@@ -91,11 +119,21 @@ class GemmaModelRunner @Inject constructor(
         // No-op: LlmInference is lazy-loaded upon first use or explicitly created.
     }
 
-    private fun ensureInferenceInitialized(modelPath: String) {
+    private var resultChannel: kotlinx.coroutines.channels.Channel<String>? = null
+
+    private fun ensureInferenceInitialized(modelPath: String, onToken: ((String) -> Unit)?) {
         if (llmInference == null) {
-            val options = LlmInference.LlmInferenceOptions.builder()
+            val builder = LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(modelPath)
-                .build()
+                
+            builder.setResultListener { partialResult, done ->
+                resultChannel?.trySend(partialResult ?: "")
+                if (done) {
+                    resultChannel?.close()
+                }
+            }
+            
+            val options = builder.build()
             llmInference = LlmInference.createFromOptions(context, options)
         }
     }

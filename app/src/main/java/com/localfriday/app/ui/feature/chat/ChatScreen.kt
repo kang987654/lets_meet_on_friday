@@ -107,8 +107,14 @@ fun ChatScreen(
                     ChatBubbleAssistant(text = message.content)
                 }
             }
+            
+            if (uiState.streamingText != null) {
+                item {
+                    ChatBubbleAssistant(text = uiState.streamingText!!)
+                }
+            }
 
-            if (uiState.isInFlight) {
+            if (uiState.isInFlight && uiState.streamingText == null) {
                 item {
                     TypingIndicator()
                 }

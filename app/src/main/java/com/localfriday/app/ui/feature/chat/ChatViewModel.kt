@@ -112,10 +112,22 @@ class ChatViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                val result = sendChatMessageUseCase(sessionId = sessionId, message = text)
+                // 스트리밍 시작 전 빈 문자열로 초기화
+                _uiState.update { it.copy(streamingText = "") }
+                
+                val result = sendChatMessageUseCase(
+                    sessionId = sessionId, 
+                    message = text,
+                    onToken = { token ->
+                        _uiState.update { state ->
+                            val currentText = state.streamingText ?: ""
+                            state.copy(streamingText = currentText + token)
+                        }
+                    }
+                )
                 handleAgentResult(result)
             } finally {
-                _uiState.update { it.copy(isInFlight = false) }
+                _uiState.update { it.copy(isInFlight = false, streamingText = null) }
             }
         }
     }
