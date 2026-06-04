@@ -37,7 +37,7 @@ fun AppNavHost(
         }
         
         composable(route = AppDestination.Settings.route) {
-            PlaceholderScreen("Settings 화면 (v1 준비 중)")
+            com.localfriday.app.ui.feature.settings.SettingsScreen()
         }
     }
 }
