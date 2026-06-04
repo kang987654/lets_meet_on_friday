@@ -69,3 +69,28 @@ Unresolved reference 'sessionId'.
 
 **해결 방안:**
 `./gradlew clean build` 명령어를 실행하여 기존 `/build` 폴더의 중간 컴파일 산출물과 Hilt/KSP가 생성한 코드를 전부 삭제(Clean)한 뒤, 처음부터 새로 빌드하여 해결.
+
+---
+
+## 7. UI Integration (MainActivity 연동 이슈)
+- **증상**: `MainActivity`를 `AppNavHost`에 연결하는 과정에서 패키지 임포트 에러 및 빌드 실패 발생.
+- **원인**: `material-icons-extended` 라이브러리가 존재하지 않는 상태에서 아이콘을 쓰려 했고, `MainActivity`가 엉뚱한 폴더(`com.localfriday.app.app`)에 위치해 있었음.
+- **해결 방안**: 아이콘을 텍스트로 대체하고 패키지 경로를 올바르게 수정함.
+
+## 8. Memory Data Layer (TASK-052)
+- **증상 1**: `KnowledgeEntity`에 `tags`가 없어 검색이 불가능했음.
+  - **해결 방안**: DB 클리어를 전제로 `tags`와 `updatedAt` 필드를 추가함.
+- **증상 2**: Repository에서 반환할 때 `runCatching`의 `onFailure`에 `Throwable`을 던져서 타입 미스매치 발생.
+  - **해결 방안**: `AppError.DbWriteError`, `AppError.SearchError` 등으로 매핑.
+- **증상 3**: Hilt 컴파일 중 `AuditRepository`, `ConversationRepository` 의존성 주입 에러.
+  - **해결 방안**: `MemoryModule`에 누락된 `@Binds`를 전부 추가함.
+
+## 9. Memory UI & Paging 3 (TASK-053)
+- **증상**: Compose에서 `PagingData`를 표시하기 위한 `collectAsLazyPagingItems()`가 동작하지 않음.
+- **원인**: `androidx.paging:paging-compose` 의존성이 없었음.
+- **해결 방안**: `build.gradle.kts`에 의존성을 추가하고, Windows `v2`(KMP) 확장에 대비해 Repository의 `PagingSource` 반환을 `Flow<PagingData<T>>` 래핑 구조로 선제적으로 개편함.
+
+## 10. Settings UI (TASK-054)
+- **증상**: `SettingsScreen`에서 `ModelLoadState.Error` 분기가 없어 `when` 문 컴파일 에러가 나고, `NotFound`에서 `message` 변수를 찾지 못함.
+- **원인**: sealed class의 프로퍼티 구조를 착각함(`expectedPath`인데 `message`로 호출).
+- **해결 방안**: 클래스 선언부를 조회(view)한 뒤 분기문과 변수명을 올바르게 고쳐 통과.
