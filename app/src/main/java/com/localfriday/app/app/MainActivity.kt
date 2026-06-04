@@ -10,10 +10,22 @@ import androidx.compose.ui.Modifier
 import com.localfriday.app.ui.MainScreen
 import dagger.hilt.android.AndroidEntryPoint
 
+import android.content.Intent
+import com.localfriday.app.platform.share.ShareIntentHandler
+import javax.inject.Inject
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var shareIntentHandler: ShareIntentHandler
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Handle intent on cold start
+        shareIntentHandler.handleIntent(intent)
+
         setContent {
             MaterialTheme {
                 Surface(
@@ -24,5 +36,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Set the new intent so getIntent() returns it
+        setIntent(intent)
+        // Handle intent when app is already running
+        shareIntentHandler.handleIntent(intent)
     }
 }

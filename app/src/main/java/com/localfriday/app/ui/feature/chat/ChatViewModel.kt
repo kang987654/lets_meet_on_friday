@@ -22,6 +22,7 @@ import java.util.UUID
 import javax.inject.Inject
 
 import com.localfriday.app.domain.usecase.ResumeActionUseCase
+import com.localfriday.app.platform.share.ShareIntentHandler
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
@@ -30,7 +31,8 @@ class ChatViewModel @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val sendChatMessageUseCase: SendChatMessageUseCase,
     private val resumeActionUseCase: ResumeActionUseCase,
-    private val approvalCoordinator: ApprovalCoordinator
+    private val approvalCoordinator: ApprovalCoordinator,
+    private val shareIntentHandler: ShareIntentHandler
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -49,7 +51,23 @@ class ChatViewModel @Inject constructor(
         }
 
         observePendingApproval()
+        observeSharedInput()
         loadMessages()
+    }
+
+    private fun observeSharedInput() {
+        viewModelScope.launch {
+            shareIntentHandler.sharedInputFlow.collectLatest { result ->
+                when (result) {
+                    is AppResult.Success -> {
+                        _uiState.update { it.copy(sharedInput = result.data, error = null) }
+                    }
+                    is AppResult.Failure -> {
+                        _uiState.update { it.copy(error = result.error) }
+                    }
+                }
+            }
+        }
     }
 
     private fun observePendingApproval() {
@@ -100,6 +118,10 @@ class ChatViewModel @Inject constructor(
                 _uiState.update { it.copy(isInFlight = false) }
             }
         }
+    }
+
+    fun clearSharedInput() {
+        _uiState.update { it.copy(sharedInput = null) }
     }
 
     fun dismissError() {
