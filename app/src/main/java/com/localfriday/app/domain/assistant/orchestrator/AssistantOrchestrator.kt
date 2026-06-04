@@ -24,7 +24,8 @@ class AssistantOrchestrator @Inject constructor(
     private val modelRunner: ModelRunner,
     private val responseParser: ResponseParser,
     private val preExecutionGuard: PreExecutionGuard,
-    private val auditTrailService: AuditTrailService
+    private val auditTrailService: AuditTrailService,
+    private val searchAgent: com.localfriday.app.domain.assistant.agent.SearchAgent
 ) {
 
     suspend fun processRequest(request: ChatRequest): AgentResult {
@@ -93,13 +94,64 @@ class AssistantOrchestrator @Inject constructor(
         }
     }
 
-    private suspend fun saveAssistantMessage(sessionId: String, content: String) {
+    suspend fun resumeAction(sessionId: String, action: ModelOutput): AgentResult {
+        return when (action) {
+            is ModelOutput.SearchOutput -> {
+                // 1. 실제 검색 수행
+                val searchRes = searchAgent.executeSearch(action.query)
+                val searchContext = when (searchRes) {
+                    is AppResult.Success -> searchRes.data
+                    is AppResult.Failure -> "웹 검색을 수행했으나 네트워크 오류로 실패했습니다."
+                }
+
+                // 2. 검색 결과를 System 메시지로 저장 (LLM이 문맥을 알 수 있도록)
+                val systemMessage = ChatMessage(
+                    id = UUID.randomUUID().toString(),
+                    sessionId = sessionId,
+                    role = ChatMessage.Role.SYSTEM,
+                    content = searchContext,
+                    inputType = InputType.TEXT,
+                    createdAt = System.currentTimeMillis()
+                )
+                conversationRepository.save(systemMessage)
+
+                // 3. 문맥 다시 구성 후 재질의 (빈 메시지로 재호출하여 기존 문맥에 대해 답변 유도)
+                val contextRes = contextBuilder.build(sessionId)
+                val context = when (contextRes) {
+                    is AppResult.Success -> contextRes.data
+                    is AppResult.Failure -> return AgentResult.Error(contextRes.error)
+                }
+
+                val prompt = promptAssembler.assemble(context, "")
+                val modelRes = modelRunner.generate(prompt)
+                val rawOutput = when (modelRes) {
+                    is AppResult.Success -> modelRes.data
+                    is AppResult.Failure -> return AgentResult.Error(modelRes.error)
+                }
+
+                auditTrailService.logModelRun(sessionId, prompt, rawOutput)
+                
+                val modelOutput = responseParser.parse(rawOutput)
+                val text = if (modelOutput is ModelOutput.TextOutput) modelOutput.content else rawOutput
+                
+                saveAssistantMessage(sessionId, text, searchUsed = true)
+                AgentResult.Text(text)
+            }
+            else -> {
+                // v1에서는 다른 액션 재개는 미지원
+                AgentResult.Text("지원되지 않는 액션입니다.")
+            }
+        }
+    }
+
+    private suspend fun saveAssistantMessage(sessionId: String, content: String, searchUsed: Boolean = false) {
         val assistantMessage = ChatMessage(
             id = UUID.randomUUID().toString(),
             sessionId = sessionId,
             role = ChatMessage.Role.ASSISTANT,
             content = content,
             inputType = InputType.TEXT,
+            searchUsed = searchUsed,
             createdAt = System.currentTimeMillis()
         )
         conversationRepository.save(assistantMessage)

@@ -21,4 +21,9 @@ abstract class PlatformModule {
     abstract fun bindCalendarTool(
         impl: AndroidCalendarTool
     ): CalendarTool
+
+    @Binds
+    abstract fun bindWebSearchTool(
+        impl: com.localfriday.app.platform.network.WebSearchGateway
+    ): com.localfriday.app.domain.tool.WebSearchTool
 }
