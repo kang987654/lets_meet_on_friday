@@ -26,6 +26,20 @@ class AuditTrailService @Inject constructor(
         saveEvent(sessionId, AuditEventType.ERROR, errorMsg)
     }
 
+    suspend fun logSearchEvent(sessionId: String, query: String) {
+        saveEvent(sessionId, AuditEventType.SEARCH_USED, "Query: ${redact(query)}")
+    }
+
+    suspend fun logBackupEvent(sessionId: String, action: String, status: String) {
+        val type = if (action.equals("export", ignoreCase = true)) AuditEventType.EXPORT else AuditEventType.IMPORT
+        saveEvent(sessionId, type, "Status: $status")
+    }
+
+    suspend fun logThermalEvent(sessionId: String, type: String, temperature: Float) {
+        val eventType = if (type.equals("warning", ignoreCase = true)) AuditEventType.THERMAL_WARNING else AuditEventType.THERMAL_SHUTDOWN
+        saveEvent(sessionId, eventType, "Temperature: $temperature°C")
+    }
+
     private suspend fun saveEvent(sessionId: String, type: AuditEventType, details: String) {
         try {
             val event = AuditEvent(

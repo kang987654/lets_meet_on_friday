@@ -18,5 +18,7 @@ enum class AuditEventType {
     // v1 Extensions
     EXPORT,
     IMPORT,
-    SEARCH_USED
+    SEARCH_USED,
+    THERMAL_WARNING,
+    THERMAL_SHUTDOWN
 }
