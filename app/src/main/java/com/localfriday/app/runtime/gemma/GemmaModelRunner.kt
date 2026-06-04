@@ -13,10 +13,13 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.localfriday.app.runtime.metrics.RuntimeMetricsCollector
+
 @Singleton
 class GemmaModelRunner @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val runtimeManager: GemmaRuntimeManager
+    private val runtimeManager: GemmaRuntimeManager,
+    private val metricsCollector: RuntimeMetricsCollector
 ) : ModelRunner {
 
     override val loadState: StateFlow<ModelLoadState> = runtimeManager.loadState
@@ -35,8 +38,22 @@ class GemmaModelRunner @Inject constructor(
         try {
             ensureInferenceInitialized(currentState.modelInfo.modelPath)
             
+            metricsCollector.recordStart()
+            val startTime = System.currentTimeMillis()
+
             // v0 에서는 비스트리밍 방식(generateResponse) 사용
             val response = llmInference?.generateResponse(prompt)
+            
+            val durationMs = System.currentTimeMillis() - startTime
+            val metricsResult = metricsCollector.recordEnd(durationMs)
+
+            // 48도 이상 중단 예외 처리
+            if (metricsResult is AppResult.Failure && metricsResult.error is AppError.TemperatureCritical) {
+                return@withContext AppResult.Failure(metricsResult.error)
+            }
+            
+            // 43도 이상 경고 시 로깅 등 가능 (현재는 진행 허용)
+
             if (response != null) {
                 // 테스트용 onToken 콜백 호출
                 onToken?.invoke(response)
