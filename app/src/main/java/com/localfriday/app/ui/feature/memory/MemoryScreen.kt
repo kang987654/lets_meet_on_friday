@@ -25,6 +25,30 @@ fun MemoryScreen(
     val knowledgeItems = viewModel.knowledgePagingData.collectAsLazyPagingItems()
     val taskItems = viewModel.taskPagingData.collectAsLazyPagingItems()
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    // Import File Picker Launcher
+    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            viewModel.importData(
+                uri = uri,
+                onSuccess = {
+                    android.widget.Toast.makeText(context, "복원이 완료되었습니다. 앱을 재시작합니다.", android.widget.Toast.LENGTH_LONG).show()
+                    // 임시 재시작 처리 (System.exit)
+                    kotlin.concurrent.thread {
+                        Thread.sleep(2000)
+                        kotlin.system.exitProcess(0)
+                    }
+                },
+                onError = { error ->
+                    android.widget.Toast.makeText(context, "복원 실패: $error", android.widget.Toast.LENGTH_LONG).show()
+                }
+            )
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         // Top Bar & Actions
         Row(
@@ -39,9 +63,33 @@ fun MemoryScreen(
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
-            // Export / Import Placeholder (TASK-055)
-            TextButton(onClick = { /* TODO: Export/Import dialog */ }) {
-                Text("Export/Import")
+            
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { importLauncher.launch("application/zip") }) {
+                    Text("Import")
+                }
+                Button(onClick = {
+                    viewModel.exportData(
+                        onSuccess = { file ->
+                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.fileprovider",
+                                file
+                            )
+                            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "application/zip"
+                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Backup"))
+                        },
+                        onError = { error ->
+                            android.widget.Toast.makeText(context, "Export 실패: $error", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }) {
+                    Text("Export")
+                }
             }
         }
 

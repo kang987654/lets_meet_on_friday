@@ -73,4 +73,70 @@ class ExportImportManager @Inject constructor(
         }
         zos.closeEntry()
     }
+
+    suspend fun restoreFromZip(zipUri: android.net.Uri): AppResult<Unit> = withContext(Dispatchers.IO) {
+        val tempDir = File(context.cacheDir, "import_temp_${System.currentTimeMillis()}")
+        try {
+            if (!tempDir.exists() && !tempDir.mkdirs()) {
+                return@withContext AppResult.Failure(AppError.ImportFailed("Failed to create temp directory for import"))
+            }
+
+            // 1. ZIP 파일 압축 해제
+            context.contentResolver.openInputStream(zipUri)?.use { inputStream ->
+                java.util.zip.ZipInputStream(inputStream).use { zis ->
+                    var entry = zis.nextEntry
+                    while (entry != null) {
+                        val outFile = File(tempDir, entry.name)
+                        FileOutputStream(outFile).use { fos ->
+                            zis.copyTo(fos)
+                        }
+                        zis.closeEntry()
+                        entry = zis.nextEntry
+                    }
+                }
+            } ?: return@withContext AppResult.Failure(AppError.ImportFailed("Failed to open zip file"))
+
+            // 2. Manifest 검증
+            val manifestFile = File(tempDir, "manifest.json")
+            if (!manifestFile.exists()) {
+                return@withContext AppResult.Failure(AppError.ImportSchemaMismatch("manifest.json not found in the backup file."))
+            }
+
+            val manifestContent = manifestFile.readText(Charsets.UTF_8)
+            val manifest = Json.decodeFromString<ExportManifest>(manifestContent)
+            if (manifest.version != "1.0") {
+                return@withContext AppResult.Failure(AppError.ImportManifestMismatch("1.0", manifest.version))
+            }
+
+            // 3. 기존 DB 파일 덮어쓰기
+            val dbFile = context.getDatabasePath(dbName)
+            val dbDir = dbFile.parentFile ?: return@withContext AppResult.Failure(AppError.ImportFailed("Invalid DB path"))
+            if (!dbDir.exists()) dbDir.mkdirs()
+
+            val extractedDb = File(tempDir, dbName)
+            if (extractedDb.exists()) {
+                extractedDb.copyTo(dbFile, overwrite = true)
+            } else {
+                return@withContext AppResult.Failure(AppError.ImportSchemaMismatch("Database file not found in the backup."))
+            }
+
+            val extractedWal = File(tempDir, "$dbName-wal")
+            if (extractedWal.exists()) {
+                extractedWal.copyTo(File(dbFile.absolutePath + "-wal"), overwrite = true)
+            }
+
+            val extractedShm = File(tempDir, "$dbName-shm")
+            if (extractedShm.exists()) {
+                extractedShm.copyTo(File(dbFile.absolutePath + "-shm"), overwrite = true)
+            }
+
+            AppResult.Success(Unit)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            AppResult.Failure(AppError.ImportFailed("Import failed: ${e.message}"))
+        } finally {
+            // 임시 폴더 정리
+            tempDir.deleteRecursively()
+        }
+    }
 }

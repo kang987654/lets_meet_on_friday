@@ -23,6 +23,7 @@ sealed class AppError {
     data class NetworkUnavailable(val reason: String) : AppError()
 
     data class ExportFailed(val reason: String) : AppError()
+    data class ImportFailed(val reason: String) : AppError()
     data class ImportManifestMismatch(val expected: String, val actual: String) : AppError()
     data class ImportSchemaMismatch(val reason: String) : AppError()
     data class InsufficientStorage(val requiredBytes: Long) : AppError()

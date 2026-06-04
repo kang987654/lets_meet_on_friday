@@ -17,10 +17,17 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.localfriday.app.domain.usecase.ExportMemoryUseCase
+import com.localfriday.app.domain.usecase.ImportMemoryUseCase
+import com.localfriday.app.core.common.AppResult
+import java.io.File
+
 @HiltViewModel
 class MemoryViewModel @Inject constructor(
     private val knowledgeRepository: KnowledgeRepository,
-    private val taskRepository: TaskRepository
+    private val taskRepository: TaskRepository,
+    private val exportMemoryUseCase: ExportMemoryUseCase,
+    private val importMemoryUseCase: ImportMemoryUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MemoryUiState())
@@ -40,8 +47,24 @@ class MemoryViewModel @Inject constructor(
     fun completeTask(taskId: String) {
         viewModelScope.launch {
             taskRepository.updateCompletion(taskId, true)
-            // Note: PagingData will not automatically refresh unless you invalidate the PagingSource
-            // For MVP, we can assume completing a task just updates the DB. In production, Paging 3 needs manual invalidation.
+        }
+    }
+
+    fun exportData(onSuccess: (File) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            when (val result = exportMemoryUseCase()) {
+                is AppResult.Success -> onSuccess(result.data)
+                is AppResult.Failure -> onError(result.error.toString())
+            }
+        }
+    }
+
+    fun importData(uri: android.net.Uri, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            when (val result = importMemoryUseCase(uri)) {
+                is AppResult.Success -> onSuccess()
+                is AppResult.Failure -> onError(result.error.toString())
+            }
         }
     }
 }
