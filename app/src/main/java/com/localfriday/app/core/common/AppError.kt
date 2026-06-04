@@ -30,4 +30,7 @@ sealed class AppError {
 
     data class InFlightConflict(val reason: String) : AppError()
     data class DuplicateEvent(val reason: String) : AppError()
+
+    data class TemperatureWarning(val temperature: Float) : AppError()
+    data class TemperatureCritical(val temperature: Float) : AppError()
 }

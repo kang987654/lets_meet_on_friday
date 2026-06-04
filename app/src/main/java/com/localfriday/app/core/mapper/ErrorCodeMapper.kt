@@ -59,5 +59,7 @@ object ErrorCodeMapper {
         is AppError.ImportManifestMismatch -> ErrorCode.IMPORT_MANIFEST_MISMATCH
         is AppError.ImportSchemaMismatch -> ErrorCode.IMPORT_SCHEMA_MISMATCH
         is AppError.InsufficientStorage -> ErrorCode.INSUFFICIENT_STORAGE
+        is AppError.TemperatureWarning -> ErrorCode.TEMPERATURE_WARNING
+        is AppError.TemperatureCritical -> ErrorCode.TEMPERATURE_CRITICAL
     }
 }
