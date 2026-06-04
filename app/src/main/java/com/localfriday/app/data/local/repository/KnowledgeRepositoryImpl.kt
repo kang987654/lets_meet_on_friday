@@ -6,6 +6,8 @@ import com.localfriday.app.data.local.db.dao.KnowledgeDao
 import com.localfriday.app.data.local.db.entity.KnowledgeEntity
 import com.localfriday.app.domain.memory.KnowledgeRepository
 import com.localfriday.app.domain.model.KnowledgeNote
+import kotlinx.coroutines.flow.map
+import androidx.paging.map
 import javax.inject.Inject
 
 class KnowledgeRepositoryImpl @Inject constructor(
@@ -61,10 +63,13 @@ class KnowledgeRepositoryImpl @Inject constructor(
         onFailure = { AppResult.Failure(com.localfriday.app.core.common.AppError.SearchError(it.message ?: "search err")) }
     )
 
-    override fun getPaged(): PagingSource<Int, KnowledgeNote> {
-        // TODO: Room의 PagingSource를 Domain Model로 변환하는 작업은 ViewModel 또는 별도 Mapper 필요
-        // 현재는 임시로 throw NotImplementedError를 던집니다.
-        throw NotImplementedError("getPaged() needs map{} extension for PagingSource")
+    override fun getPagedData(): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<KnowledgeNote>> {
+        return androidx.paging.Pager(
+            config = androidx.paging.PagingConfig(pageSize = 20),
+            pagingSourceFactory = { dao.getPaged() }
+        ).flow.map { pagingData ->
+            pagingData.map { it.toDomain() }
+        }
     }
 
     private fun KnowledgeEntity.toDomain(): KnowledgeNote {

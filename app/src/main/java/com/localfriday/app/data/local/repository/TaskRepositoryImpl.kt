@@ -6,6 +6,8 @@ import com.localfriday.app.data.local.db.dao.TaskDao
 import com.localfriday.app.data.local.db.entity.TaskEntity
 import com.localfriday.app.domain.memory.TaskRepository
 import com.localfriday.app.domain.model.TaskItem
+import kotlinx.coroutines.flow.map
+import androidx.paging.map
 import javax.inject.Inject
 
 class TaskRepositoryImpl @Inject constructor(
@@ -35,8 +37,22 @@ class TaskRepositoryImpl @Inject constructor(
         onFailure = { AppResult.Failure(com.localfriday.app.core.common.AppError.DbWriteError("task_item")) }
     )
 
-    override fun getPendingTasks(): PagingSource<Int, TaskItem> {
-        // TODO: Room의 PagingSource를 Domain Model로 변환하는 로직 필요
-        throw NotImplementedError("getPendingTasks() needs map{} extension for PagingSource")
+    override fun getPendingTasksData(): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<TaskItem>> {
+        return androidx.paging.Pager(
+            config = androidx.paging.PagingConfig(pageSize = 20),
+            pagingSourceFactory = { dao.getPendingTasks() }
+        ).flow.map { pagingData ->
+            pagingData.map { it.toDomain() }
+        }
+    }
+
+    private fun TaskEntity.toDomain(): TaskItem {
+        return TaskItem(
+            id = id,
+            title = title,
+            isCompleted = isCompleted,
+            dueDateIso = null, // V1 DB에 아직 없음
+            createdAt = createdAt
+        )
     }
 }
