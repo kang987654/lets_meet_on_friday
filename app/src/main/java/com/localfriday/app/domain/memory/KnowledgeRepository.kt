@@ -11,6 +11,8 @@ import com.localfriday.app.domain.model.KnowledgeNote
 interface KnowledgeRepository {
     suspend fun save(note: KnowledgeNote): AppResult<Unit>
     suspend fun delete(noteId: String): AppResult<Unit>
-    suspend fun search(query: String): AppResult<List<KnowledgeNote>>
+    suspend fun search(query: String, limit: Int = 10): AppResult<List<KnowledgeNote>>
+    suspend fun searchRecent(limit: Int = 10): AppResult<List<KnowledgeNote>>
+    suspend fun searchByTags(tags: List<String>, limit: Int = 10): AppResult<List<KnowledgeNote>>
     fun getPaged(): PagingSource<Int, KnowledgeNote>
 }

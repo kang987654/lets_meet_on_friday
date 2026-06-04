@@ -15,5 +15,7 @@ data class KnowledgeEntity(
     val id: String,
     val content: String,
     val sourceSessionId: String?,
-    val createdAt: Long
+    val tags: String, // CSV format
+    val createdAt: Long,
+    val updatedAt: Long
 )
