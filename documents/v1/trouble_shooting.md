@@ -114,3 +114,13 @@ Unresolved reference 'sessionId'.
 - **증상**: `Argument type mismatch: actual type is 'Unit', but 'AppError' was expected. Classifier 'data class ImageTooLarge : AppError' does not have a companion object...`
 - **원인**: `AppError.ImageTooLarge(val sizeBytes: Long)` 처럼 인자가 필요한 데이터 클래스인데 인자 없이 `AppError.ImageTooLarge` 형태로 객체를 반환하려 했거나, 존재하지 않는 `EmptyInput`을 쓰려 함.
 - **해결 방안**: 정해진 도메인 에러 규격에 맞게 `AppError.ValidationError("Share", "Empty text")`나 `AppError.ImageTooLarge(sizeBytes)` 처럼 적절한 파라미터를 담아 에러 인스턴스를 생성하도록 수정.
+
+## 15. Kotlin 파일 내 import 구문 위치 에러 (Phase 19)
+- **증상**: `RuntimeMetricsCollector.kt:13:2 Syntax error: imports are only allowed in the beginning of file.`
+- **원인**: 기존 클래스 코드 중간에 새로운 라이브러리/클래스(`AuditTrailService` 등)를 주입하기 위해 관련 `import` 구문을 파일의 최상단 패키지 선언부가 아닌 중간 라인에 추가했기 때문.
+- **해결 방안**: 해당 `import` 구문들을 `import javax.inject.Inject` 등이 선언된 파일 최상단의 기존 `import` 블록 위치로 모두 이동시켜 문법 오류를 해결.
+
+## 16. JUnit 의존성 누락으로 인한 Unresolved reference 에러 (Phase 20)
+- **증상**: `ContractConsistencyTest.kt` 컴파일 시 `Unresolved reference 'junit'`, `Unresolved reference 'Test'` 등의 에러와 함께 `compileDebugUnitTestKotlin` 실패.
+- **원인**: 단위 테스트 파일을 작성했으나 `app/build.gradle.kts`에 기본 테스트 프레임워크인 `junit:junit` 라이브러리 의존성이 빠져있어 어노테이션과 단언문을 인식하지 못함.
+- **해결 방안**: `app/build.gradle.kts` 내 `dependencies` 블록 하단에 `testImplementation("junit:junit:4.13.2")` 의존성을 추가하고 다시 빌드하여 해결.
