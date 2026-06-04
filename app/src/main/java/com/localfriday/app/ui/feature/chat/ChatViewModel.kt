@@ -21,12 +21,15 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 
+import com.localfriday.app.domain.usecase.ResumeActionUseCase
+
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val sessionStore: SessionStore,
     private val conversationRepository: ConversationRepository,
     private val sendChatMessageUseCase: SendChatMessageUseCase,
+    private val resumeActionUseCase: ResumeActionUseCase,
     private val approvalCoordinator: ApprovalCoordinator
 ) : ViewModel() {
 
@@ -92,35 +95,8 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val result = sendChatMessageUseCase(sessionId = sessionId, message = text)
-                when (result) {
-                    is AppResult.Success -> {
-                        when (val agentResult = result.data) {
-                            is AgentResult.Text -> {
-                                val assistantMessage = ChatMessage(
-                                    id = UUID.randomUUID().toString(),
-                                    sessionId = sessionId,
-                                    role = ChatMessage.Role.ASSISTANT,
-                                    content = agentResult.content,
-                                    inputType = InputType.TEXT,
-                                    createdAt = System.currentTimeMillis()
-                                )
-                                _uiState.update { it.copy(messages = it.messages + assistantMessage) }
-                            }
-                            is AgentResult.ActionRequired -> {
-                                // approvalCoordinator가 pendingRequest 플로우에 값을 방출하므로
-                                // observePendingApproval()이 알아서 UI에 띄워 줌
-                            }
-                            is AgentResult.Error -> {
-                                _uiState.update { it.copy(error = agentResult.error) }
-                            }
-                        }
-                    }
-                    is AppResult.Failure -> {
-                        _uiState.update { it.copy(error = result.error) }
-                    }
-                }
+                handleAgentResult(result)
             } finally {
-                // 어떤 경우든 통신이 끝나면 로딩 인디케이터 해제
                 _uiState.update { it.copy(isInFlight = false) }
             }
         }
@@ -132,18 +108,44 @@ class ChatViewModel @Inject constructor(
 
     fun approvePendingRequest() {
         val request = approvalCoordinator.consumePending() ?: return
-        // TASK-061에서 실제 승인된 액션(WebSearch 등)을 Orchestrator를 통해 재개하도록 구현 예정.
-        // 임시로 승인 완료 상태만 UI에 반영
-        _uiState.update { state ->
-            val sysMessage = ChatMessage(
-                id = UUID.randomUUID().toString(),
-                sessionId = sessionId,
-                role = ChatMessage.Role.ASSISTANT,
-                content = "[System: 사용자가 작업을 승인했습니다. 다음 단계(TASK-061)에서 실행됩니다.]",
-                inputType = InputType.TEXT,
-                createdAt = System.currentTimeMillis()
-            )
-            state.copy(messages = state.messages + sysMessage)
+        
+        _uiState.update { it.copy(isInFlight = true, error = null) }
+        viewModelScope.launch {
+            try {
+                val result = resumeActionUseCase(sessionId, request.action)
+                handleAgentResult(result)
+            } finally {
+                _uiState.update { it.copy(isInFlight = false) }
+            }
+        }
+    }
+
+    private fun handleAgentResult(result: AppResult<AgentResult>) {
+        when (result) {
+            is AppResult.Success -> {
+                when (val agentResult = result.data) {
+                    is AgentResult.Text -> {
+                        val assistantMessage = ChatMessage(
+                            id = UUID.randomUUID().toString(),
+                            sessionId = sessionId,
+                            role = ChatMessage.Role.ASSISTANT,
+                            content = agentResult.content,
+                            inputType = InputType.TEXT,
+                            createdAt = System.currentTimeMillis()
+                        )
+                        _uiState.update { it.copy(messages = it.messages + assistantMessage) }
+                    }
+                    is AgentResult.ActionRequired -> {
+                        // approvalCoordinator가 플로우에 값을 방출하므로 자동 처리됨
+                    }
+                    is AgentResult.Error -> {
+                        _uiState.update { it.copy(error = agentResult.error) }
+                    }
+                }
+            }
+            is AppResult.Failure -> {
+                _uiState.update { it.copy(error = result.error) }
+            }
         }
     }
 
