@@ -1,8 +1,10 @@
 package com.localfriday.app.data.local.file
 
 import android.content.Context
+import androidx.sqlite.db.SimpleSQLiteQuery
 import com.localfriday.app.core.common.AppError
 import com.localfriday.app.core.common.AppResult
+import com.localfriday.app.data.local.db.LocalFridayDatabase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -18,7 +20,8 @@ import javax.inject.Singleton
 
 @Singleton
 class ExportImportManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val database: LocalFridayDatabase
 ) {
     // 임시로 DB 파일의 이름을 상수로 정의 (v1)
     private val dbName = "app_database.db"
@@ -35,7 +38,11 @@ class ExportImportManager @Inject constructor(
             val exportFileName = "localfriday_backup_${System.currentTimeMillis()}.zip"
             val zipFile = File(cacheDir, exportFileName)
             
-            // 3. ZipOutputStream 준비
+            // 3. DB 안전 동기화 (WAL 모드 플러시)
+            database.query(SimpleSQLiteQuery("PRAGMA wal_checkpoint(TRUNCATE)"), null)
+            database.close() // 현재 연결을 닫고 안전하게 파일 점유 해제
+            
+            // 4. ZipOutputStream 준비
             ZipOutputStream(FileOutputStream(zipFile)).use { zos ->
                 // 3-1. manifest.json 추가
                 val manifestJson = Json.encodeToString(manifest)

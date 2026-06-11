@@ -11,5 +11,6 @@ data class ChatUiState(
     val pendingApproval: ApprovalRequest? = null,
     val sharedInput: com.localfriday.app.platform.share.SharedInput? = null,
     val error: AppError? = null,
-    val streamingText: String? = null
+    val streamingText: String? = null,
+    val warningMessage: String? = null
 )

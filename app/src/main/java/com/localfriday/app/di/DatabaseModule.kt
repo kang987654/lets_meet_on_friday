@@ -2,6 +2,7 @@ package com.localfriday.app.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import com.localfriday.app.data.local.db.LocalFridayDatabase
 import com.localfriday.app.data.local.db.dao.AuditDao
 import com.localfriday.app.data.local.db.dao.ConversationDao
@@ -27,6 +28,7 @@ object DatabaseModule {
             LocalFridayDatabase::class.java,
             "localfriday_db"
         )
+        .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
         .fallbackToDestructiveMigration() // For development MVP phase
         .build()
     }

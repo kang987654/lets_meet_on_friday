@@ -20,4 +20,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "LocalFriday"
-include(":app")
+include(":app", ":core", ":domain", ":data")
