@@ -1,7 +1,5 @@
 package com.localfriday.app.data.local.repository
 
-import androidx.paging.PagingSource
-import androidx.paging.PagingState
 import com.localfriday.app.core.common.AppError
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.core.common.Constants
@@ -47,9 +45,13 @@ class ConversationRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getPagedBySession(sessionId: String): PagingSource<Int, ChatMessage> {
-        val originalSource = conversationDao.getPagedBySession(sessionId)
-        return MappedPagingSource(originalSource) { it.toDomain() }
+    override suspend fun getPagedBySession(sessionId: String, offset: Int, limit: Int): AppResult<List<ChatMessage>> {
+        return try {
+            val entities = conversationDao.getPagedBySession(sessionId, offset, limit)
+            AppResult.Success(entities.map { it.toDomain() })
+        } catch (e: Exception) {
+            AppResult.Failure(AppError.DbReadError("conversation"))
+        }
     }
 }
 
@@ -65,25 +67,3 @@ fun ConversationEntity.toDomain(): ChatMessage {
     )
 }
 
-class MappedPagingSource<Key : Any, Value : Any, ToValue : Any>(
-    private val originalSource: PagingSource<Key, Value>,
-    private val mapper: (Value) -> ToValue
-) : PagingSource<Key, ToValue>() {
-    override fun getRefreshKey(state: PagingState<Key, ToValue>): Key? {
-        return null 
-    }
-    
-    override suspend fun load(params: LoadParams<Key>): LoadResult<Key, ToValue> {
-        return when (val result = originalSource.load(params)) {
-            is LoadResult.Page -> LoadResult.Page(
-                data = result.data.map(mapper),
-                prevKey = result.prevKey,
-                nextKey = result.nextKey,
-                itemsBefore = result.itemsBefore,
-                itemsAfter = result.itemsAfter
-            )
-            is LoadResult.Error -> LoadResult.Error(result.throwable)
-            is LoadResult.Invalid -> LoadResult.Invalid()
-        }
-    }
-}

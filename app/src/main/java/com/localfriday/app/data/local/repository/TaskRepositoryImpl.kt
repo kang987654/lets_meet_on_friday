@@ -1,13 +1,11 @@
 package com.localfriday.app.data.local.repository
 
-import androidx.paging.PagingSource
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.data.local.db.dao.TaskDao
 import com.localfriday.app.data.local.db.entity.TaskEntity
 import com.localfriday.app.domain.memory.TaskRepository
 import com.localfriday.app.domain.model.TaskItem
-import kotlinx.coroutines.flow.map
-import androidx.paging.map
+
 import javax.inject.Inject
 
 class TaskRepositoryImpl @Inject constructor(
@@ -37,14 +35,12 @@ class TaskRepositoryImpl @Inject constructor(
         onFailure = { AppResult.Failure(com.localfriday.app.core.common.AppError.DbWriteError("task_item")) }
     )
 
-    override fun getPendingTasksData(): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<TaskItem>> {
-        return androidx.paging.Pager(
-            config = androidx.paging.PagingConfig(pageSize = 20),
-            pagingSourceFactory = { dao.getPendingTasks() }
-        ).flow.map { pagingData ->
-            pagingData.map { it.toDomain() }
-        }
-    }
+    override suspend fun getPendingTasksData(offset: Int, limit: Int): AppResult<List<TaskItem>> = runCatching {
+        dao.getPendingTasks(offset, limit).map { it.toDomain() }
+    }.fold(
+        onSuccess = { AppResult.Success(it) },
+        onFailure = { AppResult.Failure(com.localfriday.app.core.common.AppError.DbReadError("task_item")) }
+    )
 
     private fun TaskEntity.toDomain(): TaskItem {
         return TaskItem(

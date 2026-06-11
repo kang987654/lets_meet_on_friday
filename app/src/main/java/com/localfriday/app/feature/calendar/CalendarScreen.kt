@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.localfriday.app.core.common.AppError
 import com.localfriday.app.domain.model.CalendarEvent
 import com.localfriday.app.domain.model.ScheduleData
 
@@ -73,16 +74,17 @@ fun CalendarScreen(
                 is CalendarUiState.Idle, is CalendarUiState.Loading -> {
                     CircularProgressIndicator(color = SkyBlue)
                 }
-                is CalendarUiState.PermissionRequired -> {
-                    PermissionCard {
-                        permissionLauncher.launch(Manifest.permission.READ_CALENDAR)
-                    }
-                }
                 is CalendarUiState.Empty -> {
                     Text("일정이 없습니다.", color = Color.Gray)
                 }
                 is CalendarUiState.Error -> {
-                    Text("오류 발생: ${state.message}", color = Color.Red)
+                    if (state.error is AppError.PermissionDenied) {
+                        PermissionCard {
+                            permissionLauncher.launch(Manifest.permission.READ_CALENDAR)
+                        }
+                    } else {
+                        Text("오류 발생: ${state.error}", color = Color.Red)
+                    }
                 }
                 is CalendarUiState.Success -> {
                     ScheduleContent(state.scheduleData)

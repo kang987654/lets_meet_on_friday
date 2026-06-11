@@ -52,6 +52,7 @@ object ErrorCodeMapper {
         is AppError.SearchError -> ErrorCode.SEARCH_TIMEOUT
 
         is AppError.DbWriteError -> ErrorCode.DB_WRITE_ERROR
+        is AppError.DbReadError -> ErrorCode.DB_READ_ERROR
         is AppError.DbMigrationError -> ErrorCode.DB_MIGRATION_ERROR
 
         is AppError.ExportFailed -> ErrorCode.EXPORT_FAILED

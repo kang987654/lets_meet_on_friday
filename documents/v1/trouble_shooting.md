@@ -121,6 +121,13 @@ Unresolved reference 'sessionId'.
 - **해결 방안**: 해당 `import` 구문들을 `import javax.inject.Inject` 등이 선언된 파일 최상단의 기존 `import` 블록 위치로 모두 이동시켜 문법 오류를 해결.
 
 ## 16. JUnit 의존성 누락으로 인한 Unresolved reference 에러 (Phase 20)
-- **증상**: `ContractConsistencyTest.kt` 컴파일 시 `Unresolved reference 'junit'`, `Unresolved reference 'Test'` 등의 에러와 함께 `compileDebugUnitTestKotlin` 실패.
+- **증상**: `ContractConsistencyTest.kt` 컴파일 시 `Unresolved reference 'junit'`, `Unresolved 일치` 등의 에러와 함께 `compileDebugUnitTestKotlin` 실패.
 - **원인**: 단위 테스트 파일을 작성했으나 `app/build.gradle.kts`에 기본 테스트 프레임워크인 `junit:junit` 라이브러리 의존성이 빠져있어 어노테이션과 단언문을 인식하지 못함.
 - **해결 방안**: `app/build.gradle.kts` 내 `dependencies` 블록 하단에 `testImplementation("junit:junit:4.13.2")` 의존성을 추가하고 다시 빌드하여 해결.
+
+## 17. Sealed Class 분기 처리 누락 에러 (Phase 26)
+- **증상**: 컴파일 과정에서 `when' expression must be exhaustive. Add the 'is DbReadError' branch or an 'else' branch.` 에러 발생.
+- **원인**: Domain 계층의 `AppError` sealed class에 `DbReadError`를 추가한 후, 이를 매핑하는 `ErrorCodeMapper.kt`의 `when` 구문과 `ErrorCode` enum에 신규 타입을 반영하지 않음. Kotlin 컴파일러는 sealed class의 모든 분기가 처리되었는지 엄격하게 검사하기 때문에 빌드에 실패함.
+- **해결 방안**: 
+  - `ErrorCode`에 `DB_READ_ERROR` 항목 추가.
+  - `ErrorCodeMapper`의 `when` 문에 `is AppError.DbReadError -> ErrorCode.DB_READ_ERROR` 분기를 추가하여 모든 케이스를 포괄하게 함.

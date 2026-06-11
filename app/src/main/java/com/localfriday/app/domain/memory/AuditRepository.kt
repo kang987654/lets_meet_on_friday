@@ -1,6 +1,5 @@
 package com.localfriday.app.domain.memory
 
-import androidx.paging.PagingSource
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.model.AuditEvent
 import com.localfriday.app.domain.model.AuditEventType
@@ -11,6 +10,6 @@ import com.localfriday.app.domain.model.AuditEventType
  */
 interface AuditRepository {
     suspend fun save(event: AuditEvent): AppResult<Unit>
-    fun getPaged(): PagingSource<Int, AuditEvent>
-    fun getPagedByType(type: AuditEventType): PagingSource<Int, AuditEvent>
+    suspend fun getPaged(offset: Int, limit: Int): AppResult<List<AuditEvent>>
+    suspend fun getPagedByType(type: AuditEventType, offset: Int, limit: Int): AppResult<List<AuditEvent>>
 }

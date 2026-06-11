@@ -1,7 +1,6 @@
 package com.localfriday.app.data.local.repository.fake
 
-import androidx.paging.PagingSource
-import androidx.paging.PagingState
+
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.memory.ConversationRepository
 import com.localfriday.app.domain.model.ChatMessage
@@ -25,17 +24,8 @@ class FakeConversationRepository : ConversationRepository {
         return AppResult.Success(filtered)
     }
 
-    override fun getPagedBySession(sessionId: String): PagingSource<Int, ChatMessage> {
-        return object : PagingSource<Int, ChatMessage>() {
-            override fun getRefreshKey(state: PagingState<Int, ChatMessage>): Int? = null
-            override suspend fun load(params: LoadParams<Int>): LoadResult<Int, ChatMessage> {
-                val data = messages.filter { it.sessionId == sessionId }.sortedByDescending { it.createdAt }
-                return LoadResult.Page(
-                    data = data,
-                    prevKey = null,
-                    nextKey = null
-                )
-            }
-        }
+    override suspend fun getPagedBySession(sessionId: String, offset: Int, limit: Int): AppResult<List<ChatMessage>> {
+        val data = messages.filter { it.sessionId == sessionId }.sortedByDescending { it.createdAt }.drop(offset).take(limit)
+        return AppResult.Success(data)
     }
 }

@@ -36,7 +36,7 @@ fun ApprovalSheet(
 
     ModalBottomSheet(
         onDismissRequest = {
-            if (uiState !is ApprovalUiState.Saving) {
+            if (uiState !is ApprovalUiState.Loading) {
                 viewModel.reject(sessionId, draft)
             }
         },
@@ -82,7 +82,7 @@ fun ApprovalSheet(
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.DarkGray),
-                    enabled = uiState !is ApprovalUiState.Saving
+                    enabled = uiState !is ApprovalUiState.Loading
                 ) {
                     Text("취소")
                 }
@@ -92,9 +92,9 @@ fun ApprovalSheet(
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SkyBlue),
-                    enabled = uiState !is ApprovalUiState.Saving
+                    enabled = uiState !is ApprovalUiState.Loading
                 ) {
-                    if (uiState is ApprovalUiState.Saving) {
+                    if (uiState is ApprovalUiState.Loading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
                             color = Color.White,

@@ -1,6 +1,5 @@
 package com.localfriday.app.domain.memory
 
-import androidx.paging.PagingSource
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.model.TaskItem
 
@@ -11,5 +10,5 @@ import com.localfriday.app.domain.model.TaskItem
 interface TaskRepository {
     suspend fun save(task: TaskItem): AppResult<Unit>
     suspend fun updateCompletion(taskId: String, isCompleted: Boolean): AppResult<Unit>
-    fun getPendingTasksData(): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<TaskItem>>
+    suspend fun getPendingTasksData(offset: Int, limit: Int): AppResult<List<TaskItem>>
 }

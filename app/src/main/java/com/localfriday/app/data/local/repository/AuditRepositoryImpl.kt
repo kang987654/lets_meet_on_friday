@@ -1,6 +1,5 @@
 package com.localfriday.app.data.local.repository
 
-import androidx.paging.PagingSource
 import com.localfriday.app.core.common.AppError
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.data.local.db.dao.AuditDao
@@ -30,14 +29,22 @@ class AuditRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getPaged(): PagingSource<Int, AuditEvent> {
-        val originalSource = auditDao.getPaged()
-        return MappedPagingSource(originalSource) { it.toDomain() }
+    override suspend fun getPaged(offset: Int, limit: Int): AppResult<List<AuditEvent>> {
+        return try {
+            val entities = auditDao.getPaged(offset, limit)
+            AppResult.Success(entities.map { it.toDomain() })
+        } catch (e: Exception) {
+            AppResult.Failure(AppError.DbReadError("audit_log"))
+        }
     }
 
-    override fun getPagedByType(type: AuditEventType): PagingSource<Int, AuditEvent> {
-        val originalSource = auditDao.getPagedByType(type.name)
-        return MappedPagingSource(originalSource) { it.toDomain() }
+    override suspend fun getPagedByType(type: AuditEventType, offset: Int, limit: Int): AppResult<List<AuditEvent>> {
+        return try {
+            val entities = auditDao.getPagedByType(type.name, offset, limit)
+            AppResult.Success(entities.map { it.toDomain() })
+        } catch (e: Exception) {
+            AppResult.Failure(AppError.DbReadError("audit_log"))
+        }
     }
 }
 
