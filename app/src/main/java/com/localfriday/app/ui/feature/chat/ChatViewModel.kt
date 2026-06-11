@@ -23,6 +23,7 @@ import javax.inject.Inject
 
 import com.localfriday.app.domain.usecase.ResumeActionUseCase
 import com.localfriday.app.platform.share.ShareIntentHandler
+import com.localfriday.app.runtime.metrics.RuntimeMetricsCollector
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
@@ -32,7 +33,8 @@ class ChatViewModel @Inject constructor(
     private val sendChatMessageUseCase: SendChatMessageUseCase,
     private val resumeActionUseCase: ResumeActionUseCase,
     private val approvalCoordinator: ApprovalCoordinator,
-    private val shareIntentHandler: ShareIntentHandler
+    private val shareIntentHandler: ShareIntentHandler,
+    private val runtimeMetricsCollector: RuntimeMetricsCollector
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -52,7 +54,21 @@ class ChatViewModel @Inject constructor(
 
         observePendingApproval()
         observeSharedInput()
+        observeThermalWarning()
         loadMessages()
+    }
+
+    private fun observeThermalWarning() {
+        viewModelScope.launch {
+            runtimeMetricsCollector.thermalWarning.collectLatest { warning ->
+                val warningMessage = when (warning) {
+                    is com.localfriday.app.core.common.AppError.TemperatureCritical -> "발열이 심하여 기기 보호를 위해 성능이 제한됩니다."
+                    is com.localfriday.app.core.common.AppError.TemperatureWarning -> "발열로 인해 추론이 약간 지연될 수 있습니다."
+                    else -> null
+                }
+                _uiState.update { it.copy(warningMessage = warningMessage) }
+            }
+        }
     }
 
     private fun observeSharedInput() {

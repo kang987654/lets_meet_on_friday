@@ -91,15 +91,36 @@ fun ChatScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
-            state = listState,
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (uiState.warningMessage != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(androidx.compose.ui.graphics.Color(0xFFFFF3E0)) // Soft Orange
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = uiState.warningMessage!!,
+                        color = androidx.compose.ui.graphics.Color(0xFFE65100), // Dark Orange
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                    )
+                }
+            }
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             items(uiState.messages) { message ->
                 if (message.role == ChatMessage.Role.USER) {
                     ChatBubbleUser(text = message.content)
@@ -119,8 +140,9 @@ fun ChatScreen(
                     TypingIndicator()
                 }
             }
-        }
-    }
+        } // end LazyColumn
+        } // end Column
+    } // end Scaffold
 
     if (uiState.pendingApproval != null) {
         val request = uiState.pendingApproval!!

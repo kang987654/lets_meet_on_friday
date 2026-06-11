@@ -14,9 +14,12 @@ import javax.inject.Singleton
 class ImageInputAdapter @Inject constructor() {
 
     companion object {
-        private const val MAX_IMAGE_DIMENSION = 1024
+        private const val MAX_IMAGE_DIMENSION = 512 // Gemma Vision 권장 해상도에 맞춰 축소
         private const val JPEG_QUALITY = 85
     }
+
+    // GC 스파이크 방지를 위한 재사용 가능한 비트맵 풀 (inBitmap)
+    private var reusableBitmap: Bitmap? = null
 
     /**
      * Bitmap을 적절한 크기로 리사이즈 후 압축하여 ByteArray로 변환합니다.
@@ -39,12 +42,27 @@ class ImageInputAdapter @Inject constructor() {
     }
 
     /**
-     * ByteArray를 Bitmap 객체로 디코딩합니다.
+     * ByteArray를 Bitmap 객체로 디코딩합니다. RGB_565 및 inBitmap을 활용하여 메모리 효율을 높입니다.
      */
     suspend fun decodeImage(byteArray: ByteArray): AppResult<Bitmap> = withContext(Dispatchers.Default) {
         try {
-            val bitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
+            val options = BitmapFactory.Options().apply {
+                inPreferredConfig = Bitmap.Config.RGB_565
+                inMutable = true
+                reusableBitmap?.let {
+                    // inBitmap을 위한 메모리 크기 검증
+                    val optionsBounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, optionsBounds)
+                    val requiredBytes = optionsBounds.outWidth * optionsBounds.outHeight * 2 // RGB_565 = 2 bytes/pixel
+                    if (it.allocationByteCount >= requiredBytes) {
+                        inBitmap = it
+                    }
+                }
+            }
+
+            val bitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, options)
             if (bitmap != null) {
+                reusableBitmap = bitmap
                 AppResult.Success(bitmap)
             } else {
                 AppResult.Failure(AppError.UnsupportedImageFormat("디코딩 결과가 null입니다."))

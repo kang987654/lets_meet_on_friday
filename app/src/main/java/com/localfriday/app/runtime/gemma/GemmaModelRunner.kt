@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
+import com.localfriday.app.di.LLMDispatcher
 
 import com.localfriday.app.runtime.metrics.RuntimeMetricsCollector
 
@@ -19,7 +21,8 @@ import com.localfriday.app.runtime.metrics.RuntimeMetricsCollector
 class GemmaModelRunner @Inject constructor(
     @ApplicationContext private val context: Context,
     private val runtimeManager: GemmaRuntimeManager,
-    private val metricsCollector: RuntimeMetricsCollector
+    private val metricsCollector: RuntimeMetricsCollector,
+    @LLMDispatcher private val llmDispatcher: CoroutineDispatcher
 ) : ModelRunner {
 
     override val loadState: StateFlow<ModelLoadState> = runtimeManager.loadState
@@ -29,7 +32,7 @@ class GemmaModelRunner @Inject constructor(
     override suspend fun generate(
         prompt: String,
         onToken: ((String) -> Unit)?
-    ): AppResult<String> = withContext(Dispatchers.Default) {
+    ): AppResult<String> = withContext(llmDispatcher) {
         val currentState = loadState.value
         if (currentState !is ModelLoadState.Ready) {
             return@withContext AppResult.Failure(AppError.ModelNotReady("Model is not ready"))
@@ -38,11 +41,8 @@ class GemmaModelRunner @Inject constructor(
         try {
             ensureInferenceInitialized(currentState.modelInfo.modelPath, onToken)
             
-            // 추론 전 발열 점검
+            // 추론 전 발열 점검: 에러(Warning/Critical)가 있어도 Graceful Degradation을 위해 추론은 진행함
             val preconditionResult = metricsCollector.checkPreconditions()
-            if (preconditionResult is AppResult.Failure) {
-                return@withContext AppResult.Failure(preconditionResult.error)
-            }
 
             // 연속 추론 쿨다운
             metricsCollector.handleCooldownIfNecessary()
@@ -64,6 +64,14 @@ class GemmaModelRunner @Inject constructor(
                     for (token in channel) {
                         onToken.invoke(token)
                         finalResponse += token
+
+                        // 다이내믹 발열 완화(Soft Mitigation) 및 우아한 성능 저하(Graceful Degradation)
+                        val currentTemp = metricsCollector.getCurrentTemp()
+                        if (currentTemp >= 48.0f) {
+                            kotlinx.coroutines.delay(50) // 극단적 쿨다운 제한
+                        } else if (currentTemp >= 43.0f) {
+                            kotlinx.coroutines.delay(15) // Soft mitigation
+                        }
                     }
                 } catch (e: Exception) {
                     error = e
@@ -71,9 +79,7 @@ class GemmaModelRunner @Inject constructor(
 
                 val durationMs = System.currentTimeMillis() - startTime
                 val metricsResult = metricsCollector.recordEnd(durationMs)
-                if (metricsResult is AppResult.Failure && metricsResult.error is AppError.TemperatureCritical) {
-                    return@withContext AppResult.Failure(metricsResult.error)
-                }
+                // 발열이 심해도 중단하지 않고 정상 응답처럼 반환 (UI에서 경고 표출은 별도 처리)
                 
                 if (error != null) {
                     AppResult.Failure(AppError.ModelInferenceError(error.message ?: "스트리밍 중 에러 발생"))
@@ -85,12 +91,7 @@ class GemmaModelRunner @Inject constructor(
                 val response = llmInference?.generateResponse(prompt)
                 
                 val durationMs = System.currentTimeMillis() - startTime
-                val metricsResult = metricsCollector.recordEnd(durationMs)
-
-                // 48도 이상 중단 예외 처리
-                if (metricsResult is AppResult.Failure && metricsResult.error is AppError.TemperatureCritical) {
-                    return@withContext AppResult.Failure(metricsResult.error)
-                }
+                metricsCollector.recordEnd(durationMs)
 
                 if (response != null) {
                     AppResult.Success(response)
