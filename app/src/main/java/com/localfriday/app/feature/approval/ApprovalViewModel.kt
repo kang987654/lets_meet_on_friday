@@ -22,7 +22,7 @@ class ApprovalViewModel @Inject constructor(
 
     fun approve(sessionId: String, draft: CalendarDraft) {
         viewModelScope.launch {
-            _uiState.value = ApprovalUiState.Saving
+            _uiState.value = ApprovalUiState.Loading
             when (val result = approveAndSaveEventUseCase(sessionId, draft, isApproved = true)) {
                 is AppResult.Success -> {
                     _uiState.value = ApprovalUiState.Success
@@ -36,7 +36,7 @@ class ApprovalViewModel @Inject constructor(
 
     fun reject(sessionId: String, draft: CalendarDraft) {
         viewModelScope.launch {
-            _uiState.value = ApprovalUiState.Saving
+            _uiState.value = ApprovalUiState.Loading
             // 거절 시 오류가 나더라도 사용자는 화면을 닫는 것이 목적이므로 보통 Success 처리됩니다.
             when (val result = approveAndSaveEventUseCase(sessionId, draft, isApproved = false)) {
                 is AppResult.Success -> {

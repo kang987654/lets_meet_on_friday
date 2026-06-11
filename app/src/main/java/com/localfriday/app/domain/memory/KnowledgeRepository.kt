@@ -1,6 +1,5 @@
 package com.localfriday.app.domain.memory
 
-import androidx.paging.PagingSource
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.model.KnowledgeNote
 
@@ -14,5 +13,5 @@ interface KnowledgeRepository {
     suspend fun search(query: String, limit: Int = 10): AppResult<List<KnowledgeNote>>
     suspend fun searchRecent(limit: Int = 10): AppResult<List<KnowledgeNote>>
     suspend fun searchByTags(tags: List<String>, limit: Int = 10): AppResult<List<KnowledgeNote>>
-    fun getPagedData(): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<KnowledgeNote>>
+    suspend fun getPagedData(offset: Int, limit: Int): AppResult<List<KnowledgeNote>>
 }

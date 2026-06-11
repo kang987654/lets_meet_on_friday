@@ -7,6 +7,7 @@ sealed class AppError {
     data class ModelInferenceError(val reason: String) : AppError()
 
     data class DbWriteError(val table: String) : AppError()
+    data class DbReadError(val table: String) : AppError()
     data class DbMigrationError(val from: Int, val to: Int) : AppError()
 
     data class PermissionDenied(val permission: String) : AppError()

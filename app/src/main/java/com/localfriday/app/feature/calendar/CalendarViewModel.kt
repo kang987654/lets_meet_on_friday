@@ -38,11 +38,7 @@ class CalendarViewModel @Inject constructor(
                     }
                 }
                 is AppResult.Failure -> {
-                    if (result.error is AppError.PermissionDenied) {
-                        _uiState.value = CalendarUiState.PermissionRequired
-                    } else {
-                        _uiState.value = CalendarUiState.Error(result.error.toString())
-                    }
+                    _uiState.value = CalendarUiState.Error(result.error)
                 }
             }
         }

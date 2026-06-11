@@ -1,13 +1,11 @@
 package com.localfriday.app.data.local.repository
 
-import androidx.paging.PagingSource
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.data.local.db.dao.KnowledgeDao
 import com.localfriday.app.data.local.db.entity.KnowledgeEntity
 import com.localfriday.app.domain.memory.KnowledgeRepository
 import com.localfriday.app.domain.model.KnowledgeNote
-import kotlinx.coroutines.flow.map
-import androidx.paging.map
+
 import javax.inject.Inject
 
 class KnowledgeRepositoryImpl @Inject constructor(
@@ -63,14 +61,12 @@ class KnowledgeRepositoryImpl @Inject constructor(
         onFailure = { AppResult.Failure(com.localfriday.app.core.common.AppError.SearchError(it.message ?: "search err")) }
     )
 
-    override fun getPagedData(): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<KnowledgeNote>> {
-        return androidx.paging.Pager(
-            config = androidx.paging.PagingConfig(pageSize = 20),
-            pagingSourceFactory = { dao.getPaged() }
-        ).flow.map { pagingData ->
-            pagingData.map { it.toDomain() }
-        }
-    }
+    override suspend fun getPagedData(offset: Int, limit: Int): AppResult<List<KnowledgeNote>> = runCatching {
+        dao.getPaged(offset, limit).map { it.toDomain() }
+    }.fold(
+        onSuccess = { AppResult.Success(it) },
+        onFailure = { AppResult.Failure(com.localfriday.app.core.common.AppError.DbReadError("knowledge_note")) }
+    )
 
     private fun KnowledgeEntity.toDomain(): KnowledgeNote {
         return KnowledgeNote(

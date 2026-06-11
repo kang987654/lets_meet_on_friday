@@ -1,5 +1,6 @@
 package com.localfriday.app.feature.calendar
 
+import com.localfriday.app.core.common.AppError
 import com.localfriday.app.domain.model.ScheduleData
 
 sealed class CalendarUiState {
@@ -7,6 +8,5 @@ sealed class CalendarUiState {
     object Loading : CalendarUiState()
     data class Success(val scheduleData: ScheduleData) : CalendarUiState()
     object Empty : CalendarUiState()
-    data class Error(val message: String) : CalendarUiState()
-    object PermissionRequired : CalendarUiState()
+    data class Error(val error: AppError) : CalendarUiState()
 }

@@ -1,6 +1,5 @@
 package com.localfriday.app.domain.memory
 
-import androidx.paging.PagingSource
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.core.common.Constants
 import com.localfriday.app.domain.model.ChatMessage
@@ -15,5 +14,5 @@ interface ConversationRepository {
         sessionId: String,
         limit: Int = Constants.MAX_CONVERSATION_TURNS
     ): AppResult<List<ChatMessage>>
-    fun getPagedBySession(sessionId: String): PagingSource<Int, ChatMessage>
+    suspend fun getPagedBySession(sessionId: String, offset: Int, limit: Int): AppResult<List<ChatMessage>>
 }

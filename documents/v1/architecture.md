@@ -896,6 +896,8 @@ sealed class UiState<out T> {
     object Empty : UiState<Nothing>()
     data class Error(val error: AppError) : UiState<Nothing>()
 }
+
+> **예외 조항 (Exception):** `ChatUiState`는 화면의 복합 상태(입력 필드, 채팅 리스트, 첨부 파일 등) 동시 관리 특수성을 고려하여 5-state sealed class 대신 단일 `data class` 구현을 허용한다.
 ```
 
 ### 7-2. ViewModel 상태 관리 패턴

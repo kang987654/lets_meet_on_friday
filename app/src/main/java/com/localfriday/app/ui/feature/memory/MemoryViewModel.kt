@@ -35,10 +35,24 @@ class MemoryViewModel @Inject constructor(
 
     // Paging Data Flows
     val knowledgePagingData: Flow<PagingData<KnowledgeNote>> =
-        knowledgeRepository.getPagedData().cachedIn(viewModelScope)
+        androidx.paging.Pager(androidx.paging.PagingConfig(pageSize = 20)) {
+            DefaultPagingSource { offset, limit ->
+                when (val result = knowledgeRepository.getPagedData(offset, limit)) {
+                    is AppResult.Success -> result.data
+                    is AppResult.Failure -> throw Exception(result.error.toString())
+                }
+            }
+        }.flow.cachedIn(viewModelScope)
 
     val taskPagingData: Flow<PagingData<TaskItem>> =
-        taskRepository.getPendingTasksData().cachedIn(viewModelScope)
+        androidx.paging.Pager(androidx.paging.PagingConfig(pageSize = 20)) {
+            DefaultPagingSource { offset, limit ->
+                when (val result = taskRepository.getPendingTasksData(offset, limit)) {
+                    is AppResult.Success -> result.data
+                    is AppResult.Failure -> throw Exception(result.error.toString())
+                }
+            }
+        }.flow.cachedIn(viewModelScope)
 
     fun onFilterSelected(filterType: MemoryFilterType) {
         _uiState.update { it.copy(selectedFilter = filterType) }
@@ -61,7 +75,7 @@ class MemoryViewModel @Inject constructor(
 
     fun importData(uri: android.net.Uri, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            when (val result = importMemoryUseCase(uri)) {
+            when (val result = importMemoryUseCase(uri.toString())) {
                 is AppResult.Success -> onSuccess()
                 is AppResult.Failure -> onError(result.error.toString())
             }

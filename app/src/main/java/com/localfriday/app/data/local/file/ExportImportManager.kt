@@ -74,7 +74,8 @@ class ExportImportManager @Inject constructor(
         zos.closeEntry()
     }
 
-    suspend fun restoreFromZip(zipUri: android.net.Uri): AppResult<Unit> = withContext(Dispatchers.IO) {
+    suspend fun restoreFromZip(zipUriString: String): AppResult<Unit> = withContext(Dispatchers.IO) {
+        val zipUri = android.net.Uri.parse(zipUriString)
         val tempDir = File(context.cacheDir, "import_temp_${System.currentTimeMillis()}")
         try {
             if (!tempDir.exists() && !tempDir.mkdirs()) {
