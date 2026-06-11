@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableList
 import java.util.UUID
 import javax.inject.Inject
 
@@ -99,7 +100,7 @@ class ChatViewModel @Inject constructor(
             val result = conversationRepository.getRecentBySession(sessionId)
             if (result is AppResult.Success) {
                 _uiState.update { state -> 
-                    state.copy(messages = result.data) 
+                    state.copy(messages = result.data.toImmutableList()) 
                 }
             }
         }
@@ -120,7 +121,7 @@ class ChatViewModel @Inject constructor(
         
         _uiState.update { state -> 
             state.copy(
-                messages = state.messages + tempUserMessage,
+                messages = (state.messages + tempUserMessage).toImmutableList(),
                 isInFlight = true,
                 error = null
             )
@@ -183,7 +184,7 @@ class ChatViewModel @Inject constructor(
                             inputType = InputType.TEXT,
                             createdAt = System.currentTimeMillis()
                         )
-                        _uiState.update { it.copy(messages = it.messages + assistantMessage) }
+                        _uiState.update { it.copy(messages = (it.messages + assistantMessage).toImmutableList()) }
                     }
                     is AgentResult.ActionRequired -> {
                         // approvalCoordinator가 플로우에 값을 방출하므로 자동 처리됨
@@ -211,7 +212,7 @@ class ChatViewModel @Inject constructor(
                 inputType = InputType.TEXT,
                 createdAt = System.currentTimeMillis()
             )
-            state.copy(messages = state.messages + sysMessage)
+            state.copy(messages = (state.messages + sysMessage).toImmutableList())
         }
     }
 

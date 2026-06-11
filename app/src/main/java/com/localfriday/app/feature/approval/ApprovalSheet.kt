@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.localfriday.app.domain.model.CalendarDraft
 
 val SkyBlue = Color(0xFF5BC2E7)
@@ -26,7 +27,7 @@ fun ApprovalSheet(
     onDismiss: () -> Unit,
     viewModel: ApprovalViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(uiState) {
         if (uiState is ApprovalUiState.Success) {

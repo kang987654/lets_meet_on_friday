@@ -3,6 +3,8 @@ package com.localfriday.app.domain.memory
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.model.AuditEvent
 import com.localfriday.app.domain.model.AuditEventType
+import kotlinx.coroutines.flow.Flow
+import androidx.paging.PagingData
 
 /**
  * [v0] 감사 로그 저장소
@@ -10,6 +12,6 @@ import com.localfriday.app.domain.model.AuditEventType
  */
 interface AuditRepository {
     suspend fun save(event: AuditEvent): AppResult<Unit>
-    suspend fun getPaged(offset: Int, limit: Int): AppResult<List<AuditEvent>>
-    suspend fun getPagedByType(type: AuditEventType, offset: Int, limit: Int): AppResult<List<AuditEvent>>
+    fun getPaged(): Flow<PagingData<AuditEvent>>
+    fun getPagedByType(type: AuditEventType): Flow<PagingData<AuditEvent>>
 }

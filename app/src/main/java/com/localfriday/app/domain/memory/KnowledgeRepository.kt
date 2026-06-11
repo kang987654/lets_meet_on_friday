@@ -2,6 +2,8 @@ package com.localfriday.app.domain.memory
 
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.model.KnowledgeNote
+import kotlinx.coroutines.flow.Flow
+import androidx.paging.PagingData
 
 /**
  * [v1] 확장: 장기 메모리(지식) 관리 저장소
@@ -13,5 +15,5 @@ interface KnowledgeRepository {
     suspend fun search(query: String, limit: Int = 10): AppResult<List<KnowledgeNote>>
     suspend fun searchRecent(limit: Int = 10): AppResult<List<KnowledgeNote>>
     suspend fun searchByTags(tags: List<String>, limit: Int = 10): AppResult<List<KnowledgeNote>>
-    suspend fun getPagedData(offset: Int, limit: Int): AppResult<List<KnowledgeNote>>
+    fun getPagedData(): Flow<PagingData<KnowledgeNote>>
 }
