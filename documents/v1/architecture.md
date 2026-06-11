@@ -42,7 +42,7 @@ Modular Monolith 구조를 채택한다.
 
 핵심 원칙:
 - 레이어 간 의존은 **단방향 하향**만 허용
-- Domain 레이어는 Android 프레임워크 의존성 **금지**
+- Domain 레이어는 Android 프레임워크 의존성 **금지** (core, domain, data 멀티 모듈 분리 원칙 적용)
 - 각 레이어는 **인터페이스**를 통해서만 하위 레이어와 통신
 - `api_spec.yaml`을 **내부 계약의 source of truth**로 사용한다
 - AI agent가 **파일 단위**로 작업 가능한 크기로 분리한다
@@ -418,7 +418,7 @@ Domain 레이어의 인터페이스만 사용한다.
 
 | 파일 | 책임 |
 |---|---|
-| `LocalFridayDatabase.kt` | Room DB 진입점 |
+| `LocalFridayDatabase.kt` | Room DB 진입점 (WAL 모드 활성화) |
 | `dao/ProfileDao.kt` | profiles 테이블 접근 |
 | `dao/ConversationDao.kt` | conversations 테이블 접근 |
 | `dao/TaskDao.kt` | tasks 테이블 접근 (v1) |
@@ -442,7 +442,7 @@ Domain 레이어의 인터페이스만 사용한다.
 
 | 파일 | 책임 |
 |---|---|
-| `ExportImportManager.kt` | export/import 처리 (v1) |
+| `ExportImportManager.kt` | export/import 처리 (v1), WAL Checkpoint TRUNCATE 수행 |
 | `ExportManifest.kt` | export_manifest.json 데이터 클래스 |
 
 #### `data/repository/`
@@ -461,8 +461,8 @@ Domain 레이어의 인터페이스만 사용한다.
 
 | 파일 | 책임 |
 |---|---|
-| `gemma/GemmaModelRunner.kt` | `ModelRunner` 구현 |
-| `gemma/GemmaRuntimeManager.kt` | 모델 로드 / 언로드 / 상태 관리 |
+| `gemma/GemmaModelRunner.kt` | `ModelRunner` 구현, `@LLMDispatcher` 활용 |
+| `gemma/GemmaRuntimeManager.kt` | 모델 로드 / 언로드(`onTrimMemory` 연동) / 상태 관리 |
 | `gemma/FakeModelRunner.kt` | 테스트용 FakeModelRunner |
 | `multimodal/ImageInputAdapter.kt` | 이미지 URI → 리사이즈 → ByteArray 변환 |
 | `metrics/RuntimeMetricsCollector.kt` | 추론 시간 / 온도 / 연속 횟수 기록 (v1) |
