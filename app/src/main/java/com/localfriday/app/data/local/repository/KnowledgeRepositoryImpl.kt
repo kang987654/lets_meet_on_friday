@@ -5,6 +5,12 @@ import com.localfriday.app.data.local.db.dao.KnowledgeDao
 import com.localfriday.app.data.local.db.entity.KnowledgeEntity
 import com.localfriday.app.domain.memory.KnowledgeRepository
 import com.localfriday.app.domain.model.KnowledgeNote
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.map
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 import javax.inject.Inject
 
@@ -61,12 +67,15 @@ class KnowledgeRepositoryImpl @Inject constructor(
         onFailure = { AppResult.Failure(com.localfriday.app.core.common.AppError.SearchError(it.message ?: "search err")) }
     )
 
-    override suspend fun getPagedData(offset: Int, limit: Int): AppResult<List<KnowledgeNote>> = runCatching {
-        dao.getPaged(offset, limit).map { it.toDomain() }
-    }.fold(
-        onSuccess = { AppResult.Success(it) },
-        onFailure = { AppResult.Failure(com.localfriday.app.core.common.AppError.DbReadError("knowledge_note")) }
-    )
+    override fun getPagedData(): Flow<PagingData<KnowledgeNote>> {
+        return Pager(
+            config = PagingConfig(pageSize = 20, enablePlaceholders = false)
+        ) {
+            dao.getPaged()
+        }.flow.map { pagingData ->
+            pagingData.map { it.toDomain() }
+        }
+    }
 
     private fun KnowledgeEntity.toDomain(): KnowledgeNote {
         return KnowledgeNote(

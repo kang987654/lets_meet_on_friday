@@ -5,6 +5,9 @@ import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.memory.AuditRepository
 import com.localfriday.app.domain.model.AuditEvent
 import com.localfriday.app.domain.model.AuditEventType
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import androidx.paging.PagingData
 
 class FakeAuditRepository : AuditRepository {
     private val events = mutableListOf<AuditEvent>()
@@ -14,13 +17,11 @@ class FakeAuditRepository : AuditRepository {
         return AppResult.Success(Unit)
     }
 
-    override suspend fun getPaged(offset: Int, limit: Int): AppResult<List<AuditEvent>> {
-        val data = events.sortedByDescending { it.timestamp }.drop(offset).take(limit)
-        return AppResult.Success(data)
+    override fun getPaged(): Flow<PagingData<AuditEvent>> {
+        return flowOf(PagingData.empty())
     }
 
-    override suspend fun getPagedByType(type: AuditEventType, offset: Int, limit: Int): AppResult<List<AuditEvent>> {
-        val data = events.filter { it.type == type }.sortedByDescending { it.timestamp }.drop(offset).take(limit)
-        return AppResult.Success(data)
+    override fun getPagedByType(type: AuditEventType): Flow<PagingData<AuditEvent>> {
+        return flowOf(PagingData.empty())
     }
 }

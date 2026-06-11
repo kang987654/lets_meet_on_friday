@@ -35,14 +35,7 @@ class MemoryViewModel @Inject constructor(
 
     // Paging Data Flows
     val knowledgePagingData: Flow<PagingData<KnowledgeNote>> =
-        androidx.paging.Pager(androidx.paging.PagingConfig(pageSize = 20)) {
-            DefaultPagingSource { offset, limit ->
-                when (val result = knowledgeRepository.getPagedData(offset, limit)) {
-                    is AppResult.Success -> result.data
-                    is AppResult.Failure -> throw Exception(result.error.toString())
-                }
-            }
-        }.flow.cachedIn(viewModelScope)
+        knowledgeRepository.getPagedData().cachedIn(viewModelScope)
 
     val taskPagingData: Flow<PagingData<TaskItem>> =
         androidx.paging.Pager(androidx.paging.PagingConfig(pageSize = 20)) {

@@ -4,6 +4,8 @@ import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.model.ScheduleData
 import com.localfriday.app.domain.tool.CalendarTool
 import com.localfriday.app.domain.modelrunner.ModelRunner
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -35,7 +37,7 @@ class GetTodayScheduleUseCase @Inject constructor(
 
         if (events.isEmpty()) {
             return@withContext AppResult.Success(
-                ScheduleData(events = emptyList(), summary = null, rangeType = range)
+                ScheduleData(events = persistentListOf(), summary = null, rangeType = range)
             )
         }
 
@@ -59,7 +61,7 @@ class GetTodayScheduleUseCase @Inject constructor(
 
         AppResult.Success(
             ScheduleData(
-                events = events,
+                events = events.toImmutableList(),
                 summary = summary,
                 rangeType = range
             )

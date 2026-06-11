@@ -900,7 +900,12 @@ sealed class UiState<out T> {
 > **예외 조항 (Exception):** `ChatUiState`는 화면의 복합 상태(입력 필드, 채팅 리스트, 첨부 파일 등) 동시 관리 특수성을 고려하여 5-state sealed class 대신 단일 `data class` 구현을 허용한다.
 ```
 
-### 7-2. ViewModel 상태 관리 패턴
+### 7-2. UI 렌더링 성능 최적화 (Compose)
+- **상태 관찰 (Lifecycle)**: 백그라운드 전환 시 메모리 및 배터리 누수를 방지하기 위해, 모든 Compose Screen에서의 Flow 상태 수집은 반드시 `collectAsStateWithLifecycle()`을 사용한다.
+- **안정성 (Recomposition)**: `List`나 `Map`과 같은 불안정(Unstable) 자료형은 Compose 컴파일러가 상태 변경 여부를 판단할 수 없으므로, 데이터 변경 시마다 전체 UI가 재구성되는 원인이 된다. UI 모델(`UiState`) 내부의 컬렉션은 반드시 `kotlinx-collections-immutable`의 `ImmutableList` 등을 활용하여 작성한다.
+- **대용량 리스트 렌더링**: AuditLog, Knowledge 등 대규모 데이터를 UI 리스트로 렌더링할 경우, 메모리 초과(OOM)를 방지하기 위해 Room DB의 `PagingSource`와 연동하여 `Flow<PagingData<T>>`를 반환하고, Compose에서는 `collectAsLazyPagingItems()`로 수집하여 표시한다.
+
+### 7-3. ViewModel 상태 관리 패턴
 
 ```kotlin
 class ChatViewModel @Inject constructor(

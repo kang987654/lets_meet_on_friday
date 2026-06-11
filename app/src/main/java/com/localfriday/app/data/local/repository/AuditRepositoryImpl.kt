@@ -1,5 +1,9 @@
 package com.localfriday.app.data.local.repository
 
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.map
 import com.localfriday.app.core.common.AppError
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.data.local.db.dao.AuditDao
@@ -7,6 +11,8 @@ import com.localfriday.app.data.local.db.entity.AuditEntity
 import com.localfriday.app.domain.memory.AuditRepository
 import com.localfriday.app.domain.model.AuditEvent
 import com.localfriday.app.domain.model.AuditEventType
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class AuditRepositoryImpl @Inject constructor(
@@ -29,21 +35,23 @@ class AuditRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getPaged(offset: Int, limit: Int): AppResult<List<AuditEvent>> {
-        return try {
-            val entities = auditDao.getPaged(offset, limit)
-            AppResult.Success(entities.map { it.toDomain() })
-        } catch (e: Exception) {
-            AppResult.Failure(AppError.DbReadError("audit_log"))
+    override fun getPaged(): Flow<PagingData<AuditEvent>> {
+        return Pager(
+            config = PagingConfig(pageSize = 20, enablePlaceholders = false)
+        ) {
+            auditDao.getPaged()
+        }.flow.map { pagingData ->
+            pagingData.map { it.toDomain() }
         }
     }
 
-    override suspend fun getPagedByType(type: AuditEventType, offset: Int, limit: Int): AppResult<List<AuditEvent>> {
-        return try {
-            val entities = auditDao.getPagedByType(type.name, offset, limit)
-            AppResult.Success(entities.map { it.toDomain() })
-        } catch (e: Exception) {
-            AppResult.Failure(AppError.DbReadError("audit_log"))
+    override fun getPagedByType(type: AuditEventType): Flow<PagingData<AuditEvent>> {
+        return Pager(
+            config = PagingConfig(pageSize = 20, enablePlaceholders = false)
+        ) {
+            auditDao.getPagedByType(type.name)
+        }.flow.map { pagingData ->
+            pagingData.map { it.toDomain() }
         }
     }
 }

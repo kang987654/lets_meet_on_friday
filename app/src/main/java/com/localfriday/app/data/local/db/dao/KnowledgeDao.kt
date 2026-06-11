@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.paging.PagingSource
 import com.localfriday.app.data.local.db.entity.KnowledgeEntity
 
 @Dao
@@ -23,6 +24,6 @@ interface KnowledgeDao {
     @Query("SELECT * FROM knowledge_note WHERE tags LIKE '%' || :tag || '%' ORDER BY createdAt DESC LIMIT :limit")
     suspend fun searchByTags(tag: String, limit: Int): List<KnowledgeEntity>
 
-    @Query("SELECT * FROM knowledge_note ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
-    suspend fun getPaged(offset: Int, limit: Int): List<KnowledgeEntity>
+    @Query("SELECT * FROM knowledge_note ORDER BY createdAt DESC")
+    fun getPaged(): PagingSource<Int, KnowledgeEntity>
 }
