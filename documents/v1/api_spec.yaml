@@ -82,6 +82,8 @@ info:
     - `AppError.ImportManifestMismatch` → `IMPORT_MANIFEST_MISMATCH`
     - `AppError.ImportSchemaMismatch` → `IMPORT_SCHEMA_MISMATCH`
     - `AppError.InsufficientStorage` → `INSUFFICIENT_STORAGE`
+    - `AppError.TemperatureWarning` → `TEMPERATURE_WARNING`
+    - `AppError.TemperatureCritical` → `TEMPERATURE_CRITICAL`
 
   contact:
     name: Local Friday Dev
@@ -127,7 +129,7 @@ paths:
 
         **흐름**:
         1. 입력 유효성 검사 (빈 입력 / 중복 전송 차단)
-        2. ContextBuilder → v0: 대화 5턴 / v1: 대화 5턴 + 지식 3개 조합
+        2. ContextBuilder → Token-based Sliding Window를 적용하여 최근 대화와 지식을 3500 토큰 한도 내에서 조합
         3. PromptAssembler → 4블록 프롬프트 조립
         4. ModelRunner.generate() 호출
         5. ResponseParser → 응답 타입 판별
