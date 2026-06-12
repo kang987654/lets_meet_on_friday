@@ -11,6 +11,6 @@ object Constants {
     const val THERMAL_SHUTDOWN_CELSIUS = 48f
     const val THERMAL_COOLDOWN_INFERENCE_COUNT = 5
     const val MODEL_DIR_NAME = "models"
-    const val DEFAULT_MODEL_FILENAME = "gemma4-e4b-it-q4.litertlm"
+    const val DEFAULT_MODEL_FILENAME = "gemma-4-e4b-it-int4.litertlm"
     const val CALENDAR_DRAFT_MIN_CONFIDENCE = 0.7f
 }

@@ -18,6 +18,7 @@ class SendChatMessageUseCase @Inject constructor(
         sessionId: String, 
         message: String,
         imageBytes: ByteArray? = null,
+        documentText: String? = null,
         onToken: ((String) -> Unit)? = null
     ): AppResult<AgentResult> {
         val trimmedMessage = message.trim()
@@ -37,6 +38,7 @@ class SendChatMessageUseCase @Inject constructor(
             sessionId = sessionId,
             message = trimmedMessage,
             imageBytes = imageBytes,
+            documentText = documentText,
             onToken = onToken
         )
         

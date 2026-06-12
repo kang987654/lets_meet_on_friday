@@ -46,7 +46,20 @@ class AssistantOrchestrator @Inject constructor(
         // 2. 의도 분류 (v0에서는 로직 분기보다 힌트로만 사용됨)
         val intent = intentClassifier.classify(request.message)
 
-        // 3. 컨텍스트 구성
+        // 3. 문서 텍스트가 있다면 SYSTEM 메시지로 저장하여 프롬프트에 합류시킴
+        if (request.documentText != null) {
+            val docMessage = ChatMessage(
+                id = UUID.randomUUID().toString(),
+                sessionId = request.sessionId,
+                role = ChatMessage.Role.SYSTEM,
+                content = request.documentText,
+                inputType = InputType.TEXT,
+                createdAt = System.currentTimeMillis()
+            )
+            conversationRepository.save(docMessage)
+        }
+
+        // 4. 컨텍스트 구성
         val contextRes = contextBuilder.build(request.sessionId)
         val context = when (contextRes) {
             is AppResult.Success -> contextRes.data
@@ -57,12 +70,18 @@ class AssistantOrchestrator @Inject constructor(
         val prompt = promptAssembler.assemble(context, request.message)
 
         // 5. LLM 추론 실행
-        val modelRes = modelRunner.generate(prompt, request.onToken)
+        val modelRes = if (request.imageBytes != null) {
+            modelRunner.generateWithImage(prompt, request.imageBytes)
+        } else {
+            modelRunner.generate(prompt, request.onToken)
+        }
         val rawOutput = when (modelRes) {
             is AppResult.Success -> modelRes.data
             is AppResult.Failure -> {
-                auditTrailService.logError(request.sessionId, "Model execution failed: ${modelRes.error}")
-                return AgentResult.Error(modelRes.error)
+                val errorMsg = "Model execution failed: ${modelRes.error}"
+                auditTrailService.logError(request.sessionId, errorMsg)
+                saveAssistantMessage(request.sessionId, errorMsg)
+                return AgentResult.Text(errorMsg)
             }
         }
         

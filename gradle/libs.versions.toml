@@ -11,6 +11,11 @@ datastore = "1.2.1"
 paging = "3.4.2"
 coroutines = "1.11.0"
 litertlm = "0.13.1"
+playServicesTfliteJava = "16.4.0"
+playServicesTfliteGpu = "16.4.0"
+commonmark = "1.0.0-alpha02"
+richtext = "1.0.0-alpha02"
+lifecycleProcess = "2.8.7"
 
 kotlinx-serialization-json = "1.10.0"
 kotlinx-collections-immutable = "0.3.7"
@@ -66,6 +71,18 @@ androidx-paging-compose = { module = "androidx.paging:paging-compose", version.r
 
 # LiteRT-LM
 litertlm-android = { module = "com.google.ai.edge.litertlm:litertlm-android", version.ref = "litertlm" }
+
+# TFLite GPU Delegate
+play-services-tflite-java = { module = "com.google.android.gms:play-services-tflite-java", version.ref = "playServicesTfliteJava" }
+play-services-tflite-gpu = { module = "com.google.android.gms:play-services-tflite-gpu", version.ref = "playServicesTfliteGpu" }
+play-services-tflite-support = { module = "com.google.android.gms:play-services-tflite-support", version.ref = "playServicesTfliteJava" }
+
+# Compose RichText (Markdown)
+compose-richtext-commonmark = { module = "com.halilibo.compose-richtext:richtext-commonmark", version.ref = "commonmark" }
+compose-richtext-ui-material3 = { module = "com.halilibo.compose-richtext:richtext-ui-material3", version.ref = "richtext" }
+
+# Lifecycle Process
+androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycleProcess" }
 
 # 테스트 / 디버그 보조
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }

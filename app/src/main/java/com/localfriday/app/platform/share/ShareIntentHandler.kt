@@ -15,6 +15,7 @@ import javax.inject.Singleton
 sealed class SharedInput {
     data class Text(val content: String) : SharedInput()
     data class Image(val uri: Uri, val sizeBytes: Long) : SharedInput()
+    data class Document(val uri: Uri, val fileName: String, val textContent: String) : SharedInput()
 }
 
 @Singleton

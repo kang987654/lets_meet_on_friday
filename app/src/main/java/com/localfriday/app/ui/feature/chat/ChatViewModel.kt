@@ -12,6 +12,8 @@ import com.localfriday.app.domain.model.ChatMessage
 import com.localfriday.app.domain.model.InputType
 import com.localfriday.app.domain.usecase.SendChatMessageUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,9 +27,11 @@ import javax.inject.Inject
 import com.localfriday.app.domain.usecase.ResumeActionUseCase
 import com.localfriday.app.platform.share.ShareIntentHandler
 import com.localfriday.app.runtime.metrics.RuntimeMetricsCollector
+import com.localfriday.app.domain.modelrunner.ModelRunner
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val savedStateHandle: SavedStateHandle,
     private val sessionStore: SessionStore,
     private val conversationRepository: ConversationRepository,
@@ -35,28 +39,54 @@ class ChatViewModel @Inject constructor(
     private val resumeActionUseCase: ResumeActionUseCase,
     private val approvalCoordinator: ApprovalCoordinator,
     private val shareIntentHandler: ShareIntentHandler,
-    private val runtimeMetricsCollector: RuntimeMetricsCollector
+    private val runtimeMetricsCollector: RuntimeMetricsCollector,
+    private val modelRunner: ModelRunner
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
-    private val sessionId: String
+    private var sessionId: String = UUID.randomUUID().toString()
 
     init {
-        val savedSessionId = savedStateHandle.get<String>(KEY_SESSION_ID)
-        sessionId = savedSessionId ?: UUID.randomUUID().toString()
-        
-        savedStateHandle[KEY_SESSION_ID] = sessionId
-        _uiState.update { it.copy(sessionId = sessionId) }
         viewModelScope.launch {
-            sessionStore.saveActiveSessionId(sessionId)
+            // Restore previous session if exists to keep local memory context
+            sessionStore.activeSessionIdFlow.collectLatest { storedId ->
+                if (storedId != null) {
+                    sessionId = storedId
+                } else {
+                    sessionId = UUID.randomUUID().toString()
+                    sessionStore.saveActiveSessionId(sessionId)
+                }
+                savedStateHandle[KEY_SESSION_ID] = sessionId
+                _uiState.update { it.copy(sessionId = sessionId) }
+                
+                loadMessages()
+            }
         }
 
         observePendingApproval()
         observeSharedInput()
         observeThermalWarning()
-        loadMessages()
+        observeEngineState()
+    }
+
+    private fun observeEngineState() {
+        viewModelScope.launch {
+            modelRunner.loadState.collectLatest { state ->
+                _uiState.update { it.copy(engineState = state) }
+            }
+        }
+    }
+
+    fun setSharedInput(input: com.localfriday.app.platform.share.SharedInput?) {
+        _uiState.update { it.copy(sharedInput = input) }
+    }
+
+    fun warmUpEngine() {
+        viewModelScope.launch {
+            modelRunner.warmUp()
+        }
     }
 
     private fun observeThermalWarning() {
@@ -109,13 +139,41 @@ class ChatViewModel @Inject constructor(
     fun sendMessage(text: String) {
         if (text.isBlank() || _uiState.value.isInFlight) return
 
+        var imageBytes: ByteArray? = null
+        var documentText: String? = null
+
+        val currentSharedInput = _uiState.value.sharedInput
+        if (currentSharedInput is com.localfriday.app.platform.share.SharedInput.Image) {
+            try {
+                val bitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    android.graphics.ImageDecoder.decodeBitmap(
+                        android.graphics.ImageDecoder.createSource(context.contentResolver, currentSharedInput.uri)
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, currentSharedInput.uri)
+                }
+                
+                // Re-encode to standard JPEG to prevent "unknown image type" error in LiteRT
+                val outputStream = java.io.ByteArrayOutputStream()
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, outputStream)
+                imageBytes = outputStream.toByteArray()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        } else if (currentSharedInput is com.localfriday.app.platform.share.SharedInput.Document) {
+            documentText = "첨부된 문서 내용(${currentSharedInput.fileName}):\n${currentSharedInput.textContent}"
+        }
+
+        clearSharedInput()
+
         // 낙관적 업데이트 (Optimistic Append)
         val tempUserMessage = ChatMessage(
             id = UUID.randomUUID().toString(),
             sessionId = sessionId,
             role = ChatMessage.Role.USER,
-            content = text,
-            inputType = InputType.TEXT,
+            content = text, // UI에서는 원본 text 노출
+            inputType = if (imageBytes != null) InputType.IMAGE else InputType.TEXT,
             createdAt = System.currentTimeMillis()
         )
         
@@ -134,7 +192,9 @@ class ChatViewModel @Inject constructor(
                 
                 val result = sendChatMessageUseCase(
                     sessionId = sessionId, 
-                    message = text,
+                    message = text, // Send original text
+                    imageBytes = imageBytes,
+                    documentText = documentText,
                     onToken = { token ->
                         _uiState.update { state ->
                             val currentText = state.streamingText ?: ""

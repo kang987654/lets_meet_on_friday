@@ -31,15 +31,33 @@ class GemmaRuntimeManager @Inject constructor(
         checkModelFile()
     }
 
+    fun setInitializing() {
+        _loadState.value = ModelLoadState.InitializingEngine
+    }
+
     fun checkModelFile() {
-        val modelsDir = context.getExternalFilesDir("models")
-        if (modelsDir == null) {
-            _loadState.value = ModelLoadState.NotFound("External storage not available/models")
-            return
+        val externalModelsDir = context.getExternalFilesDir("models")
+        val internalModelsDir = File(context.filesDir, "models")
+        
+        var modelFile: File? = null
+
+        // 1. Check external dir first (Android Studio push target usually)
+        if (externalModelsDir != null) {
+            val externalFile = File(externalModelsDir, defaultModelFileName)
+            if (externalFile.exists()) {
+                modelFile = externalFile
+            }
+        }
+        
+        // 2. Check internal dir if not found (standalone push target)
+        if (modelFile == null && internalModelsDir.exists()) {
+            val internalFile = File(internalModelsDir, defaultModelFileName)
+            if (internalFile.exists()) {
+                modelFile = internalFile
+            }
         }
 
-        val modelFile = File(modelsDir, defaultModelFileName)
-        if (modelFile.exists()) {
+        if (modelFile != null) {
             _loadState.value = ModelLoadState.Ready(
                 ModelInfo(
                     modelId = "gemma-4-e4b-it",
@@ -50,7 +68,10 @@ class GemmaRuntimeManager @Inject constructor(
                 )
             )
         } else {
-            _loadState.value = ModelLoadState.NotFound(modelFile.absolutePath)
+            _loadState.value = ModelLoadState.NotFound(
+                externalModelsDir?.absolutePath?.plus("/$defaultModelFileName") 
+                    ?: "Internal/External models directory"
+            )
         }
     }
 }

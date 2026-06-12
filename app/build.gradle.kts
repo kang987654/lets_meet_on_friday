@@ -95,8 +95,18 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.collections.immutable)
 
-    // LiteRT-LM
+    // LiteRT-LM & TFLite
     implementation(libs.litertlm.android)
+    implementation(libs.play.services.tflite.java)
+    implementation(libs.play.services.tflite.gpu)
+    implementation(libs.play.services.tflite.support)
+
+    // Compose RichText
+    implementation(libs.compose.richtext.commonmark)
+    implementation(libs.compose.richtext.ui.material3)
+
+    // Lifecycle
+    implementation(libs.androidx.lifecycle.process)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

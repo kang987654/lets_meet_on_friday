@@ -42,6 +42,10 @@ fun SettingsScreen(
                     CircularProgressIndicator()
                     Text("Checking model state...", modifier = Modifier.padding(top = 8.dp))
                 }
+                is ModelLoadState.InitializingEngine -> {
+                    CircularProgressIndicator()
+                    Text("Initializing AI Engine...", modifier = Modifier.padding(top = 8.dp))
+                }
                 is ModelLoadState.Ready -> {
                     Text(
                         text = "Status: Ready",
@@ -67,7 +71,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "The model file could not be found at the required path. Please download the Gemma 2B IT model and place it in the application's external 'models' directory.",
+                        text = "The model file could not be found at the required path. Please download the Gemma 4 E4B IT model and place it in the application's external or internal 'models' directory.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error
                     )

@@ -23,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -30,6 +31,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
@@ -41,8 +43,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.halilibo.richtext.commonmark.Markdown
+import com.halilibo.richtext.ui.material3.RichText
 import com.localfriday.app.domain.model.ChatMessage
 import com.localfriday.app.ui.feature.voice.VoiceOverlay
 import com.localfriday.app.ui.theme.Hairline
@@ -51,6 +56,14 @@ import com.localfriday.app.ui.theme.MutedText
 import com.localfriday.app.ui.theme.SkyBlue
 import com.localfriday.app.ui.theme.SkyBlueSoft
 import com.localfriday.app.ui.theme.SurfaceCard
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.localfriday.app.platform.share.SharedInput
+import com.localfriday.app.domain.modelrunner.ModelLoadState
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +78,54 @@ fun ChatScreen(
     LaunchedEffect(uiState.messages.size, uiState.isInFlight) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size) // scroll past last item for indicator
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.warmUpEngine()
+    }
+
+    val context = LocalContext.current
+    val contentResolver = context.contentResolver
+    
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val mimeType = contentResolver.getType(uri)
+                if (mimeType?.startsWith("image/") == true) {
+                    contentResolver.openInputStream(uri)?.use { inputStream ->
+                        val bytes = inputStream.readBytes()
+                        val sharedImage = SharedInput.Image(
+                            uri = uri,
+                            sizeBytes = bytes.size.toLong()
+                        )
+                        viewModel.setSharedInput(sharedImage)
+                    }
+                } else {
+                    // Try to read as text document
+                    contentResolver.openInputStream(uri)?.use { inputStream ->
+                        val textContent = inputStream.bufferedReader().use { it.readText() }
+                        // Get file name
+                        var fileName = "document.txt"
+                        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (cursor.moveToFirst() && nameIndex != -1) {
+                                fileName = cursor.getString(nameIndex)
+                            }
+                        }
+                        val sharedDoc = SharedInput.Document(
+                            uri = uri,
+                            fileName = fileName,
+                            textContent = textContent.take(2500) // Limit text to prevent exceeding token bounds
+                        )
+                        viewModel.setSharedInput(sharedDoc)
+                    }
+                }
+            } catch (e: Exception) {
+                // handle error
+            }
         }
     }
 
@@ -88,7 +149,8 @@ fun ChatScreen(
                         viewModel.sendMessage(text)
                     }
                 },
-                onMicClick = { showVoiceOverlay = true }
+                onMicClick = { showVoiceOverlay = true },
+                onAttachClick = { imagePickerLauncher.launch("*/*") }
             )
         }
     ) { innerPadding ->
@@ -97,6 +159,25 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            if (uiState.engineState == ModelLoadState.InitializingEngine) {
+                androidx.compose.material3.LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = SkyBlue
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceCard)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "AI 엔진 초기화 중... 잠시만 기다려 주세요.",
+                        color = MutedText,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+            }
             if (uiState.warningMessage != null) {
                 Box(
                     modifier = Modifier
@@ -221,11 +302,15 @@ fun ChatBubbleAssistant(text: String) {
                 .border(1.dp, Hairline, shape = RoundedCornerShape(18.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
-            Text(
-                text = text,
-                color = Ink,
-                style = MaterialTheme.typography.bodyMedium
-            )
+            CompositionLocalProvider {
+                ProvideTextStyle(
+                    value = MaterialTheme.typography.bodyMedium.copy(color = Ink)
+                ) {
+                    RichText {
+                        Markdown(content = text)
+                    }
+                }
+            }
         }
     }
 }
@@ -257,7 +342,8 @@ fun ChatInputBar(
     sharedInput: com.localfriday.app.platform.share.SharedInput?,
     onClearSharedInput: () -> Unit,
     onSend: (String) -> Unit,
-    onMicClick: () -> Unit
+    onMicClick: () -> Unit,
+    onAttachClick: () -> Unit
 ) {
     var textState by remember { mutableStateOf(TextFieldValue("")) }
 
@@ -296,6 +382,29 @@ fun ChatInputBar(
                     }
                 }
             }
+        } else if (sharedInput is com.localfriday.app.platform.share.SharedInput.Document) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .background(SurfaceCard, shape = RoundedCornerShape(12.dp))
+                    .border(1.dp, Hairline, shape = RoundedCornerShape(12.dp))
+                    .padding(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Document Attached", color = SkyBlue, style = MaterialTheme.typography.bodyMedium)
+                        Text(sharedInput.fileName, color = MutedText, style = MaterialTheme.typography.bodySmall)
+                    }
+                    IconButton(onClick = { onClearSharedInput() }) {
+                        Text("X", color = MutedText)
+                    }
+                }
+            }
         }
 
         Row(
@@ -304,6 +413,22 @@ fun ChatInputBar(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.Bottom
         ) {
+        IconButton(
+            onClick = { onAttachClick() },
+            enabled = !isLoading,
+            modifier = Modifier
+                .padding(end = 8.dp)
+                .size(48.dp)
+                .background(SurfaceCard, shape = RoundedCornerShape(24.dp))
+                .border(1.dp, Hairline, shape = RoundedCornerShape(24.dp))
+        ) {
+            Text(
+                text = "+", 
+                color = if (!isLoading) SkyBlue else MutedText,
+                style = MaterialTheme.typography.titleLarge
+            )
+        }
+
         Box(
             modifier = Modifier
                 .weight(1f)

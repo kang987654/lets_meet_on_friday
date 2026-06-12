@@ -8,6 +8,8 @@ import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.SamplerConfig
+import android.util.Log
 import com.localfriday.app.core.common.AppError
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.modelrunner.ModelLoadState
@@ -17,6 +19,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
@@ -110,16 +113,38 @@ class GemmaModelRunner @Inject constructor(
     override suspend fun generateWithImage(
         prompt: ChatPrompt,
         imageBytes: ByteArray
-    ): AppResult<String> {
-        return AppResult.Failure(AppError.ModelInferenceError("현재 로드된 모델은 멀티모달을 지원하지 않습니다."))
+    ): AppResult<String> = withContext(llmDispatcher) {
+        val currentState = loadState.value
+        if (currentState !is ModelLoadState.Ready) {
+            return@withContext AppResult.Failure(AppError.ModelNotReady("Model is not ready"))
+        }
+
+        try {
+            ensureInferenceInitialized(currentState.modelInfo.modelPath)
+
+            val contentList = mutableListOf<com.google.ai.edge.litertlm.Content>()
+            contentList.add(com.google.ai.edge.litertlm.Content.ImageBytes(imageBytes))
+            contentList.add(com.google.ai.edge.litertlm.Content.Text(prompt.currentInput))
+            
+            val currentConversation = getOrCreateConversation(prompt)
+            val message = currentConversation.sendMessage(com.google.ai.edge.litertlm.Contents.of(*contentList.toTypedArray()))
+            
+            val messageText = message?.contents?.contents?.filterIsInstance<com.google.ai.edge.litertlm.Content.Text>()?.joinToString("") { it.text }
+            if (!messageText.isNullOrEmpty()) {
+                AppResult.Success(messageText)
+            } else {
+                AppResult.Failure(AppError.ModelInferenceError("응답 생성 결과가 null입니다."))
+            }
+        } catch (e: Exception) {
+            AppResult.Failure(AppError.ModelInferenceError("멀티모달 추론 중 오류 발생: ${e.message}"))
+        }
     }
 
     override suspend fun cancel() {
         conversation?.cancelProcess()
     }
 
-    override suspend fun warmUp() {
-    }
+
 
     override fun close() {
         conversation?.close()
@@ -129,15 +154,42 @@ class GemmaModelRunner @Inject constructor(
         currentSessionId = null
     }
 
+    override suspend fun warmUp() {
+        val currentState = runtimeManager.loadState.value
+        if (currentState is ModelLoadState.Ready) {
+            runtimeManager.setInitializing()
+            withContext(Dispatchers.IO) {
+                ensureInferenceInitialized(currentState.modelInfo.modelPath)
+            }
+            runtimeManager.checkModelFile() // restores to Ready after load
+        }
+    }
+
     private fun ensureInferenceInitialized(modelPath: String) {
         if (engine == null) {
-            val engineConfig = EngineConfig(
-                modelPath = modelPath,
-                backend = Backend.GPU() // S25 Ultra 등 GPU Delegate 활성화로 최적화
-            )
-            val newEngine = Engine(engineConfig)
-            newEngine.initialize()
-            engine = newEngine
+            try {
+                val engineConfig = EngineConfig(
+                    modelPath = modelPath,
+                    backend = Backend.GPU(), // S25 Ultra 등 GPU Delegate 활성화로 최적화
+                    visionBackend = Backend.GPU(),
+                    cacheDir = context.cacheDir.absolutePath
+                )
+                val newEngine = Engine(engineConfig)
+                newEngine.initialize()
+                engine = newEngine
+                Log.d("GemmaModelRunner", "Engine initialized with GPU backend")
+            } catch (e: Exception) {
+                Log.e("GemmaModelRunner", "Failed to initialize GPU backend, falling back to CPU", e)
+                val cpuConfig = EngineConfig(
+                    modelPath = modelPath,
+                    backend = Backend.CPU(),
+                    visionBackend = Backend.CPU()
+                )
+                val fallbackEngine = Engine(cpuConfig)
+                fallbackEngine.initialize()
+                engine = fallbackEngine
+                Log.d("GemmaModelRunner", "Engine initialized with CPU backend")
+            }
         }
     }
 
@@ -155,7 +207,12 @@ class GemmaModelRunner @Inject constructor(
             
             val config = ConversationConfig(
                 systemInstruction = Contents.of(prompt.systemInstruction),
-                initialMessages = initialMessages
+                initialMessages = initialMessages,
+                samplerConfig = SamplerConfig(
+                    temperature = 0.8,
+                    topK = 40,
+                    topP = 0.9
+                )
             )
             conversation = currentEngine.createConversation(config)
             currentSessionId = prompt.sessionId
