@@ -1,15 +1,22 @@
 package com.localfriday.app.runtime.gemma
 
 import android.content.Context
-import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Conversation
+import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.Message
 import com.localfriday.app.core.common.AppError
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.modelrunner.ModelLoadState
 import com.localfriday.app.domain.modelrunner.ModelRunner
+import com.localfriday.app.domain.modelrunner.ChatPrompt
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
@@ -27,10 +34,12 @@ class GemmaModelRunner @Inject constructor(
 
     override val loadState: StateFlow<ModelLoadState> = runtimeManager.loadState
 
-    private var llmInference: LlmInference? = null
+    private var engine: Engine? = null
+    private var conversation: Conversation? = null
+    private var currentSessionId: String? = null
 
     override suspend fun generate(
-        prompt: String,
+        prompt: ChatPrompt,
         onToken: ((String) -> Unit)?
     ): AppResult<String> = withContext(llmDispatcher) {
         val currentState = loadState.value
@@ -39,38 +48,34 @@ class GemmaModelRunner @Inject constructor(
         }
 
         try {
-            ensureInferenceInitialized(currentState.modelInfo.modelPath, onToken)
+            ensureInferenceInitialized(currentState.modelInfo.modelPath)
             
-            // 추론 전 발열 점검: 에러(Warning/Critical)가 있어도 Graceful Degradation을 위해 추론은 진행함
             val preconditionResult = metricsCollector.checkPreconditions()
-
-            // 연속 추론 쿨다운
             metricsCollector.handleCooldownIfNecessary()
 
             metricsCollector.recordStart()
             val startTime = System.currentTimeMillis()
 
+            val currentConversation = getOrCreateConversation(prompt)
+
             if (onToken != null) {
-                // 스트리밍 방식 (비동기)
-                val channel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
-                resultChannel = channel
-                
-                var error: Throwable? = null
                 var finalResponse = ""
-                
-                llmInference?.generateResponseAsync(prompt)
+                var error: Throwable? = null
                 
                 try {
-                    for (token in channel) {
-                        onToken.invoke(token)
-                        finalResponse += token
+                    currentConversation.sendMessageAsync(prompt.currentInput).collect { message ->
+                        yield() // CPU 점유율 양보 (UI 스레드 기아 방지)
+                        val token = message.contents.contents.filterIsInstance<com.google.ai.edge.litertlm.Content.Text>().joinToString("") { it.text }
+                        if (token.isNotEmpty()) {
+                            onToken.invoke(token)
+                            finalResponse += token
 
-                        // 다이내믹 발열 완화(Soft Mitigation) 및 우아한 성능 저하(Graceful Degradation)
-                        val currentTemp = metricsCollector.getCurrentTemp()
-                        if (currentTemp >= 48.0f) {
-                            kotlinx.coroutines.delay(50) // 극단적 쿨다운 제한
-                        } else if (currentTemp >= 43.0f) {
-                            kotlinx.coroutines.delay(15) // Soft mitigation
+                            val currentTemp = metricsCollector.getCurrentTemp()
+                            if (currentTemp >= 48.0f) {
+                                kotlinx.coroutines.delay(50)
+                            } else if (currentTemp >= 43.0f) {
+                                kotlinx.coroutines.delay(15)
+                            }
                         }
                     }
                 } catch (e: Exception) {
@@ -78,8 +83,7 @@ class GemmaModelRunner @Inject constructor(
                 }
 
                 val durationMs = System.currentTimeMillis() - startTime
-                val metricsResult = metricsCollector.recordEnd(durationMs)
-                // 발열이 심해도 중단하지 않고 정상 응답처럼 반환 (UI에서 경고 표출은 별도 처리)
+                metricsCollector.recordEnd(durationMs)
                 
                 if (error != null) {
                     AppResult.Failure(AppError.ModelInferenceError(error.message ?: "스트리밍 중 에러 발생"))
@@ -87,14 +91,13 @@ class GemmaModelRunner @Inject constructor(
                     AppResult.Success(finalResponse)
                 }
             } else {
-                // 비스트리밍 방식
-                val response = llmInference?.generateResponse(prompt)
-                
+                val message = currentConversation.sendMessage(prompt.currentInput)
+                val messageText = message?.contents?.contents?.filterIsInstance<com.google.ai.edge.litertlm.Content.Text>()?.joinToString("") { it.text }
                 val durationMs = System.currentTimeMillis() - startTime
                 metricsCollector.recordEnd(durationMs)
 
-                if (response != null) {
-                    AppResult.Success(response)
+                if (!messageText.isNullOrEmpty()) {
+                    AppResult.Success(messageText)
                 } else {
                     AppResult.Failure(AppError.ModelInferenceError("응답 생성 결과가 null입니다."))
                 }
@@ -105,37 +108,59 @@ class GemmaModelRunner @Inject constructor(
     }
 
     override suspend fun generateWithImage(
-        prompt: String,
+        prompt: ChatPrompt,
         imageBytes: ByteArray
     ): AppResult<String> {
-        // v0 에서는 텍스트-only Gemma 2b-it 를 사용하므로 이미지 처리는 미지원 (향후 확장)
         return AppResult.Failure(AppError.ModelInferenceError("현재 로드된 모델은 멀티모달을 지원하지 않습니다."))
     }
 
     override suspend fun cancel() {
-        // No-op for now. LlmInference doesn't have an explicit cancel for generateResponse.
+        conversation?.cancelProcess()
     }
 
     override suspend fun warmUp() {
-        // No-op: LlmInference is lazy-loaded upon first use or explicitly created.
     }
 
-    private var resultChannel: kotlinx.coroutines.channels.Channel<String>? = null
+    override fun close() {
+        conversation?.close()
+        conversation = null
+        engine?.close()
+        engine = null
+        currentSessionId = null
+    }
 
-    private fun ensureInferenceInitialized(modelPath: String, onToken: ((String) -> Unit)?) {
-        if (llmInference == null) {
-            val builder = LlmInference.LlmInferenceOptions.builder()
-                .setModelPath(modelPath)
-                
-            builder.setResultListener { partialResult, done ->
-                resultChannel?.trySend(partialResult ?: "")
-                if (done) {
-                    resultChannel?.close()
-                }
+    private fun ensureInferenceInitialized(modelPath: String) {
+        if (engine == null) {
+            val engineConfig = EngineConfig(
+                modelPath = modelPath,
+                backend = Backend.GPU() // S25 Ultra 등 GPU Delegate 활성화로 최적화
+            )
+            val newEngine = Engine(engineConfig)
+            newEngine.initialize()
+            engine = newEngine
+        }
+    }
+
+    private fun getOrCreateConversation(prompt: ChatPrompt): Conversation {
+        val currentEngine = engine ?: throw IllegalStateException("Engine is not initialized")
+        val isSameSession = currentSessionId == prompt.sessionId
+        val isTokenExceeded = conversation != null && conversation!!.getTokenCount() > 3500
+
+        if (conversation == null || !isSameSession || isTokenExceeded) {
+            conversation?.close()
+            
+            val initialMessages = prompt.history.map {
+                if (it.role.name == "USER") Message.user(it.content) else Message.model(it.content)
             }
             
-            val options = builder.build()
-            llmInference = LlmInference.createFromOptions(context, options)
+            val config = ConversationConfig(
+                systemInstruction = Contents.of(prompt.systemInstruction),
+                initialMessages = initialMessages
+            )
+            conversation = currentEngine.createConversation(config)
+            currentSessionId = prompt.sessionId
         }
+        
+        return conversation!!
     }
 }

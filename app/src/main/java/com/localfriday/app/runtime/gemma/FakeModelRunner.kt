@@ -4,6 +4,7 @@ import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.modelrunner.ModelInfo
 import com.localfriday.app.domain.modelrunner.ModelLoadState
 import com.localfriday.app.domain.modelrunner.ModelRunner
+import com.localfriday.app.domain.modelrunner.ChatPrompt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,32 +24,45 @@ class FakeModelRunner : ModelRunner {
     )
     override val loadState: StateFlow<ModelLoadState> = _loadState.asStateFlow()
 
-    // 테스트 환경에서 응답을 조작할 수 있도록 var로 열어둡니다.
+    // Fake API로 무조건 텍스트 뱉기
     var fakeResponse: String = """{"action":"text","content":"테스트 응답입니다."}"""
 
     override suspend fun generate(
-        prompt: String,
+        prompt: ChatPrompt,
         onToken: ((String) -> Unit)?
     ): AppResult<String> {
-        delay(100) // 약간의 지연으로 비동기 동작 시뮬레이션
-        // 테스트용이므로 onToken은 생략하고 즉시 전체 응답 반환
-        onToken?.invoke(fakeResponse)
-        return AppResult.Success(fakeResponse)
+        delay(500)
+        
+        if (onToken != null) {
+            val response = "안녕하세요. 저는 Fake Model입니다. 전달받은 메시지: ${prompt.currentInput}"
+            val chunks = response.chunked(2)
+            for (chunk in chunks) {
+                delay(50)
+                onToken(chunk)
+            }
+            return AppResult.Success(response)
+        }
+        
+        return AppResult.Success("안녕하세요. 저는 Fake Model입니다. (Non-streaming) 전달받은 메시지: ${prompt.currentInput}")
     }
 
     override suspend fun generateWithImage(
-        prompt: String,
+        prompt: ChatPrompt,
         imageBytes: ByteArray
     ): AppResult<String> {
-        delay(100)
-        return AppResult.Success(fakeResponse)
+        delay(1000)
+        return AppResult.Success("Fake Model: 이미지를 잘 받았습니다. 전달받은 메시지: ${prompt.currentInput}")
     }
 
     override suspend fun cancel() {
-        // No-op for fake
+        // do nothing
     }
 
     override suspend fun warmUp() {
-        // No-op for fake
+        // do nothing
+    }
+
+    override fun close() {
+        // do nothing
     }
 }

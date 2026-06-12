@@ -95,8 +95,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.collections.immutable)
 
-    // MediaPipe
-    implementation(libs.mediapipe.tasks.genai)
+    // LiteRT-LM
+    implementation(libs.litertlm.android)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

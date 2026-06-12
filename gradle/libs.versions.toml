@@ -10,7 +10,7 @@ room = "2.8.4"
 datastore = "1.2.1"
 paging = "3.4.2"
 coroutines = "1.11.0"
-mediapipe = "0.10.14"
+litertlm = "0.13.1"
 
 kotlinx-serialization-json = "1.10.0"
 kotlinx-collections-immutable = "0.3.7"
@@ -64,8 +64,8 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 androidx-paging-runtime = { module = "androidx.paging:paging-runtime", version.ref = "paging" }
 androidx-paging-compose = { module = "androidx.paging:paging-compose", version.ref = "paging" }
 
-# MediaPipe
-mediapipe-tasks-genai = { module = "com.google.mediapipe:tasks-genai", version.ref = "mediapipe" }
+# LiteRT-LM
+litertlm-android = { module = "com.google.ai.edge.litertlm:litertlm-android", version.ref = "litertlm" }
 
 # 테스트 / 디버그 보조
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
