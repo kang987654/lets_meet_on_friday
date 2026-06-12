@@ -67,7 +67,7 @@ class AssistantOrchestrator @Inject constructor(
         }
         
         // 런타임 결과 로깅
-        auditTrailService.logModelRun(request.sessionId, prompt, rawOutput)
+        auditTrailService.logModelRun(request.sessionId, prompt.currentInput, rawOutput)
 
         // 6. 결과 파싱
         val modelOutput = responseParser.parse(rawOutput)
@@ -132,7 +132,7 @@ class AssistantOrchestrator @Inject constructor(
                     is AppResult.Failure -> return AgentResult.Error(modelRes.error)
                 }
 
-                auditTrailService.logModelRun(sessionId, prompt, rawOutput)
+                auditTrailService.logModelRun(sessionId, prompt.currentInput, rawOutput)
                 
                 val modelOutput = responseParser.parse(rawOutput)
                 val text = if (modelOutput is ModelOutput.TextOutput) modelOutput.content else rawOutput

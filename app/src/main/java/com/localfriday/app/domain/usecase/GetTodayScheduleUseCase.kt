@@ -54,7 +54,13 @@ class GetTodayScheduleUseCase @Inject constructor(
             $eventListText
         """.trimIndent()
 
-        val summary = when (val result = modelRunner.generate(prompt)) {
+        val chatPrompt = com.localfriday.app.domain.modelrunner.ChatPrompt(
+            sessionId = "schedule-summary",
+            systemInstruction = "[System]\nYou are an assistant summarizing today's schedule.",
+            history = emptyList(),
+            currentInput = prompt
+        )
+        val summary = when (val result = modelRunner.generate(chatPrompt)) {
             is AppResult.Success -> result.data.trim()
             is AppResult.Failure -> null // AI 요약 실패 시 null 반환 (Fallback)
         }

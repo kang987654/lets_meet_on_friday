@@ -7,15 +7,16 @@ interface ModelRunner {
     val loadState: StateFlow<ModelLoadState>
     
     suspend fun generate(
-        prompt: String,
+        prompt: ChatPrompt,
         onToken: ((String) -> Unit)? = null
     ): AppResult<String>
 
     suspend fun generateWithImage(
-        prompt: String,
+        prompt: ChatPrompt,
         imageBytes: ByteArray
     ): AppResult<String>
 
     suspend fun cancel()
     suspend fun warmUp()
+    fun close()
 }
