@@ -1,18 +1,22 @@
 package com.localfriday.app.domain.assistant.context
 
+import com.localfriday.app.domain.modelrunner.ChatPrompt
 import javax.inject.Inject
 
 class PromptAssembler @Inject constructor() {
 
-    fun assemble(context: ContextBuilder.Context, userInput: String): String {
-        return buildString {
+    fun assemble(context: ContextBuilder.Context, userInput: String): ChatPrompt {
+        val systemInstruction = buildString {
             appendLine(buildSystemBlock())
             appendLine(buildFormatBlock())
-            if (context.recentConversations.isNotEmpty()) {
-                appendLine(buildHistoryBlock(context))
-            }
-            appendLine(buildInputBlock(userInput))
         }
+
+        return ChatPrompt(
+            sessionId = context.sessionId,
+            systemInstruction = systemInstruction,
+            history = context.recentConversations,
+            currentInput = buildInputBlock(userInput)
+        )
     }
 
     private fun buildSystemBlock(): String {
@@ -49,18 +53,6 @@ class PromptAssembler @Inject constructor() {
               "description": "Optional description"
             }
         """.trimIndent()
-    }
-
-    private fun buildHistoryBlock(context: ContextBuilder.Context): String {
-        return buildString {
-            appendLine("[Conversation History]")
-            // ContextBuilder.Context.recentConversations is already sorted chronologically (oldest first).
-            // We just format them.
-            context.recentConversations.forEach { msg ->
-                val roleName = if (msg.role.name == "USER") "User" else "Assistant"
-                appendLine("$roleName: ${msg.content}")
-            }
-        }
     }
 
     private fun buildInputBlock(userInput: String): String {
