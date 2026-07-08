@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.agent.AgentResult
-import com.localfriday.app.domain.assistant.approval.ApprovalCoordinator
+import com.localfriday.app.assistant.approval.ApprovalCoordinator
 import com.localfriday.app.domain.memory.ConversationRepository
 import com.localfriday.app.data.local.prefs.SessionStore
 import com.localfriday.app.domain.model.ChatMessage

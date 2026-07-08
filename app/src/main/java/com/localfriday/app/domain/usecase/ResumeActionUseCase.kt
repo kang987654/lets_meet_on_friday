@@ -2,7 +2,7 @@ package com.localfriday.app.domain.usecase
 
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.agent.AgentResult
-import com.localfriday.app.domain.assistant.orchestrator.AssistantOrchestrator
+import com.localfriday.app.assistant.orchestrator.AssistantOrchestrator
 import com.localfriday.app.domain.model.ModelOutput
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

@@ -1,4 +1,4 @@
-package com.localfriday.app.domain.assistant.agent
+package com.localfriday.app.assistant.agent
 
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.model.SearchRequest

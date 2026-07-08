@@ -1,4 +1,4 @@
-package com.localfriday.app.domain.assistant.orchestrator
+package com.localfriday.app.assistant.orchestrator
 
 import javax.inject.Inject
 

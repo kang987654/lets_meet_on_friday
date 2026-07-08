@@ -4,7 +4,7 @@ import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.data.local.file.ExportImportManager
 import javax.inject.Inject
 
-import com.localfriday.app.domain.assistant.audit.AuditTrailService
+import com.localfriday.app.assistant.audit.AuditTrailService
 
 class ImportMemoryUseCase @Inject constructor(
     private val exportImportManager: ExportImportManager,

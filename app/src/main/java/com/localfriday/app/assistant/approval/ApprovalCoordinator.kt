@@ -1,4 +1,4 @@
-package com.localfriday.app.domain.assistant.approval
+package com.localfriday.app.assistant.approval
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

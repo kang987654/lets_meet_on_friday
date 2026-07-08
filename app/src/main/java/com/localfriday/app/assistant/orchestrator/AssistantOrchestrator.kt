@@ -1,13 +1,13 @@
-package com.localfriday.app.domain.assistant.orchestrator
+package com.localfriday.app.assistant.orchestrator
 
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.agent.AgentResult
-import com.localfriday.app.domain.assistant.audit.AuditTrailService
-import com.localfriday.app.domain.assistant.context.ContextBuilder
-import com.localfriday.app.domain.assistant.context.PromptAssembler
-import com.localfriday.app.domain.assistant.context.ResponseParser
-import com.localfriday.app.domain.assistant.guard.ExecutionPolicy
-import com.localfriday.app.domain.assistant.guard.PreExecutionGuard
+import com.localfriday.app.assistant.audit.AuditTrailService
+import com.localfriday.app.assistant.context.ContextBuilder
+import com.localfriday.app.assistant.context.PromptAssembler
+import com.localfriday.app.assistant.context.ResponseParser
+import com.localfriday.app.assistant.guard.ExecutionPolicy
+import com.localfriday.app.assistant.guard.PreExecutionGuard
 import com.localfriday.app.domain.memory.ConversationRepository
 import com.localfriday.app.domain.model.ChatMessage
 import com.localfriday.app.domain.model.InputType
@@ -25,7 +25,7 @@ class AssistantOrchestrator @Inject constructor(
     private val responseParser: ResponseParser,
     private val preExecutionGuard: PreExecutionGuard,
     private val auditTrailService: AuditTrailService,
-    private val searchAgent: com.localfriday.app.domain.assistant.agent.SearchAgent
+    private val searchAgent: com.localfriday.app.assistant.agent.SearchAgent
 ) {
 
     suspend fun processRequest(request: ChatRequest): AgentResult {

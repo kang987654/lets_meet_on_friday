@@ -1,4 +1,4 @@
-package com.localfriday.app.domain.assistant.guard
+package com.localfriday.app.assistant.guard
 
 import com.localfriday.app.domain.model.ModelOutput
 import javax.inject.Inject

@@ -1,4 +1,4 @@
-package com.localfriday.app.domain.assistant.approval
+package com.localfriday.app.assistant.approval
 
 import com.localfriday.app.domain.model.ModelOutput
 

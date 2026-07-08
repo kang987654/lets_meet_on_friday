@@ -1,4 +1,4 @@
-package com.localfriday.app.domain.assistant.context
+package com.localfriday.app.assistant.context
 
 import com.localfriday.app.domain.modelrunner.ChatPrompt
 import javax.inject.Inject

@@ -1,4 +1,4 @@
-package com.localfriday.app.domain.assistant.audit
+package com.localfriday.app.assistant.audit
 
 import com.localfriday.app.domain.memory.AuditRepository
 import com.localfriday.app.domain.model.AuditEvent

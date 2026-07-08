@@ -1,7 +1,7 @@
 package com.localfriday.app.ui.feature.chat
 
 import com.localfriday.app.core.common.AppError
-import com.localfriday.app.domain.assistant.approval.ApprovalRequest
+import com.localfriday.app.assistant.approval.ApprovalRequest
 import com.localfriday.app.domain.model.ChatMessage
 import com.localfriday.app.domain.modelrunner.ModelLoadState
 import kotlinx.collections.immutable.ImmutableList

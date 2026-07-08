@@ -5,7 +5,7 @@ import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.platform.device.TemperatureProvider
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.localfriday.app.domain.assistant.audit.AuditTrailService
+import com.localfriday.app.assistant.audit.AuditTrailService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

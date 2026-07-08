@@ -3,8 +3,8 @@ package com.localfriday.app.domain.usecase
 import com.localfriday.app.core.common.AppError
 import com.localfriday.app.core.common.AppResult
 import com.localfriday.app.domain.agent.AgentResult
-import com.localfriday.app.domain.assistant.orchestrator.AssistantOrchestrator
-import com.localfriday.app.domain.assistant.orchestrator.ChatRequest
+import com.localfriday.app.assistant.orchestrator.AssistantOrchestrator
+import com.localfriday.app.assistant.orchestrator.ChatRequest
 import javax.inject.Inject
 
 class SendChatMessageUseCase @Inject constructor(
