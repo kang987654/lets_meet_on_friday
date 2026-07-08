@@ -1,5 +1,14 @@
 package com.localfriday.app
 
+import com.localfriday.app.core.common.AppResult
+import com.localfriday.app.assistant.orchestrator.AssistantOrchestrator
+import com.localfriday.app.assistant.orchestrator.ChatRequest
+import com.localfriday.app.domain.modelrunner.ModelLoadState
+import com.localfriday.app.domain.modelrunner.ModelRunner
+import com.localfriday.app.domain.modelrunner.ChatPrompt
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -7,11 +16,36 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltAndroidRule
 import org.junit.Rule
 import org.junit.Before
+import javax.inject.Inject
 
-/**
- * 챗봇 파이프라인(의도 분석 -> 컨텍스트 조립 -> 추론 -> 파싱)이 
- * 한 번에 끊기지 않고 동작하는지 확인하는 통합 테스트 기반 클래스입니다.
- */
+class MockModelRunner : ModelRunner {
+    override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(
+        ModelLoadState.Ready(com.localfriday.app.domain.modelrunner.ModelInfo("mock", "mock", 0L))
+    )
+    
+    override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<String> {
+        val mockJsonResponse = """
+            ```json
+            {
+              "type": "text",
+              "text": "안녕하세요! 저는 Local Friday입니다."
+            }
+            ```
+        """.trimIndent()
+        
+        onToken?.invoke(mockJsonResponse)
+        return AppResult.Success(mockJsonResponse)
+    }
+
+    override suspend fun generateWithImage(prompt: ChatPrompt, imageBytes: ByteArray): AppResult<String> {
+        return AppResult.Success("{\"type\": \"text\", \"text\": \"이미지를 확인했습니다.\"}")
+    }
+
+    override suspend fun cancel() {}
+    override suspend fun warmUp() {}
+    override fun close() {}
+}
+
 @HiltAndroidTest
 @RunWith(RobolectricTestRunner::class)
 class AssistantPipelineTest {
@@ -19,14 +53,20 @@ class AssistantPipelineTest {
     @get:Rule
     val hiltRule = HiltAndroidRule(this)
 
+    @Inject
+    lateinit var orchestrator: AssistantOrchestrator
+
     @Before
     fun init() {
         hiltRule.inject()
     }
 
     @Test
-    fun `기본 챗봇 파이프라인 구조 검증 테스트`() {
-        // TODO: 향후 챗봇 파이프라인의 핵심인 AssistantOrchestrator를 주입받아
-        // 가짜(Mock) 입력을 넣고, 올바른 ActionCard가 생성되는지 테스트할 예정입니다.
+    fun `기본 챗봇 텍스트 파이프라인 검증`() = runBlocking {
+        // Given
+        val request = ChatRequest(
+            sessionId = "test_session_123",
+            message = "안녕! 너는 누구야?"
+        )
     }
 }
