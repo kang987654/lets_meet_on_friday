@@ -25,7 +25,8 @@ class AssistantOrchestrator @Inject constructor(
     private val responseParser: ResponseParser,
     private val preExecutionGuard: PreExecutionGuard,
     private val auditTrailService: AuditTrailService,
-    private val searchAgent: com.localfriday.app.assistant.agent.SearchAgent
+    private val searchAgent: com.localfriday.app.assistant.agent.SearchAgent,
+    private val calendarAgent: com.localfriday.app.assistant.agent.CalendarAgent
 ) {
 
     suspend fun processRequest(request: ChatRequest): AgentResult {
@@ -157,6 +158,15 @@ class AssistantOrchestrator @Inject constructor(
                 val text = if (modelOutput is ModelOutput.TextOutput) modelOutput.content else rawOutput
                 
                 saveAssistantMessage(sessionId, text, searchUsed = true)
+                AgentResult.Text(text)
+            }
+            is ModelOutput.CalendarDraftOutput -> {
+                val insertRes = calendarAgent.executeCalendarInsert(action)
+                val text = when (insertRes) {
+                    is AppResult.Success -> "일정이 성공적으로 추가되었습니다."
+                    is AppResult.Failure -> "일정 추가에 실패했습니다: ${insertRes.error.message}"
+                }
+                saveAssistantMessage(sessionId, text)
                 AgentResult.Text(text)
             }
             else -> {
