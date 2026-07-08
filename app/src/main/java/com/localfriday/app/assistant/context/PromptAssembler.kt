@@ -6,15 +6,24 @@ import javax.inject.Inject
 class PromptAssembler @Inject constructor() {
 
     fun assemble(context: ContextBuilder.Context, userInput: String): ChatPrompt {
+        val systemMessages = context.recentConversations.filter { it.role == com.localfriday.app.domain.model.ChatMessage.Role.SYSTEM }
+        val dialogHistory = context.recentConversations.filter { it.role != com.localfriday.app.domain.model.ChatMessage.Role.SYSTEM }
+        
         val systemInstruction = buildString {
             appendLine(buildSystemBlock())
             appendLine(buildFormatBlock())
+            if (systemMessages.isNotEmpty()) {
+                appendLine("\n[Context / Knowledge]")
+                systemMessages.forEach { msg ->
+                    appendLine(msg.content)
+                }
+            }
         }
 
         return ChatPrompt(
             sessionId = context.sessionId,
             systemInstruction = systemInstruction,
-            history = context.recentConversations,
+            history = dialogHistory,
             currentInput = buildInputBlock(userInput)
         )
     }

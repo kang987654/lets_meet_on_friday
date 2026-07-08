@@ -6,7 +6,12 @@ import javax.inject.Inject
 
 class ResponseParser @Inject constructor() {
 
-    fun parse(jsonString: String): ModelOutput {
+    fun parse(rawString: String): ModelOutput {
+        // 로컬 LLM이 JSON을 Markdown 코드 블록으로 감싸서 보내는 경우를 대비해 전처리
+        val jsonString = rawString.trim()
+            .removePrefix("```json").removePrefix("```")
+            .removeSuffix("```").trim()
+            
         return try {
             val jsonObject = JSONObject(jsonString)
             val type = jsonObject.optString("type", "")
