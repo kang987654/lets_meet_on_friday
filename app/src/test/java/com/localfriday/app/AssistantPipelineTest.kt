@@ -39,8 +39,14 @@ class MockModelRunner : ModelRunner {
         return AppResult.Success(mockJsonResponse)
     }
 
-    override suspend fun generateWithImage(prompt: ChatPrompt, imageBytes: ByteArray): AppResult<String> {
-        return AppResult.Success("{\"type\": \"text\", \"text\": \"이미지를 확인했습니다.\"}")
+    override suspend fun generateWithImage(
+        prompt: ChatPrompt,
+        imageBytes: ByteArray,
+        onToken: ((String) -> Unit)?
+    ): AppResult<String> {
+        delay(100)
+        onToken?.invoke("Image processed.")
+        return AppResult.Success("Image processed.")
     }
 
     override suspend fun cancel() {}

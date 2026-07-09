@@ -48,10 +48,12 @@ class FakeModelRunner : ModelRunner {
 
     override suspend fun generateWithImage(
         prompt: ChatPrompt,
-        imageBytes: ByteArray
+        imageBytes: ByteArray,
+        onToken: ((String) -> Unit)?
     ): AppResult<String> {
-        delay(1000)
-        return AppResult.Success("Fake Model: 이미지를 잘 받았습니다. 전달받은 메시지: ${prompt.currentInput}")
+        delay(1500)
+        onToken?.invoke("Fake multimodal response")
+        return AppResult.Success("Fake multimodal response")
     }
 
     override suspend fun cancel() {
