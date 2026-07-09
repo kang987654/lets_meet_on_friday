@@ -1,59 +1,48 @@
-# Local Friday 대규모 리팩토링 및 재작성 계획 (Refactoring Plan)
+# [인앱 링크 기반 모델 다운로더 구현 계획]
 
-## 1. 개요 (Background)
-현재 앱의 가장 기본적인 챗봇 기능에 에러가 존재하며, 캘린더 등 부가 기능은 UI 목업 수준에 머물러 있습니다. 이를 해결하기 위해 단순 코드 수정이 아닌, **데이터 파이프라인(입력-의도분석-프롬프트생성-추론-파싱) 관점에서의 전면적인 검토 및 재작성**이 필요합니다. 
+기존에 개발자가 수동으로 USB를 연결하거나 ADB를 통해 모델 파일(`.litertlm`)을 안드로이드 기기에 푸시(Push)하던 아키텍처에서, 앱 내부 UI를 통해 사용자가 직접 URL을 입력(또는 기본 제공된 링크)하여 다운로드할 수 있는 구조로 변경합니다.
 
-앞서 논의된 3가지 핵심 합의 사항을 바탕으로 진행합니다:
-1. **Git 관리**: 메인 브랜치에서 기능 단위 마이크로 커밋(Micro-commit) 진행 (`feat:`, `fix:` 등의 Conventional Commits 적용)
-2. **문서 관리**: 기존 `documents/v1` 원본은 보존하고, `docs/` 폴더를 새로 만들어 진화형(Docs-as-code) 문서를 구축
-3. **테스트 전략**: 구문 유닛 테스트보다 통합(Integration) 및 E2E 테스트(데이터 파이프라인 검증) 집중
-
----
-
-## 2. 사용자 검토 필요 (User Review Required)
-
+## User Review Required
 > [!IMPORTANT]
-> 피드백을 반영하여 계획을 업데이트했습니다. **아래 '검토 완료 및 진행 승인'을 해주시면, 바로 `docs/` 세팅부터 작업을 시작하고 진행 상황을 `task.md`를 통해 추적하겠습니다.**
+> - 파일 크기(3~4GB 이상)로 인해 다운로드 중 네트워크 끊김, 화면 회전(Configuration Change) 시 대처 방안이 중요합니다. 이번에는 1차적으로 **포그라운드 다이얼로그(취소 불가)** 형태로 화면을 유지하는 방식으로 진행하려고 합니다. 괜찮으신가요?
+> - `OkHttp` 네트워크 라이브러리를 통해 스트리밍 방식으로 앱의 내부 저장소(`context.filesDir`)에 저장하게 됩니다.
 
-*(참고: Android 테스트 프레임워크는 앱 구동 없이 빠르게 파이프라인 로직만 테스트하기 좋은 `Robolectric`과, 실제 UI 화면을 클릭해보며 테스트하는 `Compose Test Rule`이라는 Android 공식 표준 조합으로 제가 알아서 최적화하여 세팅하겠습니다.)*
+## Proposed Changes
 
----
+### 1. Data Layer (`com.localfriday.app.data`)
 
-## 3. 제안하는 변경 사항 (Proposed Changes)
+#### [NEW] `data/network/ModelDownloadService.kt`
+- `OkHttp`를 사용하여 모델 파일 스트리밍 다운로드를 수행하고, 진행률(`Flow<Int>`)을 반환하는 코루틴 레포지토리 로직.
+- 파일은 보안 및 영속성을 위해 `context.filesDir` (앱 내부 저장소) 경로에 저장됩니다.
 
-작업은 의존성이 낮은 문서 및 테스트 환경 세팅부터, 핵심 파이프라인(챗봇), 부가 파이프라인(캘린더, 음성) 순으로 진행됩니다.
+#### [NEW] `domain/usecase/DownloadModelUseCase.kt`
+- `ModelDownloadService`를 호출하여 다운로드를 실행하고, 성공 시 `GemmaRuntimeManager`에 "다운로드 완료 및 새 모델 파일 적용"을 트리거합니다.
 
-### 단계 1: Docs-as-code 마이그레이션
-- [NEW] `docs/` 디렉토리 생성
-- [MODIFY] `documents/v1/` 하위의 문서를 원본 훼손 없이 `docs/`로 **복사(Copy)**
-- 이후의 기획 및 아키텍처 변경사항은 오직 `docs/` 내의 문서에만 동기화(Update)
+### 2. Runtime Layer (`com.localfriday.app.runtime.gemma`)
 
-### 단계 2: E2E / 통합 테스트 환경 구축
-- [NEW] `app/src/test/` 및 `app/src/androidTest/` 환경 셋업
-- [MODIFY] `app/build.gradle.kts`에 통합 테스트 관련 의존성 추가 (Hilt Test, Robolectric, Compose Test 등)
-- [NEW] 데이터 파이프라인 테스트용 기반 클래스 생성
+#### [MODIFY] `GemmaRuntimeManager.kt`
+- 기존의 하드코딩된 파일명 탐색 대신, 내부 저장소(`context.filesDir`)에 존재하는 최신 모델 파일을 동적으로 스캔하여 로드할 수 있도록 로직 확장.
 
-### 단계 3: Core Chatbot 파이프라인 수정 (The "Brain")
-- [MODIFY] `AssistantOrchestrator.kt`: 의도 분류 및 모델 결과 파싱 로직의 연결부 에러 픽스
-- [MODIFY] `PromptAssembler.kt`: 프롬프트 조립 시 컨텍스트 누락 문제 해결
-- [MODIFY] `GemmaModelRunner.kt`: 실제 모델 추론부 응답 처리 안정화
-- [NEW] `ChatPipelineIntegrationTest.kt`: 사용자 텍스트 -> 프롬프트 -> 응답 -> 상태 반영까지의 통합 테스트 작성
+### 3. UI Layer (`com.localfriday.app.ui.feature.settings`)
 
-### 단계 4: 도구(Tool) 및 에이전트(Agent) 연결 (목업 탈피)
-- [MODIFY] `CalendarAgent.kt` & `AndroidCalendarTool.kt`: 목업 로직을 실제 Android Calendar Provider API 호출로 교체
-- [MODIFY] `AndroidSpeechToTextTool.kt`: 음성 인식 파이프라인 실제 연동
-- [NEW] `ToolIntegrationTest.kt`: 에이전트가 도구를 호출하고 결과를 반환받는지 확인하는 테스트
+#### [NEW] `ModelManagementScreen.kt`
+- **리스트 UI**: 기본적으로 제공되는 모델 링크(예: Gemma 4 E2B) 리스트업.
+- **커스텀 URL UI**: 사용자가 직접 URL 텍스트를 입력하여 다운로드할 수 있는 텍스트 필드와 다운로드 버튼 추가.
+- **진행률 UI**: 0%~100% 진행도를 시각적으로 보여주는 프로그레스 다이얼로그 노출.
 
-### 단계 5: DB 연동 및 메모리 영속화
-- [MODIFY] `LocalFridayDatabase.kt` 및 DAO: 트랜잭션 충돌이나 비동기 처리 오류 픽스
-- [MODIFY] `SendChatMessageUseCase.kt`: 응답 완료 후 Conversation / Audit Memory 정상 저장 보장
+#### [NEW] `ModelManagementViewModel.kt`
+- 다운로드 상태(대기, 진행 중, 완료, 에러)를 `StateFlow`로 관리.
+
+### 4. Dependency (`build.gradle.kts`)
+#### [MODIFY] `app/build.gradle.kts`
+- 대용량 파일 다운로드를 위해 `OkHttp` 라이브러리(아직 없는 경우) 추가.
 
 ---
 
-## 4. 검증 계획 (Verification Plan)
+## Verification Plan
 
-### 자동화 테스트 (Automated Tests)
-- 세팅된 통합 테스트(Integration Tests)를 돌려 파이프라인(텍스트 입력 -> 파싱 -> DB 저장)의 성공 여부를 검증합니다.
-
-### 수동 검증 (Manual Verification)
-- 각 주요 파이프라인 복구가 끝날 때마다 컴파일이 가능한지 확인하고, 필요 시 사용자님께 에뮬레이터 또는 실기기 빌드 테스트를 요청드리겠습니다.
+### Manual Verification
+1. 모델이 없는 상태에서 앱을 빌드 후 실행합니다.
+2. 새로 만들어진 `ModelManagementScreen`에 진입합니다.
+3. 텍스트 입력 칸에 임의의 더미 URL이나 실제 다운로드 링크를 넣고 다운로드를 누릅니다.
+4. 프로그레스 바가 올라가며 정상적으로 앱 내부 저장소에 파일이 생성되고, 즉시 로드되는지 확인합니다.
