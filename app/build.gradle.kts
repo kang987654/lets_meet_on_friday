@@ -101,6 +101,9 @@ dependencies {
     implementation(libs.play.services.tflite.gpu)
     implementation(libs.play.services.tflite.support)
 
+    // Network
+    implementation(libs.okhttp)
+
     // Compose RichText
     implementation(libs.compose.richtext.commonmark)
     implementation(libs.compose.richtext.ui.material3)

@@ -11,3 +11,13 @@ PowerShell 명령어를 통해 파일 내용을 직접 수정하거나 생성할
 
 ## 4. 안드로이드 통합 및 E2E 테스트 지향
 테스트 작성 시 단순 구문 검증 위주의 유닛 테스트를 피합니다. 대신 `Robolectric`과 `Compose Test Rule`을 활용하여 UI - ViewModel - Orchestrator - DB로 이어지는 데이터 파이프라인의 통합(Integration) 및 E2E 테스트 작성을 최우선으로 합니다.
+
+## 5. 최신 AGP(9.0+) Kotlin 플러그인 주의점
+프로젝트가 최신 Gradle 및 AGP 9.0 이상을 사용 중이므로, 새로운 안드로이드 라이브러리 모듈(예: core, domain 등)을 생성할 때 `build.gradle.kts` 파일에 더 이상 `id("org.jetbrains.kotlin.android")` 플러그인을 명시하지 마십시오. AGP 9.0부터는 코틀린 지원이 내장되어 있어 해당 플러그인을 중복 선언하면 빌드 에러(Crash)가 발생합니다.
+
+## 6. Git Hard Reset 및 Clean 수행 시 주의
+로컬 에이전트나 사용자가 생성했지만 아직 커밋(add/commit)하지 않은 폴더/파일들이 존재할 수 있습니다. 문제를 해결하기 위해 `git reset --hard` 또는 `git clean -fd`를 수행하기 전에는 반드시 `git status`를 통해 유실될 우려가 있는 **Untracked files** 가 있는지 먼저 확인하고 사용자에게 의도를 물어야 합니다.
+
+## 7. 핵심 클래스 KDoc 헤더 작성 (Docs-as-code)
+새로운 핵심 클래스(Orchestrator, Agent, UseCase 등)를 생성하거나 대규모 구조 변경을 할 때는 클래스 상단에 KDoc(`/** ... */`) 형식으로 헤더 주석을 작성합니다.
+헤더에는 **클래스의 핵심 역할, Architecture Context(Layer 및 주요 의존성), Key Flow(동작 흐름)** 을 포함하여 AI 에이전트와 다른 개발자가 파일의 목적을 즉시 파악할 수 있도록 해야 합니다.

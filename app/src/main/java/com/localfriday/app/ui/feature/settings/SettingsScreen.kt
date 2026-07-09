@@ -17,7 +17,8 @@ import com.localfriday.app.domain.modelrunner.ModelLoadState
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
-    onNavigateToAudit: () -> Unit = {}
+    onNavigateToAudit: () -> Unit = {},
+    onNavigateToModelManagement: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
@@ -62,6 +63,10 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp)
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = onNavigateToModelManagement) {
+                        Text("Manage Models")
+                    }
                 }
                 is ModelLoadState.NotFound -> {
                     Text(
@@ -82,8 +87,13 @@ fun SettingsScreen(
                         modifier = Modifier.padding(top = 4.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { viewModel.refreshModelState() }) {
-                        Text("Refresh Model State")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { viewModel.refreshModelState() }) {
+                            Text("Refresh")
+                        }
+                        Button(onClick = onNavigateToModelManagement) {
+                            Text("Download Model")
+                        }
                     }
                 }
                 is ModelLoadState.Error -> {

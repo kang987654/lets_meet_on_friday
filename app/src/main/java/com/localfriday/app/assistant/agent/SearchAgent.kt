@@ -5,6 +5,19 @@ import com.localfriday.app.domain.model.SearchRequest
 import com.localfriday.app.domain.tool.WebSearchTool
 import javax.inject.Inject
 
+/**
+ * [SearchAgent]
+ * LLM이 파싱한 검색 요청(SearchOutput)을 실제 웹/디바이스 검색과 연동하는 에이전트 클래스입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Assistant (Agent Action)
+ * - **Dependencies**: [SearchTool]
+ *
+ * ### Key Flow
+ * 1. Orchestrator로부터 모델 파싱 결과인 [ModelOutput.SearchOutput] 수신
+ * 2. [SearchTool]을 호출하여 주어진 쿼리에 대한 결과 텍스트(Context) 획득
+ * 3. 결과를 다시 Orchestrator에 반환하여 모델이 컨텍스트를 바탕으로 답변을 재생성하도록 지원
+ */
 class SearchAgent @Inject constructor(
     private val webSearchTool: WebSearchTool
 ) {

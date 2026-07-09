@@ -27,6 +27,20 @@ import com.localfriday.app.di.LLMDispatcher
 
 import com.localfriday.app.runtime.metrics.RuntimeMetricsCollector
 
+/**
+ * [GemmaModelRunner]
+ * Google Edge LiteRT-LM을 사용하여 온디바이스 Gemma 모델(LLM)을 실행하는 런타임 클래스입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Runtime / Infra
+ * - **Dependencies**: [GemmaRuntimeManager], [RuntimeMetricsCollector], LiteRT Engine
+ *
+ * ### Key Flow
+ * 1. [ChatPrompt] 객체를 입력받아 모델 초기화(엔진 및 GPU 백엔드) 확인
+ * 2. LiteRT-LM [Conversation] 객체 생성 또는 기존 세션 유지
+ * 3. 입력 텍스트(또는 텍스트+이미지)를 모델에 전달하여 스트리밍(또는 단일) 추론 수행
+ * 4. 추론 중 기기 온도/리소스 메트릭 수집 및 스레드 병목 방지(Yield) 적용
+ */
 @Singleton
 class GemmaModelRunner @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -196,7 +210,7 @@ class GemmaModelRunner @Inject constructor(
     private fun getOrCreateConversation(prompt: ChatPrompt): Conversation {
         val currentEngine = engine ?: throw IllegalStateException("Engine is not initialized")
         val isSameSession = currentSessionId == prompt.sessionId
-        val isTokenExceeded = conversation != null && conversation!!.getTokenCount() > 3500
+        val isTokenExceeded = conversation != null && conversation!!.getTokenCount() > 3000
 
         if (conversation == null || !isSameSession || isTokenExceeded) {
             conversation?.close()

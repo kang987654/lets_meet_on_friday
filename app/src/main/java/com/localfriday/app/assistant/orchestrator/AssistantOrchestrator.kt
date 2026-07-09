@@ -16,6 +16,23 @@ import com.localfriday.app.domain.modelrunner.ModelRunner
 import java.util.UUID
 import javax.inject.Inject
 
+/**
+ * [AssistantOrchestrator]
+ * LLM 응답 처리 및 에이전트 라우팅을 담당하는 핵심 오케스트레이터 클래스입니다.
+ *
+ * 유저 입력을 받아 컨텍스트를 구성하고 모델을 실행한 뒤, 정책에 따라 적절한 액션(Agent)으로 분기합니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Assistant (Orchestration)
+ * - **Dependencies**: [ModelRunner], [ContextBuilder], [PromptAssembler], [PreExecutionGuard], Agents
+ *
+ * ### Key Flow
+ * 1. 유저 메시지 DB 저장
+ * 2. [ContextBuilder]를 통한 대화 기록 로드 (Token Sliding Window 적용)
+ * 3. [PromptAssembler]로 최종 프롬프트 조립
+ * 4. [ModelRunner] 실행 및 JSON 결과 파싱
+ * 5. Guard 정책 검사 후 결과 반환 또는 특정 Agent 로직(검색, 캘린더 등) 수행
+ */
 class AssistantOrchestrator @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val intentClassifier: IntentClassifier,
@@ -64,7 +81,12 @@ class AssistantOrchestrator @Inject constructor(
         val contextRes = contextBuilder.build(request.sessionId)
         val context = when (contextRes) {
             is AppResult.Success -> contextRes.data
-            is AppResult.Failure -> return AgentResult.Error(contextRes.error)
+            is AppResult.Failure -> {
+                val errorMsg = "대화 문맥을 구성하지 못했습니다: ${contextRes.error}"
+                auditTrailService.logError(request.sessionId, errorMsg)
+                saveAssistantMessage(request.sessionId, errorMsg)
+                return AgentResult.Error(contextRes.error)
+            }
         }
 
         // 4. 프롬프트 조립
@@ -149,7 +171,12 @@ class AssistantOrchestrator @Inject constructor(
                 val modelRes = modelRunner.generate(prompt)
                 val rawOutput = when (modelRes) {
                     is AppResult.Success -> modelRes.data
-                    is AppResult.Failure -> return AgentResult.Error(modelRes.error)
+                    is AppResult.Failure -> {
+                        val errorMsg = "검색 후 응답 생성에 실패했습니다: ${modelRes.error}"
+                        auditTrailService.logError(sessionId, errorMsg)
+                        saveAssistantMessage(sessionId, errorMsg)
+                        return AgentResult.Error(modelRes.error)
+                    }
                 }
 
                 auditTrailService.logModelRun(sessionId, prompt.currentInput, rawOutput)
@@ -164,7 +191,7 @@ class AssistantOrchestrator @Inject constructor(
                 val insertRes = calendarAgent.executeCalendarInsert(action)
                 val text = when (insertRes) {
                     is AppResult.Success -> "일정이 성공적으로 추가되었습니다."
-                    is AppResult.Failure -> "일정 추가에 실패했습니다: ${insertRes.error.message}"
+                    is AppResult.Failure -> "일정 추가에 실패했습니다: ${insertRes.error}"
                 }
                 saveAssistantMessage(sessionId, text)
                 AgentResult.Text(text)

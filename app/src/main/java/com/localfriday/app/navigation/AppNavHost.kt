@@ -37,7 +37,17 @@ fun AppNavHost(
         }
         
         composable(route = AppDestination.Settings.route) {
-            com.localfriday.app.ui.feature.settings.SettingsScreen()
+            com.localfriday.app.ui.feature.settings.SettingsScreen(
+                onNavigateToModelManagement = {
+                    navController.navigate(AppDestination.ModelManagement.route)
+                }
+            )
+        }
+
+        composable(route = AppDestination.ModelManagement.route) {
+            com.localfriday.app.ui.feature.settings.ModelManagementScreen(
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }

@@ -17,10 +17,12 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import org.junit.Rule
 import org.junit.Before
 import javax.inject.Inject
+import dagger.hilt.android.testing.HiltTestApplication
+import org.robolectric.annotation.Config
 
 class MockModelRunner : ModelRunner {
     override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(
-        ModelLoadState.Ready(com.localfriday.app.domain.modelrunner.ModelInfo("mock", "mock", 0L))
+        ModelLoadState.Ready(com.localfriday.app.domain.modelrunner.ModelInfo("mock", "mock", "1.0", "int8", 0L))
     )
     
     override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<String> {
@@ -46,7 +48,9 @@ class MockModelRunner : ModelRunner {
     override fun close() {}
 }
 
+
 @HiltAndroidTest
+@Config(application = HiltTestApplication::class)
 @RunWith(RobolectricTestRunner::class)
 class AssistantPipelineTest {
 

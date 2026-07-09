@@ -3,6 +3,19 @@ package com.localfriday.app.assistant.context
 import com.localfriday.app.domain.modelrunner.ChatPrompt
 import javax.inject.Inject
 
+/**
+ * [PromptAssembler]
+ * 모델 추론을 위해 최종적인 프롬프트 문자열 덩어리들을 조립하는 유틸리티 클래스입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Assistant (Context Management)
+ * - **Dependencies**: [ContextBuilder.Context], [ChatPrompt]
+ *
+ * ### Key Flow
+ * 1. 컨텍스트에서 System 메시지와 일반 사용자/AI History 분리
+ * 2. 기본 시스템 인스트럭션(JSON 형식 제약 등) 및 외부 주입 지식 병합
+ * 3. [ChatPrompt] 객체로 래핑하여 반환
+ */
 class PromptAssembler @Inject constructor() {
 
     fun assemble(context: ContextBuilder.Context, userInput: String): ChatPrompt {

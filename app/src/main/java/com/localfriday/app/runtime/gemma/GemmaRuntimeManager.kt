@@ -11,6 +11,19 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * [GemmaRuntimeManager]
+ * 디바이스 내의 Gemma 모델 파일 존재 여부를 확인하고 로드 상태를 관리하는 매니저 클래스입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Runtime / Infra
+ * - **Dependencies**: Android [Context] (파일 시스템 접근)
+ *
+ * ### Key Flow
+ * 1. 외부/내부 저장소에서 지정된 `.litertlm` 모델 파일 스캔
+ * 2. 파일 발견 시 모델 경로, 버전, 양자화 정보 등을 담은 [ModelInfo] 생성
+ * 3. 전체 시스템에 모델 로드 상태([ModelLoadState])를 Flow로 브로드캐스트
+ */
 @Singleton
 class GemmaRuntimeManager @Inject constructor(
     @ApplicationContext private val context: Context
@@ -42,17 +55,20 @@ class GemmaRuntimeManager @Inject constructor(
         var modelFile: File? = null
 
         // 1. Check external dir first (Android Studio push target usually)
-        if (externalModelsDir != null) {
-            val externalFile = File(externalModelsDir, defaultModelFileName)
-            if (externalFile.exists()) {
+        if (externalModelsDir != null && externalModelsDir.exists()) {
+            val externalFile = externalModelsDir.listFiles()?.firstOrNull { it.name.endsWith(".litertlm") }
+            if (externalFile != null) {
                 modelFile = externalFile
             }
         }
         
-        // 2. Check internal dir if not found (standalone push target)
+        // 2. Check internal dir if not found (standalone push target or Downloaded via App)
         if (modelFile == null && internalModelsDir.exists()) {
-            val internalFile = File(internalModelsDir, defaultModelFileName)
-            if (internalFile.exists()) {
+            // Find the most recently modified .litertlm file
+            val internalFile = internalModelsDir.listFiles()
+                ?.filter { it.name.endsWith(".litertlm") }
+                ?.maxByOrNull { it.lastModified() }
+            if (internalFile != null) {
                 modelFile = internalFile
             }
         }

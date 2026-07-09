@@ -7,6 +7,19 @@ import com.localfriday.app.domain.model.ChatMessage
 import com.localfriday.app.domain.tool.Tokenizer
 import javax.inject.Inject
 
+/**
+ * [ContextBuilder]
+ * LLM 모델에게 전달할 현재 세션의 컨텍스트(과거 대화 기록 등)를 구성하는 클래스입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Assistant (Context Management)
+ * - **Dependencies**: [ConversationRepository], [Tokenizer]
+ *
+ * ### Key Flow
+ * 1. 세션 ID를 기반으로 최근 대화 기록 조회
+ * 2. 모델의 Context Window 한도(예: 3000 토큰)를 넘지 않도록 Token Sliding Window 적용
+ * 3. 최적화된 [ChatMessage] 목록을 포함하는 [Context] 반환
+ */
 class ContextBuilder @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val tokenizer: Tokenizer
@@ -41,7 +54,7 @@ class ContextBuilder @Inject constructor(
 
     private fun applyTokenSlidingWindow(messages: List<ChatMessage>): List<ChatMessage> {
         var currentTokens = 0
-        val maxTokens = 3500 // Safe buffer under 4096 tokens
+        val maxTokens = 3000 // Safe buffer under 4096 tokens
         val selectedMessages = mutableListOf<ChatMessage>()
         
         // messages is chronological (oldest first). We iterate from newest (end) to oldest.

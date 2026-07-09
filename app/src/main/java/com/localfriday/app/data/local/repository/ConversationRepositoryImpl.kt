@@ -28,6 +28,7 @@ class ConversationRepositoryImpl @Inject constructor(
             conversationDao.insert(entity)
             AppResult.Success(Unit)
         } catch (e: Exception) {
+            com.localfriday.app.core.logging.AppLogger.e("ConversationRepo", "메시지 저장 실패", e)
             AppResult.Failure(AppError.DbWriteError("conversation"))
         }
     }
@@ -41,6 +42,7 @@ class ConversationRepositoryImpl @Inject constructor(
             val messages = entities.map { it.toDomain() }
             AppResult.Success(messages.reversed())
         } catch (e: Exception) {
+            com.localfriday.app.core.logging.AppLogger.e("ConversationRepo", "최근 메시지 조회 실패", e)
             AppResult.Failure(AppError.DbWriteError("conversation"))
         }
     }
@@ -50,6 +52,7 @@ class ConversationRepositoryImpl @Inject constructor(
             val entities = conversationDao.getPagedBySession(sessionId, offset, limit)
             AppResult.Success(entities.map { it.toDomain() })
         } catch (e: Exception) {
+            com.localfriday.app.core.logging.AppLogger.e("ConversationRepo", "페이징 메시지 조회 실패", e)
             AppResult.Failure(AppError.DbReadError("conversation"))
         }
     }
