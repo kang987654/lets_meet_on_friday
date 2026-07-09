@@ -1,24 +1,32 @@
-# [Phase 7] 모델 성능 최적화 구현 계획 (MTP / Speculative Decoding)
+# [Phase 10] 음성 입력(ASR) 기능 고도화 계획
 
-현재 Gemma 4 모델의 추론 속도를 더욱 끌어올리고 GPU 백엔드에서 발생할 수 있는 병목을 줄이기 위해, LiteRT-LM이 제공하는 **MTP(Speculative Decoding)** 기능을 엔진 설정에 도입하려 합니다.
+사용자가 타이핑뿐만 아니라 목소리로도 편리하게 KOSMOS 에이전트와 대화할 수 있도록, 음성 입력 기능을 도입하려 합니다.
 
 ## User Review Required
 > [!IMPORTANT]
-> - `enableSpeculativeDecoding` 옵션은 Gemma 4 모델에서 GPU 백엔드 가속을 크게 향상시켜 생성 속도(Tokens Per Second)를 높여줍니다.
-> - 기존 대비 발열 양상이나 메모리 피크치가 달라질 수 있어, `RuntimeMetricsCollector`의 쿨다운 로직이 더 잦게 호출될 가능성도 염두에 두어야 합니다.
+> - `SKILL.md`에 따르면 Gemma 4 모델은 `Content.AudioFile` 형태로 오디오 데이터를 직접 입력받을 수 있습니다.
+> - 따라서 구글 클라우드 STT(Speech-to-Text) API 등을 별도로 사용하지 않고, 안드로이드 기기의 내장 마이크로 녹음한 음성 파일을 그대로 Gemma 모델에 전달하여 **온디바이스 ASR (자동 음성 인식)** 처리를 수행할 수 있습니다.
+
+## Open Questions
+> [!QUESTION]
+> 마이크 버튼을 눌렀을 때의 동작 방식(UX)에 대한 결정이 필요합니다:
+> 1. **버튼 유지(Hold to talk)**: 마이크 버튼을 누르고 있는 동안만 녹음되고, 떼면 전송.
+> 2. **토글(Toggle)**: 한 번 누르면 녹음 시작, 다시 누르면 녹음 종료 및 전송.
 
 ## Proposed Changes
 
-### Runtime Layer (`com.localfriday.app.runtime.gemma`)
+### UI Layer (`ChatScreen.kt` & `ChatViewModel.kt`)
+- 채팅 입력창(TextField) 우측에 **마이크 아이콘 버튼** 추가.
+- 마이크 권한(`RECORD_AUDIO`) 요청 로직 추가.
+- 사용자의 음성 녹음 시작/종료 상태를 관리하는 UI 로직.
 
-#### [MODIFY] [GemmaModelRunner.kt](file:///c:/Users/SSAFY/Desktop/dev/lets_meet_on_friday/app/src/main/java/com/localfriday/app/runtime/gemma/GemmaModelRunner.kt)
-- `ensureInferenceInitialized` 메서드 내부의 `EngineConfig` 인스턴스화 시 `enableSpeculativeDecoding = true` 플래그를 추가합니다.
-- (선택) OOM(Out of Memory) 예방 차원에서 `maxContextSize` 나 `batchSize` 파라미터가 명시적으로 필요하다면 함께 조정합니다.
+### Data/Device Layer (`AudioRecorder.kt` 추가)
+- `MediaRecorder` 또는 `AudioRecord` API를 활용하여 사용자의 음성을 `.wav` 또는 모델이 요구하는 포맷으로 기기 캐시 폴더에 임시 저장하는 유틸리티 클래스 구현.
+
+### Domain / Runtime Layer (`GemmaModelRunner.kt`)
+- 기존의 텍스트, 이미지 처리 외에 오디오 파일 경로를 받아 `Content.AudioFile(filePath)` 형태로 묶어서 `sendMessageAsync`로 넘길 수 있도록 오디오 지원 확장.
 
 ## Verification Plan
-
-### Automated/Manual Verification
-1. 변경 사항 적용 후 프로젝트 빌드.
-2. `SettingsScreen`에서 "Refresh" 또는 "Manage Models"를 통해 모델 엔진 재시작 트리거.
-3. Chat 화면에서 긴 문장(예: "안드로이드 OS의 아키텍처에 대해 상세히 설명해 줘")을 요청한 뒤, 이전 Phase 대비 응답의 스트리밍 출력 속도(눈으로 체감되는 TPS)가 개선되었는지 확인.
-4. 필요시 `Logcat`을 통해 GPU 초기화 및 MTP 관련 로그 확인.
+1. 기기에서 마이크 권한 승인 창이 정상적으로 뜨는지 확인.
+2. 음성 녹음 후 임시 파일이 정상 생성되는지 로그 확인.
+3. 해당 음성 파일을 넣었을 때 KOSMOS가 사용자의 음성 의도를 파악하고 적절한 텍스트 답변을 출력하는지 테스트.

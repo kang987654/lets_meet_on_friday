@@ -1,22 +1,26 @@
-# 🚀 Phase 7: 모델 성능 최적화 및 멀티모달 고도화 완료
+# 🎙️ Phase 10: 음성 입력(ASR) 기능 고도화 완료
 
 ## 📝 구현 내역
 
-### 1. 멀티모달 (이미지 + 텍스트) 추론 스트리밍 적용
-- 기존에는 `GemmaModelRunner`의 `generateWithImage` 메서드가 전체 답변이 생성될 때까지 UI를 멈춰두고 기다리는(Blocking) 구조였습니다.
-- 이를 일반 채팅과 동일하게 `sendMessageAsync` 체계로 전환하여, **이미지를 첨부한 프롬프트에서도 답변이 한 글자씩 실시간으로 타이핑(Streaming)** 되도록 리팩토링했습니다.
-- 과열 방지(Thermal Control)를 위한 `yield()` 및 `delay()` 로직도 멀티모달 파이프라인에 동일하게 적용되어 발열 관리가 한층 더 강화되었습니다.
+사용자가 KOSMOS 에이전트와 **목소리로 대화**할 수 있도록 안드로이드 로컬 마이크 녹음 및 온디바이스 모델 추론 기능을 연동했습니다.
 
-### 2. MTP (투기적 디코딩) 옵션에 대한 검증 결과
-- `litertlm-gemma4` 스킬 문서의 지침에 따라 `EngineConfig`에 `enableSpeculativeDecoding` 옵션을 주입하려 시도했습니다.
-- **결과**: 현재 프로젝트에 적용된 LiteRT-LM 라이브러리(`0.13.1` 등)의 API 스펙에서는 해당 파라미터를 아직 정식 지원하지 않아 컴파일 에러가 발생함을 확인했습니다. 
-- **조치**: 당장 빌드가 깨지는 문제를 방지하기 위해 해당 옵션은 제거해 둔 상태입니다. 향후 구글의 `litertlm-android` 최신 라이브러리로 버전업 시 옵션을 다시 활성화하기로 결정했습니다.
+### 1. Data Layer (`AudioRecorder.kt`)
+- 안드로이드의 내장 `MediaRecorder` API를 래핑하여 사용자의 마이크 입력을 앱 내부 캐시 폴더(`kosmos_audio_input.m4a`)에 저장하는 유틸리티를 추가했습니다.
+
+### 2. UI / ViewModel Layer (`ChatScreen.kt`, `ChatViewModel.kt`)
+- 텍스트 입력창 좌측에 있던 마이크 버튼에 **토글(Toggle) 방식** 녹음 로직을 연결했습니다.
+- 버튼을 누르면 안드로이드 런타임 권한(`RECORD_AUDIO`)을 요청/확인한 후 녹음이 시작됩니다 (버튼은 붉은색 ⏹ 정지 아이콘으로 변경됨).
+- 한 번 더 누르면 녹음이 종료되며, 저장된 파일 경로를 뷰모델의 `sendMessage` 파이프라인으로 전송합니다.
+
+### 3. Runtime Layer (`GemmaModelRunner.kt`)
+- `Content.AudioFile(audioPath)` 객체를 생성하여 기존의 텍스트 파이프라인(`sendMessageAsync`)과 동일하게 **스트리밍 기반의 오디오 추론**을 수행하도록 확장(`generateWithAudio`)했습니다.
+- 외부 STT 서버를 거치지 않고 오직 단말기 내부에서 Gemma 모델이 음성을 텍스트(또는 그에 대한 답변)로 변환해 응답합니다.
 
 ## ✅ 검증 결과
-- `FakeModelRunner` 및 `AssistantPipelineTest`에 변경된 함수 시그니처(`onToken` 파라미터 추가) 반영 완료.
-- `gradlew assembleDebug` 빌드 정상 통과 및 `BUILD SUCCESSFUL`.
+- 테스트를 위한 `FakeModelRunner` / `MockModelRunner` 의존성 주입 호환성 수정 완료.
+- `gradlew assembleDebug` 빌드 정상 통과 (`BUILD SUCCESSFUL in 1m 2s`).
 
 ---
 
 > [!TIP]
-> 이제 안드로이드 단말에서 이미지와 함께 질문을 던졌을 때에도, 대기 시간 없이 즉각적으로 글자가 출력되기 시작하는 훨씬 매끄러운 사용자 경험을 얻을 수 있습니다!
+> 이제 KOSMOS 채팅 화면에서 **마이크 버튼을 눌러 녹음을 시작**하고, **다시 눌러 녹음을 끝내면** 녹음된 음성 파일이 AI 엔진으로 직행하여 빠르고 안전하게 답변이 쏟아져 나옵니다!

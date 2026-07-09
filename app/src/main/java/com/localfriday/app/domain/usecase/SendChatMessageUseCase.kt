@@ -34,6 +34,7 @@ class SendChatMessageUseCase @Inject constructor(
         message: String,
         imageBytes: ByteArray? = null,
         documentText: String? = null,
+        audioFilePath: String? = null,
         onToken: ((String) -> Unit)? = null
     ): AppResult<AgentResult> {
         val trimmedMessage = message.trim()
@@ -54,6 +55,7 @@ class SendChatMessageUseCase @Inject constructor(
             message = trimmedMessage,
             imageBytes = imageBytes,
             documentText = documentText,
+            audioFilePath = audioFilePath,
             onToken = onToken
         )
         

@@ -64,6 +64,9 @@ import com.localfriday.app.domain.modelrunner.ModelLoadState
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
+import android.Manifest
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -129,6 +132,14 @@ fun ChatScreen(
         }
     }
 
+    val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.toggleRecording()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -142,6 +153,7 @@ fun ChatScreen(
         bottomBar = {
             ChatInputBar(
                 isLoading = uiState.isInFlight,
+                isRecording = uiState.isRecording,
                 sharedInput = uiState.sharedInput,
                 onClearSharedInput = { viewModel.clearSharedInput() },
                 onSend = { text ->
@@ -149,7 +161,13 @@ fun ChatScreen(
                         viewModel.sendMessage(text)
                     }
                 },
-                onMicClick = { showVoiceOverlay = true },
+                onMicClick = { 
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        viewModel.toggleRecording()
+                    } else {
+                        recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                },
                 onAttachClick = { imagePickerLauncher.launch("*/*") }
             )
         }
@@ -256,16 +274,7 @@ fun ChatScreen(
         }
     }
 
-    if (showVoiceOverlay) {
-        VoiceOverlay(
-            sessionId = uiState.sessionId,
-            onDismiss = { showVoiceOverlay = false },
-            onMessageSent = { transcript ->
-                // Use optimistic UI append
-                viewModel.sendMessage(transcript)
-            }
-        )
-    }
+    // VoiceOverlay placeholder removed
 }
 
 @Composable
@@ -339,6 +348,7 @@ fun TypingIndicator() {
 @Composable
 fun ChatInputBar(
     isLoading: Boolean,
+    isRecording: Boolean,
     sharedInput: com.localfriday.app.platform.share.SharedInput?,
     onClearSharedInput: () -> Unit,
     onSend: (String) -> Unit,
@@ -479,10 +489,10 @@ fun ChatInputBar(
                 enabled = !isLoading,
                 modifier = Modifier
                     .size(48.dp)
-                    .background(if (!isLoading) Ink else Hairline, shape = RoundedCornerShape(24.dp))
+                    .background(if (!isLoading) (if (isRecording) androidx.compose.ui.graphics.Color.Red else Ink) else Hairline, shape = RoundedCornerShape(24.dp))
             ) {
                 Text(
-                    text = "M", // Mic placeholder
+                    text = if (isRecording) "■" else "M", // Mic/Stop placeholder
                     color = if (!isLoading) SurfaceCard else MutedText,
                     style = MaterialTheme.typography.titleMedium
                 )

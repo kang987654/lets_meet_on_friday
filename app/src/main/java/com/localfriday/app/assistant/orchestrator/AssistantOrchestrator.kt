@@ -93,8 +93,10 @@ class AssistantOrchestrator @Inject constructor(
         val prompt = promptAssembler.assemble(context, request.message)
 
         // 5. LLM 추론 실행
-        val modelRes = if (request.imageBytes != null) {
-            modelRunner.generateWithImage(prompt, request.imageBytes)
+        val modelRes = if (request.audioFilePath != null) {
+            modelRunner.generateWithAudio(prompt, request.audioFilePath, request.onToken)
+        } else if (request.imageBytes != null) {
+            modelRunner.generateWithImage(prompt, request.imageBytes, request.onToken)
         } else {
             modelRunner.generate(prompt, request.onToken)
         }

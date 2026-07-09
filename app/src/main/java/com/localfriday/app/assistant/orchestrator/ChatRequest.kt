@@ -5,5 +5,6 @@ data class ChatRequest(
     val message: String,
     val imageBytes: ByteArray? = null,
     val documentText: String? = null,
+    val audioFilePath: String? = null,
     val onToken: ((String) -> Unit)? = null
 )

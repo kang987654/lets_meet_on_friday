@@ -17,6 +17,12 @@ interface ModelRunner {
         onToken: ((String) -> Unit)? = null
     ): AppResult<String>
 
+    suspend fun generateWithAudio(
+        prompt: ChatPrompt,
+        audioPath: String,
+        onToken: ((String) -> Unit)? = null
+    ): AppResult<String>
+
     suspend fun cancel()
     suspend fun warmUp()
     fun close()

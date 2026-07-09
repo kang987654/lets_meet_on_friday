@@ -16,5 +16,6 @@ data class ChatUiState(
     val error: AppError? = null,
     val streamingText: String? = null,
     val warningMessage: String? = null,
-    val engineState: ModelLoadState = ModelLoadState.Loading
+    val engineState: ModelLoadState = ModelLoadState.Loading,
+    val isRecording: Boolean = false
 )

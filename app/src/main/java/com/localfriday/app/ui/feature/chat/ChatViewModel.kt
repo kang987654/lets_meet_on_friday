@@ -40,7 +40,8 @@ class ChatViewModel @Inject constructor(
     private val approvalCoordinator: ApprovalCoordinator,
     private val shareIntentHandler: ShareIntentHandler,
     private val runtimeMetricsCollector: RuntimeMetricsCollector,
-    private val modelRunner: ModelRunner
+    private val modelRunner: ModelRunner,
+    private val audioRecorder: com.localfriday.app.platform.speech.AudioRecorder
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -136,8 +137,8 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendMessage(text: String) {
-        if (text.isBlank() || _uiState.value.isInFlight) return
+    fun sendMessage(text: String, audioFilePath: String? = null) {
+        if ((text.isBlank() && audioFilePath == null) || _uiState.value.isInFlight) return
 
         var imageBytes: ByteArray? = null
         var documentText: String? = null
@@ -172,8 +173,8 @@ class ChatViewModel @Inject constructor(
             id = UUID.randomUUID().toString(),
             sessionId = sessionId,
             role = ChatMessage.Role.USER,
-            content = text, // UI에서는 원본 text 노출
-            inputType = if (imageBytes != null) InputType.IMAGE else InputType.TEXT,
+            content = if (audioFilePath != null && text.isBlank()) "(음성 메시지)" else text,
+            inputType = if (audioFilePath != null) InputType.VOICE else if (imageBytes != null) InputType.IMAGE else InputType.TEXT,
             createdAt = System.currentTimeMillis()
         )
         
@@ -195,6 +196,7 @@ class ChatViewModel @Inject constructor(
                     message = text, // Send original text
                     imageBytes = imageBytes,
                     documentText = documentText,
+                    audioFilePath = audioFilePath,
                     onToken = { token ->
                         _uiState.update { state ->
                             val currentText = state.streamingText ?: ""
@@ -273,6 +275,28 @@ class ChatViewModel @Inject constructor(
                 createdAt = System.currentTimeMillis()
             )
             state.copy(messages = (state.messages + sysMessage).toImmutableList())
+        }
+    }
+
+    fun toggleRecording() {
+        if (_uiState.value.isRecording) {
+            _uiState.update { it.copy(isRecording = false) }
+            val result = audioRecorder.stopRecording()
+            if (result.isSuccess) {
+                val file = result.getOrNull()
+                if (file != null && file.exists()) {
+                    sendMessage("", file.absolutePath)
+                }
+            } else {
+                _uiState.update { it.copy(error = com.localfriday.app.core.common.AppError.SttError(result.exceptionOrNull()?.message ?: "녹음 중지 실패")) }
+            }
+        } else {
+            val result = audioRecorder.startRecording()
+            if (result.isSuccess) {
+                _uiState.update { it.copy(isRecording = true) }
+            } else {
+                _uiState.update { it.copy(error = com.localfriday.app.core.common.AppError.SttError(result.exceptionOrNull()?.message ?: "녹음 시작 실패")) }
+            }
         }
     }
 

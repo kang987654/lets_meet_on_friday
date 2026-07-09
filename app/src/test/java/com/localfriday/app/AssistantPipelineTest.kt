@@ -49,6 +49,16 @@ class MockModelRunner : ModelRunner {
         return AppResult.Success("Image processed.")
     }
 
+    override suspend fun generateWithAudio(
+        prompt: ChatPrompt,
+        audioPath: String,
+        onToken: ((String) -> Unit)?
+    ): AppResult<String> {
+        delay(100)
+        onToken?.invoke("Audio processed.")
+        return AppResult.Success("Audio processed.")
+    }
+
     override suspend fun cancel() {}
     override suspend fun warmUp() {}
     override fun close() {}

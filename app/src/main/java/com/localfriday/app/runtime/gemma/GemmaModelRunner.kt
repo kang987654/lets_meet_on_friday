@@ -198,6 +198,80 @@ class GemmaModelRunner @Inject constructor(
         }
     }
 
+    override suspend fun generateWithAudio(
+        prompt: ChatPrompt,
+        audioPath: String,
+        onToken: ((String) -> Unit)?
+    ): AppResult<String> = withContext(llmDispatcher) {
+        val currentState = loadState.value
+        if (currentState !is ModelLoadState.Ready) {
+            return@withContext AppResult.Failure(AppError.ModelNotReady("Model is not ready"))
+        }
+
+        try {
+            ensureInferenceInitialized(currentState.modelInfo.modelPath)
+            
+            val preconditionResult = metricsCollector.checkPreconditions()
+            metricsCollector.handleCooldownIfNecessary()
+            metricsCollector.recordStart()
+            val startTime = System.currentTimeMillis()
+
+            val contentList = mutableListOf<com.google.ai.edge.litertlm.Content>()
+            contentList.add(com.google.ai.edge.litertlm.Content.AudioFile(audioPath))
+            contentList.add(com.google.ai.edge.litertlm.Content.Text(prompt.currentInput))
+            
+            val currentConversation = getOrCreateConversation(prompt)
+            
+            if (onToken != null) {
+                var finalResponse = ""
+                var error: Throwable? = null
+                
+                try {
+                    currentConversation.sendMessageAsync(com.google.ai.edge.litertlm.Contents.of(*contentList.toTypedArray())).collect { message ->
+                        yield()
+                        val token = message.contents.contents.filterIsInstance<com.google.ai.edge.litertlm.Content.Text>().joinToString("") { it.text }
+                        if (token.isNotEmpty()) {
+                            onToken.invoke(token)
+                            finalResponse += token
+
+                            val currentTemp = metricsCollector.getCurrentTemp()
+                            if (currentTemp >= 48.0f) {
+                                kotlinx.coroutines.delay(50)
+                            } else if (currentTemp >= 43.0f) {
+                                kotlinx.coroutines.delay(15)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    error = e
+                }
+
+                val durationMs = System.currentTimeMillis() - startTime
+                metricsCollector.recordEnd(durationMs)
+                
+                if (error != null) {
+                    AppResult.Failure(AppError.ModelInferenceError(error.message ?: "음성 스트리밍 중 에러 발생"))
+                } else {
+                    AppResult.Success(finalResponse)
+                }
+            } else {
+                val message = currentConversation.sendMessage(com.google.ai.edge.litertlm.Contents.of(*contentList.toTypedArray()))
+                val messageText = message?.contents?.contents?.filterIsInstance<com.google.ai.edge.litertlm.Content.Text>()?.joinToString("") { it.text }
+                
+                val durationMs = System.currentTimeMillis() - startTime
+                metricsCollector.recordEnd(durationMs)
+                
+                if (!messageText.isNullOrEmpty()) {
+                    AppResult.Success(messageText)
+                } else {
+                    AppResult.Failure(AppError.ModelInferenceError("음성 응답 생성 결과가 null입니다."))
+                }
+            }
+        } catch (e: Exception) {
+            AppResult.Failure(AppError.ModelInferenceError("음성 추론 중 오류 발생: ${e.message}"))
+        }
+    }
+
     override suspend fun cancel() {
         conversation?.cancelProcess()
     }

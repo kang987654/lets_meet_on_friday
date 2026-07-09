@@ -56,6 +56,16 @@ class FakeModelRunner : ModelRunner {
         return AppResult.Success("Fake multimodal response")
     }
 
+    override suspend fun generateWithAudio(
+        prompt: ChatPrompt,
+        audioPath: String,
+        onToken: ((String) -> Unit)?
+    ): AppResult<String> {
+        delay(1500)
+        onToken?.invoke("Fake audio response")
+        return AppResult.Success("Fake audio response")
+    }
+
     override suspend fun cancel() {
         // do nothing
     }

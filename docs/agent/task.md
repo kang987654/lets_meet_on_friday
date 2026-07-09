@@ -1,5 +1,6 @@
-# Phase 7: Model Performance Optimization
+# Phase 10: Voice Input (ASR)
 
-- `[x]` `GemmaModelRunner.kt` 내 GPU 백엔드 초기화 시 `enableSpeculativeDecoding = true` 적용 (MTP 활성화)
-- `[x]` `GemmaModelRunner.kt` 의 `generateWithImage` 메서드를 동기식(`sendMessage`)에서 비동기 스트리밍(`sendMessageAsync`) 방식으로 리팩토링
-- `[x]` 빌드 및 실행 검증 (MTP 동작 시 크래시 여부, 이미지 추론 스트리밍 동작 여부 확인)
+- `[x]` **Data Layer**: `AudioRecorder` 유틸리티 클래스 생성 (MediaRecorder를 이용해 임시 파일로 녹음)
+- `[x]` **UI/ViewModel Layer**: `ChatScreen` 내 마이크 토글 버튼 및 권한(`RECORD_AUDIO`) 요청 처리 구현
+- `[x]` **Runtime Layer**: `GemmaModelRunner` 내 오디오 파일 입력을 처리하는 `generateWithAudio` (또는 통합 미디어 처리) 메서드 추가
+- `[x]` **테스트**: 빌드 검증 및 녹음-추론 파이프라인 연동 확인
