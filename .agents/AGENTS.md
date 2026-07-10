@@ -9,8 +9,12 @@ PowerShell 명령어를 통해 파일 내용을 직접 수정하거나 생성할
 ## 3. Docs-as-code 문서화 전략
 기존 기획/설계 문서를 업데이트해야 할 때, 원본 문서를 덮어쓰지 않고 보호합니다. 대신 `docs/` 폴더 내에 변경된 문서를 버전별 또는 진화형태로 새로 작성/복사하여 관리합니다. 에이전트 작업 내역(`task.md`, `implementation_plan.md`) 역시 `docs/agent/` 경로에 저장하고 커밋하여 프로젝트 팀원(또는 다른 기기)과 Git을 통해 공유되도록 합니다.
 
-## 4. 안드로이드 통합 및 E2E 테스트 지향
-테스트 작성 시 단순 구문 검증 위주의 유닛 테스트를 피합니다. 대신 `Robolectric`과 `Compose Test Rule`을 활용하여 UI - ViewModel - Orchestrator - DB로 이어지는 데이터 파이프라인의 통합(Integration) 및 E2E 테스트 작성을 최우선으로 합니다.
+## 4. 안드로이드 통합 및 E2E 테스트 지향 (Robolectric + Compose UI Test)
+통합(Integration) 및 E2E 테스트 작성을 최우선으로 하며 다음 핵심 원칙을 준수합니다:
+- **수동 ViewModel 주입**: Robolectric 환경의 `hiltViewModel()` 크래시(Activity Hilt 주입 누락)를 피하기 위해, 테스트 클래스에서 의존성을 주입받아 ViewModel을 직접 생성하고 Compose 스크린에 전달(`ChatScreen(viewModel = vm)`)합니다.
+- **Hilt 의존성 보존**: `@UninstallModules`로 특정 모듈 제거 시 연쇄 삭제되는 다른 의존성들(예: Tokenizer)은 반드시 `@BindValue`로 명시적 재정의(Mocking)해야 합니다.
+- **비동기 사이드 이펙트 대기**: 백그라운드 코루틴 작업은 `waitForIdle()`로 동기화되지 않으므로, `ShadowLooper.runUiThreadTasksIncludingDelayedTasks()`를 포함한 `while` 루프(Polling)로 상태 변경을 명시적으로 기다립니다.
+- **TextField 안전 검색**: 힌트(`onNodeWithText`) 기반 검색은 구조에 따라 실패할 수 있으므로, 텍스트 입력창은 `hasSetTextAction()` 또는 `testTag`로 찾습니다.
 
 ## 5. 최신 AGP(9.0+) Kotlin 플러그인 주의점
 프로젝트가 최신 Gradle 및 AGP 9.0 이상을 사용 중이므로, 새로운 안드로이드 라이브러리 모듈(예: core, domain 등)을 생성할 때 `build.gradle.kts` 파일에 더 이상 `id("org.jetbrains.kotlin.android")` 플러그인을 명시하지 마십시오. AGP 9.0부터는 코틀린 지원이 내장되어 있어 해당 플러그인을 중복 선언하면 빌드 에러(Crash)가 발생합니다.
