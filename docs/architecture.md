@@ -199,7 +199,7 @@ Data / Runtime / Platform
 
 | 파일 | 책임 |
 |---|---|
-| `LocalFridayApp.kt` | Application 클래스, 전역 초기화 |
+| `KosmosApp.kt` | Application 클래스, 전역 초기화 |
 | `MainActivity.kt` | Compose NavHost 진입점, 단일 Activity |
 | `di/AppModule.kt` | 공통 싱글턴 바인딩 |
 | `di/ModelModule.kt` | ModelRunner 바인딩 |
@@ -418,7 +418,7 @@ Domain 레이어의 인터페이스만 사용한다.
 
 | 파일 | 책임 |
 |---|---|
-| `LocalFridayDatabase.kt` | Room DB 진입점 (WAL 모드 활성화) |
+| `KosmosDatabase.kt` | Room DB 진입점 (WAL 모드 활성화) |
 | `dao/ProfileDao.kt` | profiles 테이블 접근 |
 | `dao/ConversationDao.kt` | conversations 테이블 접근 |
 | `dao/TaskDao.kt` | tasks 테이블 접근 (v1) |
@@ -541,10 +541,10 @@ interface SpeechToTextTool {
 ## 5. Directory Structure
 
 ```text
-com.localfriday.app
+com.kosmos.app
 │
 ├── app/
-│   ├── LocalFridayApp.kt
+│   ├── KosmosApp.kt
 │   ├── MainActivity.kt
 │   └── di/
 │       ├── AppModule.kt
@@ -649,7 +649,7 @@ com.localfriday.app
 ├── data/
 │   └── local/
 │       ├── db/
-│       │   ├── LocalFridayDatabase.kt
+│       │   ├── KosmosDatabase.kt
 │       │   ├── dao/
 │       │   │   ├── ProfileDao.kt
 │       │   │   ├── ConversationDao.kt
@@ -967,7 +967,7 @@ class ChatViewModel @Inject constructor(
 
 ### 8-2. Room DB 테이블 스키마
 
-**`LocalFridayDatabase` 버전 관리**
+**`KosmosDatabase` 버전 관리**
 
 ```kotlin
 @Database(
@@ -982,7 +982,7 @@ class ChatViewModel @Inject constructor(
     exportSchema = true,
     autoMigrations = []
 )
-abstract class LocalFridayDatabase : RoomDatabase()
+abstract class KosmosDatabase : RoomDatabase()
 ```
 
 ### 8-3. DataStore 키 목록
@@ -1019,7 +1019,7 @@ object SessionKeys {
 
 ```text
 getExternalFilesDir("models")
-→ /sdcard/Android/data/com.localfriday.app/files/models/
+→ /sdcard/Android/data/com.kosmos.app/files/models/
 ```
 
 ---

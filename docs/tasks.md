@@ -1,4 +1,4 @@
-# tasks.md — Local Friday
+# tasks.md — Kosmos
 ## AI Agent Task Breakdown
 
 **문서 버전**: 1.2
@@ -151,7 +151,7 @@ agp = "9.2.0"
 
 **생성할 최상위 패키지**
 ```text
-com.localfriday.app/
+com.kosmos.app/
 ├── app/di/
 ├── core/common/ core/config/ core/logging/ core/security/ core/mapper/
 ├── domain/model/ domain/memory/ domain/modelrunner/
@@ -183,20 +183,20 @@ com.localfriday.app/
 | 항목 | 내용 |
 |---|---|
 | **Goal** | 앱 진입점을 구성하고 Hilt DI를 초기화한다 |
-| **Scope** | `LocalFridayApp.kt`, `MainActivity.kt` 생성. DI 모듈 빈 파일 생성 |
-| **Files to Create** | `app/LocalFridayApp.kt` `app/MainActivity.kt` `app/di/AppModule.kt` `app/di/ModelModule.kt` `app/di/MemoryModule.kt` `app/di/AgentModule.kt` `app/di/PlatformModule.kt` |
+| **Scope** | `KosmosApp.kt`, `MainActivity.kt` 생성. DI 모듈 빈 파일 생성 |
+| **Files to Create** | `app/KosmosApp.kt` `app/MainActivity.kt` `app/di/AppModule.kt` `app/di/ModelModule.kt` `app/di/MemoryModule.kt` `app/di/AgentModule.kt` `app/di/PlatformModule.kt` |
 | **Dependencies** | TASK-001, TASK-002 |
 
 **구현 내용**
 ```kotlin
 @HiltAndroidApp
-class LocalFridayApp : Application()
+class KosmosApp : Application()
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(...) {
         super.onCreate(savedInstanceState)
-        setContent { LocalFridayTheme { /* NavHost placeholder */ } }
+        setContent { KosmosTheme { /* NavHost placeholder */ } }
     }
 }
 ```
@@ -1120,13 +1120,13 @@ assert(result is AppResult.Success)
 ---
 
 ### TASK-026 `v0`
-**LocalFridayDatabase 정의**
+**KosmosDatabase 정의**
 
 | 항목 | 내용 |
 |---|---|
 | **Goal** | Room DB 진입점을 생성하고 버전/AutoMigration을 설정한다 |
-| **Scope** | `data/local/db/LocalFridayDatabase.kt` 1개 파일 |
-| **Files to Create** | `data/local/db/LocalFridayDatabase.kt` |
+| **Scope** | `data/local/db/KosmosDatabase.kt` 1개 파일 |
+| **Files to Create** | `data/local/db/KosmosDatabase.kt` |
 | **Dependencies** | TASK-024, TASK-025 |
 
 **Done Criteria**

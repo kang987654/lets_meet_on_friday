@@ -74,7 +74,7 @@ Unresolved reference 'sessionId'.
 
 ## 7. UI Integration (MainActivity 연동 이슈)
 - **증상**: `MainActivity`를 `AppNavHost`에 연결하는 과정에서 패키지 임포트 에러 및 빌드 실패 발생.
-- **원인**: `material-icons-extended` 라이브러리가 존재하지 않는 상태에서 아이콘을 쓰려 했고, `MainActivity`가 엉뚱한 폴더(`com.localfriday.app.app`)에 위치해 있었음.
+- **원인**: `material-icons-extended` 라이브러리가 존재하지 않는 상태에서 아이콘을 쓰려 했고, `MainActivity`가 엉뚱한 폴더(`com.kosmos.app.app`)에 위치해 있었음.
 - **해결 방안**: 아이콘을 텍스트로 대체하고 패키지 경로를 올바르게 수정함.
 
 ## 8. Memory Data Layer (TASK-052)
@@ -106,7 +106,7 @@ Unresolved reference 'sessionId'.
 - **해결 방안**: 데이터베이스 파일을 복원(덮어쓰기)한 직후 앱의 프로세스를 강제로 완전히 종료(`exitProcess(0)`)하여 시스템이 앱을 처음부터 다시 띄우고 DB를 새롭게 Open하게 함으로써 무결성 이슈를 해결함.
 
 ## 13. Hilt `@Binds` 누락 에러 (Phase 17)
-- **증상**: `[Dagger/MissingBinding] com.localfriday.app.domain.tool.WebSearchTool cannot be provided without an @Provides-annotated method.`
+- **증상**: `[Dagger/MissingBinding] com.kosmos.app.domain.tool.WebSearchTool cannot be provided without an @Provides-annotated method.`
 - **원인**: `WebSearchGateway` 구현체를 새로 만들고 `SearchAgent`에 주입하려 했으나, 인터페이스인 `WebSearchTool`과 구현체 `WebSearchGateway`를 매핑해주는 DI 설정(`PlatformModule.kt`)을 누락함.
 - **해결 방안**: `PlatformModule.kt`에 `@Binds` 어노테이션을 사용하여 `bindWebSearchTool` 매핑 함수 추가.
 

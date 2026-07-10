@@ -1,0 +1,5 @@
+- [x] `strings.xml` 수정 (`app_name` 변경)
+- [x] `AndroidManifest.xml` 수정 (`android:label` 속성 추가 및 패키지 참조 확인)
+- [x] 파이썬 리팩토링 스크립트 작성 (`scratch/refactor_kosmos.py`) -> 자바 기반 스크립트로 대체 완료 (`Refactor.java`)
+- [x] 리팩토링 스크립트 실행 (패키지 문자열 치환 및 폴더 이전)
+- [x] 빌드 및 테스트 (`./gradlew clean build` 및 `testDebugUnitTest`)
