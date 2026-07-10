@@ -29,6 +29,20 @@ import com.kosmos.app.platform.share.ShareIntentHandler
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 import com.kosmos.app.domain.modelrunner.ModelRunner
 
+/**
+ * [ChatViewModel]
+ * 채팅 화면(UI)의 상태 관리 및 사용자 입력 이벤트를 도메인 레이어(UseCase)로 연결하는 ViewModel입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: UI (Presentation)
+ * - **Dependencies**: [SendChatMessageUseCase], [ResumeActionUseCase], [ApprovalCoordinator], [SessionStore], [ConversationRepository]
+ *
+ * ### Key Flow
+ * 1. UI에서 사용자 입력(텍스트/이미지/음성) 수신 시 [SendChatMessageUseCase] 호출
+ * 2. 모델 추론 결과를 받아 상태 업데이트 및 말풍선 UI 리렌더링
+ * 3. 에이전트의 승인 요청이 있을 경우 [ApprovalCoordinator]를 통해 UI 다이얼로그 표시
+ * 4. 음성 인식(STT) 및 텍스트 음성 변환(TTS) 상태 관리
+ */
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
