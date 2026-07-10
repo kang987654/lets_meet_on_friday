@@ -40,7 +40,7 @@ class SendChatMessageUseCase @Inject constructor(
         val trimmedMessage = message.trim()
 
         // 1. 유효성 검사 (빈 문자열)
-        if (trimmedMessage.isBlank()) {
+        if (trimmedMessage.isBlank() && imageBytes == null && audioFilePath == null && documentText == null) {
             return AppResult.Failure(AppError.ValidationError("message", "메시지를 입력해주세요."))
         }
 

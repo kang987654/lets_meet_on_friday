@@ -52,8 +52,8 @@ class AssistantOrchestrator @Inject constructor(
             id = UUID.randomUUID().toString(),
             sessionId = request.sessionId,
             role = ChatMessage.Role.USER,
-            content = request.message,
-            inputType = InputType.TEXT,
+            content = if (request.audioFilePath != null && request.message.isBlank()) "(음성 메시지)" else request.message,
+            inputType = if (request.audioFilePath != null) InputType.VOICE else if (request.imageBytes != null) InputType.IMAGE else InputType.TEXT,
             createdAt = System.currentTimeMillis()
         )
         val saveUserRes = conversationRepository.save(userMessage)

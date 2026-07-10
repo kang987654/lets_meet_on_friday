@@ -18,13 +18,13 @@ import javax.inject.Singleton
  * 2. stopRecording() 호출 시 녹음 중지 및 파일 경로 반환.
  */
 @Singleton
-class AudioRecorder @Inject constructor(
+open class AudioRecorder @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private var mediaRecorder: MediaRecorder? = null
     private var outputFile: File? = null
 
-    fun startRecording(): Result<Unit> {
+    open fun startRecording(): Result<Unit> {
         return try {
             outputFile = File(context.cacheDir, "kosmos_audio_input.m4a")
             if (outputFile?.exists() == true) {
@@ -52,7 +52,7 @@ class AudioRecorder @Inject constructor(
         }
     }
 
-    fun stopRecording(): Result<File> {
+    open fun stopRecording(): Result<File> {
         return try {
             mediaRecorder?.apply {
                 stop()
