@@ -26,5 +26,5 @@ local.properties
 /app/.cxx/
 
 # AI generated logs/tasks (Antigravity)
-.agents/
+.cache/
 .gemini/
