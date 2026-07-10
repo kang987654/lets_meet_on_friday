@@ -21,3 +21,8 @@ PowerShell 명령어를 통해 파일 내용을 직접 수정하거나 생성할
 ## 7. 핵심 클래스 KDoc 헤더 작성 (Docs-as-code)
 새로운 핵심 클래스(Orchestrator, Agent, UseCase 등)를 생성하거나 대규모 구조 변경을 할 때는 클래스 상단에 KDoc(`/** ... */`) 형식으로 헤더 주석을 작성합니다.
 헤더에는 **클래스의 핵심 역할, Architecture Context(Layer 및 주요 의존성), Key Flow(동작 흐름)** 을 포함하여 AI 에이전트와 다른 개발자가 파일의 목적을 즉시 파악할 수 있도록 해야 합니다.
+
+## 8. 에이전트 내장 도구(Built-in Tools) 절대 우선 사용 (PowerShell 파일 제어 금지)
+PowerShell 명령어를 통한 파일 시스템 제어(탐색, 조회, 수정, 추가 등)는 권한 에러, 인코딩 깨짐, 프로세스 오버헤드를 유발하므로 사용을 엄격히 금지합니다.
+- **조회/검색**: `Get-ChildItem`, `Get-Content`, `Select-String` 대신 반드시 `list_dir`, `view_file`, `grep_search` 사용
+- **생성/수정/추가**: `Add-Content`, `Set-Content`, `echo`, `>` 등 셸 리다이렉션 대신 반드시 파일 편집 전용 API인 `write_to_file`, `replace_file_content`, `multi_replace_file_content` 사용

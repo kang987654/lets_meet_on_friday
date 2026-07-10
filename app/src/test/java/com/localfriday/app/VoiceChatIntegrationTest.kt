@@ -51,7 +51,7 @@ class VoiceChatIntegrationTest {
             onToken?.invoke("Audio processed.")
             return com.localfriday.app.core.common.AppResult.Success("Audio processed.")
         }
-        override suspend fun generateWithImage(prompt: com.localfriday.app.domain.modelrunner.ChatPrompt, imageBytes: ByteArray, onToken: ((String) -> Unit)?): com.localfriday.app.core.common.AppResult<String> {
+        override suspend fun generateWithImage(prompt: com.localfriday.app.domain.modelrunner.ChatPrompt, imageBytes: ByteArray, imageTokenBudget: Int, onToken: ((String) -> Unit)?): com.localfriday.app.core.common.AppResult<String> {
             return com.localfriday.app.core.common.AppResult.Success("Audio processed.")
         }
         override suspend fun generateWithAudio(prompt: com.localfriday.app.domain.modelrunner.ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?): com.localfriday.app.core.common.AppResult<String> {

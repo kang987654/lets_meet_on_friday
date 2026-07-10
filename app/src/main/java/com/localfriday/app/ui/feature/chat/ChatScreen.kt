@@ -223,7 +223,7 @@ fun ChatScreen(
             ) {
             items(uiState.messages) { message ->
                 if (message.role == ChatMessage.Role.USER) {
-                    ChatBubbleUser(text = message.content)
+                    ChatBubbleUser(text = message.content, inputType = message.inputType)
                 } else {
                     ChatBubbleAssistant(text = message.content)
                 }
@@ -278,7 +278,7 @@ fun ChatScreen(
 }
 
 @Composable
-fun ChatBubbleUser(text: String) {
+fun ChatBubbleUser(text: String, inputType: com.localfriday.app.domain.model.InputType = com.localfriday.app.domain.model.InputType.TEXT) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End
@@ -289,11 +289,34 @@ fun ChatBubbleUser(text: String) {
                 .background(SkyBlueSoft, shape = RoundedCornerShape(18.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
-            Text(
-                text = text,
-                color = Ink,
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Column {
+                if (inputType == com.localfriday.app.domain.model.InputType.IMAGE) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🖼️", modifier = Modifier.padding(end = 4.dp))
+                        Text(
+                            text = "첨부된 이미지",
+                            color = MutedText,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Spacer(modifier = Modifier.size(4.dp))
+                } else if (inputType == com.localfriday.app.domain.model.InputType.VOICE) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🎤", modifier = Modifier.padding(end = 4.dp))
+                        Text(
+                            text = "음성 메시지",
+                            color = MutedText,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Spacer(modifier = Modifier.size(4.dp))
+                }
+                Text(
+                    text = text,
+                    color = Ink,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
     }
 }

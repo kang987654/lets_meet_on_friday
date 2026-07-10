@@ -14,6 +14,7 @@ interface ModelRunner {
     suspend fun generateWithImage(
         prompt: ChatPrompt,
         imageBytes: ByteArray,
+        imageTokenBudget: Int = 280,
         onToken: ((String) -> Unit)? = null
     ): AppResult<String>
 

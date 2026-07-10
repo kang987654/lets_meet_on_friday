@@ -127,6 +127,7 @@ class GemmaModelRunner @Inject constructor(
     override suspend fun generateWithImage(
         prompt: ChatPrompt,
         imageBytes: ByteArray,
+        imageTokenBudget: Int,
         onToken: ((String) -> Unit)?
     ): AppResult<String> = withContext(llmDispatcher) {
         val currentState = loadState.value
@@ -143,7 +144,14 @@ class GemmaModelRunner @Inject constructor(
             val startTime = System.currentTimeMillis()
 
             val contentList = mutableListOf<com.google.ai.edge.litertlm.Content>()
-            contentList.add(com.google.ai.edge.litertlm.Content.ImageBytes(imageBytes))
+            // 토큰 예산 파라미터를 넘길 수 있는지 가정 (API 버전에 따라 다를 수 있음)
+            // 만약 빌드 에러 발생 시, 단순히 ImageBytes(imageBytes)로 롤백.
+            try {
+                // 리플렉션 없이 일반 호출이 안되면 변경해야 함.
+                contentList.add(com.google.ai.edge.litertlm.Content.ImageBytes(imageBytes) /* TODO: pass imageTokenBudget if API allows */)
+            } catch (e: Exception) {
+                contentList.add(com.google.ai.edge.litertlm.Content.ImageBytes(imageBytes))
+            }
             contentList.add(com.google.ai.edge.litertlm.Content.Text(prompt.currentInput))
             
             val currentConversation = getOrCreateConversation(prompt)

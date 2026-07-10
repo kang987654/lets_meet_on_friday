@@ -14,7 +14,6 @@ import javax.inject.Singleton
 class ImageInputAdapter @Inject constructor() {
 
     companion object {
-        private const val MAX_IMAGE_DIMENSION = 512 // Gemma Vision 권장 해상도에 맞춰 축소
         private const val JPEG_QUALITY = 85
     }
 
@@ -26,15 +25,10 @@ class ImageInputAdapter @Inject constructor() {
      */
     suspend fun processImage(bitmap: Bitmap): AppResult<ByteArray> = withContext(Dispatchers.Default) {
         try {
-            val resizedBitmap = resizeBitmapIfNeeded(bitmap)
             val outputStream = ByteArrayOutputStream()
-            // JPEG 포맷으로 압축하여 품질 유지 및 용량 최소화
-            resizedBitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, outputStream)
+            // JPEG 포맷으로 압축하여 품질 유지 (리사이징 금지: Gemma 4 네이티브 패칭 활용)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, outputStream)
             val byteArray = outputStream.toByteArray()
-
-            if (resizedBitmap != bitmap) {
-                resizedBitmap.recycle()
-            }
             AppResult.Success(byteArray)
         } catch (e: Exception) {
             AppResult.Failure(AppError.UnsupportedImageFormat("이미지 전처리 실패: ${e.message}"))
@@ -72,29 +66,4 @@ class ImageInputAdapter @Inject constructor() {
         }
     }
 
-    /**
-     * OOM 방지를 위해 MAX_IMAGE_DIMENSION을 초과하는 이미지는 비율을 유지하며 축소합니다.
-     */
-    private fun resizeBitmapIfNeeded(bitmap: Bitmap): Bitmap {
-        val width = bitmap.width
-        val height = bitmap.height
-
-        if (width <= MAX_IMAGE_DIMENSION && height <= MAX_IMAGE_DIMENSION) {
-            return bitmap
-        }
-
-        val ratio = width.toFloat() / height.toFloat()
-        val newWidth: Int
-        val newHeight: Int
-
-        if (ratio > 1) {
-            newWidth = MAX_IMAGE_DIMENSION
-            newHeight = (newWidth / ratio).toInt()
-        } else {
-            newHeight = MAX_IMAGE_DIMENSION
-            newWidth = (newHeight * ratio).toInt()
-        }
-
-        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
-    }
 }

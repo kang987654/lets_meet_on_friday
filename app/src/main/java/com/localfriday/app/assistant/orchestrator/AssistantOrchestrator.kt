@@ -96,7 +96,7 @@ class AssistantOrchestrator @Inject constructor(
         val modelRes = if (request.audioFilePath != null) {
             modelRunner.generateWithAudio(prompt, request.audioFilePath, request.onToken)
         } else if (request.imageBytes != null) {
-            modelRunner.generateWithImage(prompt, request.imageBytes, request.onToken)
+            modelRunner.generateWithImage(prompt, request.imageBytes, request.imageTokenBudget, request.onToken)
         } else {
             modelRunner.generate(prompt, request.onToken)
         }

@@ -9,6 +9,7 @@ import com.localfriday.app.domain.modelrunner.ChatPrompt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.delay
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -42,6 +43,7 @@ class MockModelRunner : ModelRunner {
     override suspend fun generateWithImage(
         prompt: ChatPrompt,
         imageBytes: ByteArray,
+        imageTokenBudget: Int,
         onToken: ((String) -> Unit)?
     ): AppResult<String> {
         delay(100)

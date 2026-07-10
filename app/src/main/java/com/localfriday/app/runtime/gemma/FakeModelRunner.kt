@@ -49,6 +49,7 @@ class FakeModelRunner : ModelRunner {
     override suspend fun generateWithImage(
         prompt: ChatPrompt,
         imageBytes: ByteArray,
+        imageTokenBudget: Int,
         onToken: ((String) -> Unit)?
     ): AppResult<String> {
         delay(1500)
