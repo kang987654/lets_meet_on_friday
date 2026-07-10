@@ -6,7 +6,8 @@
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
 
     <application
-        android:name=".app.LocalFridayApp"
+        android:name=".app.KosmosApp"
+        android:label="@string/app_name"
         android:allowBackup="true"
         android:supportsRtl="true"
         android:icon="@mipmap/ic_launcher"

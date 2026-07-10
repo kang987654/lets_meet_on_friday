@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.localfriday.app"
+    namespace = "com.kosmos.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.localfriday.app"
+        applicationId = "com.kosmos.app"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

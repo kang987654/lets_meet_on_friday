@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\tmp\ProcessLibraryManifest\release\tempAndroidManifest16015583991986744728.xml:2:13-83
+INJECTED from C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\tmp\ProcessLibraryManifest\release\tempAndroidManifest16015583991986744728.xml:2:13-83
+	package
+		INJECTED from C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\tmp\ProcessLibraryManifest\release\tempAndroidManifest16015583991986744728.xml
+	xmlns:android
+		ADDED from C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\tmp\ProcessLibraryManifest\release\tempAndroidManifest16015583991986744728.xml:2:23-81
+uses-sdk
+INJECTED from C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\tmp\ProcessLibraryManifest\release\tempAndroidManifest16015583991986744728.xml reason: use-sdk injection requested
+INJECTED from C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\tmp\ProcessLibraryManifest\release\tempAndroidManifest16015583991986744728.xml
+INJECTED from C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\tmp\ProcessLibraryManifest\release\tempAndroidManifest16015583991986744728.xml
+	android:targetSdkVersion
+		INJECTED from C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\tmp\ProcessLibraryManifest\release\tempAndroidManifest16015583991986744728.xml
+	android:minSdkVersion
+		INJECTED from C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\tmp\ProcessLibraryManifest\release\tempAndroidManifest16015583991986744728.xml

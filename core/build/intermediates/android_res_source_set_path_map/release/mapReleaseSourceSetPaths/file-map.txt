@@ -1,0 +1,9 @@
+com.localfriday.core-pngs-0 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\generated\res\pngs\release
+com.localfriday.core-updated_navigation_xml-1 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\generated\updated_navigation_xml\release
+com.localfriday.core-mergeReleaseResources-2 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\incremental\release\mergeReleaseResources\merged.dir
+com.localfriday.core-mergeReleaseResources-3 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\incremental\release\mergeReleaseResources\stripped.dir
+com.localfriday.core-release-4 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\merged_res\release\mergeReleaseResources
+com.localfriday.core-release-5 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\build\intermediates\packaged_res\release\packageReleaseResources
+com.localfriday.core-main-6 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\src\main\res
+com.localfriday.core-release-7 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\core\src\release\res
+gradleHome-0 C:\Users\SSAFY\.gradle
