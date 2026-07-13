@@ -1,4 +1,4 @@
-package com.kosmos.app.ui.feature.chat
+package com.kosmos.app.feature.chat
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel

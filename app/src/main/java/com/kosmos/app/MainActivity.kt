@@ -1,4 +1,4 @@
-package com.kosmos.app.app
+package com.kosmos.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity

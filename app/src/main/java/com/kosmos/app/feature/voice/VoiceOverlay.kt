@@ -1,4 +1,4 @@
-package com.kosmos.app.ui.feature.voice
+package com.kosmos.app.feature.voice
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +16,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-// No commented import needed
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,8 +40,6 @@ import com.kosmos.app.ui.theme.SurfaceCard
 fun VoiceOverlay(
     sessionId: String,
     onDismiss: () -> Unit,
-    // Callback to let the ChatScreen know a message was sent, so it can do optimistic append
-    // since VoiceViewModel's processVoiceInputUseCase doesn't automatically update ChatScreen UI
     onMessageSent: (String) -> Unit,
     viewModel: VoiceViewModel = hiltViewModel()
 ) {
@@ -84,7 +81,6 @@ fun VoiceOverlay(
                             .padding(20.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Dummy mic icon shape
                         Box(modifier = Modifier.size(24.dp).background(SkyBlue, shape = RoundedCornerShape(12.dp)))
                     }
                     

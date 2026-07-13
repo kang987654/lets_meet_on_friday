@@ -11,7 +11,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.kosmos.app.feature.calendar.CalendarScreen
-import com.kosmos.app.ui.feature.chat.ChatScreen
+import com.kosmos.app.feature.chat.ChatScreen
 
 @Composable
 fun AppNavHost(
@@ -33,11 +33,11 @@ fun AppNavHost(
         }
         
         composable(route = AppDestination.Memory.route) {
-            com.kosmos.app.ui.feature.memory.MemoryScreen()
+            com.kosmos.app.feature.memory.MemoryScreen()
         }
         
         composable(route = AppDestination.Settings.route) {
-            com.kosmos.app.ui.feature.settings.SettingsScreen(
+            com.kosmos.app.feature.settings.SettingsScreen(
                 onNavigateToModelManagement = {
                     navController.navigate(AppDestination.ModelManagement.route)
                 }
@@ -45,7 +45,7 @@ fun AppNavHost(
         }
 
         composable(route = AppDestination.ModelManagement.route) {
-            com.kosmos.app.ui.feature.settings.ModelManagementScreen(
+            com.kosmos.app.feature.settings.ModelManagementScreen(
                 onBack = { navController.popBackStack() }
             )
         }

@@ -1,4 +1,4 @@
-package com.kosmos.app.ui.feature.voice
+package com.kosmos.app.feature.voice
 
 sealed class VoiceUiState {
     object Idle : VoiceUiState()

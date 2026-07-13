@@ -1,4 +1,4 @@
-package com.kosmos.app.app.di
+package com.kosmos.app.di
 
 import com.kosmos.app.domain.tool.SpeechToTextTool
 import com.kosmos.app.platform.speech.AndroidSpeechToTextTool

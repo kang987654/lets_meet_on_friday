@@ -1,4 +1,4 @@
-package com.kosmos.app.ui.feature.memory
+package com.kosmos.app.feature.memory
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*

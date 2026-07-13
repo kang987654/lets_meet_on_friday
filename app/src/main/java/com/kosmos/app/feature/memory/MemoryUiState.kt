@@ -1,4 +1,4 @@
-package com.kosmos.app.ui.feature.memory
+package com.kosmos.app.feature.memory
 
 enum class MemoryFilterType {
     ALL,

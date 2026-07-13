@@ -1,4 +1,4 @@
-package com.kosmos.app.ui.feature.settings
+package com.kosmos.app.feature.settings
 
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 

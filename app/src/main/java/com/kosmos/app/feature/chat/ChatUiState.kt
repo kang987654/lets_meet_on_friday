@@ -1,4 +1,4 @@
-package com.kosmos.app.ui.feature.chat
+package com.kosmos.app.feature.chat
 
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.assistant.approval.ApprovalRequest

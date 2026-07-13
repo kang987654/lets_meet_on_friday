@@ -1,4 +1,4 @@
-package com.kosmos.app.ui.feature.chat
+package com.kosmos.app.feature.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,7 +37,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
@@ -49,7 +48,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.halilibo.richtext.commonmark.Markdown
 import com.halilibo.richtext.ui.material3.RichText
 import com.kosmos.app.domain.model.ChatMessage
-import com.kosmos.app.ui.feature.voice.VoiceOverlay
+import com.kosmos.app.feature.voice.VoiceOverlay
 import com.kosmos.app.ui.theme.Hairline
 import com.kosmos.app.ui.theme.Ink
 import com.kosmos.app.ui.theme.MutedText
@@ -221,26 +220,26 @@ fun ChatScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-            items(uiState.messages) { message ->
-                if (message.role == ChatMessage.Role.USER) {
-                    ChatBubbleUser(text = message.content, inputType = message.inputType)
-                } else {
-                    ChatBubbleAssistant(text = message.content)
+                items(uiState.messages) { message ->
+                    if (message.role == ChatMessage.Role.USER) {
+                        ChatBubbleUser(text = message.content, inputType = message.inputType)
+                    } else {
+                        ChatBubbleAssistant(text = message.content)
+                    }
                 }
-            }
-            
-            if (uiState.streamingText != null) {
-                item {
-                    ChatBubbleAssistant(text = uiState.streamingText!!)
+                
+                if (uiState.streamingText != null) {
+                    item {
+                        ChatBubbleAssistant(text = uiState.streamingText!!)
+                    }
                 }
-            }
 
-            if (uiState.isInFlight && uiState.streamingText == null) {
-                item {
-                    TypingIndicator()
+                if (uiState.isInFlight && uiState.streamingText == null) {
+                    item {
+                        TypingIndicator()
+                    }
                 }
-            }
-        } // end LazyColumn
+            } // end LazyColumn
         } // end Column
     } // end Scaffold
 
@@ -446,81 +445,81 @@ fun ChatInputBar(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.Bottom
         ) {
-        IconButton(
-            onClick = { onAttachClick() },
-            enabled = !isLoading,
-            modifier = Modifier
-                .padding(end = 8.dp)
-                .size(48.dp)
-                .background(SurfaceCard, shape = RoundedCornerShape(24.dp))
-                .border(1.dp, Hairline, shape = RoundedCornerShape(24.dp))
-        ) {
-            Text(
-                text = "+", 
-                color = if (!isLoading) SkyBlue else MutedText,
-                style = MaterialTheme.typography.titleLarge
-            )
-        }
+            IconButton(
+                onClick = { onAttachClick() },
+                enabled = !isLoading,
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .size(48.dp)
+                    .background(SurfaceCard, shape = RoundedCornerShape(24.dp))
+                    .border(1.dp, Hairline, shape = RoundedCornerShape(24.dp))
+            ) {
+                Text(
+                    text = "+", 
+                    color = if (!isLoading) SkyBlue else MutedText,
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
 
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .background(SurfaceCard, shape = RoundedCornerShape(24.dp))
-                .border(1.dp, Hairline, shape = RoundedCornerShape(24.dp))
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            if (textState.text.isEmpty()) {
-                Text(
-                    text = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.chat_input_hint),
-                    color = MutedText,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-            BasicTextField(
-                value = textState,
-                onValueChange = { textState = it },
-                modifier = Modifier.fillMaxWidth(),
-                textStyle = MaterialTheme.typography.bodyMedium.copy(color = Ink),
-                cursorBrush = SolidColor(SkyBlue),
-                enabled = !isLoading,
-                maxLines = 5
-            )
-        }
-        
-        Spacer(modifier = Modifier.width(8.dp))
-        
-        if (textState.text.isNotBlank()) {
-            IconButton(
-                onClick = {
-                    onSend(textState.text)
-                    textState = TextFieldValue("")
-                },
-                enabled = !isLoading,
+            Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(if (!isLoading) SkyBlue else Hairline, shape = RoundedCornerShape(24.dp))
+                    .weight(1f)
+                    .background(SurfaceCard, shape = RoundedCornerShape(24.dp))
+                    .border(1.dp, Hairline, shape = RoundedCornerShape(24.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
-                Text(
-                    text = "↑", 
-                    color = if (!isLoading) SurfaceCard else MutedText,
-                    style = MaterialTheme.typography.titleMedium
+                if (textState.text.isEmpty()) {
+                    Text(
+                        text = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.chat_input_hint),
+                        color = MutedText,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                BasicTextField(
+                    value = textState,
+                    onValueChange = { textState = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = Ink),
+                    cursorBrush = SolidColor(SkyBlue),
+                    enabled = !isLoading,
+                    maxLines = 5
                 )
             }
-        } else {
-            IconButton(
-                onClick = { onMicClick() },
-                enabled = !isLoading,
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(if (!isLoading) (if (isRecording) androidx.compose.ui.graphics.Color.Red else Ink) else Hairline, shape = RoundedCornerShape(24.dp))
-            ) {
-                Text(
-                    text = if (isRecording) "■" else "M", // Mic/Stop placeholder
-                    color = if (!isLoading) SurfaceCard else MutedText,
-                    style = MaterialTheme.typography.titleMedium
-                )
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            if (textState.text.isNotBlank()) {
+                IconButton(
+                    onClick = {
+                        onSend(textState.text)
+                        textState = TextFieldValue("")
+                    },
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(if (!isLoading) SkyBlue else Hairline, shape = RoundedCornerShape(24.dp))
+                ) {
+                    Text(
+                        text = "↑", 
+                        color = if (!isLoading) SurfaceCard else MutedText,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            } else {
+                IconButton(
+                    onClick = { onMicClick() },
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(if (!isLoading) (if (isRecording) androidx.compose.ui.graphics.Color.Red else Ink) else Hairline, shape = RoundedCornerShape(24.dp))
+                ) {
+                    Text(
+                        text = if (isRecording) "■" else "M", // Mic/Stop placeholder
+                        color = if (!isLoading) SurfaceCard else MutedText,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
             }
         }
-    }
     }
 }

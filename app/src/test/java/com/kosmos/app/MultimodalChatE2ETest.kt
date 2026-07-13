@@ -38,8 +38,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNotNull
 
-import com.kosmos.app.ui.feature.chat.ChatScreen
-import com.kosmos.app.ui.feature.chat.ChatViewModel
+import com.kosmos.app.feature.chat.ChatScreen
+import com.kosmos.app.feature.chat.ChatViewModel
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ChatPrompt
@@ -71,24 +71,24 @@ class FakeE2EModelRunner : ModelRunner {
     override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<String> {
         lastPrompt = prompt
         generateCallCount++
-        onToken?.invoke("Fake response")
-        return AppResult.Success("Fake response")
+        onToken?.invoke("This is a response summary of the document.")
+        return AppResult.Success("This is a response summary of the document.")
     }
     
     override suspend fun generateWithImage(prompt: ChatPrompt, imageBytes: ByteArray, imageTokenBudget: Int, onToken: ((String) -> Unit)?): AppResult<String> {
         lastPrompt = prompt
         lastImageBytes = imageBytes
         generateCallCount++
-        onToken?.invoke("Fake image response")
-        return AppResult.Success("Fake image response")
+        onToken?.invoke("Image parsed.")
+        return AppResult.Success("Image parsed.")
     }
     
     override suspend fun generateWithAudio(prompt: ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?): AppResult<String> {
         lastPrompt = prompt
         lastAudioPath = audioPath
         generateCallCount++
-        onToken?.invoke("Fake audio response")
-        return AppResult.Success("Fake audio response")
+        onToken?.invoke("Audio parsed.")
+        return AppResult.Success("Audio parsed.")
     }
 
     override suspend fun cancel() {}
@@ -100,7 +100,7 @@ class FakeE2EModelRunner : ModelRunner {
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(application = HiltTestApplication::class, sdk = [33], instrumentedPackages = ["androidx.loader.content"])
-@UninstallModules(com.kosmos.app.app.di.ModelModule::class)
+@UninstallModules(com.kosmos.app.di.ModelModule::class)
 class MultimodalChatE2ETest {
 
     @get:Rule(order = 0)

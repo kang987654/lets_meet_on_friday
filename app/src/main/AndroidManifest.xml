@@ -6,14 +6,14 @@
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
 
     <application
-        android:name=".app.KosmosApp"
+        android:name=".KosmosApp"
         android:label="@string/app_name"
         android:allowBackup="true"
         android:supportsRtl="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">
         <activity
-            android:name=".app.MainActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:theme="@android:style/Theme.NoTitleBar">
             <intent-filter>

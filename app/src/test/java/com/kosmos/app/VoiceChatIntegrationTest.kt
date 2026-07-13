@@ -11,7 +11,7 @@ import com.kosmos.app.domain.usecase.SendChatMessageUseCase
 import com.kosmos.app.platform.share.ShareIntentHandler
 import com.kosmos.app.platform.speech.AudioRecorder
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
-import com.kosmos.app.ui.feature.chat.ChatViewModel
+import com.kosmos.app.feature.chat.ChatViewModel
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
@@ -27,7 +27,7 @@ import org.robolectric.annotation.Config
 import javax.inject.Inject
 
 @HiltAndroidTest
-@dagger.hilt.android.testing.UninstallModules(com.kosmos.app.app.di.ModelModule::class)
+@dagger.hilt.android.testing.UninstallModules(com.kosmos.app.di.ModelModule::class)
 @Config(application = HiltTestApplication::class, sdk = [33])
 @RunWith(RobolectricTestRunner::class)
 class VoiceChatIntegrationTest {

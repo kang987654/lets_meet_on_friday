@@ -1,4 +1,4 @@
-package com.kosmos.app.ui.feature.voice
+package com.kosmos.app.feature.voice
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
