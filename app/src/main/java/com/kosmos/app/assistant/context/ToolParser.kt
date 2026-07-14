@@ -2,6 +2,19 @@ package com.kosmos.app.assistant.context
 
 import org.json.JSONObject
 
+/**
+ * [ToolParser]
+ * 스트리밍되는 LLM 응답 텍스트 내에서 특정 태그(`<|think|>`, `<tool_call>`)를 실시간으로 추출하고 파싱하는 유틸리티입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Assistant (Context/Parsing)
+ * - **Dependencies**: None (순수 Kotlin/JSON 객체 기반)
+ *
+ * ### Key Flow
+ * 1. 전체 응답 텍스트에서 `<|think|>` 블록을 정규식으로 탐색하여 에이전트의 사고 과정(thinking) 추출 및 본문에서 제거
+ * 2. `<tool_call>` 블록을 정규식으로 탐색 후 내부 JSON 문자열을 [org.json.JSONObject]로 파싱하여 [ToolCallData] 객체 리스트 생성
+ * 3. 최종적으로 UI 렌더링을 위한 본문 텍스트, 사고 과정, 툴 콜 정보를 캡슐화한 [ParsedStream] 반환
+ */
 object ToolParser {
     
     data class ParsedStream(
