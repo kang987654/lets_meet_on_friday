@@ -24,6 +24,7 @@ class PromptAssembler @Inject constructor() {
         
         val systemInstruction = buildString {
             appendLine(buildSystemBlock())
+            appendLine(buildTimeBlock())
             appendLine(buildFormatBlock())
             if (systemMessages.isNotEmpty()) {
                 appendLine("\n[Context / Knowledge]")
@@ -51,6 +52,17 @@ class PromptAssembler @Inject constructor() {
         """.trimIndent()
     }
 
+    private fun buildTimeBlock(): String {
+        val now = java.time.LocalDateTime.now(java.time.ZoneId.systemDefault())
+        val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss (E)")
+        val formattedTime = now.format(formatter)
+        return """
+            [System Clock]
+            Current System Time: $formattedTime
+            You have access to the system clock. Today's date/time is $formattedTime. When the user refers to relative dates/times like 'tomorrow', 'next week', 'Friday at 3pm', use this system clock to calculate the exact dates and times.
+        """.trimIndent()
+    }
+
     private fun buildFormatBlock(): String {
         // In v0, we only support plain text responses or calendar drafts.
         return """
@@ -71,7 +83,6 @@ class PromptAssembler @Inject constructor() {
               "type": "calendar_draft",
               "title": "Event Title",
               "startTime": "YYYY-MM-DDTHH:MM:SS",
-              "endTime": "YYYY-MM-DDTHH:MM:SS",
               "description": "Optional description"
             }
         """.trimIndent()

@@ -16,5 +16,6 @@ data class TaskEntity(
     val title: String,
     val isCompleted: Boolean,
     val createdAt: Long,
-    val completedAt: Long?
+    val completedAt: Long?,
+    val dueDateIso: String? = null
 )

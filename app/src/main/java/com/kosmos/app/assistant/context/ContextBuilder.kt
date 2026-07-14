@@ -30,10 +30,10 @@ class ContextBuilder @Inject constructor(
     )
 
     suspend fun build(sessionId: String): AppResult<Context> {
-        // Fetch up to 50 recent conversations to apply sliding window
+        // Fetch up to 150 recent conversations to apply sliding window
         val conversationsResult = conversationRepository.getRecentBySession(
             sessionId,
-            50
+            150
         )
 
         // TODO(v1): Fetch knowledge from KnowledgeRepository and include it in Context
@@ -54,7 +54,7 @@ class ContextBuilder @Inject constructor(
 
     private fun applyTokenSlidingWindow(messages: List<ChatMessage>): List<ChatMessage> {
         var currentTokens = 0
-        val maxTokens = 3000 // Safe buffer under 4096 tokens
+        val maxTokens = 8000 // Safe buffer for larger context window
         val selectedMessages = mutableListOf<ChatMessage>()
         
         // messages is chronological (oldest first). We iterate from newest (end) to oldest.

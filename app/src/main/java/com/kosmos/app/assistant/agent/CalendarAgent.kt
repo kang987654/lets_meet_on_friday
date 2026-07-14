@@ -1,35 +1,39 @@
 package com.kosmos.app.assistant.agent
 
 import com.kosmos.app.core.common.AppResult
-import com.kosmos.app.domain.model.CalendarDraft
 import com.kosmos.app.domain.model.ModelOutput
-import com.kosmos.app.domain.tool.CalendarTool
+import com.kosmos.app.domain.memory.TaskRepository
+import com.kosmos.app.domain.model.TaskItem
+import java.util.UUID
 import javax.inject.Inject
 
 /**
  * [CalendarAgent]
- * LLM이 파싱한 일정 생성 요청(CalendarDraft)을 실제 디바이스 캘린더에 연동하는 에이전트 클래스입니다.
+ * LLM이 파싱한 일정 생성 요청(CalendarDraft)을 내부 로컬 DB(TaskRepository)에 일정(Task)으로 연동하는 에이전트 클래스입니다.
  *
  * ### Architecture Context
  * - **Layer**: Assistant (Agent Action)
- * - **Dependencies**: [CalendarTool] (디바이스 의존성)
+ * - **Dependencies**: [TaskRepository] (로컬 DB 의존성)
  *
  * ### Key Flow
  * 1. Orchestrator로부터 모델 파싱 결과인 [ModelOutput.CalendarDraftOutput] 수신
- * 2. 도메인 모델([CalendarDraft])로 매핑
- * 3. [CalendarTool]을 호출하여 실제 안드로이드 캘린더 Provider에 Insert 수행
+ * 2. `startIso`를 단일 "일정 시간"으로 갖는 [TaskItem] 생성 (`endIso`는 완전히 생략)
+ * 3. [TaskRepository]를 호출하여 로컬 DB에 저장
  */
 class CalendarAgent @Inject constructor(
-    private val calendarTool: CalendarTool
+    private val taskRepository: TaskRepository
 ) {
     suspend fun executeCalendarInsert(action: ModelOutput.CalendarDraftOutput): AppResult<Long> {
-        val draft = CalendarDraft(
-            title = action.title,
-            startIso = action.startIso,
-            endIso = action.endIso,
-            note = action.note,
-            confidence = action.confidence
+        val taskItem = TaskItem(
+            id = UUID.randomUUID().toString(),
+            title = action.title + (action.note?.let { " - $it" } ?: ""),
+            isCompleted = false,
+            dueDateIso = action.startIso, // 시작시간을 단일 "일정 시간"으로 사용
+            createdAt = System.currentTimeMillis()
         )
-        return calendarTool.insert(draft)
+        return when (val result = taskRepository.save(taskItem)) {
+            is AppResult.Success -> AppResult.Success(1L)
+            is AppResult.Failure -> AppResult.Failure(result.error)
+        }
     }
 }

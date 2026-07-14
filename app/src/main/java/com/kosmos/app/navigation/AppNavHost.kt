@@ -38,6 +38,9 @@ fun AppNavHost(
         
         composable(route = AppDestination.Settings.route) {
             com.kosmos.app.feature.settings.SettingsScreen(
+                onNavigateToAudit = {
+                    navController.navigate(AppDestination.Audit.route)
+                },
                 onNavigateToModelManagement = {
                     navController.navigate(AppDestination.ModelManagement.route)
                 }
@@ -47,6 +50,12 @@ fun AppNavHost(
         composable(route = AppDestination.ModelManagement.route) {
             com.kosmos.app.feature.settings.ModelManagementScreen(
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(route = AppDestination.Audit.route) {
+            com.kosmos.app.feature.settings.AuditScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

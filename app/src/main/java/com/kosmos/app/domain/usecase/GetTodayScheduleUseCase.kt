@@ -2,7 +2,8 @@ package com.kosmos.app.domain.usecase
 
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.ScheduleData
-import com.kosmos.app.domain.tool.CalendarTool
+import com.kosmos.app.domain.model.CalendarEvent
+import com.kosmos.app.domain.memory.TaskRepository
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -14,7 +15,7 @@ import java.time.ZoneId
 import javax.inject.Inject
 
 class GetTodayScheduleUseCase @Inject constructor(
-    private val calendarTool: CalendarTool,
+    private val taskRepository: TaskRepository,
     private val modelRunner: ModelRunner
 ) {
     suspend operator fun invoke(range: ScheduleData.RangeType): AppResult<ScheduleData> = withContext(Dispatchers.IO) {
@@ -28,12 +29,28 @@ class GetTodayScheduleUseCase @Inject constructor(
                 today.plusDays(7).atTime(LocalTime.MAX).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         }
 
-        // 1. 일정 조회
-        val eventsResult = calendarTool.readEvents(startMs, endMs)
-        if (eventsResult is AppResult.Failure) {
-            return@withContext AppResult.Failure(eventsResult.error)
+        // 1. 내부 DB 일정 조회 및 필터링
+        val tasksResult = taskRepository.getPendingTasksData(0, 1000)
+        if (tasksResult is AppResult.Failure) {
+            return@withContext AppResult.Failure(tasksResult.error)
         }
-        val events = (eventsResult as AppResult.Success).data
+        val tasks = (tasksResult as AppResult.Success).data
+        val events = tasks.mapNotNull { task ->
+            val dueIso = task.dueDateIso ?: return@mapNotNull null
+            val ms = parseIsoToMs(dueIso) ?: return@mapNotNull null
+            if (ms in startMs..endMs) {
+                CalendarEvent(
+                    id = task.id,
+                    title = task.title,
+                    startIso = dueIso,
+                    endIso = dueIso, // 종료 시간 배제, 시작 시간 단일 사용
+                    location = null,
+                    description = null
+                )
+            } else {
+                null
+            }
+        }.sortedBy { it.startIso }
 
         if (events.isEmpty()) {
             return@withContext AppResult.Success(
@@ -43,7 +60,7 @@ class GetTodayScheduleUseCase @Inject constructor(
 
         // 2. AI 요약 (프롬프트 구성)
         val eventListText = events.joinToString("\n") { 
-            "- ${it.title} (시작: ${it.startIso}, 종료: ${it.endIso})"
+            "- ${it.title} (시간: ${it.startIso})"
         }
         
         val rangeStr = if (range == ScheduleData.RangeType.TODAY) "오늘" else "이번 주"
@@ -72,5 +89,27 @@ class GetTodayScheduleUseCase @Inject constructor(
                 rangeType = range
             )
         )
+    }
+
+    private fun parseIsoToMs(iso: String): Long? {
+        return try {
+            if (iso.contains("Z") || iso.contains("+") || (iso.count { it == '-' } > 1 && iso.indexOf("+") > 0)) {
+                java.time.Instant.parse(iso).toEpochMilli()
+            } else {
+                java.time.LocalDateTime.parse(iso)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toInstant()
+                    .toEpochMilli()
+            }
+        } catch (e: Exception) {
+            try {
+                java.time.LocalDate.parse(iso)
+                    .atStartOfDay(java.time.ZoneId.systemDefault())
+                    .toInstant()
+                    .toEpochMilli()
+            } catch (e2: Exception) {
+                null
+            }
+        }
     }
 }

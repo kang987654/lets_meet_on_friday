@@ -6,4 +6,5 @@ sealed class AppDestination(val route: String) {
     object Memory : AppDestination("memory")
     object Settings : AppDestination("settings")
     object ModelManagement : AppDestination("model_management")
+    object Audit : AppDestination("audit")
 }

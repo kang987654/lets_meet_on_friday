@@ -19,7 +19,8 @@ class TaskRepositoryImpl @Inject constructor(
                 title = task.title,
                 isCompleted = task.isCompleted,
                 createdAt = task.createdAt,
-                completedAt = if (task.isCompleted) System.currentTimeMillis() else null
+                completedAt = if (task.isCompleted) System.currentTimeMillis() else null,
+                dueDateIso = task.dueDateIso
             )
         )
     }.fold(
@@ -47,7 +48,7 @@ class TaskRepositoryImpl @Inject constructor(
             id = id,
             title = title,
             isCompleted = isCompleted,
-            dueDateIso = null, // V1 DB에 아직 없음
+            dueDateIso = dueDateIso,
             createdAt = createdAt
         )
     }

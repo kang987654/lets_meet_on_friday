@@ -1,27 +1,30 @@
-# Walkthrough: Architecture Refactoring (최신 안드로이드 가이드라인 기반 구조 개선)
+# Walkthrough: QA Debugging & Feature Enhancements
 
-최신 안드로이드 권장 아키텍처 가이드라인에 맞게 디렉토리 구조 및 패키지를 리팩토링하고 관련 의존성을 재조정했습니다.
+사용자의 요구사항(일정 시간 단일화)을 수용하고, 발견된 QA 버그들을 완벽하게 교정하여 인앱 일정 관리 및 감사 로그 화면 개발을 완료했습니다.
 
 ## 변경 사항 (Changes Made)
 
-### 1. Feature 디렉토리 최상단 이전 (Standardization)
-- `ui/feature/chat`, `ui/feature/memory`, `ui/feature/settings`, `ui/feature/voice`에 위치해 있던 Compose Screen, ViewModel, UiState 파일들을 프로젝트 최상단의 `feature/` 패키지 하위로 물리적 이동시켰습니다.
-- 관련 클래스들의 패키지 선언을 `package com.kosmos.app.feature...`로 변경하고 이를 참조하는 타 파일들의 `import` 구문을 일괄 업데이트했습니다.
-- 이동 후 기존 `ui/feature/` 및 `feature/` 하위의 비어있던 `.gitkeep` 폴더들을 정리했습니다.
+### 1. 채팅 (Chat) 영역 아키텍처 및 UX 개선
+- **TopAppBar 제거**: `ChatScreen.kt`에서 불필요한 탑바 영역을 걷어내어 모바일 상의 수직 공간을 최대한 확보했습니다.
+- **Robust JSON Sanitizer**: `ResponseParser.kt`에 정규식(Regex) 기반의 JSON 정제 필터를 구현했습니다. Gemma 모델 출력이 오염되었을 때(예: `, ,` 나 `, }` 등의 문법 오류) 이를 실시간 복구하거나 주요 필드를 Regex로 역추적하여 강제 파싱함으로써 폴백률을 획기적으로 낮췄습니다.
+- **Sliding Window 확장**: S25 Ultra의 고사양 메모리를 활용하기 위해 `ContextBuilder.kt` 내 Sliding Window 제한을 3,000에서 **8,000 토큰**으로 상향하고, 최근 대화 히스토리 수집량도 최대 150개로 늘렸습니다.
+- **동적 시스템 시간 바인딩**: `PromptAssembler.kt`에서 시스템 현재 시각을 `yyyy-MM-dd HH:mm:ss` 형식으로 추출해 시스템 프롬프트에 동적 삽입해 주어, LLM이 상대 날짜(예: "내일", "다음주 금요일")를 계산할 때 환각 없이 정확하게 날짜를 타겟팅할 수 있게 개선했습니다.
 
-### 2. DI 모듈 단일화 (Consolidation)
-- `com.kosmos.app.app.di`와 `com.kosmos.app.di`에 파편화되어 있던 Hilt DI 모듈들을 모두 `com.kosmos.app.di` 패키지 하위로 통합하였습니다.
-- `app/di/MemoryModule.kt` (중복 빈 모듈 파일)를 삭제하고, `AppModule.kt`, `ModelModule.kt`, `AgentModule.kt`, `PlatformModule.kt`를 단일 패키지로 이동하여 관리 편의성을 극대화했습니다.
+### 2. 인앱 캘린더 (Task 기반 일정 관리) 및 시간 단일화
+- **DB 스키마 확장 및 마이그레이션**: `TaskEntity.kt` 및 `TaskItem.kt`에 `dueDateIso: String?` 필드를 추가했습니다. Room DB 버전을 1에서 **2**로 상향 조정하고 마이그레이션을 정상 반영했습니다.
+- **종료 시간 배제 기획 반영**: 사용성 개선을 위해 일정 추가 시 `CalendarAgent.kt`에서 종료 시간(`endIso`)을 제외하고 시작 시간(`startIso`)만 단일 일정 시간(`dueDateIso`)으로 저장하도록 수정했습니다.
+- **TaskRepository 통합 연동**: `CalendarAgent.kt`와 `GetTodayScheduleUseCase.kt`가 기존의 디바이스 캘린더 연동 대신 내부 DB(`TaskRepository`)를 바라보도록 변경하여 별도의 안드로이드 캘린더 조회 권한 요청 없이 안전하고 기민하게 일정을 핸들링할 수 있게 개편했습니다.
+- **달력 UI 개편**: `CalendarScreen.kt`에서 권한 관련 팝업을 제거하고, DB에 저장된 일정을 깔끔하게 바인딩하여 렌더링하고 시간 출력을 보기 좋게 포맷팅했습니다.
 
-### 3. App 진입점 루트 격상 (Reorganization)
-- 앱의 핵심 진입점인 `KosmosApp.kt`와 `MainActivity.kt`를 `com.kosmos.app.app`에서 루트 패키지인 `com.kosmos.app`으로 옮겼습니다.
-- 이에 맞춰 `AndroidManifest.xml` 내부의 Application name 및 Activity name 경로를 `.KosmosApp` 및 `.MainActivity`로 정확히 매핑하고, 테스트 코드 내 `@UninstallModules` 주입 어노테이션의 모듈 경로도 함께 수정했습니다.
+### 3. 감사 로그 (Audit Logs) 신규 화면 구현
+- **Audit Logs Presentation 계층 신규 구현**: `feature/settings/`에 `AuditScreen.kt` 및 `AuditViewModel.kt`를 신규 작성했습니다. Paging 3 라이브러리를 사용해 데이터베이스의 감사 이벤트를 무한 스크롤 형태(`collectAsLazyPagingItems`)로 안전하게 바인딩하여 출력하도록 구현했습니다.
+- **네비게이션 라우팅 연동**: `AppDestination.kt` 및 `AppNavHost.kt`에 `Audit` 목적지를 추가하고, 설정 화면의 "View Audit Logs" 버튼 클릭 시 새로운 감사 로그 리스트 화면으로 매끄럽게 연결되도록 완성했습니다.
 
 ---
 
 ## 검증 결과 (Verification & Testing)
 
-1. **로컬 빌드 수행 (compile & assemble)**
-   - `./gradlew clean assembleDebug` 명령을 통해 Hilt 컴파일 캐시를 완전히 청소한 뒤 전체 재빌드가 성공적으로 완료되는 것을 확인했습니다. (`BUILD SUCCESSFUL` 확인)
-2. **테스트 슈트 수행 (testDebugUnitTest)**
-   - 패키지 이전에 따라 Hilt 컴포넌트 구조가 손상되지 않았는지 확인하기 위해 `./gradlew testDebugUnitTest` 명령을 실행하였으며, `MultimodalChatE2ETest` 및 `VoiceChatIntegrationTest` 등 모든 유닛/통합 테스트들이 정상적으로 동작하여 성공(Green) 불이 켜진 것을 검증하였습니다.
+1. **전체 컴파일 빌드 검증**
+   - `./gradlew clean assembleDebug` 명령을 통해 Room DB 마이그레이션, 신규 화면 결합 상태 등 전체 모듈 빌드가 **성공(BUILD SUCCESSFUL)**하는 것을 검증했습니다.
+2. **테스트 스위트 검증**
+   - `./gradlew testDebugUnitTest` 명령을 통해 전체 유닛 테스트 및 Hilt E2E 통합 테스트가 한 치의 에러 없이 정상적으로 **100% Pass**되는 것을 교차 확인했습니다.

@@ -1,8 +1,5 @@
 package com.kosmos.app.feature.calendar
 
-import android.Manifest
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -18,7 +15,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.kosmos.app.core.common.AppError
 import com.kosmos.app.domain.model.CalendarEvent
 import com.kosmos.app.domain.model.ScheduleData
 
@@ -30,14 +26,6 @@ fun CalendarScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedRange by viewModel.selectedRange.collectAsStateWithLifecycle()
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            viewModel.loadSchedule()
-        }
-    }
 
     LaunchedEffect(Unit) {
         viewModel.loadSchedule()
@@ -79,13 +67,7 @@ fun CalendarScreen(
                     Text("일정이 없습니다.", color = Color.Gray)
                 }
                 is CalendarUiState.Error -> {
-                    if (state.error is AppError.PermissionDenied) {
-                        PermissionCard {
-                            permissionLauncher.launch(Manifest.permission.READ_CALENDAR)
-                        }
-                    } else {
-                        Text("오류 발생: ${state.error}", color = Color.Red)
-                    }
+                    Text("오류 발생: ${state.error}", color = Color.Red)
                 }
                 is CalendarUiState.Success -> {
                     ScheduleContent(state.scheduleData)
@@ -114,35 +96,6 @@ fun SegmentButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
         )
     ) {
         Text(text)
-    }
-}
-
-@Composable
-fun PermissionCard(onRequestPermission: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, Color.LightGray, RoundedCornerShape(18.dp))
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "캘린더 권한이 필요합니다",
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Text(
-            text = "일정을 불러오려면 기기 캘린더 접근 권한을 허용해주세요.",
-            color = Color.DarkGray,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-        Button(
-            onClick = onRequestPermission,
-            colors = ButtonDefaults.buttonColors(containerColor = SkyBlue),
-            shape = RoundedCornerShape(18.dp)
-        ) {
-            Text("권한 허용하기")
-        }
     }
 }
 
@@ -187,7 +140,11 @@ fun EventCard(event: CalendarEvent) {
     ) {
         Text(text = event.title, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(4.dp))
-        Text(text = "${event.startIso} ~ ${event.endIso}", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+        Text(
+            text = formatIsoString(event.startIso),
+            color = Color.Gray,
+            style = MaterialTheme.typography.bodySmall
+        )
         if (!event.location.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = "📍 ${event.location}", color = Color.DarkGray, style = MaterialTheme.typography.bodySmall)
@@ -196,5 +153,20 @@ fun EventCard(event: CalendarEvent) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = event.description, color = Color.DarkGray, style = MaterialTheme.typography.bodySmall)
         }
+    }
+}
+
+private fun formatIsoString(iso: String): String {
+    return try {
+        if (iso.contains("T")) {
+            val parts = iso.split("T")
+            val date = parts[0]
+            val time = parts[1].substringBeforeLast(":") // 초(second) 제거
+            "$date $time"
+        } else {
+            iso
+        }
+    } catch (e: Exception) {
+        iso
     }
 }

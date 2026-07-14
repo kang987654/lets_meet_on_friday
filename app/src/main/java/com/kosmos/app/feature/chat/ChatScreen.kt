@@ -140,15 +140,6 @@ fun ChatScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Local Friday", style = MaterialTheme.typography.headlineMedium) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        },
         bottomBar = {
             ChatInputBar(
                 isLoading = uiState.isInFlight,

@@ -1,25 +1,24 @@
-# Architecture Refactoring Tasks
+# QA Debugging & Feature Enhancements Task List
 
-- `[x]` **1. Feature Directory Standardization**
-  - `[x]` `app/src/main/java/com/kosmos/app/feature/*` 하위 빈 폴더(`.gitkeep`) 전체 삭제
-  - `[x]` `ui/feature/chat` 폴더 및 내부 파일 `feature/chat`으로 이동
-  - `[x]` `ui/feature/calendar` 폴더 및 내부 파일 `feature/calendar`로 이동 (이미 이동되어 있던 파일 확인)
-  - `[x]` `ui/feature/approval`, `memory`, `settings`, `voice` 폴더 및 내부 파일 `feature/` 하위로 이동
-  - `[x]` 이동된 파일 내의 `package com.kosmos.app.ui.feature...` 선언을 `package com.kosmos.app.feature...`로 일괄 변경
-  - `[x]` 이동된 패키지를 참조하는 타 파일들의 `import com.kosmos.app.ui.feature...` 구문 일괄 업데이트
+- `[x]` **1. 채팅 (Chat) 영역 개선**
+  - `[x]` `ChatScreen.kt`에서 불필요한 `TopAppBar` 제거 및 Layout 여백 조절
+  - `[x]` `ResponseParser.kt`의 파싱 로직 정규식 추가 (오염된 쉼표 `,,` 전처리 및 예외 발생 시 강제 Regex Text 추출 등 Fallback 고도화)
+  - `[x]` `ContextBuilder.kt`의 Sliding Window 제한을 3,000에서 8,000 토큰으로 상향
+  - `[x]` `PromptAssembler.kt`에 시스템 현재 시간 동적 주입 로직 추가
+  - `[x]` `PromptAssembler.kt`의 시스템 프롬프트에 "당신은 현재 시간을 알고 있다"는 명시적 지시문 추가
 
-- `[x]` **2. DI Module Consolidation**
-  - `[x]` `app/src/main/java/com/kosmos/app/app/di/MemoryModule.kt` (중복 빈 파일) 삭제
-  - `[x]` `app/src/main/java/com/kosmos/app/app/di/` 내부의 모듈들(`AppModule.kt`, `ModelModule.kt`, `AgentModule.kt`, `PlatformModule.kt`)을 `com.kosmos.app.di` 로 이동
-  - `[x]` 이동된 DI 모듈들의 `package com.kosmos.app.app.di` 선언을 `package com.kosmos.app.di`로 변경
+- `[x]` **2. 일정 추가 (Calendar) 인앱 기능 구현**
+  - `[x]` `TaskEntity.kt` 및 `TaskRepositoryImpl.kt`에 `dueDateIso` 필드(컬럼) 반영 및 매핑 구현
+  - `[x]` `KosmosDatabase.kt` 데이터베이스 버전을 1에서 2로 마이그레이션 상향 조정
+  - `[x]` `CalendarAgent.kt`가 기존 `CalendarTool` 대신 `TaskRepository`를 이용해 내부 DB로 일정을 삽입하도록 로직 변경 (`endIso`는 완전히 생략하고 시작시간 `startIso`만 단일 "일정 시간"으로 저장)
+  - `[x]` `GetTodayScheduleUseCase.kt`가 외부 캘린더 대신 `TaskRepository`에서 일정을 읽어와 오늘/이번 주 범위에 맞게 필터링 및 요약하도록 로직 연동
+  - `[x]` `CalendarScreen.kt` 및 `CalendarViewModel.kt` 개편 (내부 DB의 일정들을 조회하여 표시하는 월간 달력 및 일정 리스트 UI 연동)
 
-- `[x]` **3. App Entry Point Reorganization**
-  - `[x]` `KosmosApp.kt`를 `com.kosmos.app.app`에서 `com.kosmos.app` 루트 패키지로 이동
-  - `[x]` `MainActivity.kt`를 `com.kosmos.app.app`에서 `com.kosmos.app` 루트 패키지로 이동
-  - `[x]` `AndroidManifest.xml` 내의 Application name 및 Activity name 속성 경로 업데이트
-  - `[x]` 패키지 선언 변경 및 관련 import 업데이트
+- `[x]` **3. Security & Log 화면 신규 구현**
+  - `[x]` `feature/settings/` 패키지 하위에 `AuditViewModel.kt` 및 `AuditScreen.kt` 신규 생성
+  - `[x]` `AuditViewModel`에서 `AuditRepository.getPaged()` (Paging 3)를 연동하여 감사 로그 페이징 흐름 구현
+  - `[x]` `AppDestination.kt`에 `Audit` 목적지 추가 및 `AppNavHost.kt`에 네비게이션 연결 구성
 
 - `[x]` **4. Verification**
-  - `[x]` `./gradlew clean assembleDebug` 명령을 통해 전체 빌드 성공 여부 확인 (성공)
-  - `[x]` `docs/architecture.md` 문서 내용과 현재 디렉토리 구조 일치 여부 재확인
-
+  - `[x]` `./gradlew clean assembleDebug` 빌드 정상 수행 검증
+  - `[x]` `./gradlew testDebugUnitTest` 테스트 코드 실행 및 통과 여부 확인
