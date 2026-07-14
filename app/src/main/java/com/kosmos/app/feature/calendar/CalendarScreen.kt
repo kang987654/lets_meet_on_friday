@@ -102,7 +102,8 @@ fun SegmentButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
 @Composable
 fun ScheduleContent(data: ScheduleData) {
     Column(modifier = Modifier.fillMaxSize()) {
-        if (!data.summary.isNullOrBlank()) {
+        val summary = data.summary
+        if (!summary.isNullOrBlank()) {
             Surface(
                 color = SkyBlue.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(18.dp),
@@ -111,7 +112,7 @@ fun ScheduleContent(data: ScheduleData) {
                     .padding(bottom = 16.dp)
             ) {
                 Text(
-                    text = data.summary,
+                    text = summary,
                     modifier = Modifier.padding(16.dp),
                     color = Color.DarkGray,
                     fontWeight = FontWeight.Medium
@@ -149,9 +150,10 @@ fun EventCard(event: CalendarEvent) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = "📍 ${event.location}", color = Color.DarkGray, style = MaterialTheme.typography.bodySmall)
         }
-        if (!event.description.isNullOrBlank()) {
+        val description = event.description
+        if (!description.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = event.description, color = Color.DarkGray, style = MaterialTheme.typography.bodySmall)
+            Text(text = description, color = Color.DarkGray, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

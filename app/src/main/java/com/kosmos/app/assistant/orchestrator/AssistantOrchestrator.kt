@@ -15,6 +15,8 @@ import com.kosmos.app.domain.model.ModelOutput
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * [AssistantOrchestrator]
@@ -30,7 +32,7 @@ import javax.inject.Inject
  * 1. 유저 메시지 DB 저장
  * 2. [ContextBuilder]를 통한 대화 기록 로드 (Token Sliding Window 적용)
  * 3. [PromptAssembler]로 최종 프롬프트 조립
- * 4. [ModelRunner] 실행 및 JSON 결과 파싱
+ * 4. [ModelRunner] 실행 및 JSON 결과 파싱 (내부 루프를 통해 Tool 재귀 실행)
  * 5. Guard 정책 검사 후 결과 반환 또는 특정 Agent 로직(검색, 캘린더 등) 수행
  */
 class AssistantOrchestrator @Inject constructor(
@@ -44,104 +46,150 @@ class AssistantOrchestrator @Inject constructor(
     private val auditTrailService: AuditTrailService,
     private val searchAgent: com.kosmos.app.assistant.agent.SearchAgent,
     private val calendarAgent: com.kosmos.app.assistant.agent.CalendarAgent,
-    private val getTodayScheduleUseCase: com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
+    private val getTodayScheduleUseCase: com.kosmos.app.domain.usecase.GetTodayScheduleUseCase,
+    private val addScheduleUseCase: com.kosmos.app.domain.usecase.AddScheduleUseCase
 ) {
 
     suspend fun processRequest(request: ChatRequest): AgentResult {
         // 1. 유저 메시지 저장
-        val userMessage = ChatMessage(
-            id = UUID.randomUUID().toString(),
-            sessionId = request.sessionId,
-            role = ChatMessage.Role.USER,
-            content = if (request.audioFilePath != null && request.message.isBlank()) "(음성 메시지)" else request.message,
-            inputType = if (request.audioFilePath != null) InputType.VOICE else if (request.imageBytes != null) InputType.IMAGE else InputType.TEXT,
-            createdAt = System.currentTimeMillis()
-        )
-        val saveUserRes = conversationRepository.save(userMessage)
-        if (saveUserRes is AppResult.Failure) {
-            return AgentResult.Error(saveUserRes.error)
+        val content = if (request.audioFilePath != null && request.message.isBlank()) "(음성 메시지)" else request.message
+        val inputType = if (request.audioFilePath != null) InputType.VOICE else if (request.imageBytes != null) InputType.IMAGE else InputType.TEXT
+        val saveUserResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.USER, content, inputType)
+        if (saveUserResult is AppResult.Failure) {
+            return AgentResult.Error(saveUserResult.error)
         }
 
-        // 2. 의도 분류 (v0에서는 로직 분기보다 힌트로만 사용됨)
-        val intent = intentClassifier.classify(request.message)
+        // 2. 의도 분류 (힌트용)
+        intentClassifier.classify(request.message)
 
-        // 3. 문서 텍스트가 있다면 SYSTEM 메시지로 저장하여 프롬프트에 합류시킴
+        // 3. 문서 텍스트 저장
         if (request.documentText != null) {
-            val docMessage = ChatMessage(
-                id = UUID.randomUUID().toString(),
-                sessionId = request.sessionId,
-                role = ChatMessage.Role.SYSTEM,
-                content = request.documentText,
-                inputType = InputType.TEXT,
-                createdAt = System.currentTimeMillis()
-            )
-            conversationRepository.save(docMessage)
+            createAndSaveMessage(request.sessionId, ChatMessage.Role.SYSTEM, request.documentText, InputType.TEXT)
         }
 
         // 4. 컨텍스트 구성
-        val contextRes = contextBuilder.build(request.sessionId)
-        val context = when (contextRes) {
-            is AppResult.Success -> contextRes.data
-            is AppResult.Failure -> {
-                val errorMsg = "대화 문맥을 구성하지 못했습니다: ${contextRes.error}"
-                auditTrailService.logError(request.sessionId, errorMsg)
-                saveAssistantMessage(request.sessionId, errorMsg)
-                return AgentResult.Error(contextRes.error)
+        val contextResult = contextBuilder.build(request.sessionId)
+        val context = when (contextResult) {
+            is AppResult.Success -> contextResult.data
+            is AppResult.Failure -> return handleErrorAndReturn(request.sessionId, "대화 문맥을 구성하지 못했습니다: ${contextResult.error}")
+        }
+
+        // 5. 프롬프트 조립
+        var prompt = promptAssembler.assemble(context, request.message)
+
+        // 6. 툴 루프 (Tool Loop) 실행
+        var rawOutput = ""
+        var parsedResult: com.kosmos.app.assistant.context.ToolParser.ParsedStream? = null
+
+        coroutineScope {
+            val scope = this
+            while (true) {
+                var toolCallDetected = false
+                var accumulatedToken = ""
+                val wrappedOnToken: (String) -> Unit = { token ->
+                    accumulatedToken += token
+                    val p = com.kosmos.app.assistant.context.ToolParser.parseStream(accumulatedToken)
+                    if (p.toolCalls.isNotEmpty() && !toolCallDetected) {
+                        toolCallDetected = true
+                        scope.launch { modelRunner.cancel() }
+                    }
+                    request.onToken?.invoke(token)
+                }
+
+                val modelResult = if (request.audioFilePath != null && rawOutput.isEmpty()) {
+                    modelRunner.generateWithAudio(prompt, request.audioFilePath, wrappedOnToken)
+                } else if (request.imageBytes != null && rawOutput.isEmpty()) {
+                    modelRunner.generateWithImage(prompt, request.imageBytes, request.imageTokenBudget, wrappedOnToken)
+                } else {
+                    modelRunner.generate(prompt, wrappedOnToken)
+                }
+
+                rawOutput = when (modelResult) {
+                    is AppResult.Success -> modelResult.data
+                    is AppResult.Failure -> return@coroutineScope
+                }
+
+                parsedResult = com.kosmos.app.assistant.context.ToolParser.parseStream(rawOutput)
+
+                if (parsedResult!!.toolCalls.isNotEmpty()) {
+                    val call = parsedResult!!.toolCalls.first()
+                    val toolJson = executeToolInner(call)
+                    val newInput = "${prompt.currentInput}\n$rawOutput\n<tool_response>$toolJson</tool_response>"
+                    prompt = prompt.copy(currentInput = newInput)
+                    continue
+                }
+                break
             }
         }
 
-        // 4. 프롬프트 조립
-        val prompt = promptAssembler.assemble(context, request.message)
+        if (parsedResult == null) {
+            return handleErrorAndReturn(request.sessionId, "Model execution failed")
+        }
 
-        // 5. LLM 추론 실행
-        val modelRes = if (request.audioFilePath != null) {
-            modelRunner.generateWithAudio(prompt, request.audioFilePath, request.onToken)
-        } else if (request.imageBytes != null) {
-            modelRunner.generateWithImage(prompt, request.imageBytes, request.imageTokenBudget, request.onToken)
-        } else {
-            modelRunner.generate(prompt, request.onToken)
-        }
-        val rawOutput = when (modelRes) {
-            is AppResult.Success -> modelRes.data
-            is AppResult.Failure -> {
-                val errorMsg = "Model execution failed: ${modelRes.error}"
-                auditTrailService.logError(request.sessionId, errorMsg)
-                saveAssistantMessage(request.sessionId, errorMsg)
-                return AgentResult.Text(errorMsg)
-            }
-        }
-        
-        // 런타임 결과 로깅
         auditTrailService.logModelRun(request.sessionId, prompt.currentInput, rawOutput)
 
-        // 6. 결과 파싱 (Thinking Process & Tool Call 추출)
-        val parsed = com.kosmos.app.assistant.context.ToolParser.parseStream(rawOutput)
-        val targetParseText = if (parsed.toolCalls.isNotEmpty()) {
-            val firstCall = parsed.toolCalls.first()
-            "{\"type\": \"${firstCall.name}\", \"args\": ${org.json.JSONObject(firstCall.args).toString()}}"
-        } else {
-            parsed.content
+        val modelOutput = responseParser.parse(parsedResult!!.content)
+
+        // 7. 정책 가드 확인 및 반환
+        return applyPolicyAndReturn(request.sessionId, modelOutput, parsedResult!!)
+    }
+
+    private suspend fun executeToolInner(call: com.kosmos.app.assistant.context.ToolParser.ToolCallData): String {
+        return when (call.name) {
+            "AddSchedule" -> {
+                val title = call.args["title"] as? String ?: "Event"
+                val startTime = call.args["startTime"] as? String ?: ""
+                val endTime = call.args["endTime"] as? String ?: ""
+                val desc = call.args["description"] as? String
+                val res = addScheduleUseCase(title, startTime, endTime, desc)
+                if (res is AppResult.Success) {
+                    "{\"status\": \"success\", \"message\": \"일정이 성공적으로 추가되었습니다.\"}"
+                } else {
+                    "{\"status\": \"error\", \"message\": \"일정 추가 실패\"}"
+                }
+            }
+            "GetSchedule" -> {
+                val range = if ((call.args["date"] as? String)?.lowercase()?.contains("week") == true) {
+                    com.kosmos.app.domain.model.ScheduleData.RangeType.WEEK
+                } else {
+                    com.kosmos.app.domain.model.ScheduleData.RangeType.TODAY
+                }
+                val res = getTodayScheduleUseCase(range)
+                if (res is AppResult.Success) {
+                    val data = res.data
+                    val text = buildString {
+                        append(data.summary ?: "일정 요약이 없습니다.")
+                        append("\n\n")
+                        data.events.forEach { event ->
+                            append("- ${event.title} (${event.startIso})\n")
+                        }
+                    }
+                    "{\"status\": \"success\", \"data\": \"$text\"}"
+                } else {
+                    "{\"status\": \"error\", \"message\": \"일정 조회 실패\"}"
+                }
+            }
+            else -> "{\"status\": \"error\", \"message\": \"알 수 없는 Tool입니다.\"}"
         }
-        val modelOutput = responseParser.parse(targetParseText)
+    }
 
-        // 7. 정책 가드 확인
-        val policy = preExecutionGuard.checkPolicy(modelOutput)
-
-        // 8. 정책 적용 및 반환
-        return when (policy) {
+    private suspend fun applyPolicyAndReturn(
+        sessionId: String, 
+        modelOutput: ModelOutput, 
+        parsed: com.kosmos.app.assistant.context.ToolParser.ParsedStream
+    ): AgentResult {
+        return when (val policy = preExecutionGuard.checkPolicy(modelOutput)) {
             is ExecutionPolicy.Allowed -> {
                 val text = if (modelOutput is ModelOutput.TextOutput) modelOutput.content else parsed.content
-                saveAssistantMessage(request.sessionId, text, thinkingProcess = parsed.thinking)
+                createAndSaveMessage(sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT, searchUsed = false, thinkingProcess = parsed.thinking)
                 AgentResult.Text(text, thinkingProcess = parsed.thinking)
             }
             is ExecutionPolicy.RequiresApproval -> {
-                // 승인 대기 상태. 메시지는 사용자가 승인/거부한 후에 저장됨.
-                saveAssistantMessage(request.sessionId, parsed.content, thinkingProcess = parsed.thinking)
+                createAndSaveMessage(sessionId, ChatMessage.Role.ASSISTANT, parsed.content, InputType.TEXT, searchUsed = false, thinkingProcess = parsed.thinking)
                 AgentResult.ActionRequired(modelOutput, thinkingProcess = parsed.thinking)
             }
             is ExecutionPolicy.Blocked -> {
-                // v1 안내 문구를 일반 답변처럼 제공
-                saveAssistantMessage(request.sessionId, policy.reason)
+                createAndSaveMessage(sessionId, ChatMessage.Role.ASSISTANT, policy.reason, InputType.TEXT)
                 AgentResult.Text(policy.reason)
             }
         }
@@ -149,91 +197,87 @@ class AssistantOrchestrator @Inject constructor(
 
     suspend fun resumeAction(sessionId: String, action: ModelOutput): AgentResult {
         return when (action) {
-            is ModelOutput.SearchOutput -> {
-                // 검색 이벤트 감사 로그 기록
-                auditTrailService.logSearchEvent(sessionId, action.query)
-                
-                // 1. 실제 검색 수행
-                val searchRes = searchAgent.executeSearch(action.query)
-                val searchContext = when (searchRes) {
-                    is AppResult.Success -> searchRes.data
-                    is AppResult.Failure -> "웹 검색을 수행했으나 네트워크 오류로 실패했습니다."
-                }
-
-                // 2. 검색 결과를 System 메시지로 저장 (LLM이 문맥을 알 수 있도록)
-                val systemMessage = ChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    sessionId = sessionId,
-                    role = ChatMessage.Role.SYSTEM,
-                    content = searchContext,
-                    inputType = InputType.TEXT,
-                    createdAt = System.currentTimeMillis()
-                )
-                conversationRepository.save(systemMessage)
-
-                // 3. 문맥 다시 구성 후 재질의 (빈 메시지로 재호출하여 기존 문맥에 대해 답변 유도)
-                val contextRes = contextBuilder.build(sessionId)
-                val context = when (contextRes) {
-                    is AppResult.Success -> contextRes.data
-                    is AppResult.Failure -> return AgentResult.Error(contextRes.error)
-                }
-
-                val prompt = promptAssembler.assemble(context, "")
-                val modelRes = modelRunner.generate(prompt)
-                val rawOutput = when (modelRes) {
-                    is AppResult.Success -> modelRes.data
-                    is AppResult.Failure -> {
-                        val errorMsg = "검색 후 응답 생성에 실패했습니다: ${modelRes.error}"
-                        auditTrailService.logError(sessionId, errorMsg)
-                        saveAssistantMessage(sessionId, errorMsg)
-                        return AgentResult.Error(modelRes.error)
-                    }
-                }
-
-                auditTrailService.logModelRun(sessionId, prompt.currentInput, rawOutput)
-                
-                val modelOutput = responseParser.parse(rawOutput)
-                val text = if (modelOutput is ModelOutput.TextOutput) modelOutput.content else rawOutput
-                
-                saveAssistantMessage(sessionId, text, searchUsed = true)
-                AgentResult.Text(text)
-            }
-            is ModelOutput.CalendarDraftOutput -> {
-                val insertRes = calendarAgent.executeCalendarInsert(action)
-                val text = when (insertRes) {
-                    is AppResult.Success -> "일정이 성공적으로 추가되었습니다."
-                    is AppResult.Failure -> "일정 추가에 실패했습니다: ${insertRes.error}"
-                }
-                saveAssistantMessage(sessionId, text)
-                AgentResult.Text(text)
-            }
-            is ModelOutput.GetScheduleOutput -> {
-                val getRes = calendarAgent.executeGetSchedule(action, getTodayScheduleUseCase)
-                val text = when (getRes) {
-                    is AppResult.Success -> getRes.data
-                    is AppResult.Failure -> "일정 조회에 실패했습니다: ${getRes.error}"
-                }
-                saveAssistantMessage(sessionId, text)
-                AgentResult.Text(text)
-            }
-            else -> {
-                // v1에서는 다른 액션 재개는 미지원
-                AgentResult.Text("지원되지 않는 액션입니다.")
-            }
+            is ModelOutput.SearchOutput -> handleSearchAction(sessionId, action)
+            is ModelOutput.CalendarDraftOutput -> handleCalendarDraftAction(sessionId, action)
+            is ModelOutput.GetScheduleOutput -> handleGetScheduleAction(sessionId, action)
+            else -> AgentResult.Text("지원되지 않는 액션입니다.")
         }
     }
 
-    private suspend fun saveAssistantMessage(sessionId: String, content: String, searchUsed: Boolean = false, thinkingProcess: String? = null) {
-        val assistantMessage = ChatMessage(
+    private suspend fun handleSearchAction(sessionId: String, action: ModelOutput.SearchOutput): AgentResult {
+        auditTrailService.logSearchEvent(sessionId, action.query)
+        
+        val searchResult = searchAgent.executeSearch(action.query)
+        val searchContext = if (searchResult is AppResult.Success) searchResult.data else "웹 검색 네트워크 오류"
+        
+        createAndSaveMessage(sessionId, ChatMessage.Role.SYSTEM, searchContext, InputType.TEXT)
+
+        val contextResult = contextBuilder.build(sessionId)
+        val context = when (contextResult) {
+            is AppResult.Success -> contextResult.data
+            is AppResult.Failure -> return AgentResult.Error(contextResult.error)
+        }
+
+        val prompt = promptAssembler.assemble(context, "")
+        val modelResult = modelRunner.generate(prompt)
+        val rawOutput = when (modelResult) {
+            is AppResult.Success -> modelResult.data
+            is AppResult.Failure -> return handleErrorAndReturn(sessionId, "검색 후 응답 생성에 실패했습니다: ${modelResult.error}")
+        }
+
+        auditTrailService.logModelRun(sessionId, prompt.currentInput, rawOutput)
+        
+        val modelOutput = responseParser.parse(rawOutput)
+        val text = if (modelOutput is ModelOutput.TextOutput) modelOutput.content else rawOutput
+        
+        createAndSaveMessage(sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT, searchUsed = true)
+        return AgentResult.Text(text)
+    }
+
+    private suspend fun handleCalendarDraftAction(sessionId: String, action: ModelOutput.CalendarDraftOutput): AgentResult {
+        val insertResult = calendarAgent.executeCalendarInsert(action)
+        val text = when (insertResult) {
+            is AppResult.Success -> "일정이 성공적으로 추가되었습니다."
+            is AppResult.Failure -> "일정 추가에 실패했습니다: ${insertResult.error}"
+        }
+        createAndSaveMessage(sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT)
+        return AgentResult.Text(text)
+    }
+
+    private suspend fun handleGetScheduleAction(sessionId: String, action: ModelOutput.GetScheduleOutput): AgentResult {
+        val getResult = calendarAgent.executeGetSchedule(action, getTodayScheduleUseCase)
+        val text = when (getResult) {
+            is AppResult.Success -> getResult.data
+            is AppResult.Failure -> "일정 조회에 실패했습니다: ${getResult.error}"
+        }
+        createAndSaveMessage(sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT)
+        return AgentResult.Text(text)
+    }
+
+    private suspend fun handleErrorAndReturn(sessionId: String, errorMsg: String): AgentResult.Error {
+        auditTrailService.logError(sessionId, errorMsg)
+        createAndSaveMessage(sessionId, ChatMessage.Role.ASSISTANT, errorMsg, InputType.TEXT)
+        return AgentResult.Error(com.kosmos.app.core.common.AppError.ModelInferenceError(errorMsg))
+    }
+
+    private suspend fun createAndSaveMessage(
+        sessionId: String, 
+        role: ChatMessage.Role, 
+        content: String, 
+        inputType: InputType,
+        searchUsed: Boolean = false, 
+        thinkingProcess: String? = null
+    ): AppResult<Unit> {
+        val message = ChatMessage(
             id = UUID.randomUUID().toString(),
             sessionId = sessionId,
-            role = ChatMessage.Role.ASSISTANT,
+            role = role,
             content = content,
-            inputType = InputType.TEXT,
+            inputType = inputType,
             searchUsed = searchUsed,
             createdAt = System.currentTimeMillis(),
             thinkingProcess = thinkingProcess
         )
-        conversationRepository.save(assistantMessage)
+        return conversationRepository.save(message)
     }
 }

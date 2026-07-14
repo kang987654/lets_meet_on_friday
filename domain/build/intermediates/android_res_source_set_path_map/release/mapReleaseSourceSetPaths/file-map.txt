@@ -1,9 +1,0 @@
-com.localfriday.domain-pngs-0 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\domain\build\generated\res\pngs\release
-com.localfriday.domain-updated_navigation_xml-1 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\domain\build\generated\updated_navigation_xml\release
-com.localfriday.domain-mergeReleaseResources-2 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\domain\build\intermediates\incremental\release\mergeReleaseResources\merged.dir
-com.localfriday.domain-mergeReleaseResources-3 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\domain\build\intermediates\incremental\release\mergeReleaseResources\stripped.dir
-com.localfriday.domain-release-4 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\domain\build\intermediates\merged_res\release\mergeReleaseResources
-com.localfriday.domain-release-5 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\domain\build\intermediates\packaged_res\release\packageReleaseResources
-com.localfriday.domain-main-6 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\domain\src\main\res
-com.localfriday.domain-release-7 C:\Users\SSAFY\Desktop\dev\lets_meet_on_friday\domain\src\release\res
-gradleHome-0 C:\Users\SSAFY\.gradle

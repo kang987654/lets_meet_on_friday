@@ -38,8 +38,11 @@ hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization-json" }
 
 # Coroutines & Collections
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinx-collections-immutable" }
+javax-inject = { module = "javax.inject:javax.inject", version = "1" }
+androidx-paging-common = { module = "androidx.paging:paging-common", version.ref = "paging" }
 
 # Compose BOM + 주요 Compose 라이브러리
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }

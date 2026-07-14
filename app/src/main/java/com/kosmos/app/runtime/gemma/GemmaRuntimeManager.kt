@@ -46,11 +46,11 @@ class GemmaRuntimeManager @Inject constructor(
         checkModelFile()
     }
 
-    fun setInitializing() {
+    override fun setInitializing() {
         _loadState.value = ModelLoadState.InitializingEngine
     }
 
-    fun checkModelFile() {
+    override fun checkModelFile() {
         val externalModelsDir = context.getExternalFilesDir("models")
         val internalModelsDir = File(context.filesDir, "models")
         

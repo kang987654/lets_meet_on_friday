@@ -118,6 +118,13 @@ class MultimodalChatE2ETest {
     }
 
     @BindValue
+    val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor = object : com.kosmos.app.domain.tool.ImageProcessor {
+        override suspend fun processImage(rawBytes: ByteArray): AppResult<ByteArray> {
+            return AppResult.Success(rawBytes)
+        }
+    }
+
+    @BindValue
     val modelLoadManager: com.kosmos.app.domain.modelrunner.ModelLoadManager = object : com.kosmos.app.domain.modelrunner.ModelLoadManager {
         override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(ModelLoadState.Ready(ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
         override fun checkModelFile() {}
@@ -137,8 +144,6 @@ class MultimodalChatE2ETest {
     @Inject lateinit var approvalCoordinator: ApprovalCoordinator
     @Inject lateinit var shareIntentHandler: ShareIntentHandler
     @Inject lateinit var runtimeMetricsCollector: RuntimeMetricsCollector
-    @Inject lateinit var getTodayScheduleUseCase: com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
-    @Inject lateinit var addScheduleUseCase: com.kosmos.app.domain.usecase.AddScheduleUseCase
 
     private lateinit var viewModel: ChatViewModel
 
@@ -157,9 +162,7 @@ class MultimodalChatE2ETest {
             shareIntentHandler = shareIntentHandler,
             runtimeMetricsCollector = runtimeMetricsCollector,
             modelRunner = fakeModelRunner,
-            audioRecorder = audioRecorder,
-            getTodayScheduleUseCase = getTodayScheduleUseCase,
-            addScheduleUseCase = addScheduleUseCase
+            audioRecorder = audioRecorder
         )
     }
 

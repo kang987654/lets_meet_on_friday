@@ -9,9 +9,16 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 
+import com.kosmos.app.domain.tool.ModelDownloader
+import com.kosmos.app.data.network.ModelDownloadService
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class PlatformModule {
+    @Binds
+    abstract fun bindModelDownloader(
+        impl: ModelDownloadService
+    ): ModelDownloader
     @Binds
     abstract fun bindSpeechToTextTool(
         impl: AndroidSpeechToTextTool

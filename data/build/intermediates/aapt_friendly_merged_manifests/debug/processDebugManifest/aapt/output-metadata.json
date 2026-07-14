@@ -4,7 +4,7 @@
     "type": "AAPT_FRIENDLY_MERGED_MANIFESTS",
     "kind": "Directory"
   },
-  "applicationId": "com.localfriday.data",
+  "applicationId": "com.kosmos.app.data",
   "variantName": "debug",
   "elements": [
     {

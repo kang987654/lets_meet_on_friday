@@ -142,9 +142,10 @@ fun DraftDetailCard(draft: CalendarDraft) {
         Text(text = "시간", color = Color.Gray, style = MaterialTheme.typography.labelMedium)
         Text(text = "${draft.startIso} ~ ${draft.endIso}", modifier = Modifier.padding(bottom = 12.dp))
 
-        if (!draft.note.isNullOrBlank()) {
+        val note = draft.note
+        if (!note.isNullOrBlank()) {
             Text(text = "메모", color = Color.Gray, style = MaterialTheme.typography.labelMedium)
-            Text(text = draft.note)
+            Text(text = note)
         }
     }
 }

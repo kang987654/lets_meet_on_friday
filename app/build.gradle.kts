@@ -55,6 +55,10 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 dependencies {
+    implementation(project(":core"))
+    implementation(project(":domain"))
+    implementation(project(":data"))
+
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

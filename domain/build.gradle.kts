@@ -1,17 +1,11 @@
 plugins {
-    id("com.android.library")
+    kotlin("jvm")
 }
 
-android {
-    namespace = "com.localfriday.domain"
-    compileSdk = 35
-
-    defaultConfig {
-        minSdk = 26
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
+dependencies {
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.javax.inject)
+    implementation(libs.androidx.paging.common)
+    implementation(project(":core"))
 }

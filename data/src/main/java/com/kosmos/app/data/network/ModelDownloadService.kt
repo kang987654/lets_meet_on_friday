@@ -39,7 +39,7 @@ class ModelDownloadService @Inject constructor(
      * @param fileName 저장할 파일명 (기본값: url의 마지막 path segment)
      * @return 진행률(Int) Flow
      */
-    fun downloadModel(url: String, fileName: String? = null): Flow<Int> = flow {
+    override fun downloadModel(url: String, fileName: String?): Flow<Int> = flow {
         val request = Request.Builder().url(url).build()
         val actualFileName = fileName ?: url.substringAfterLast("/")
         val targetDir = File(context.filesDir, "models")

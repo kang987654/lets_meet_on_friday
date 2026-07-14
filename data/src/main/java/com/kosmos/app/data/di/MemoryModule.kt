@@ -1,4 +1,7 @@
-package com.kosmos.app.di
+package com.kosmos.app.data.di
+
+import com.kosmos.app.data.local.file.ExportImportManager
+import com.kosmos.app.domain.memory.MemoryBackupManager
 
 import com.kosmos.app.data.local.repository.KnowledgeRepositoryImpl
 import com.kosmos.app.data.local.repository.TaskRepositoryImpl
@@ -43,4 +46,10 @@ abstract class MemoryModule {
     abstract fun bindConversationRepository(
         impl: com.kosmos.app.data.local.repository.ConversationRepositoryImpl
     ): com.kosmos.app.domain.memory.ConversationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMemoryBackupManager(
+        impl: ExportImportManager
+    ): MemoryBackupManager
 }

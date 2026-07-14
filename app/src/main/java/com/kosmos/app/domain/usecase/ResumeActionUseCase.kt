@@ -11,7 +11,11 @@ import javax.inject.Inject
 class ResumeActionUseCase @Inject constructor(
     private val assistantOrchestrator: AssistantOrchestrator
 ) {
-    suspend operator fun invoke(sessionId: String, action: ModelOutput): AppResult<AgentResult> = withContext(Dispatchers.IO) {
+    suspend operator fun invoke(
+        sessionId: String, 
+        action: ModelOutput,
+        onToken: ((String) -> Unit)? = null
+    ): AppResult<AgentResult> = withContext(Dispatchers.IO) {
         try {
             val result = assistantOrchestrator.resumeAction(sessionId, action)
             AppResult.Success(result)

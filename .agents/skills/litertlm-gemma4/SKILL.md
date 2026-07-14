@@ -46,3 +46,20 @@ Gemma 4 E2B/E4B는 텍스트뿐만 아니라 이미지와 음성 입력을 기�
 
 ## 7. 입출력(I/O) 토큰 여유분 관리 규칙
 - **추론(Thinking) 토큰 고려**: E4B는 <|think|> 태그를 통한 내부 추론 출력을 지원합니다. 따라서 답변 생성 전 숨겨진 추론 토큰이 발생하므로, Max Output Tokens 여유분을 항상 넉넉하게(최소 2,000 ~ 4,000 토큰 이상) 확보해야 합니다.
+
+## 8. 프롬프트 포맷팅 규칙 (Prompt Formatting & Chat)
+- Gemma 4는 엄격한 제어 토큰(Control Tokens)을 사용하여 대화 턴을 구분합니다.
+- **기본 구조**: `<start_of_turn>role\n...<end_of_turn>\n`
+- **역할(Role)**: `user`, `model`, `system`
+- `LlmChatModelHelper` 등의 모델 래퍼에서 이전 대화 이력을 프롬프트로 직렬화할 때 이 포맷을 엄격하게 준수해야 합니다.
+
+## 9. 함수 호출 및 에이전트 스킬 (Function Calling / Tool Use)
+- 모델은 프롬프트에 제공된 함수 스키마(Schema)를 인지하고 `<tool_call>` 형식으로 외부 함수 실행을 요청할 수 있습니다.
+- 안드로이드 구현 시 `ToolProvider` 인터페이스와 같은 추상화 계층을 두어:
+  1. 모델 응답 중 `<tool_call>`을 가로채 파싱
+  2. 네이티브 함수 실행
+  3. 실행 결과를 `<tool_response>`로 포맷팅하여 다시 프롬프트에 주입(Injection)하는 흐름을 구성해야 합니다.
+
+## 10. 메모리 관리 (Sliding Window)
+- 멀티턴 대화가 지속될 경우 모바일 기기의 제한된 RAM(예: 12GB 등)을 보호하기 위해 메모리 관리가 필수적입니다.
+- 채팅 히스토리 전체를 주입하지 말고, 최근 N개의 토큰(예: 3,000 토큰) 범위 내에서만 유지하고 오래된 대화는 잘라내는 **Sliding Window(Truncation)** 방식을 구현해야 OOM(Out of Memory)이나 급격한 성능 저하를 피할 수 있습니다.

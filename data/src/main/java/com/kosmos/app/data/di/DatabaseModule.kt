@@ -1,4 +1,4 @@
-package com.kosmos.app.di
+package com.kosmos.app.data.di
 
 import android.content.Context
 import androidx.room.Room

@@ -42,8 +42,6 @@ class VoiceChatIntegrationTest {
     @Inject lateinit var approvalCoordinator: ApprovalCoordinator
     @Inject lateinit var shareIntentHandler: ShareIntentHandler
     @Inject lateinit var runtimeMetricsCollector: RuntimeMetricsCollector
-    @Inject lateinit var getTodayScheduleUseCase: com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
-    @Inject lateinit var addScheduleUseCase: com.kosmos.app.domain.usecase.AddScheduleUseCase
     @dagger.hilt.android.testing.BindValue
     @JvmField
     val modelRunner: ModelRunner = object : com.kosmos.app.domain.modelrunner.ModelRunner {
@@ -68,6 +66,14 @@ class VoiceChatIntegrationTest {
     @JvmField
     val tokenizer: com.kosmos.app.domain.tool.Tokenizer = object : com.kosmos.app.domain.tool.Tokenizer {
         override fun sizeInTokens(text: String): Int = text.length / 4
+    }
+
+    @dagger.hilt.android.testing.BindValue
+    @JvmField
+    val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor = object : com.kosmos.app.domain.tool.ImageProcessor {
+        override suspend fun processImage(rawBytes: ByteArray): com.kosmos.app.core.common.AppResult<ByteArray> {
+            return com.kosmos.app.core.common.AppResult.Success(rawBytes)
+        }
     }
 
     @dagger.hilt.android.testing.BindValue
@@ -107,9 +113,7 @@ class VoiceChatIntegrationTest {
             shareIntentHandler = shareIntentHandler,
             runtimeMetricsCollector = runtimeMetricsCollector,
             modelRunner = modelRunner,
-            audioRecorder = audioRecorder,
-            getTodayScheduleUseCase = getTodayScheduleUseCase,
-            addScheduleUseCase = addScheduleUseCase
+            audioRecorder = audioRecorder
         )
     }
 

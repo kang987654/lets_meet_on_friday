@@ -1,3 +1,18 @@
+## [0.3.2] - 2026-07-14
+- **[Architecture/Refactoring]** `ChatViewModel`, `AssistantOrchestrator` 과도한 책임 및 복잡도 리팩토링 (SRP, DRY 원칙 적용)
+- `ChatViewModel`에서 수행되던 Tool Execution 및 재귀 추론 로직을 `AssistantOrchestrator`의 `processRequest` 내부 캡슐화로 회수
+- 뷰모델 내 Android 특화 로직(`Uri` -> `Bitmap` -> `ByteArray`)을 프라이빗 헬퍼 함수로 분리하여 가독성 강화
+- `AssistantOrchestrator` 내 반복되는 `ChatMessage` 데이터베이스 저장 코드를 단일 헬퍼(`createAndSaveMessage`)로 병합(DRY)
+- 여러 `AppResult` 분기와 거대한 `when` 블록을 별도의 `handleXXXAction` 메서드로 평탄화하여 복잡도 감소
+- Hilt `@UninstallModules` 사용 테스트 환경(`MultimodalChatE2ETest`, `VoiceChatIntegrationTest`)에서 누락된 `ImageProcessor` Mock 의존성 주입 복구 및 검증 완료
+
+
+## [0.3.1] - 2026-07-14
+- **[Architecture/Refactoring]** `ChatViewModel`, `AssistantOrchestrator`, `SendChatMessageUseCase` 구조 개편 및 코드 퀄리티 개선 완료
+- `ChatViewModel` 내의 Tool Loop(2차 추론 호출 및 executeTool) 및 그래픽 API(Bitmap 디코딩 및 JPEG 압축) 제거를 통한 단일 책임 원칙(SRP) 확립
+- `AssistantOrchestrator` 내부로 `executeTool` 헬퍼 및 2차 LLM 추론 자동 실행(Allowed) / 승인 대기(RequiresApproval) 흐름을 내재화하여 비즈니스 로직 격리
+- `SendChatMessageUseCase`에 `ImageProcessor`를 연동하여 이미지 전처리 흐름 캡슐화 완료
+- `resumeAction` 메서드에 `onToken` 스트리밍 콜백을 지원하여 사용자 일정 생성/조회 승낙 시 최종 자연어 합성 답변이 실시간으로 렌더링되도록 개선
 
 ## [0.3.0] - 2026-07-14
 - `:app` 모듈에 밀집된 코드를 `:core`, `:domain`, `:data` 3개 모듈로 물리적/논리적 분리 및 컴파일 연동 완료

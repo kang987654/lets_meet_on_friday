@@ -23,7 +23,8 @@ import javax.inject.Inject
  */
 class SendChatMessageUseCase @Inject constructor(
     private val assistantOrchestrator: AssistantOrchestrator,
-    private val conversationRepository: com.kosmos.app.domain.memory.ConversationRepository
+    private val conversationRepository: com.kosmos.app.domain.memory.ConversationRepository,
+    private val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor
 ) {
     companion object {
         const val MAX_INPUT_CHARS = 8192
@@ -50,11 +51,18 @@ class SendChatMessageUseCase @Inject constructor(
             return AppResult.Failure(AppError.ValidationError("message", "입력 가능한 최대 글자 수($MAX_INPUT_CHARS)를 초과했습니다."))
         }
 
+        val processedImageBytes = imageBytes?.let {
+            when (val processResult = imageProcessor.processImage(it)) {
+                is AppResult.Success -> processResult.data
+                is AppResult.Failure -> return AppResult.Failure(processResult.error)
+            }
+        }
+
         // 3. Orchestrator 위임
         val request = ChatRequest(
             sessionId = sessionId,
             message = trimmedMessage,
-            imageBytes = imageBytes,
+            imageBytes = processedImageBytes,
             documentText = documentText,
             audioFilePath = audioFilePath,
             imageTokenBudget = imageTokenBudget,
