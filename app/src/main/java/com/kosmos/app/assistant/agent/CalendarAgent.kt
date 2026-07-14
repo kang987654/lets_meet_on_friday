@@ -36,4 +36,27 @@ class CalendarAgent @Inject constructor(
             is AppResult.Failure -> AppResult.Failure(result.error)
         }
     }
+
+    suspend fun executeGetSchedule(action: ModelOutput.GetScheduleOutput, getTodayScheduleUseCase: com.kosmos.app.domain.usecase.GetTodayScheduleUseCase): AppResult<String> {
+        val range = if (action.date.lowercase().contains("week")) {
+            com.kosmos.app.domain.model.ScheduleData.RangeType.WEEK
+        } else {
+            com.kosmos.app.domain.model.ScheduleData.RangeType.TODAY
+        }
+        val result = getTodayScheduleUseCase(range)
+        return when (result) {
+            is AppResult.Success -> {
+                val data = result.data
+                val text = buildString {
+                    append(data.summary ?: "일정 요약이 없습니다.")
+                    append("\n\n")
+                    data.events.forEach { event ->
+                        append("- ${event.title} (${event.startIso})\n")
+                    }
+                }
+                AppResult.Success(text.trim())
+            }
+            is AppResult.Failure -> AppResult.Failure(result.error)
+        }
+    }
 }

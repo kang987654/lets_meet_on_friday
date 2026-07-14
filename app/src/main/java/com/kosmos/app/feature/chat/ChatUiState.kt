@@ -15,6 +15,7 @@ data class ChatUiState(
     val sharedInput: com.kosmos.app.platform.share.SharedInput? = null,
     val error: AppError? = null,
     val streamingText: String? = null,
+    val streamingThinking: String? = null,
     val warningMessage: String? = null,
     val engineState: ModelLoadState = ModelLoadState.Loading,
     val isRecording: Boolean = false

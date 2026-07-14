@@ -4,7 +4,7 @@ import com.kosmos.app.core.common.AppError
 import com.kosmos.app.domain.model.ModelOutput
 
 sealed class AgentResult {
-    data class Text(val content: String) : AgentResult()
-    data class ActionRequired(val output: ModelOutput) : AgentResult()
+    data class Text(val content: String, val thinkingProcess: String? = null) : AgentResult()
+    data class ActionRequired(val output: ModelOutput, val thinkingProcess: String? = null) : AgentResult()
     data class Error(val error: AppError) : AgentResult()
 }

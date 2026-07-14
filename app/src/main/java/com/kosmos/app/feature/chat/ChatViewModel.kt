@@ -55,7 +55,9 @@ class ChatViewModel @Inject constructor(
     private val shareIntentHandler: ShareIntentHandler,
     private val runtimeMetricsCollector: RuntimeMetricsCollector,
     private val modelRunner: ModelRunner,
-    private val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder
+    private val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder,
+    private val getTodayScheduleUseCase: com.kosmos.app.domain.usecase.GetTodayScheduleUseCase,
+    private val addScheduleUseCase: com.kosmos.app.domain.usecase.AddScheduleUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -203,7 +205,9 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 // 스트리밍 시작 전 빈 문자열로 초기화
-                _uiState.update { it.copy(streamingText = "") }
+                _uiState.update { it.copy(streamingText = "", streamingThinking = null) }
+                var accumulatedRaw = ""
+                var toolCallDetected: com.kosmos.app.assistant.context.ToolParser.ToolCallData? = null
                 
                 val result = sendChatMessageUseCase(
                     sessionId = sessionId, 
@@ -212,16 +216,91 @@ class ChatViewModel @Inject constructor(
                     documentText = documentText,
                     audioFilePath = audioFilePath,
                     onToken = { token ->
+                        accumulatedRaw += token
+                        val parsed = com.kosmos.app.assistant.context.ToolParser.parseStream(accumulatedRaw)
                         _uiState.update { state ->
-                            val currentText = state.streamingText ?: ""
-                            state.copy(streamingText = currentText + token)
+                            state.copy(
+                                streamingText = parsed.content,
+                                streamingThinking = parsed.thinking
+                            )
+                        }
+                        
+                        if (parsed.toolCalls.isNotEmpty() && toolCallDetected == null) {
+                            toolCallDetected = parsed.toolCalls.first()
+                            viewModelScope.launch { modelRunner.cancel() }
                         }
                     }
                 )
-                handleAgentResult(result)
+                
+                if (toolCallDetected != null) {
+                    val call = toolCallDetected!!
+                    val responseJson = executeTool(call)
+                    val toolResponsePrompt = "<tool_response>$responseJson</tool_response>"
+                    
+                    // Reset accumulators for the second LLM generation
+                    accumulatedRaw = ""
+                    _uiState.update { it.copy(streamingText = "", streamingThinking = null) }
+                    
+                    val secondResult = sendChatMessageUseCase(
+                        sessionId = sessionId,
+                        message = toolResponsePrompt,
+                        onToken = { token ->
+                            accumulatedRaw += token
+                            val parsed = com.kosmos.app.assistant.context.ToolParser.parseStream(accumulatedRaw)
+                            _uiState.update { state ->
+                                state.copy(
+                                    streamingText = parsed.content,
+                                    streamingThinking = parsed.thinking
+                                )
+                            }
+                        }
+                    )
+                    handleAgentResult(secondResult)
+                } else {
+                    handleAgentResult(result)
+                }
             } finally {
-                _uiState.update { it.copy(isInFlight = false, streamingText = null) }
+                _uiState.update { it.copy(isInFlight = false, streamingText = null, streamingThinking = null) }
             }
+        }
+    }
+
+    private suspend fun executeTool(call: com.kosmos.app.assistant.context.ToolParser.ToolCallData): String {
+        return when (call.name) {
+            "AddSchedule" -> {
+                val title = call.args["title"] as? String ?: "Event"
+                val startTime = call.args["startTime"] as? String ?: ""
+                val endTime = call.args["endTime"] as? String ?: ""
+                val desc = call.args["description"] as? String
+                val res = addScheduleUseCase(title, startTime, endTime, desc)
+                if (res is AppResult.Success) {
+                    "{\"status\": \"success\", \"message\": \"일정이 성공적으로 추가되었습니다.\"}"
+                } else {
+                    "{\"status\": \"error\", \"message\": \"일정 추가 실패\"}"
+                }
+            }
+            "GetSchedule" -> {
+                val range = if ((call.args["date"] as? String)?.lowercase()?.contains("week") == true) {
+                    com.kosmos.app.domain.model.ScheduleData.RangeType.WEEK
+                } else {
+                    com.kosmos.app.domain.model.ScheduleData.RangeType.TODAY
+                }
+                val res = getTodayScheduleUseCase(range)
+                if (res is AppResult.Success) {
+                    val data = res.data
+                    val text = buildString {
+                        append(data.summary ?: "일정 요약이 없습니다.")
+                        append("\\n\\n")
+                        data.events.forEach { event ->
+                            append("- ${event.title} (${event.startIso})\\n")
+                        }
+                    }
+                    "{\"status\": \"success\", \"data\": \"$text\"}"
+                } else {
+                    "{\"status\": \"error\", \"message\": \"일정 조회 실패\"}"
+                }
+            }
+            else -> "{\"status\": \"error\", \"message\": \"알 수 없는 Tool입니다.\"}"
         }
     }
 
@@ -258,7 +337,8 @@ class ChatViewModel @Inject constructor(
                             role = ChatMessage.Role.ASSISTANT,
                             content = agentResult.content,
                             inputType = InputType.TEXT,
-                            createdAt = System.currentTimeMillis()
+                            createdAt = System.currentTimeMillis(),
+                            thinkingProcess = agentResult.thinkingProcess
                         )
                         _uiState.update { it.copy(messages = (it.messages + assistantMessage).toImmutableList()) }
                     }

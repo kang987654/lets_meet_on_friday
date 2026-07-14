@@ -36,6 +36,11 @@ class ResponseParser @Inject constructor() {
                         confidence = jsonObject.optDouble("confidence", 1.0).toFloat()
                     )
                 }
+                "get_schedule" -> {
+                    ModelOutput.GetScheduleOutput(
+                        date = jsonObject.optString("date", "")
+                    )
+                }
                 "search" -> {
                     ModelOutput.SearchOutput(
                         query = jsonObject.optString("query", ""),
@@ -107,6 +112,11 @@ class ResponseParser @Inject constructor() {
                         note = note,
                         confidence = 1.0f
                     )
+                }
+                "get_schedule" -> {
+                    val dateRegex = Regex("\"date\"\\s*:\\s*\"([^\"]*)\"")
+                    val date = dateRegex.find(json)?.groupValues?.get(1) ?: ""
+                    ModelOutput.GetScheduleOutput(date = date)
                 }
                 "search" -> {
                     val queryRegex = Regex("\"query\"\\s*:\\s*\"([^\"]*)\"")

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -215,13 +216,13 @@ fun ChatScreen(
                     if (message.role == ChatMessage.Role.USER) {
                         ChatBubbleUser(text = message.content, inputType = message.inputType)
                     } else {
-                        ChatBubbleAssistant(text = message.content)
+                        ChatBubbleAssistant(text = message.content, thinkingProcess = message.thinkingProcess)
                     }
                 }
                 
-                if (uiState.streamingText != null) {
+                if (uiState.streamingText != null || uiState.streamingThinking != null) {
                     item {
-                        ChatBubbleAssistant(text = uiState.streamingText!!)
+                        ChatBubbleAssistant(text = uiState.streamingText ?: "", thinkingProcess = uiState.streamingThinking)
                     }
                 }
 
@@ -312,24 +313,72 @@ fun ChatBubbleUser(text: String, inputType: com.kosmos.app.domain.model.InputTyp
 }
 
 @Composable
-fun ChatBubbleAssistant(text: String) {
+fun ChatBubbleAssistant(text: String, thinkingProcess: String? = null) {
+    var isThinkingExpanded by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start
     ) {
-        Box(
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .background(SurfaceCard, shape = RoundedCornerShape(18.dp))
-                .border(1.dp, Hairline, shape = RoundedCornerShape(18.dp))
-                .padding(horizontal = 14.dp, vertical = 12.dp)
+        Column(
+            modifier = Modifier.widthIn(max = 280.dp)
         ) {
-            CompositionLocalProvider {
-                ProvideTextStyle(
-                    value = MaterialTheme.typography.bodyMedium.copy(color = Ink)
+            if (thinkingProcess != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(androidx.compose.ui.graphics.Color(0xFFF0F0F0), shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 0.dp, bottomEnd = 0.dp))
+                        .border(1.dp, Hairline, shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 0.dp, bottomEnd = 0.dp))
+                        .clickable { isThinkingExpanded = !isThinkingExpanded }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
-                    RichText {
-                        Markdown(content = text)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🤔", modifier = Modifier.padding(end = 6.dp))
+                        Text(
+                            text = if (isThinkingExpanded) "고민 과정 숨기기" else "고민 과정 보기",
+                            color = MutedText,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+                
+                if (isThinkingExpanded) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(androidx.compose.ui.graphics.Color(0xFFF9F9F9))
+                            .border(1.dp, Hairline)
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = thinkingProcess,
+                            color = MutedText,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+
+            val shape = if (thinkingProcess != null) {
+                RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
+            } else {
+                RoundedCornerShape(18.dp)
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceCard, shape = shape)
+                    .border(1.dp, Hairline, shape = shape)
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
+            ) {
+                CompositionLocalProvider {
+                    ProvideTextStyle(
+                        value = MaterialTheme.typography.bodyMedium.copy(color = Ink)
+                    ) {
+                        RichText {
+                            Markdown(content = text)
+                        }
                     }
                 }
             }

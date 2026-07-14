@@ -42,6 +42,8 @@ class VoiceChatIntegrationTest {
     @Inject lateinit var approvalCoordinator: ApprovalCoordinator
     @Inject lateinit var shareIntentHandler: ShareIntentHandler
     @Inject lateinit var runtimeMetricsCollector: RuntimeMetricsCollector
+    @Inject lateinit var getTodayScheduleUseCase: com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
+    @Inject lateinit var addScheduleUseCase: com.kosmos.app.domain.usecase.AddScheduleUseCase
     @dagger.hilt.android.testing.BindValue
     @JvmField
     val modelRunner: ModelRunner = object : com.kosmos.app.domain.modelrunner.ModelRunner {
@@ -97,7 +99,9 @@ class VoiceChatIntegrationTest {
             shareIntentHandler = shareIntentHandler,
             runtimeMetricsCollector = runtimeMetricsCollector,
             modelRunner = modelRunner,
-            audioRecorder = audioRecorder
+            audioRecorder = audioRecorder,
+            getTodayScheduleUseCase = getTodayScheduleUseCase,
+            addScheduleUseCase = addScheduleUseCase
         )
     }
 

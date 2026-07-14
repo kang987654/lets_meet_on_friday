@@ -43,7 +43,8 @@ class AssistantOrchestrator @Inject constructor(
     private val preExecutionGuard: PreExecutionGuard,
     private val auditTrailService: AuditTrailService,
     private val searchAgent: com.kosmos.app.assistant.agent.SearchAgent,
-    private val calendarAgent: com.kosmos.app.assistant.agent.CalendarAgent
+    private val calendarAgent: com.kosmos.app.assistant.agent.CalendarAgent,
+    private val getTodayScheduleUseCase: com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
 ) {
 
     suspend fun processRequest(request: ChatRequest): AgentResult {
@@ -113,8 +114,15 @@ class AssistantOrchestrator @Inject constructor(
         // 런타임 결과 로깅
         auditTrailService.logModelRun(request.sessionId, prompt.currentInput, rawOutput)
 
-        // 6. 결과 파싱
-        val modelOutput = responseParser.parse(rawOutput)
+        // 6. 결과 파싱 (Thinking Process & Tool Call 추출)
+        val parsed = com.kosmos.app.assistant.context.ToolParser.parseStream(rawOutput)
+        val targetParseText = if (parsed.toolCalls.isNotEmpty()) {
+            val firstCall = parsed.toolCalls.first()
+            "{\"type\": \"${firstCall.name}\", \"args\": ${org.json.JSONObject(firstCall.args).toString()}}"
+        } else {
+            parsed.content
+        }
+        val modelOutput = responseParser.parse(targetParseText)
 
         // 7. 정책 가드 확인
         val policy = preExecutionGuard.checkPolicy(modelOutput)
@@ -122,13 +130,14 @@ class AssistantOrchestrator @Inject constructor(
         // 8. 정책 적용 및 반환
         return when (policy) {
             is ExecutionPolicy.Allowed -> {
-                val text = if (modelOutput is ModelOutput.TextOutput) modelOutput.content else rawOutput
-                saveAssistantMessage(request.sessionId, text)
-                AgentResult.Text(text)
+                val text = if (modelOutput is ModelOutput.TextOutput) modelOutput.content else parsed.content
+                saveAssistantMessage(request.sessionId, text, thinkingProcess = parsed.thinking)
+                AgentResult.Text(text, thinkingProcess = parsed.thinking)
             }
             is ExecutionPolicy.RequiresApproval -> {
                 // 승인 대기 상태. 메시지는 사용자가 승인/거부한 후에 저장됨.
-                AgentResult.ActionRequired(modelOutput)
+                saveAssistantMessage(request.sessionId, parsed.content, thinkingProcess = parsed.thinking)
+                AgentResult.ActionRequired(modelOutput, thinkingProcess = parsed.thinking)
             }
             is ExecutionPolicy.Blocked -> {
                 // v1 안내 문구를 일반 답변처럼 제공
@@ -198,6 +207,15 @@ class AssistantOrchestrator @Inject constructor(
                 saveAssistantMessage(sessionId, text)
                 AgentResult.Text(text)
             }
+            is ModelOutput.GetScheduleOutput -> {
+                val getRes = calendarAgent.executeGetSchedule(action, getTodayScheduleUseCase)
+                val text = when (getRes) {
+                    is AppResult.Success -> getRes.data
+                    is AppResult.Failure -> "일정 조회에 실패했습니다: ${getRes.error}"
+                }
+                saveAssistantMessage(sessionId, text)
+                AgentResult.Text(text)
+            }
             else -> {
                 // v1에서는 다른 액션 재개는 미지원
                 AgentResult.Text("지원되지 않는 액션입니다.")
@@ -205,7 +223,7 @@ class AssistantOrchestrator @Inject constructor(
         }
     }
 
-    private suspend fun saveAssistantMessage(sessionId: String, content: String, searchUsed: Boolean = false) {
+    private suspend fun saveAssistantMessage(sessionId: String, content: String, searchUsed: Boolean = false, thinkingProcess: String? = null) {
         val assistantMessage = ChatMessage(
             id = UUID.randomUUID().toString(),
             sessionId = sessionId,
@@ -213,7 +231,8 @@ class AssistantOrchestrator @Inject constructor(
             content = content,
             inputType = InputType.TEXT,
             searchUsed = searchUsed,
-            createdAt = System.currentTimeMillis()
+            createdAt = System.currentTimeMillis(),
+            thinkingProcess = thinkingProcess
         )
         conversationRepository.save(assistantMessage)
     }

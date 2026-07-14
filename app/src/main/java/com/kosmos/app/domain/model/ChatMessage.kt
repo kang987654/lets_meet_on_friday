@@ -7,7 +7,8 @@ data class ChatMessage(
     val content: String,
     val inputType: InputType,
     val searchUsed: Boolean = false,
-    val createdAt: Long
+    val createdAt: Long,
+    val thinkingProcess: String? = null
 ) {
     enum class Role {
         USER,

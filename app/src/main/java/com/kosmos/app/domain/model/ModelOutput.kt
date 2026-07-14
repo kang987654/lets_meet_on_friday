@@ -26,4 +26,9 @@ sealed class ModelOutput {
         val content: String,
         val tags: List<String>
     ) : ModelOutput()
+
+    // action: "get_schedule" (v1)
+    data class GetScheduleOutput(
+        val date: String
+    ) : ModelOutput()
 }

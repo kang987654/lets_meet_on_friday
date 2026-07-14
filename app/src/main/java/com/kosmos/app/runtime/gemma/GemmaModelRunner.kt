@@ -313,6 +313,7 @@ class GemmaModelRunner @Inject constructor(
                     backend = Backend.GPU(), // S25 Ultra 등 GPU Delegate 활성화로 최적화
                     visionBackend = Backend.GPU(),
                     cacheDir = context.cacheDir.absolutePath
+                    // enableSpeculativeDecoding = true (Not supported in litertlm 0.13.1, MTP might be implicitly enabled by the model)
                 )
                 val newEngine = Engine(engineConfig)
                 newEngine.initialize()
@@ -324,6 +325,7 @@ class GemmaModelRunner @Inject constructor(
                     modelPath = modelPath,
                     backend = Backend.CPU(),
                     visionBackend = Backend.CPU()
+                    // enableSpeculativeDecoding = true
                 )
                 val fallbackEngine = Engine(cpuConfig)
                 fallbackEngine.initialize()
