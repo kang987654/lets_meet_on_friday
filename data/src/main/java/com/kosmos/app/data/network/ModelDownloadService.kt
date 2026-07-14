@@ -23,10 +23,12 @@ import javax.inject.Singleton
  * 2. okio.sink를 통해 context.filesDir/models 하위에 버퍼링 청크 단위로 파일 쓰기 수행.
  * 3. 누적 바이트를 계산하여 0~100 사이의 진행률을 Flow로 방출.
  */
+import com.kosmos.app.domain.tool.ModelDownloader
+
 @Singleton
 class ModelDownloadService @Inject constructor(
     @ApplicationContext private val context: Context
-) {
+) : ModelDownloader {
     private val okHttpClient = OkHttpClient.Builder()
         .build()
 

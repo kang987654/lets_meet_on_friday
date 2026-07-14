@@ -10,8 +10,18 @@ import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.kosmos.app.domain.tool.ImageProcessor
+
 @Singleton
-class ImageInputAdapter @Inject constructor() {
+class ImageInputAdapter @Inject constructor() : ImageProcessor {
+
+    override suspend fun processImage(rawBytes: ByteArray): AppResult<ByteArray> {
+        val decodeResult = decodeImage(rawBytes)
+        if (decodeResult is AppResult.Failure) return AppResult.Failure(decodeResult.error)
+        val bitmap = (decodeResult as AppResult.Success).data
+        return processImage(bitmap)
+    }
+
 
     companion object {
         private const val JPEG_QUALITY = 85

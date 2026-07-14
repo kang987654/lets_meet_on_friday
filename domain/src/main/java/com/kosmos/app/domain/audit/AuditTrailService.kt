@@ -1,4 +1,4 @@
-package com.kosmos.app.assistant.audit
+package com.kosmos.app.domain.audit
 
 import com.kosmos.app.domain.memory.AuditRepository
 import com.kosmos.app.domain.model.AuditEvent

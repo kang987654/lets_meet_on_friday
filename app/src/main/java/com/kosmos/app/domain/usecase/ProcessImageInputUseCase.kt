@@ -3,11 +3,11 @@ package com.kosmos.app.domain.usecase
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.agent.AgentResult
-import com.kosmos.app.runtime.gemma.ImageInputAdapter
+import com.kosmos.app.domain.tool.ImageProcessor
 import javax.inject.Inject
 
 class ProcessImageInputUseCase @Inject constructor(
-    private val imageAdapter: ImageInputAdapter,
+    private val imageProcessor: ImageProcessor,
     private val sendChatMessageUseCase: SendChatMessageUseCase
 ) {
     companion object {
@@ -23,16 +23,8 @@ class ProcessImageInputUseCase @Inject constructor(
             return AppResult.Failure(AppError.ImageTooLarge(rawImageBytes.size.toLong()))
         }
 
-        // 2. 바이트 배열을 Bitmap으로 디코딩
-        val decodeResult = imageAdapter.decodeImage(rawImageBytes)
-        if (decodeResult is AppResult.Failure) {
-            return AppResult.Failure(decodeResult.error)
-        }
-
-        val bitmap = (decodeResult as AppResult.Success).data
-
-        // 3. 리사이즈 및 JPEG 압축 전처리
-        val processResult = imageAdapter.processImage(bitmap)
+        // 2. 이미지 디코딩 및 전처리 (리사이즈 및 JPEG 압축)
+        val processResult = imageProcessor.processImage(rawImageBytes)
         if (processResult is AppResult.Failure) {
             return AppResult.Failure(processResult.error)
         }

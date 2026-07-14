@@ -18,15 +18,24 @@ import java.util.zip.ZipOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.kosmos.app.domain.memory.MemoryBackupManager
+
 @Singleton
 class ExportImportManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val database: KosmosDatabase
-) {
+) : MemoryBackupManager {
     // 임시로 DB 파일의 이름을 상수로 정의 (v1)
     private val dbName = "app_database.db"
 
-    suspend fun createExportZip(manifest: ExportManifest): AppResult<File> = withContext(Dispatchers.IO) {
+    override suspend fun createExportZip(appVersion: String): AppResult<File> {
+        val manifest = ExportManifest(
+            appVersion = appVersion
+        )
+        return createExportZipInternal(manifest)
+    }
+
+    private suspend fun createExportZipInternal(manifest: ExportManifest): AppResult<File> = withContext(Dispatchers.IO) {
         try {
             // 1. 저장 공간 여유 확인 (대략적인 10MB 기준)
             val cacheDir = context.cacheDir
@@ -81,7 +90,7 @@ class ExportImportManager @Inject constructor(
         zos.closeEntry()
     }
 
-    suspend fun restoreFromZip(zipUriString: String): AppResult<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun restoreFromZip(zipUriString: String): AppResult<Unit> = withContext(Dispatchers.IO) {
         val zipUri = android.net.Uri.parse(zipUriString)
         val tempDir = File(context.cacheDir, "import_temp_${System.currentTimeMillis()}")
         try {

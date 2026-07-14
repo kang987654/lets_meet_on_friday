@@ -118,6 +118,13 @@ class MultimodalChatE2ETest {
     }
 
     @BindValue
+    val modelLoadManager: com.kosmos.app.domain.modelrunner.ModelLoadManager = object : com.kosmos.app.domain.modelrunner.ModelLoadManager {
+        override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(ModelLoadState.Ready(ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
+        override fun checkModelFile() {}
+        override fun setInitializing() {}
+    }
+
+    @BindValue
     val audioRecorder: AudioRecorder = object : com.kosmos.app.platform.speech.AudioRecorder(ApplicationProvider.getApplicationContext()) {
         override fun startRecording(): Result<Unit> = Result.success(Unit)
         override fun stopRecording(): Result<java.io.File> = Result.success(java.io.File.createTempFile("t", "a"))

@@ -1,7 +1,7 @@
 package com.kosmos.app.domain.usecase
 
 import com.kosmos.app.core.common.AppResult
-import com.kosmos.app.assistant.audit.AuditTrailService
+import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.domain.model.CalendarDraft
 import com.kosmos.app.domain.tool.CalendarTool
 import javax.inject.Inject

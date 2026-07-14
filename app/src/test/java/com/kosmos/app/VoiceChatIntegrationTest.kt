@@ -72,6 +72,14 @@ class VoiceChatIntegrationTest {
 
     @dagger.hilt.android.testing.BindValue
     @JvmField
+    val modelLoadManager: com.kosmos.app.domain.modelrunner.ModelLoadManager = object : com.kosmos.app.domain.modelrunner.ModelLoadManager {
+        override val loadState = kotlinx.coroutines.flow.MutableStateFlow<com.kosmos.app.domain.modelrunner.ModelLoadState>(com.kosmos.app.domain.modelrunner.ModelLoadState.Ready(com.kosmos.app.domain.modelrunner.ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
+        override fun checkModelFile() {}
+        override fun setInitializing() {}
+    }
+
+    @dagger.hilt.android.testing.BindValue
+    @JvmField
     val audioRecorder: AudioRecorder = object : com.kosmos.app.platform.speech.AudioRecorder(ApplicationProvider.getApplicationContext()) {
         override fun startRecording(): Result<Unit> {
             return Result.success(Unit)

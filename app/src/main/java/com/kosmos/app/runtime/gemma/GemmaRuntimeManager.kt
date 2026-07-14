@@ -24,12 +24,14 @@ import javax.inject.Singleton
  * 2. 파일 발견 시 모델 경로, 버전, 양자화 정보 등을 담은 [ModelInfo] 생성
  * 3. 전체 시스템에 모델 로드 상태([ModelLoadState])를 Flow로 브로드캐스트
  */
+import com.kosmos.app.domain.modelrunner.ModelLoadManager
+
 @Singleton
 class GemmaRuntimeManager @Inject constructor(
     @ApplicationContext private val context: Context
-) {
+) : ModelLoadManager {
     private val _loadState = MutableStateFlow<ModelLoadState>(ModelLoadState.Loading)
-    val loadState: StateFlow<ModelLoadState> = _loadState.asStateFlow()
+    override val loadState: StateFlow<ModelLoadState> = _loadState.asStateFlow()
 
     // TODO(v0): 실제 사용 시 설정(SettingsDataStore)에서 모델 경로를 읽어오는 구조로 개선 가능
     private val defaultModelFileName = "gemma-4-e4b-it-int4.litertlm"

@@ -1,4 +1,4 @@
-package com.kosmos.app.core.logging
+package com.kosmos.app.domain.audit
 
 import com.kosmos.app.domain.model.AuditEvent
 

@@ -5,7 +5,7 @@ import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.platform.device.TemperatureProvider
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.kosmos.app.assistant.audit.AuditTrailService
+import com.kosmos.app.domain.audit.AuditTrailService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
