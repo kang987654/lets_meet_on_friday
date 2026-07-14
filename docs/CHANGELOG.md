@@ -17,3 +17,8 @@
 3. **감사 로그(Audit Logs) 리스트 화면 신규 구현**:
    - `feature/settings/` 패키지 하위에 `AuditScreen.kt` 및 `AuditViewModel.kt`를 생성하고 Paging 3 라이브러리를 통해 감사 내역을 페이징 처리해 출력하는 화면을 구축했습니다.
    - `AppDestination.kt` 및 `AppNavHost.kt`에 라우팅 정보를 추가하고 설정 화면의 "View Audit Logs" 버튼과 원활하게 네비게이션 연결을 마쳤습니다.
+
+4. **Gemma 모델 오디오 입력(음성 인식) 최적화 및 버그 픽스**:
+   - `MediaRecorder`의 AAC 인코딩 방식으로 인해 발생하던 `miniaudio decoder error code:-10` 크래시를 해결했습니다.
+   - `AudioRecorder.kt`를 `AudioRecord` API로 전면 개편하여, 백그라운드 코루틴을 통해 Raw PCM 데이터를 추출하고 16kHz, Mono, 16-bit PCM 포맷의 44바이트 헤더를 갖춘 표준 `.wav` 파일을 생성하도록 수정했습니다.
+   - `litertlm-gemma4` 스킬 문서에 해당 오디오 제약 사항(16kHz, Mono, float32 소비 특성)을 문서화하여 추후 유사 장애를 방지했습니다.
