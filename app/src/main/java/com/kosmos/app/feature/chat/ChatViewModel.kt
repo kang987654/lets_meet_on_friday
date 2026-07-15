@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.assistant.approval.ApprovalCoordinator
+import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.data.local.prefs.SessionStore
 import com.kosmos.app.domain.model.ChatMessage
@@ -25,7 +26,6 @@ import kotlinx.collections.immutable.toImmutableList
 import java.util.UUID
 import javax.inject.Inject
 
-import com.kosmos.app.domain.usecase.ResumeActionUseCase
 import com.kosmos.app.platform.share.ShareIntentHandler
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 import com.kosmos.app.domain.modelrunner.ModelRunner
@@ -50,7 +50,6 @@ class ChatViewModel @Inject constructor(
     private val sessionStore: SessionStore,
     private val conversationRepository: ConversationRepository,
     private val sendChatMessageUseCase: SendChatMessageUseCase,
-    private val resumeActionUseCase: ResumeActionUseCase,
     private val approvalCoordinator: ApprovalCoordinator,
     private val shareIntentHandler: ShareIntentHandler,
     private val runtimeMetricsCollector: RuntimeMetricsCollector,
@@ -240,17 +239,8 @@ class ChatViewModel @Inject constructor(
     }
 
     fun approvePendingRequest() {
-        val request = approvalCoordinator.consumePending() ?: return
-        
-        _uiState.update { it.copy(isInFlight = true, error = null) }
-        viewModelScope.launch {
-            try {
-                val result = resumeActionUseCase(sessionId, request.action)
-                handleAgentResult(result)
-            } finally {
-                _uiState.update { it.copy(isInFlight = false) }
-            }
-        }
+        approvalCoordinator.consumePending() ?: return
+        approvalCoordinator.approve()
     }
 
     private fun handleAgentResult(result: AppResult<AgentResult>) {
@@ -269,9 +259,7 @@ class ChatViewModel @Inject constructor(
                         )
                         _uiState.update { it.copy(messages = (it.messages + assistantMessage).toImmutableList()) }
                     }
-                    is AgentResult.ActionRequired -> {
-                        // approvalCoordinator handles this
-                    }
+
                     is AgentResult.Error -> {
                         _uiState.update { it.copy(error = agentResult.error) }
                     }
@@ -284,18 +272,8 @@ class ChatViewModel @Inject constructor(
     }
 
     fun rejectPendingRequest() {
-        val request = approvalCoordinator.consumePending() ?: return
-        _uiState.update { state ->
-            val sysMessage = ChatMessage(
-                id = UUID.randomUUID().toString(),
-                sessionId = sessionId,
-                role = ChatMessage.Role.ASSISTANT,
-                content = "보안 정책에 의해 작업이 거부되었습니다.",
-                inputType = InputType.TEXT,
-                createdAt = System.currentTimeMillis()
-            )
-            state.copy(messages = (state.messages + sysMessage).toImmutableList())
-        }
+        approvalCoordinator.consumePending() ?: return
+        approvalCoordinator.reject()
     }
 
     fun toggleRecording() {

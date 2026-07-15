@@ -6,7 +6,6 @@ import com.kosmos.app.assistant.approval.ApprovalCoordinator
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.data.local.prefs.SessionStore
 import com.kosmos.app.domain.modelrunner.ModelRunner
-import com.kosmos.app.domain.usecase.ResumeActionUseCase
 import com.kosmos.app.domain.usecase.SendChatMessageUseCase
 import com.kosmos.app.platform.share.ShareIntentHandler
 import com.kosmos.app.platform.speech.AudioRecorder
@@ -38,7 +37,6 @@ class VoiceChatIntegrationTest {
     @Inject lateinit var sessionStore: SessionStore
     @Inject lateinit var conversationRepository: ConversationRepository
     @Inject lateinit var sendChatMessageUseCase: SendChatMessageUseCase
-    @Inject lateinit var resumeActionUseCase: ResumeActionUseCase
     @Inject lateinit var approvalCoordinator: ApprovalCoordinator
     @Inject lateinit var shareIntentHandler: ShareIntentHandler
     @Inject lateinit var runtimeMetricsCollector: RuntimeMetricsCollector
@@ -108,7 +106,6 @@ class VoiceChatIntegrationTest {
             sessionStore = sessionStore,
             conversationRepository = conversationRepository,
             sendChatMessageUseCase = sendChatMessageUseCase,
-            resumeActionUseCase = resumeActionUseCase,
             approvalCoordinator = approvalCoordinator,
             shareIntentHandler = shareIntentHandler,
             runtimeMetricsCollector = runtimeMetricsCollector,

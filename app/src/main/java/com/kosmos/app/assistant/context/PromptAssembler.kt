@@ -13,7 +13,7 @@ import javax.inject.Inject
  *
  * ### Key Flow
  * 1. 컨텍스트에서 System 메시지와 일반 사용자/AI History 분리
- * 2. 기본 시스템 인스트럭션(JSON 형식 제약 등) 및 외부 주입 지식 병합
+ * 2. 기본 시스템 인스트럭션 및 외부 주입 지식 병합
  * 3. [ChatPrompt] 객체로 래핑하여 반환
  */
 class PromptAssembler @Inject constructor() {
@@ -47,8 +47,7 @@ class PromptAssembler @Inject constructor() {
             [System]
             You are a helpful personal assistant named Local Friday.
             Your task is to respond to the user's input accurately and concisely.
-            Always use the specified JSON format to provide your response.
-            Do not include any conversational filler outside of the JSON structure.
+            Do not include any conversational filler.
         """.trimIndent()
     }
 
@@ -64,27 +63,20 @@ class PromptAssembler @Inject constructor() {
     }
 
     private fun buildFormatBlock(): String {
-        // In v0, we only support plain text responses or calendar drafts.
         return """
-            [Format Guidelines]
-            You MUST output your response as a valid JSON object.
-            Do NOT wrap the JSON in Markdown formatting (e.g. ```json).
+            [Tool Usage Guidelines]
+            You have access to several tools. When you need to perform an action (e.g. schedule an event, search the web), output a tool call using the following XML format:
             
-            Supported response formats (choose one based on the user's intent):
+            <tool_call>
+            {"name": "ToolName", "args": {"key": "value"}}
+            </tool_call>
             
-            1. Standard Text Response:
-            {
-              "type": "text",
-              "text": "Your helpful response here."
-            }
+            Available Tools:
+            - "AddSchedule": Adds an event to the calendar. Args: title (String), startTime (String, ISO format), endTime (String, ISO format), description (String, Optional).
+            - "GetSchedule": Retrieves today's or this week's schedule. Args: date (String, e.g., "today" or "week").
+            - "SearchWeb": Searches the web for information. Args: query (String).
             
-            2. Calendar Event Draft (if the user wants to schedule something):
-            {
-              "type": "calendar_draft",
-              "title": "Event Title",
-              "startTime": "YYYY-MM-DDTHH:MM:SS",
-              "description": "Optional description"
-            }
+            If you do not need a tool, simply provide your final response in plain text.
         """.trimIndent()
     }
 
@@ -93,7 +85,7 @@ class PromptAssembler @Inject constructor() {
             [Current Input]
             User: $userInput
             
-            Provide your response in JSON:
+            Assistant:
         """.trimIndent()
     }
 }

@@ -1,3 +1,11 @@
+## [0.3.3] - 2026-07-15
+- **[Approval/ToolCall]** Gemma 4 Tool Call 일정 쓰기(AddSchedule) 승인 관리 로직 구현 및 E2E 테스트(`ToolApprovalE2ETest`) 검증 완료
+- `ApprovalRequest` 구조를 개선하여 `title`, `description` 필드를 추가하고 `action`을 Nullable로 처리하여 Tool Call 승인과 Guard 정책 승인을 동시 지원
+- `ApprovalCoordinator`에 `CompletableDeferred<Boolean>`을 도입하여 LLM 툴 루프 도중 비동기적으로 사용자의 승인/거절 입력을 동기적 대기(Suspending)할 수 있도록 구조 설계 및 구현
+- `ChatViewModel`에서 `request.action == null`인 새로운 Tool Call 승인에 대해 coordinator의 `approve()` / `reject()`를 실행하여 deferred 완료 처리 연동
+- `ChatScreen`에서 `action == null`인 일반 툴 콜 승인 요청에 대해서도 동적으로 Alert Dialog를 렌더링하도록 UI 보완
+- **[QA/Test]** Hilt 테스트 환경 내 `ModelRunner` Mock 인터페이스를 최신 스펙(`ChatPrompt` 지원, `suspend` 시그니처)에 맞게 갱신하여 빌드 에러 해결 및 테스트 버튼 클릭을 통한 롤백 시나리오 검증 완료
+
 ## [0.3.2] - 2026-07-14
 - **[Architecture/Refactoring]** `ChatViewModel`, `AssistantOrchestrator` 과도한 책임 및 복잡도 리팩토링 (SRP, DRY 원칙 적용)
 - `ChatViewModel`에서 수행되던 Tool Execution 및 재귀 추론 로직을 `AssistantOrchestrator`의 `processRequest` 내부 캡슐화로 회수
@@ -5,14 +13,6 @@
 - `AssistantOrchestrator` 내 반복되는 `ChatMessage` 데이터베이스 저장 코드를 단일 헬퍼(`createAndSaveMessage`)로 병합(DRY)
 - 여러 `AppResult` 분기와 거대한 `when` 블록을 별도의 `handleXXXAction` 메서드로 평탄화하여 복잡도 감소
 - Hilt `@UninstallModules` 사용 테스트 환경(`MultimodalChatE2ETest`, `VoiceChatIntegrationTest`)에서 누락된 `ImageProcessor` Mock 의존성 주입 복구 및 검증 완료
-
-
-## [0.3.1] - 2026-07-14
-- **[Architecture/Refactoring]** `ChatViewModel`, `AssistantOrchestrator`, `SendChatMessageUseCase` 구조 개편 및 코드 퀄리티 개선 완료
-- `ChatViewModel` 내의 Tool Loop(2차 추론 호출 및 executeTool) 및 그래픽 API(Bitmap 디코딩 및 JPEG 압축) 제거를 통한 단일 책임 원칙(SRP) 확립
-- `AssistantOrchestrator` 내부로 `executeTool` 헬퍼 및 2차 LLM 추론 자동 실행(Allowed) / 승인 대기(RequiresApproval) 흐름을 내재화하여 비즈니스 로직 격리
-- `SendChatMessageUseCase`에 `ImageProcessor`를 연동하여 이미지 전처리 흐름 캡슐화 완료
-- `resumeAction` 메서드에 `onToken` 스트리밍 콜백을 지원하여 사용자 일정 생성/조회 승낙 시 최종 자연어 합성 답변이 실시간으로 렌더링되도록 개선
 
 ## [0.3.0] - 2026-07-14
 - `:app` 모듈에 밀집된 코드를 `:core`, `:domain`, `:data` 3개 모듈로 물리적/논리적 분리 및 컴파일 연동 완료
@@ -33,4 +33,3 @@
 - Gemma 4 MTP 옵션 검증 및 GPU 백엔드 초기화 로직 보완
 - 스트리밍 응답 텍스트에 포함된 <|think|> 태그 분리 및 ChatScreen 아코디언 UI 연동
 - 캘린더 조회(get_today_schedule) Tool Call 파싱 구현 및 승인 시나리오(CalendarAgent) 추가
-

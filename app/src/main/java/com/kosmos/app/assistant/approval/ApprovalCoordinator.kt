@@ -24,8 +24,36 @@ class ApprovalCoordinator @Inject constructor() {
     private val _pendingRequest = MutableStateFlow<ApprovalRequest?>(null)
     val pendingRequest: StateFlow<ApprovalRequest?> = _pendingRequest.asStateFlow()
 
+    private var currentDecisionDeferred: kotlinx.coroutines.CompletableDeferred<Boolean>? = null
+
     fun requestApproval(request: ApprovalRequest) {
+        currentDecisionDeferred?.complete(false)
         _pendingRequest.value = request
+    }
+
+    suspend fun requireApproval(request: ApprovalRequest): Boolean {
+        currentDecisionDeferred?.complete(false)
+        val deferred = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        currentDecisionDeferred = deferred
+        _pendingRequest.value = request
+        try {
+            return deferred.await()
+        } finally {
+            _pendingRequest.value = null
+            if (currentDecisionDeferred === deferred) {
+                currentDecisionDeferred = null
+            }
+        }
+    }
+
+    fun approve() {
+        currentDecisionDeferred?.complete(true)
+        _pendingRequest.value = null
+    }
+
+    fun reject() {
+        currentDecisionDeferred?.complete(false)
+        _pendingRequest.value = null
     }
 
     fun consumePending(): ApprovalRequest? {
@@ -35,6 +63,7 @@ class ApprovalCoordinator @Inject constructor() {
     }
 
     fun clearPending() {
+        currentDecisionDeferred?.complete(false)
         _pendingRequest.value = null
     }
 }

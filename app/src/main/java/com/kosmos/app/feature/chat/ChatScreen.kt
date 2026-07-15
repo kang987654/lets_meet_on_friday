@@ -237,32 +237,11 @@ fun ChatScreen(
 
     if (uiState.pendingApproval != null) {
         val request = uiState.pendingApproval!!
-        if (request.action is com.kosmos.app.domain.model.ModelOutput.SearchOutput) {
-            val query = request.action.query
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { viewModel.rejectPendingRequest() },
-                title = { Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.web_search_approval_title), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
-                text = { 
-                    Column {
-                        Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.web_search_approval_message))
-                        Spacer(modifier = Modifier.size(8.dp))
-                        Text("'$query'", color = SkyBlue, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
-                        Spacer(modifier = Modifier.size(8.dp))
-                        Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.web_search_approval_warning), color = androidx.compose.ui.graphics.Color.Red, style = MaterialTheme.typography.bodySmall)
-                    }
-                },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(onClick = { viewModel.approvePendingRequest() }) {
-                        Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.web_search_approve_once))
-                    }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(onClick = { viewModel.rejectPendingRequest() }) {
-                        Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.web_search_reject))
-                    }
-                }
-            )
-        }
+        com.kosmos.app.feature.approval.ApprovalSheet(
+            request = request,
+            onApprove = { viewModel.approvePendingRequest() },
+            onReject = { viewModel.rejectPendingRequest() }
+        )
     }
 
     // VoiceOverlay placeholder removed
