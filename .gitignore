@@ -8,22 +8,26 @@
 /.idea/compiler.xml
 /.idea/misc.xml
 /.idea/vcs.xml
+/.idea/deploymentTargetSelector.xml
 .DS_Store
-/build
+Thumbs.db
+build/
 /captures
 /model
 .externalNativeBuild
-.cxx
+.cxx/
 local.properties
 
 # Android Studio temp files
 *.hprof
 *.prof
 
-# App Module
-/app/build/
-/app/release/
-/app/.cxx/
+# Keystore files
+*.jks
+*.keystore
+key.properties
+*.p8
+*.p12
 
 # AI generated logs/tasks (Antigravity)
 .cache/
