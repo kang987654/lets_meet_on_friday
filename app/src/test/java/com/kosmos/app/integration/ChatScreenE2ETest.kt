@@ -1,4 +1,4 @@
-package com.kosmos.app
+package com.kosmos.app.integration
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText

@@ -1,4 +1,4 @@
-package com.kosmos.app
+package com.kosmos.app.integration
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.lifecycle.SavedStateHandle

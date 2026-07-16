@@ -1,14 +1,7 @@
 *.iml
 .gradle
 /local.properties
-/.idea/caches/build_file_checksums.ser
-/.idea/workspace.xml
-/.idea/libraries
-/.idea/modules.xml
-/.idea/compiler.xml
-/.idea/misc.xml
-/.idea/vcs.xml
-/.idea/deploymentTargetSelector.xml
+/.idea/
 .DS_Store
 Thumbs.db
 build/
@@ -32,3 +25,6 @@ key.properties
 # AI generated logs/tasks (Antigravity)
 .cache/
 .gemini/
+
+# Kotlin compiler cache
+.kotlin/

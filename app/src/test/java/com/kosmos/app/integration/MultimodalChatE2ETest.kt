@@ -1,4 +1,4 @@
-package com.kosmos.app
+package com.kosmos.app.integration
 
 import android.content.Context
 import android.net.Uri

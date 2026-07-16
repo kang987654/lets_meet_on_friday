@@ -1,4 +1,4 @@
-package com.kosmos.app
+package com.kosmos.app.integration
 
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.assistant.orchestrator.AssistantOrchestrator
