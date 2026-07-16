@@ -1,1 +1,0 @@
-com.kosmos.app.data
