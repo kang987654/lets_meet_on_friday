@@ -23,7 +23,7 @@ class PromptAssembler @Inject constructor() {
         val dialogHistory = context.recentConversations.filter { it.role != com.kosmos.app.domain.model.ChatMessage.Role.SYSTEM }
         
         val systemInstruction = buildString {
-            appendLine(buildSystemBlock())
+            appendLine(buildSystemBlock(context.responseStyle))
             appendLine(buildTimeBlock())
             appendLine(buildFormatBlock())
             if (systemMessages.isNotEmpty()) {
@@ -42,13 +42,16 @@ class PromptAssembler @Inject constructor() {
         )
     }
 
-    private fun buildSystemBlock(): String {
-        return """
-            [System]
-            You are a helpful personal assistant named Local Friday.
-            Your task is to respond to the user's input accurately and concisely.
-            Do not include any conversational filler.
-        """.trimIndent()
+    private fun buildSystemBlock(responseStyle: String): String {
+        return buildString {
+            appendLine("[System]")
+            appendLine("You are a helpful personal assistant named Local Friday.")
+            appendLine("Your task is to respond to the user's input accurately and concisely.")
+            appendLine("Do not include any conversational filler.")
+            if (responseStyle.isNotBlank() && responseStyle != "DEFAULT") {
+                appendLine("User's preferred response style: $responseStyle. You MUST strictly follow this style when answering.")
+            }
+        }.trimEnd()
     }
 
     private fun buildTimeBlock(): String {

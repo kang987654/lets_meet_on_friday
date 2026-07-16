@@ -5,6 +5,8 @@ import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.tool.Tokenizer
+import com.kosmos.app.data.local.prefs.SettingsDataStore
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 /**
@@ -13,7 +15,7 @@ import javax.inject.Inject
  *
  * ### Architecture Context
  * - **Layer**: Assistant (Context Management)
- * - **Dependencies**: [ConversationRepository], [Tokenizer]
+ * - **Dependencies**: [ConversationRepository], [Tokenizer], [SettingsDataStore]
  *
  * ### Key Flow
  * 1. 세션 ID를 기반으로 최근 대화 기록 조회
@@ -22,11 +24,13 @@ import javax.inject.Inject
  */
 class ContextBuilder @Inject constructor(
     private val conversationRepository: ConversationRepository,
-    private val tokenizer: Tokenizer
+    private val tokenizer: Tokenizer,
+    private val settingsDataStore: SettingsDataStore
 ) {
     data class Context(
         val recentConversations: List<ChatMessage>,
-        val sessionId: String
+        val sessionId: String,
+        val responseStyle: String
     )
 
     suspend fun build(sessionId: String): AppResult<Context> {
@@ -38,13 +42,20 @@ class ContextBuilder @Inject constructor(
 
         // TODO(v1): Fetch knowledge from KnowledgeRepository and include it in Context
 
+        val responseStyle = try {
+            settingsDataStore.responseStyleFlow.first()
+        } catch (e: Exception) {
+            "DEFAULT"
+        }
+
         return when (conversationsResult) {
             is AppResult.Success -> {
                 val slidingWindow = applyTokenSlidingWindow(conversationsResult.data)
                 AppResult.Success(
                     Context(
                         recentConversations = slidingWindow,
-                        sessionId = sessionId
+                        sessionId = sessionId,
+                        responseStyle = responseStyle
                     )
                 )
             }
