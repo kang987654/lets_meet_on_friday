@@ -124,6 +124,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     
     testImplementation("junit:junit:4.13.2")
+    testImplementation("io.mockk:mockk:1.13.10")
     testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.hilt.android.testing)
     kspTest(libs.hilt.compiler)
