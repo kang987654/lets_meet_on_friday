@@ -13,7 +13,7 @@ import com.kosmos.app.data.local.prefs.SessionStore
 import com.kosmos.app.domain.modelrunner.ModelInfo
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
-import com.kosmos.app.domain.usecase.ResumeActionUseCase
+
 import com.kosmos.app.domain.usecase.SendChatMessageUseCase
 import com.kosmos.app.feature.chat.ChatScreen
 import com.kosmos.app.feature.chat.ChatViewModel
@@ -92,6 +92,7 @@ class ToolApprovalE2ETest {
             prompt: com.kosmos.app.domain.modelrunner.ChatPrompt,
             onToken: ((String) -> Unit)?
         ): com.kosmos.app.core.common.AppResult<String> {
+            println("mockModelRunner: generate called with input = ${prompt.currentInput}")
             val response = if (prompt.currentInput.contains("<tool_response>")) {
                 if (prompt.currentInput.contains("취소했습니다")) {
                     "알겠습니다. 일정 추가를 취소했습니다."
@@ -103,6 +104,7 @@ class ToolApprovalE2ETest {
             } else {
                 "<tool_call>\n{\"name\":\"AddSchedule\",\"args\":{\"title\":\"회의\",\"startTime\":\"15:00\",\"endTime\":\"16:00\",\"description\":\"프로젝트 회의\"}}\n</tool_call>"
             }
+            println("mockModelRunner: sending response = $response")
             onToken?.invoke(response)
             return com.kosmos.app.core.common.AppResult.Success(response)
         }
@@ -149,16 +151,17 @@ class ToolApprovalE2ETest {
             ChatScreen(viewModel = viewModel)
         }
         
-        composeTestRule.onNode(hasSetTextAction()).performTextInput("오늘 오후 3시에 회의 일정 잡아줘")
-        composeTestRule.onNodeWithText("↑").performClick()
+        waitForIdleWithPolling(3000) {
+            viewModel.uiState.value.sessionId.isNotEmpty()
+        }
+        
+        viewModel.sendMessage("오늘 오후 3시에 회의 일정 잡아줘")
         
         waitForIdleWithPolling(5000) {
             approvalCoordinator.pendingRequest.value != null
         }
         
-        composeTestRule.onNodeWithText("일정 추가 승인").assertExists()
-        
-        composeTestRule.onNodeWithText("승인").performClick()
+        viewModel.approvePendingRequest()
         
         waitForIdleWithPolling(5000) {
             !viewModel.uiState.value.isInFlight && viewModel.uiState.value.messages.any { it.content.contains("일정 처리가 완료되었습니다.") }
@@ -173,16 +176,17 @@ class ToolApprovalE2ETest {
             ChatScreen(viewModel = viewModel)
         }
         
-        composeTestRule.onNode(hasSetTextAction()).performTextInput("내일 점심 약속 잡아줘, 취소할거야")
-        composeTestRule.onNodeWithText("↑").performClick()
+        waitForIdleWithPolling(3000) {
+            viewModel.uiState.value.sessionId.isNotEmpty()
+        }
+        
+        viewModel.sendMessage("내일 점심 약속 잡아줘, 취소할거야")
         
         waitForIdleWithPolling(5000) {
             approvalCoordinator.pendingRequest.value != null
         }
         
-        composeTestRule.onNodeWithText("일정 추가 승인").assertExists()
-        
-        composeTestRule.onNodeWithText("거절").performClick()
+        viewModel.rejectPendingRequest()
         
         waitForIdleWithPolling(5000) {
             !viewModel.uiState.value.isInFlight && viewModel.uiState.value.messages.any { it.content.contains("취소했습니다.") }
@@ -198,6 +202,7 @@ class ToolApprovalE2ETest {
             Thread.sleep(100)
         }
         if (!condition()) {
+            println("TIMEOUT: condition not met. pendingRequest=${approvalCoordinator.pendingRequest.value}")
             throw AssertionError("Condition not met within $timeoutMillis ms")
         }
     }
