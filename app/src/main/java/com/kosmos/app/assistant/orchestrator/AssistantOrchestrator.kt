@@ -40,14 +40,9 @@ import kotlinx.coroutines.launch
  */
 class AssistantOrchestrator @Inject constructor(
     private val conversationRepository: ConversationRepository,
-    private val intentClassifier: IntentClassifier,
     private val contextBuilder: ContextBuilder,
-    private val promptAssembler: PromptAssembler,
-    private val modelRunner: ModelRunner,
-    private val responseParser: ResponseParser,
-    private val preExecutionGuard: PreExecutionGuard,
     private val auditTrailService: AuditTrailService,
-    private val toolRegistry: ToolRegistry
+    private val taskRouter: TaskRouter
 ) {
 
     suspend fun processRequest(request: ChatRequest): AgentResult {
@@ -59,109 +54,21 @@ class AssistantOrchestrator @Inject constructor(
             return AgentResult.Error(saveUserResult.error)
         }
 
-        // 2. 의도 분류 (힌트용)
-        intentClassifier.classify(request.message)
-
-        // 3. 문서 텍스트 저장
+        // 2. 문서 텍스트 저장
         if (request.documentText != null) {
             createAndSaveMessage(request.sessionId, ChatMessage.Role.SYSTEM, request.documentText, InputType.TEXT)
         }
 
-        // 4. 컨텍스트 구성
+        // 3. 컨텍스트 구성
         val contextResult = contextBuilder.build(request.sessionId)
         val context = when (contextResult) {
             is AppResult.Success -> contextResult.data
             is AppResult.Failure -> return handleErrorAndReturn(request.sessionId, "대화 문맥을 구성하지 못했습니다: ${contextResult.error}")
         }
 
-        // 5. 프롬프트 조립
-        val initialPrompt = promptAssembler.assemble(context, request.message)
-
-        // 6. 툴 루프 (Tool Loop) 실행
-        return executeToolLoop(request, initialPrompt)
-    }
-
-    private suspend fun executeToolLoop(request: ChatRequest, initialPrompt: ChatPrompt): AgentResult = coroutineScope {
-        var prompt = initialPrompt
-        var rawOutput = ""
-        var parsedResult: ToolParser.ParsedStream? = null
-
-        val scope = this
-        while (true) {
-            var toolCallDetected = false
-            var accumulatedToken = ""
-            val wrappedOnToken: (String) -> Unit = { token ->
-                accumulatedToken += token
-                val p = ToolParser.parseStream(accumulatedToken)
-                if (p.toolCalls.isNotEmpty() && !toolCallDetected) {
-                    toolCallDetected = true
-                    scope.launch { modelRunner.cancel() }
-                }
-                request.onToken?.invoke(token)
-            }
-
-            val modelResult = if (request.audioFilePath != null && rawOutput.isEmpty()) {
-                modelRunner.generateWithAudio(prompt, request.audioFilePath, wrappedOnToken)
-            } else if (request.imageBytes != null && rawOutput.isEmpty()) {
-                modelRunner.generateWithImage(prompt, request.imageBytes, request.imageTokenBudget, wrappedOnToken)
-            } else {
-                modelRunner.generate(prompt, wrappedOnToken)
-            }
-
-            rawOutput = when (modelResult) {
-                is AppResult.Success -> modelResult.data
-                is AppResult.Failure -> return@coroutineScope handleErrorAndReturn(request.sessionId, "Model inference failed: ${modelResult.error.toString()}")
-            }
-
-            parsedResult = ToolParser.parseStream(rawOutput)
-
-            if (parsedResult!!.toolCalls.isNotEmpty()) {
-                val call = parsedResult!!.toolCalls.first()
-                val toolJson = executeToolInner(call, request.sessionId)
-                val newInput = "${prompt.currentInput}\n$rawOutput\n<tool_response>\n$toolJson\n</tool_response>"
-                prompt = prompt.copy(currentInput = newInput)
-                continue
-            }
-            break
-        }
-
-        if (parsedResult == null) {
-            return@coroutineScope handleErrorAndReturn(request.sessionId, "Model execution failed")
-        }
-
-        auditTrailService.logModelRun(request.sessionId, prompt.currentInput, rawOutput)
-
-        val modelOutput = responseParser.parse(parsedResult!!.content)
-
-        // 7. 정책 가드 확인 및 반환
-        return@coroutineScope applyPolicyAndReturn(request.sessionId, modelOutput, parsedResult!!)
-    }
-
-    private suspend fun executeToolInner(call: ToolParser.ToolCallData, sessionId: String): String {
-        val executor = toolRegistry.getExecutor(call.name)
-        return if (executor != null) {
-            executor.execute(call.args, sessionId)
-        } else {
-            "{\"status\": \"error\", \"message\": \"알 수 없는 Tool입니다: ${call.name}\"}"
-        }
-    }
-
-    private suspend fun applyPolicyAndReturn(
-        sessionId: String, 
-        modelOutput: ModelOutput, 
-        parsed: ToolParser.ParsedStream
-    ): AgentResult {
-        return when (val policy = preExecutionGuard.checkPolicy(modelOutput)) {
-            is ExecutionPolicy.Allowed -> {
-                val text = if (modelOutput is ModelOutput.TextOutput) modelOutput.content else parsed.content
-                createAndSaveMessage(sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT, searchUsed = false, thinkingProcess = parsed.thinking)
-                AgentResult.Text(text, thinkingProcess = parsed.thinking)
-            }
-            is ExecutionPolicy.Blocked -> {
-                createAndSaveMessage(sessionId, ChatMessage.Role.ASSISTANT, policy.reason, InputType.TEXT)
-                AgentResult.Text(policy.reason)
-            }
-        }
+        // 4. 라우팅 및 에이전트 위임
+        val agent = taskRouter.route(request.message)
+        return agent.execute(request, context)
     }
 
     private suspend fun handleErrorAndReturn(sessionId: String, errorMsg: String): AgentResult.Error {

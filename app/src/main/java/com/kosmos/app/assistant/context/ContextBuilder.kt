@@ -65,7 +65,7 @@ class ContextBuilder @Inject constructor(
 
     private fun applyTokenSlidingWindow(messages: List<ChatMessage>): List<ChatMessage> {
         var currentTokens = 0
-        val maxTokens = 8000 // Safe buffer for larger context window
+        val maxTokens = Constants.MAX_CONTEXT_TOKENS // Safe buffer for larger context window
         val selectedMessages = mutableListOf<ChatMessage>()
         
         // messages is chronological (oldest first). We iterate from newest (end) to oldest.

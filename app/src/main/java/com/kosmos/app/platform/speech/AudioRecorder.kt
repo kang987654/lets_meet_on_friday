@@ -45,9 +45,9 @@ open class AudioRecorder @Inject constructor(
         private const val ENCODING = AudioFormat.ENCODING_PCM_16BIT
     }
 
-    open fun startRecording(): Result<Unit> {
+    open fun startRecording(): com.kosmos.app.core.common.AppResult<Unit> {
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            return Result.failure(SecurityException("Record audio permission not granted"))
+            return com.kosmos.app.core.common.AppResult.Failure(com.kosmos.app.core.common.AppError.SttError("Record audio permission not granted"))
         }
 
         return try {
@@ -58,7 +58,7 @@ open class AudioRecorder @Inject constructor(
 
             val bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNELS, ENCODING)
             if (bufferSize == AudioRecord.ERROR || bufferSize == AudioRecord.ERROR_BAD_VALUE) {
-                return Result.failure(IllegalStateException("Invalid buffer size: $bufferSize"))
+                return com.kosmos.app.core.common.AppResult.Failure(com.kosmos.app.core.common.AppError.SttError("Invalid buffer size: $bufferSize"))
             }
 
             audioRecord = AudioRecord(
@@ -70,7 +70,7 @@ open class AudioRecorder @Inject constructor(
             )
 
             if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                return Result.failure(IllegalStateException("AudioRecord initialization failed"))
+                return com.kosmos.app.core.common.AppResult.Failure(com.kosmos.app.core.common.AppError.SttError("AudioRecord initialization failed"))
             }
 
             audioRecord?.startRecording()
@@ -80,14 +80,14 @@ open class AudioRecorder @Inject constructor(
                 writeAudioDataToFile(bufferSize)
             }
 
-            Result.success(Unit)
+            com.kosmos.app.core.common.AppResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start recording", e)
-            Result.failure(e)
+            com.kosmos.app.core.common.AppResult.Failure(com.kosmos.app.core.common.AppError.SttError(e.message ?: "Failed to start recording"))
         }
     }
 
-    open fun stopRecording(): Result<File> {
+    open fun stopRecording(): com.kosmos.app.core.common.AppResult<File> {
         return try {
             isRecording = false
             audioRecord?.apply {
@@ -102,16 +102,16 @@ open class AudioRecorder @Inject constructor(
             val file = outputFile
             if (file != null && file.exists()) {
                 updateWavHeader(file)
-                Result.success(file)
+                com.kosmos.app.core.common.AppResult.Success(file)
             } else {
-                Result.failure(IllegalStateException("Output file is null or does not exist"))
+                com.kosmos.app.core.common.AppResult.Failure(com.kosmos.app.core.common.AppError.SttError("Output file is null or does not exist"))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to stop recording", e)
             audioRecord?.release()
             audioRecord = null
             recordingJob?.cancel()
-            Result.failure(e)
+            com.kosmos.app.core.common.AppResult.Failure(com.kosmos.app.core.common.AppError.SttError(e.message ?: "Failed to stop recording"))
         }
     }
 

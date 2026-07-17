@@ -132,8 +132,8 @@ class MultimodalChatE2ETest {
 
     @BindValue
     val audioRecorder: AudioRecorder = object : com.kosmos.app.platform.speech.AudioRecorder(ApplicationProvider.getApplicationContext()) {
-        override fun startRecording(): Result<Unit> = Result.success(Unit)
-        override fun stopRecording(): Result<java.io.File> = Result.success(java.io.File.createTempFile("t", "a"))
+        override fun startRecording(): com.kosmos.app.core.common.AppResult<Unit> = com.kosmos.app.core.common.AppResult.Success(Unit)
+        override fun stopRecording(): com.kosmos.app.core.common.AppResult<java.io.File> = com.kosmos.app.core.common.AppResult.Success(java.io.File.createTempFile("t", "a"))
     }
 
     @Inject lateinit var sessionStore: SessionStore

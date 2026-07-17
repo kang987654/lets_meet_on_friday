@@ -85,13 +85,8 @@ class VoiceChatIntegrationTest {
     @dagger.hilt.android.testing.BindValue
     @JvmField
     val audioRecorder: AudioRecorder = object : com.kosmos.app.platform.speech.AudioRecorder(ApplicationProvider.getApplicationContext()) {
-        override fun startRecording(): Result<Unit> {
-            return Result.success(Unit)
-        }
-        override fun stopRecording(): Result<java.io.File> {
-            val file = java.io.File.createTempFile("test", ".m4a", ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir)
-            return Result.success(file)
-        }
+        override fun startRecording(): com.kosmos.app.core.common.AppResult<Unit> = com.kosmos.app.core.common.AppResult.Success(Unit)
+        override fun stopRecording(): com.kosmos.app.core.common.AppResult<java.io.File> = com.kosmos.app.core.common.AppResult.Success(java.io.File.createTempFile("test", ".m4a", ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir))
     }
 
     private lateinit var viewModel: ChatViewModel

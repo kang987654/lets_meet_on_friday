@@ -13,6 +13,7 @@ class PreExecutionGuard @Inject constructor() {
     fun checkPolicy(output: ModelOutput): ExecutionPolicy {
         return when (output) {
             is ModelOutput.TextOutput -> ExecutionPolicy.Allowed
+            is ModelOutput.CalendarDraftOutput -> ExecutionPolicy.Allowed
         }
     }
 }

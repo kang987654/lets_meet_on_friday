@@ -5,7 +5,7 @@ import com.kosmos.app.core.common.Constants
 data class CalendarDraft(
     val title: String,
     val startIso: String,
-    val endIso: String,
+    val endIso: String?,
     val note: String? = null,
     val confidence: Float
 ) {

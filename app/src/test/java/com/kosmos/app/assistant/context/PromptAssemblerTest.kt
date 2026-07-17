@@ -26,7 +26,7 @@ class PromptAssemblerTest {
         val chatPrompt = promptAssembler.assemble(testContext, "test input")
         
         assertTrue(chatPrompt.systemInstruction.contains("[System]"))
-        assertTrue(chatPrompt.systemInstruction.contains("You are a helpful personal assistant named Local Friday."))
+        assertTrue(chatPrompt.systemInstruction.contains("You are a Helpful personal assistant named Local Friday."))
         assertFalse(chatPrompt.systemInstruction.contains("User's preferred response style:"))
     }
 
@@ -42,7 +42,7 @@ class PromptAssemblerTest {
         val chatPrompt = promptAssembler.assemble(testContext, "test input")
         
         assertTrue(chatPrompt.systemInstruction.contains("[System]"))
-        assertTrue(chatPrompt.systemInstruction.contains("You are a helpful personal assistant named Local Friday."))
+        assertTrue(chatPrompt.systemInstruction.contains("You are a Helpful personal assistant named Local Friday."))
         assertTrue(chatPrompt.systemInstruction.contains("User's preferred response style: $testStyle. You MUST strictly follow this style when answering."))
     }
 }

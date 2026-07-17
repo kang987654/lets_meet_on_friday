@@ -259,7 +259,18 @@ class ChatViewModel @Inject constructor(
                         )
                         _uiState.update { it.copy(messages = (it.messages + assistantMessage).toImmutableList()) }
                     }
-
+                    is AgentResult.Action -> {
+                        // Action 카드(예: 캘린더 승인 바텀시트)를 띄우기 위해 ApprovalCoordinator 등을 활용할 수 있음
+                        if (agentResult.actionCard.actionType == com.kosmos.app.domain.model.ActionCard.ActionType.CALENDAR_DRAFT) {
+                            val draftPayload = agentResult.actionCard.payload as? com.kosmos.app.domain.model.ActionPayload.CalendarDraftPayload
+                            if (draftPayload != null) {
+                                // 기존에 ApprovalRequest를 사용하는 로직이 있다면 연동
+                                // 임시적으로 UI에 ActionCard 정보를 표시하거나 Pending 상태로 만듦
+                                // (실제 프로젝트 정책에 맞게 ApprovalCoordinator.requestApproval() 호출)
+                            }
+                        }
+                        // TODO: Action 카드를 ChatMessage로 저장하거나 별도의 UI State로 노출
+                    }
                     is AgentResult.Error -> {
                         _uiState.update { it.copy(error = agentResult.error) }
                     }
@@ -280,20 +291,20 @@ class ChatViewModel @Inject constructor(
         if (_uiState.value.isRecording) {
             _uiState.update { it.copy(isRecording = false) }
             val result = audioRecorder.stopRecording()
-            if (result.isSuccess) {
-                val file = result.getOrNull()
-                if (file != null && file.exists()) {
+            if (result is com.kosmos.app.core.common.AppResult.Success) {
+                val file = result.data
+                if (file.exists()) {
                     sendMessage("", file.absolutePath)
                 }
-            } else {
-                _uiState.update { it.copy(error = com.kosmos.app.core.common.AppError.SttError(result.exceptionOrNull()?.message ?: "녹음 중지 실패")) }
+            } else if (result is com.kosmos.app.core.common.AppResult.Failure) {
+                _uiState.update { it.copy(error = result.error) }
             }
         } else {
             val result = audioRecorder.startRecording()
-            if (result.isSuccess) {
+            if (result is com.kosmos.app.core.common.AppResult.Success) {
                 _uiState.update { it.copy(isRecording = true) }
-            } else {
-                _uiState.update { it.copy(error = com.kosmos.app.core.common.AppError.SttError(result.exceptionOrNull()?.message ?: "녹음 시작 실패")) }
+            } else if (result is com.kosmos.app.core.common.AppResult.Failure) {
+                _uiState.update { it.copy(error = result.error) }
             }
         }
     }

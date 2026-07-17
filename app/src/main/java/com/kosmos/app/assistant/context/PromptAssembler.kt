@@ -42,10 +42,34 @@ class PromptAssembler @Inject constructor() {
         )
     }
 
-    private fun buildSystemBlock(responseStyle: String): String {
+    fun assembleWithTools(context: ContextBuilder.Context, userInput: String, availableTools: List<String>, systemRole: String): ChatPrompt {
+        val systemMessages = context.recentConversations.filter { it.role == com.kosmos.app.domain.model.ChatMessage.Role.SYSTEM }
+        val dialogHistory = context.recentConversations.filter { it.role != com.kosmos.app.domain.model.ChatMessage.Role.SYSTEM }
+        
+        val systemInstruction = buildString {
+            appendLine(buildSystemBlock(context.responseStyle, systemRole))
+            appendLine(buildTimeBlock())
+            appendLine(buildFormatBlock(availableTools))
+            if (systemMessages.isNotEmpty()) {
+                appendLine("\n[Context / Knowledge]")
+                systemMessages.forEach { msg ->
+                    appendLine(msg.content)
+                }
+            }
+        }
+
+        return ChatPrompt(
+            sessionId = context.sessionId,
+            systemInstruction = systemInstruction,
+            history = dialogHistory,
+            currentInput = buildInputBlock(userInput)
+        )
+    }
+
+    private fun buildSystemBlock(responseStyle: String, systemRole: String = "Helpful personal assistant named Local Friday."): String {
         return buildString {
             appendLine("[System]")
-            appendLine("You are a helpful personal assistant named Local Friday.")
+            appendLine("You are a $systemRole")
             appendLine("Your task is to respond to the user's input accurately and concisely.")
             appendLine("Do not include any conversational filler.")
             if (responseStyle.isNotBlank() && responseStyle != "DEFAULT") {
@@ -65,7 +89,19 @@ class PromptAssembler @Inject constructor() {
         """.trimIndent()
     }
 
-    private fun buildFormatBlock(): String {
+    private fun buildFormatBlock(availableTools: List<String>? = null): String {
+        val toolsDesc = buildString {
+            if (availableTools == null || availableTools.contains("AddSchedule")) {
+                appendLine("            - \"AddSchedule\": Adds an event to the calendar. Args: title (String), startTime (String, ISO format), endTime (String, ISO format, Optional if the user specifies a single time), description (String, Optional).")
+            }
+            if (availableTools == null || availableTools.contains("GetSchedule")) {
+                appendLine("            - \"GetSchedule\": Retrieves today's or this week's schedule. Args: date (String, e.g., \"today\" or \"week\").")
+            }
+            if (availableTools == null || availableTools.contains("SearchWeb")) {
+                appendLine("            - \"SearchWeb\": Searches the web for information. Args: query (String).")
+            }
+        }.trimEnd()
+
         return """
             [Tool Usage Guidelines]
             You have access to several tools. When you need to perform an action (e.g. schedule an event, search the web), output a tool call using the following XML format:
@@ -75,9 +111,7 @@ class PromptAssembler @Inject constructor() {
             </tool_call>
             
             Available Tools:
-            - "AddSchedule": Adds an event to the calendar. Args: title (String), startTime (String, ISO format), endTime (String, ISO format), description (String, Optional).
-            - "GetSchedule": Retrieves today's or this week's schedule. Args: date (String, e.g., "today" or "week").
-            - "SearchWeb": Searches the web for information. Args: query (String).
+$toolsDesc
             
             If you do not need a tool, simply provide your final response in plain text.
         """.trimIndent()

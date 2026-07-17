@@ -90,8 +90,21 @@ class AndroidCalendarTool @Inject constructor(
 
         try {
             // 중복/겹침 감지는 상위 레이어에서 처리하여 경고를 띄우도록 정책 설정 (하드-페일 금지)
-            val startMs = isoToMs(draft.startIso)
-            val endMs = isoToMs(draft.endIso)
+            val startMs = try {
+                isoToMs(draft.startIso)
+            } catch (e: Exception) {
+                System.currentTimeMillis()
+            }
+            
+            val endMs = if (draft.endIso.isNullOrBlank()) {
+                startMs + 3600000L // 1 hour fallback
+            } else {
+                try {
+                    isoToMs(draft.endIso!!)
+                } catch (e: Exception) {
+                    startMs + 3600000L
+                }
+            }
 
             val values = ContentValues().apply {
                 put(CalendarContract.Events.DTSTART, startMs)

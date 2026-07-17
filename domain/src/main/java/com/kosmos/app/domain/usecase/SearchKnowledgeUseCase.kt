@@ -23,17 +23,17 @@ class SearchKnowledgeUseCase @Inject constructor(
 
         return when {
             hasQuery && !hasTags -> {
-                repository.search(query!!, limit)
+                repository.search(query, limit)
             }
             !hasQuery && hasTags -> {
-                repository.searchByTags(tags!!, limit)
+                repository.searchByTags(tags, limit)
             }
             hasQuery && hasTags -> {
                 // 둘 다 있는 경우: (임시 구현) Query로 찾은 것 중 태그 필터링
-                when (val result = repository.search(query!!, limit)) {
+                when (val result = repository.search(query, limit)) {
                     is AppResult.Success -> {
                         val filtered = result.data.filter { note ->
-                            tags!!.any { tag -> note.tags.contains(tag) }
+                            tags.any { tag -> note.tags.contains(tag) }
                         }
                         AppResult.Success(filtered.take(limit))
                     }
