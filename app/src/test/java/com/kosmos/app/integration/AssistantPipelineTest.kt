@@ -31,7 +31,7 @@ class MockModelRunner : ModelRunner {
             ```json
             {
               "type": "text",
-              "text": "안녕하세요! 저는 Local Friday입니다."
+              "text": "안녕하세요! 저는 Kosmos입니다."
             }
             ```
         """.trimIndent()

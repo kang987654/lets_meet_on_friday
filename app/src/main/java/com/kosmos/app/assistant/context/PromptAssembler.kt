@@ -66,45 +66,48 @@ class PromptAssembler @Inject constructor() {
         )
     }
 
-    private fun buildSystemBlock(responseStyle: String, systemRole: String = "Helpful personal assistant named Local Friday."): String {
+    private fun buildSystemBlock(responseStyle: String, systemRole: String = "personal assistant named Kosmos."): String {
         return buildString {
             appendLine("[System]")
             appendLine("You are a $systemRole")
-            appendLine("Your task is to respond to the user's input accurately and concisely.")
-            appendLine("Do not include any conversational filler.")
+            appendLine("Always respond in Korean unless the user speaks another language.")
             if (responseStyle.isNotBlank() && responseStyle != "DEFAULT") {
-                appendLine("User's preferred response style: $responseStyle. You MUST strictly follow this style when answering.")
+                appendLine("[Style: $responseStyle]")
             }
         }.trimEnd()
     }
 
     private fun buildTimeBlock(): String {
         val now = java.time.LocalDateTime.now(java.time.ZoneId.systemDefault())
-        val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss (E)")
-        val formattedTime = now.format(formatter)
-        return """
-            [System Clock]
-            Current System Time: $formattedTime
-            You have access to the system clock. Today's date/time is $formattedTime. When the user refers to relative dates/times like 'tomorrow', 'next week', 'Friday at 3pm', use this system clock to calculate the exact dates and times.
-        """.trimIndent()
+        val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        return "[System Data] Current Time: ${now.format(formatter)}"
     }
 
     private fun buildFormatBlock(availableTools: List<String>? = null): String {
         val toolsDesc = buildString {
             if (availableTools == null || availableTools.contains("AddSchedule")) {
-                appendLine("            - \"AddSchedule\": Adds an event to the calendar. Args: title (String), startTime (String, ISO format), endTime (String, ISO format, Optional if the user specifies a single time), description (String, Optional).")
+                appendLine("""
+                    - "AddSchedule": Adds an event to the calendar.
+                      Args: {"title": "string", "startTime": "ISO 8601", "endTime": "ISO 8601 (Optional)", "description": "string (Optional)"}
+                """.trimIndent())
             }
             if (availableTools == null || availableTools.contains("GetSchedule")) {
-                appendLine("            - \"GetSchedule\": Retrieves today's or this week's schedule. Args: date (String, e.g., \"today\" or \"week\").")
+                appendLine("""
+                    - "GetSchedule": Retrieves today's or this week's schedule.
+                      Args: {"date": "string ('today' or 'week')"}
+                """.trimIndent())
             }
             if (availableTools == null || availableTools.contains("SearchWeb")) {
-                appendLine("            - \"SearchWeb\": Searches the web for information. Args: query (String).")
+                appendLine("""
+                    - "SearchWeb": Searches the web for information.
+                      Args: {"query": "string"}
+                """.trimIndent())
             }
         }.trimEnd()
 
         return """
             [Tool Usage Guidelines]
-            You have access to several tools. When you need to perform an action (e.g. schedule an event, search the web), output a tool call using the following XML format:
+            You have access to several tools. When you need to perform an action, output a tool call using the following XML format:
             
             <tool_call>
             {"name": "ToolName", "args": {"key": "value"}}
@@ -113,6 +116,7 @@ class PromptAssembler @Inject constructor() {
             Available Tools:
 $toolsDesc
             
+            If you lack mandatory information to use a tool, DO NOT guess. Ask the user for clarification first.
             If you do not need a tool, simply provide your final response in plain text.
         """.trimIndent()
     }
@@ -120,9 +124,7 @@ $toolsDesc
     private fun buildInputBlock(userInput: String): String {
         return """
             [Current Input]
-            User: $userInput
-            
-            Assistant:
+            $userInput
         """.trimIndent()
     }
 }
