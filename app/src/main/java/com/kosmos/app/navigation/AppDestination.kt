@@ -1,6 +1,7 @@
 package com.kosmos.app.navigation
 
 sealed class AppDestination(val route: String) {
+    object Splash : AppDestination("splash")
     object Chat : AppDestination("chat")
     object Calendar : AppDestination("calendar")
     object Memory : AppDestination("memory")

@@ -5,6 +5,7 @@ import com.kosmos.app.data.local.prefs.SettingsDataStore
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.tool.Tokenizer
+import com.kosmos.app.domain.usecase.SearchKnowledgeUseCase
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -19,12 +20,13 @@ class ContextBuilderTest {
 
     private lateinit var contextBuilder: ContextBuilder
     private val conversationRepository: ConversationRepository = mockk()
+    private val searchKnowledgeUseCase: SearchKnowledgeUseCase = mockk()
     private val tokenizer: Tokenizer = mockk()
     private val settingsDataStore: SettingsDataStore = mockk()
 
     @Before
     fun setup() {
-        contextBuilder = ContextBuilder(conversationRepository, tokenizer, settingsDataStore)
+        contextBuilder = ContextBuilder(conversationRepository, searchKnowledgeUseCase, tokenizer, settingsDataStore)
     }
 
     @Test
@@ -34,6 +36,7 @@ class ContextBuilderTest {
         
         every { settingsDataStore.responseStyleFlow } returns flowOf(testStyle)
         coEvery { conversationRepository.getRecentBySession(testSessionId, any()) } returns AppResult.Success(emptyList())
+        coEvery { searchKnowledgeUseCase(any(), any(), any()) } returns AppResult.Success(emptyList())
         every { tokenizer.sizeInTokens(any<String>()) } returns 10
         
         val result = contextBuilder.build(testSessionId)
@@ -50,6 +53,7 @@ class ContextBuilderTest {
         
         every { settingsDataStore.responseStyleFlow } returns kotlinx.coroutines.flow.flow { throw RuntimeException("Error") }
         coEvery { conversationRepository.getRecentBySession(testSessionId, any()) } returns AppResult.Success(emptyList())
+        coEvery { searchKnowledgeUseCase(any(), any(), any()) } returns AppResult.Success(emptyList())
         every { tokenizer.sizeInTokens(any<String>()) } returns 10
         
         val result = contextBuilder.build(testSessionId)

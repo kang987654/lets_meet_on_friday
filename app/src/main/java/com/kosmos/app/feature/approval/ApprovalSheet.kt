@@ -11,7 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kosmos.app.assistant.approval.ApprovalRequest
 
-val SkyBlue = Color(0xFF5BC2E7)
+val SkyBlue = com.kosmos.app.ui.theme.Cyan
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,7 +22,7 @@ fun ApprovalSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onReject,
-        containerColor = Color.White,
+        containerColor = com.kosmos.app.ui.theme.SurfaceColor,
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         Column(
@@ -34,12 +34,14 @@ fun ApprovalSheet(
                 text = request.title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
+                color = com.kosmos.app.ui.theme.TextPrimary,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
             Text(
                 text = request.description,
                 style = MaterialTheme.typography.bodyLarge,
+                color = com.kosmos.app.ui.theme.TextSecondary,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
@@ -51,7 +53,8 @@ fun ApprovalSheet(
                     onClick = onReject,
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.DarkGray)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = com.kosmos.app.ui.theme.TextMuted),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, com.kosmos.app.ui.theme.BorderColor)
                 ) {
                     Text("취소")
                 }
@@ -62,7 +65,7 @@ fun ApprovalSheet(
                     shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SkyBlue)
                 ) {
-                    Text("승인", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("승인", color = com.kosmos.app.ui.theme.BgColor, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(modifier = Modifier.height(32.dp))

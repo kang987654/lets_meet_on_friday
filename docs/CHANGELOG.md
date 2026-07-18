@@ -1,3 +1,51 @@
+## [0.5.2] - 2026-07-18
+- **[UI/UX Hotfix]** 기획안(Phase 2) 누락분 `ChatScreen.kt` 피그마 UI 완전 동기화 및 마이그레이션 적용
+  - 상단바: 기본 TopAppBar를 KOSMOS 커스텀 헤더(`CustomChatHeader`)로 교체 및 펄스 애니메이션이 들어간 초록색 상태 뱃지(`PulseGreenDot`) 구현
+  - 말풍선: 유저(Gradient), AI(Glassmorphism) 버블에 피그마 원본 곡률(`18px 18px 4px 18px` 등 비대칭) 적용
+  - 하단 입력창: 개별 분리되었던 버튼 구조를 하나로 통합하여 단일 `glassEffect` 알약(Pill) 형태로 레이아웃 전면 리팩토링 및 렌더링 검증 완료
+- **[Feature]** AI 일정 제안 카드(Calendar Draft Card) UI 바텀 오버레이 구현 및 기능 연동 완료
+  - `ChatScreen.kt`에서 배경을 어둡게 가리지 않는 Floating 형태의 피그마 UI(D · Calendar Card) 완벽 구현
+  - `ChatViewModel`을 통해 `pendingCalendarDraft` 상태를 구독하여, 사용자의 [Approve & Save] 동작 시 `AddScheduleUseCase`를 호출해 실제 DB에 일정 저장 연동 완료
+  - 사용자의 [Reject] 동작 시 자연스럽게 카드를 숨기도록 상태 처리 구현
+
+## [0.5.1] - 2026-07-18
+- **[Bugfix/Hotfix]** Android 15 16KB 호환성 정공법 적용 및 스플래시 무한 로딩 버그 최종 수정
+  - `libs.versions.toml`에서 `litertlm` (0.14.0) 및 `mediapipe` (0.10.35) 버전을 업데이트하여 네이티브 파일(`.so`)의 16KB 메모리 정렬을 근본적으로 지원하도록 변경
+  - AGP `useLegacyPackaging = true` 및 매니페스트의 `extractNativeLibs` 꼼수 옵션 완전 제거
+  - `GemmaModelRunner.warmUp()` 내에 모델 파일 존재 여부 재확인 로직(`checkModelFile()`)을 추가하여 초기 모델 파일 부재 시 렌더링 된 Retry 버튼 클릭 시 동작하지 않던(Deadlock) 현상 해결
+
+## [0.5.0] - 2026-07-18
+- **[Feature]** 온디바이스 텍스트 임베딩(MediaPipe) 및 RAG(Retrieval-Augmented Generation) 메모리 파이프라인 연동 완료
+  - `MediaPipeTextEmbedder` 추가 및 `universal_sentence_encoder.tflite` 오프라인 모델 로드 적용
+  - Room 데이터베이스(`KnowledgeEntity`)에 `embedding` 컬럼 추가 및 코사인 유사도(Cosine Similarity) 기반 벡터 검색 기능 구현
+  - `SaveKnowledgeUseCase` 및 `SearchKnowledgeUseCase`를 통한 기억 저장/검색 파이프라인 리팩토링
+  - `ContextBuilder`에서 최신 사용자 메시지 기반 RAG 검색 후 `[Context / Knowledge]`로 시스템 프롬프트 실시간 주입
+- **[Feature]** API Key 프리 위키피디아 온디바이스 검색 툴(`SearchWikipedia`) 탑재
+  - Wikipedia 공용 API(`api.php`)를 OkHttp/JSON 기반으로 직접 연동 (`WikipediaSearchToolImpl`)
+  - 토픽(Topic), 언어(Lang) 기반 요약문 추출 및 검색 결과 글자수 제한 캡 적용으로 안정성 확보
+  - `AddMemoryToolExecutor`와 함께 `ToolRegistry` 및 `PromptAssembler`에 정식 에이전트 툴로 등록 및 검증 완료
+- **[QA/Test]** RAG 기반 장기 메모리(Vector DB) 파이프라인 및 웹 검색(SearchWeb) 통합 테스트 검증 완료
+  - `MemoryPipelineIntegrationTest` 작성: `SaveKnowledgeUseCase`부터 `ContextBuilder`까지 이어지는 RAG Write/Read 전체 통합 사이클 및 시스템 텍스트 렌더링 정상 확인 (`MediaPipe` 임베딩 포함 Mocking 완료)
+  - `SearchToolExecutorTest` 작성: `WebSearchTool`의 승인/거절(Approval Coordinator) 비동기 처리 흐름 및 응답 JSON 직렬화 안정성 검증 통과
+- **[QA/Test]** Glassmorphism UI 렌더링 무결성 및 E2E 테스트(`MultimodalChatE2ETest`, `ToolApprovalE2ETest`) 크래시 복구 및 검증
+  - Hilt 주입 시 발생하는 `MediaPipeTextEmbedder`의 JNI 로드 에러(`java.lang.UnsatisfiedLinkError`)를 `Throwable` 포획으로 방어하여 앱 강제 종료 및 테스트 크래시 원천 차단
+  - 백그라운드 Robolectric 환경에서 새로운 UI 계층의 렌더링(채팅 메시지 갱신, 라우팅, ApprovalSheet 시트 팝업)이 정상 작동하는지 자동화 E2E 테스트로 실행 검증 (All Pass 확인)
+- **[Bugfix/Hotfix]** Android 15 (Vanilla Ice Cream) 환경 네이티브 라이브러리 충돌 및 스플래시 화면 무한 로딩 수정
+  - TensorFlow Lite, MediaPipe 등 네이티브(`.so`) 라이브러리들이 16KB 페이지 사이즈 정렬 검사에 실패하여 `UnsatisfiedLinkError`를 내며 강제 종료되는 문제(ELF Alignment Error) 해결
+  - `build.gradle.kts` 내 `useLegacyPackaging = true` 옵션을 적용하여, OS가 파일 압축을 해제하고 시스템 단위에서 16KB 메모리 정렬을 대행하도록 런타임 호환성 우회 로직 추가
+  - `SplashScreen.kt` 내부에서 초기화 상태가 `Error`로 빠질 경우 네비게이션 없이 애니메이션만 무한 루프하는 버그를 수정하여, 에러 원인 텍스트와 함께 뷰모델의 `retry()` 액션을 호출하는 재시도 UI 컴포넌트 추가
+
+## [0.4.0] - 2026-07-18
+- **[UI/UX]** 안드로이드 네이티브(Jetpack Compose) Glassmorphism UI 전면 마이그레이션 및 적용 완료 (Phase 1, 2, 3)
+  - `core:designsystem`을 대체하여 `BgColor`, `SurfaceColor`, `GlassColor`, `Cyan`, `Violet` 커스텀 테마 색상 및 오프라인 커스텀 폰트 번들 적용
+  - `RenderEffect.createBlurEffect()` 기반의 안드로이드 네이티브 `Modifier.glassEffect()` 구현 완료
+  - **애니메이션 전환**: React `@keyframes`를 Compose `InfiniteTransition`과 Canvas로 변환 (AuroraBackground, OrbPulse, ThinkingDots)
+  - **Screen 일괄 마이그레이션**: `SplashScreen`, `ChatScreen`, `VoiceOverlay`, `MemoryScreen`, `CalendarScreen`, `SettingsScreen`, `AuditScreen`, `ApprovalSheet` 및 `MainScreen` (Bottom Nav) 모두 새 디자인 시스템과 Glassmorphism/Dark Theme 일괄 적용
+  - `MemoryScreen` 앱 데이터 복원(Import) 후 재시작 시, 안전한 백스택 초기화를 위해 Android 권장 방식(`Intent.makeRestartActivityTask`)으로 로직 개선
+- **[QA/Test]** 0.4.0 대규모 UI 개편 및 다중 에이전트 아키텍처 전환에 대한 회귀 테스트(Regression Test) 검증 완료
+  - Robolectric 기반 통합 E2E 테스트(채팅, 멀티모달, 음성, 툴 승인) 전 항목(All Pass) 통과 확인
+  - `TaskRouter`, `ContextBuilder`, `MemoryScreen` 내 주요 의존성 및 라우팅 로직 정적 분석 결과 결함 없음 확인
+
 ## [0.3.5] - 2026-07-17
 - **[Architecture/Refactoring]** 에이전트 구조 분리 (Multi-Agent Refactoring) 구현 완료
   - `AssistantOrchestrator`의 비대해진 모델 추론(재귀 루프) 및 툴 파싱 로직을 `BaseAgent` 추상 클래스로 분리 및 캡슐화

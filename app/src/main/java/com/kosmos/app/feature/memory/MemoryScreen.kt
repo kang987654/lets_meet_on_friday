@@ -1,6 +1,8 @@
 package com.kosmos.app.feature.memory
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -12,11 +14,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
+import com.kosmos.app.ui.component.glassEffect
 
 @Composable
 fun MemoryScreen(
@@ -37,9 +41,15 @@ fun MemoryScreen(
                 uri = uri,
                 onSuccess = {
                     android.widget.Toast.makeText(context, "복원이 완료되었습니다. 앱을 재시작합니다.", android.widget.Toast.LENGTH_LONG).show()
-                    // 임시 재시작 처리 (System.exit)
                     kotlin.concurrent.thread {
                         Thread.sleep(2000)
+                        val packageManager = context.packageManager
+                        val intent = packageManager.getLaunchIntentForPackage(context.packageName)
+                        val componentName = intent?.component
+                        if (componentName != null) {
+                            val mainIntent = android.content.Intent.makeRestartActivityTask(componentName)
+                            context.startActivity(mainIntent)
+                        }
                         kotlin.system.exitProcess(0)
                     }
                 },
@@ -50,81 +60,59 @@ fun MemoryScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Top Bar & Actions
+    Column(modifier = Modifier.fillMaxSize().background(com.kosmos.app.ui.theme.BgColor)) {
+        // Top Tabs
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = "Memory",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
+            TabButton(
+                text = "🧠 Memory",
+                isSelected = uiState.selectedFilter == MemoryFilterType.KNOWLEDGE,
+                onClick = { viewModel.onFilterSelected(MemoryFilterType.KNOWLEDGE) },
+                modifier = Modifier.weight(1f)
             )
-            
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { importLauncher.launch("application/zip") }) {
-                    Text("Import")
-                }
-                Button(onClick = {
-                    viewModel.exportData(
-                        onSuccess = { file ->
-                            val uri = androidx.core.content.FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                file
-                            )
-                            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                type = "application/zip"
-                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Backup"))
-                        },
-                        onError = { error ->
-                            android.widget.Toast.makeText(context, "Export 실패: $error", android.widget.Toast.LENGTH_LONG).show()
-                        }
+            TabButton(
+                text = "✓ Tasks",
+                isSelected = uiState.selectedFilter == MemoryFilterType.TASK,
+                onClick = { viewModel.onFilterSelected(MemoryFilterType.TASK) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (uiState.selectedFilter == MemoryFilterType.TASK) {
+            // Stats & Progress
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "3 pending  ·  2 done",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = com.kosmos.app.ui.theme.TextSecondary
+                )
+                Box(
+                    modifier = Modifier
+                        .width(60.dp)
+                        .height(4.dp)
+                        .background(com.kosmos.app.ui.theme.GlassColor, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.4f)
+                            .fillMaxHeight()
+                            .background(com.kosmos.app.ui.theme.Success, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
                     )
-                }) {
-                    Text("Export")
                 }
             }
         }
-
-        // Filter Chips
-        LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            item {
-                FilterChip(
-                    selected = uiState.selectedFilter == MemoryFilterType.ALL,
-                    onClick = { viewModel.onFilterSelected(MemoryFilterType.ALL) },
-                    label = { Text("All") }
-                )
-            }
-            item {
-                FilterChip(
-                    selected = uiState.selectedFilter == MemoryFilterType.TASK,
-                    onClick = { viewModel.onFilterSelected(MemoryFilterType.TASK) },
-                    label = { Text("Tasks") }
-                )
-            }
-            item {
-                FilterChip(
-                    selected = uiState.selectedFilter == MemoryFilterType.KNOWLEDGE,
-                    onClick = { viewModel.onFilterSelected(MemoryFilterType.KNOWLEDGE) },
-                    label = { Text("Knowledge") }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         // Lists
         LazyColumn(
@@ -134,15 +122,7 @@ fun MemoryScreen(
             contentPadding = PaddingValues(bottom = 80.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (uiState.selectedFilter == MemoryFilterType.ALL || uiState.selectedFilter == MemoryFilterType.TASK) {
-                item {
-                    Text(
-                        text = "Pending Tasks",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
+            if (uiState.selectedFilter == MemoryFilterType.TASK) {
                 items(
                     count = taskItems.itemCount,
                     key = taskItems.itemKey { it.id },
@@ -150,42 +130,49 @@ fun MemoryScreen(
                 ) { index ->
                     val task = taskItems[index]
                     if (task != null) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Checkbox(
-                                    checked = task.isCompleted,
-                                    onCheckedChange = { checked ->
-                                        if (checked) {
-                                            viewModel.completeTask(task.id)
-                                            taskItems.refresh()
-                                        }
-                                    }
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = task.title, style = MaterialTheme.typography.bodyLarge)
+                        TaskItemRow(
+                            title = task.title,
+                            isCompleted = task.isCompleted,
+                            onToggle = { 
+                                viewModel.completeTask(task.id)
+                                taskItems.refresh()
                             }
+                        )
+                    }
+                }
+
+                item {
+                    // Add new task button
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .border(
+                                width = 1.dp,
+                                color = com.kosmos.app.ui.theme.BorderColor,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                            )
+                            .clickable { /* Add Task */ }
+                            .padding(16.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "+",
+                                color = com.kosmos.app.ui.theme.TextSecondary,
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(end = 12.dp)
+                            )
+                            Text(
+                                text = "Add new task...",
+                                color = com.kosmos.app.ui.theme.TextSecondary,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
                         }
                     }
                 }
             }
 
             if (uiState.selectedFilter == MemoryFilterType.ALL || uiState.selectedFilter == MemoryFilterType.KNOWLEDGE) {
-                item {
-                    Text(
-                        text = "Knowledge Notes",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
                 items(
                     count = knowledgeItems.itemCount,
                     key = knowledgeItems.itemKey { it.id },
@@ -193,18 +180,23 @@ fun MemoryScreen(
                 ) { index ->
                     val note = knowledgeItems[index]
                     if (note != null) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .glassEffect(
+                                    backgroundColor = com.kosmos.app.ui.theme.GlassColor,
+                                    borderColor = com.kosmos.app.ui.theme.BorderHighColor,
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                                )
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text(text = note.content, style = MaterialTheme.typography.bodyLarge)
+                                Text(text = note.content, style = MaterialTheme.typography.bodyLarge, color = com.kosmos.app.ui.theme.TextPrimary)
                                 if (note.tags.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
                                         text = note.tags.joinToString(" • "),
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = com.kosmos.app.ui.theme.TextMuted
                                     )
                                 }
                             }
@@ -215,3 +207,84 @@ fun MemoryScreen(
         }
     }
 }
+
+@Composable
+fun TabButton(text: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val bgColor = if (isSelected) com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.1f) else com.kosmos.app.ui.theme.GlassColor
+    val borderColor = if (isSelected) com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.5f) else com.kosmos.app.ui.theme.BorderColor
+    val textColor = if (isSelected) com.kosmos.app.ui.theme.Cyan else com.kosmos.app.ui.theme.TextSecondary
+    
+    Box(
+        modifier = modifier
+            .glassEffect(
+                backgroundColor = bgColor,
+                borderColor = borderColor,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+            )
+            .clickable { onClick() }
+            .padding(vertical = 14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text = text, color = textColor, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+@Composable
+fun TaskItemRow(title: String, isCompleted: Boolean, onToggle: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassEffect(
+                backgroundColor = com.kosmos.app.ui.theme.GlassColor,
+                borderColor = com.kosmos.app.ui.theme.BorderColor,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+            )
+            .clickable { onToggle() }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Check Circle
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .border(
+                        width = 1.dp,
+                        color = if (isCompleted) com.kosmos.app.ui.theme.Success else com.kosmos.app.ui.theme.TextMuted,
+                        shape = androidx.compose.foundation.shape.CircleShape
+                    )
+                    .background(
+                        color = if (isCompleted) com.kosmos.app.ui.theme.Success.copy(alpha = 0.1f) else androidx.compose.ui.graphics.Color.Transparent,
+                        shape = androidx.compose.foundation.shape.CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isCompleted) {
+                    Text("✓", color = com.kosmos.app.ui.theme.Success, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // Text
+            Text(
+                text = title, 
+                style = MaterialTheme.typography.bodyLarge, 
+                color = if (isCompleted) com.kosmos.app.ui.theme.TextMuted else com.kosmos.app.ui.theme.TextPrimary,
+                textDecoration = if (isCompleted) androidx.compose.ui.text.style.TextDecoration.LineThrough else androidx.compose.ui.text.style.TextDecoration.None,
+                modifier = Modifier.weight(1f)
+            )
+            
+            // Dot indicator
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(com.kosmos.app.ui.theme.Danger, shape = androidx.compose.foundation.shape.CircleShape)
+            )
+        }
+    }
+}
+

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -40,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.TextFieldValue
@@ -50,12 +52,8 @@ import com.halilibo.richtext.commonmark.Markdown
 import com.halilibo.richtext.ui.material3.RichText
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.feature.voice.VoiceOverlay
-import com.kosmos.app.ui.theme.Hairline
-import com.kosmos.app.ui.theme.Ink
-import com.kosmos.app.ui.theme.MutedText
-import com.kosmos.app.ui.theme.SkyBlue
-import com.kosmos.app.ui.theme.SkyBlueSoft
-import com.kosmos.app.ui.theme.SurfaceCard
+import androidx.compose.ui.unit.sp
+import com.kosmos.app.ui.component.glassEffect
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -68,10 +66,27 @@ import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
 import android.Manifest
 
+/**
+ * 메인 채팅 화면 (ChatScreen)
+ *
+ * **Core Role**: 사용자(User)와 AI 어시스턴트(KOSMOS) 간의 실시간 대화 인터페이스를 제공하는 메인 스크린입니다.
+ * 텍스트, 음성(마이크), 이미지/문서 첨부 등 멀티모달 입력을 지원하며, AI의 스트리밍 응답과 추론 상태(Thinking Process)를 시각적으로 렌더링합니다.
+ *
+ * **Architecture Context**:
+ * - Layer: UI (Presentation / Feature Layer)
+ * - Dependencies: `ChatViewModel` (상태 관리 및 비즈니스 로직 연동), `CustomChatHeader`, `ChatInputBar` 등 하위 UI 컴포넌트
+ *
+ * **Key Flow**:
+ * 1. [사용자 입력] 하단 `ChatInputBar`를 통해 텍스트/음성/파일 입력 이벤트 발생 -> `ChatViewModel`로 전달
+ * 2. [추론 및 상태 갱신] 뷰모델에서 모델 추론이 진행되는 동안 `uiState.isInFlight` 및 `uiState.messages` 갱신
+ * 3. [UI 렌더링] LazyColumn을 통해 채팅 기록(`ChatBubbleUser`, `ChatBubbleAssistant`) 및 모델의 Thinking 과정이 애니메이션과 함께 렌더링됨
+ * 4. [스타일링] Figma 스펙(Phase 2)에 맞춘 Glassmorphism 기반의 유려한 컴포넌트(비대칭 모서리, 그라데이션)로 사용자 경험 극대화
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    viewModel: ChatViewModel = hiltViewModel()
+    viewModel: ChatViewModel = hiltViewModel(),
+    onSettingsClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
@@ -84,9 +99,7 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.warmUpEngine()
-    }
+
 
     val context = LocalContext.current
     val contentResolver = context.contentResolver
@@ -141,6 +154,10 @@ fun ChatScreen(
     }
 
     Scaffold(
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        topBar = {
+            com.kosmos.app.feature.chat.CustomChatHeader(onSettingsClick = onSettingsClick)
+        },
         bottomBar = {
             ChatInputBar(
                 isLoading = uiState.isInFlight,
@@ -163,76 +180,75 @@ fun ChatScreen(
             )
         }
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            if (uiState.engineState == ModelLoadState.InitializingEngine) {
-                androidx.compose.material3.LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = SkyBlue
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SurfaceCard)
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = "AI 엔진 초기화 중... 잠시만 기다려 주세요.",
-                        color = MutedText,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
-            }
-            if (uiState.warningMessage != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(androidx.compose.ui.graphics.Color(0xFFFFF3E0)) // Soft Orange
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = uiState.warningMessage!!,
-                        color = androidx.compose.ui.graphics.Color(0xFFE65100), // Dark Orange
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
-                    )
-                }
-            }
-
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            Column(
+                modifier = Modifier.fillMaxSize()
             ) {
-                items(uiState.messages) { message ->
-                    if (message.role == ChatMessage.Role.USER) {
-                        ChatBubbleUser(text = message.content, inputType = message.inputType)
-                    } else {
-                        ChatBubbleAssistant(text = message.content, thinkingProcess = message.thinkingProcess)
-                    }
-                }
-                
-                if (uiState.streamingText != null || uiState.streamingThinking != null) {
-                    item {
-                        ChatBubbleAssistant(text = uiState.streamingText ?: "", thinkingProcess = uiState.streamingThinking)
+                if (uiState.warningMessage != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(androidx.compose.ui.graphics.Color(0xFFFFF3E0)) // Soft Orange
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = uiState.warningMessage!!,
+                            color = androidx.compose.ui.graphics.Color(0xFFE65100), // Dark Orange
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                        )
                     }
                 }
 
-                if (uiState.isInFlight && uiState.streamingText == null) {
-                    item {
-                        TypingIndicator()
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(uiState.messages) { message ->
+                        if (message.role == ChatMessage.Role.USER) {
+                            ChatBubbleUser(text = message.content, inputType = message.inputType)
+                        } else {
+                            ChatBubbleAssistant(text = message.content, thinkingProcess = message.thinkingProcess)
+                        }
                     }
+                    
+                    if (uiState.streamingText != null || uiState.streamingThinking != null) {
+                        item {
+                            ChatBubbleAssistant(text = uiState.streamingText ?: "", thinkingProcess = uiState.streamingThinking)
+                        }
+                    }
+
+                    if (uiState.isInFlight && uiState.streamingText == null) {
+                        item {
+                            TypingIndicator()
+                        }
+                    }
+                } // end LazyColumn
+            } // end Column
+
+            if (uiState.pendingCalendarDraft != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    CalendarDraftCard(
+                        draft = uiState.pendingCalendarDraft!!,
+                        onApprove = { viewModel.approveCalendarDraft() },
+                        onReject = { viewModel.rejectCalendarDraft() }
+                    )
                 }
-            } // end LazyColumn
-        } // end Column
+            }
+        } // end Box
     } // end Scaffold
 
     if (uiState.pendingApproval != null) {
@@ -248,6 +264,53 @@ fun ChatScreen(
 }
 
 @Composable
+fun PulseGreenDot() {
+    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 1f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.LinearEasing),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+    Box(
+        modifier = Modifier
+            .size(6.dp)
+            .background(com.kosmos.app.ui.theme.Success.copy(alpha = alpha), shape = RoundedCornerShape(3.dp))
+    )
+}
+
+@Composable
+fun CustomChatHeader(onSettingsClick: () -> Unit = {}) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "KOSMOS",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            letterSpacing = 1.sp,
+            color = com.kosmos.app.ui.theme.TextPrimary
+        )
+        
+        IconButton(
+            onClick = onSettingsClick,
+            modifier = Modifier
+                .size(36.dp)
+                .glassEffect(shape = androidx.compose.foundation.shape.CircleShape)
+        ) {
+            Text("⚙️", fontSize = 16.sp)
+        }
+    }
+}
+
+@Composable
 fun ChatBubbleUser(text: String, inputType: com.kosmos.app.domain.model.InputType = com.kosmos.app.domain.model.InputType.TEXT) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -256,7 +319,17 @@ fun ChatBubbleUser(text: String, inputType: com.kosmos.app.domain.model.InputTyp
         Box(
             modifier = Modifier
                 .widthIn(max = 280.dp)
-                .background(SkyBlueSoft, shape = RoundedCornerShape(18.dp))
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                        colors = listOf(com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.25f), com.kosmos.app.ui.theme.Violet.copy(alpha = 0.2f))
+                    ),
+                    shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 4.dp, bottomStart = 18.dp)
+                )
+                .border(
+                    width = 1.dp,
+                    color = com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.25f),
+                    shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 4.dp, bottomStart = 18.dp)
+                )
                 .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
             Column {
@@ -265,7 +338,7 @@ fun ChatBubbleUser(text: String, inputType: com.kosmos.app.domain.model.InputTyp
                         Text("🖼️", modifier = Modifier.padding(end = 4.dp))
                         Text(
                             text = "첨부된 이미지",
-                            color = MutedText,
+                            color = com.kosmos.app.ui.theme.TextMuted,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -275,7 +348,7 @@ fun ChatBubbleUser(text: String, inputType: com.kosmos.app.domain.model.InputTyp
                         Text("🎤", modifier = Modifier.padding(end = 4.dp))
                         Text(
                             text = "음성 메시지",
-                            color = MutedText,
+                            color = com.kosmos.app.ui.theme.TextMuted,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -283,7 +356,7 @@ fun ChatBubbleUser(text: String, inputType: com.kosmos.app.domain.model.InputTyp
                 }
                 Text(
                     text = text,
-                    color = Ink,
+                    color = com.kosmos.app.ui.theme.TextPrimary,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -306,8 +379,10 @@ fun ChatBubbleAssistant(text: String, thinkingProcess: String? = null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(androidx.compose.ui.graphics.Color(0xFFF0F0F0), shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 0.dp, bottomEnd = 0.dp))
-                        .border(1.dp, Hairline, shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 0.dp, bottomEnd = 0.dp))
+                        .glassEffect(
+                            backgroundColor = com.kosmos.app.ui.theme.GlassMidColor,
+                            shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 0.dp, bottomEnd = 0.dp)
+                        )
                         .clickable { isThinkingExpanded = !isThinkingExpanded }
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
@@ -315,7 +390,7 @@ fun ChatBubbleAssistant(text: String, thinkingProcess: String? = null) {
                         Text("🤔", modifier = Modifier.padding(end = 6.dp))
                         Text(
                             text = if (isThinkingExpanded) "고민 과정 숨기기" else "고민 과정 보기",
-                            color = MutedText,
+                            color = com.kosmos.app.ui.theme.TextSecondary,
                             style = MaterialTheme.typography.labelMedium
                         )
                     }
@@ -325,13 +400,15 @@ fun ChatBubbleAssistant(text: String, thinkingProcess: String? = null) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(androidx.compose.ui.graphics.Color(0xFFF9F9F9))
-                            .border(1.dp, Hairline)
+                            .glassEffect(
+                                backgroundColor = com.kosmos.app.ui.theme.GlassColor,
+                                shape = RoundedCornerShape(0.dp)
+                            )
                             .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
                         Text(
                             text = thinkingProcess,
-                            color = MutedText,
+                            color = com.kosmos.app.ui.theme.TextMuted,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -339,21 +416,22 @@ fun ChatBubbleAssistant(text: String, thinkingProcess: String? = null) {
             }
 
             val shape = if (thinkingProcess != null) {
-                RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
+                RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 4.dp, bottomEnd = 18.dp)
             } else {
-                RoundedCornerShape(18.dp)
+                RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp)
             }
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(SurfaceCard, shape = shape)
-                    .border(1.dp, Hairline, shape = shape)
+                    .glassEffect(shape = shape)
                     .padding(horizontal = 14.dp, vertical = 12.dp)
             ) {
-                CompositionLocalProvider {
+                CompositionLocalProvider(
+                    androidx.compose.material3.LocalContentColor provides com.kosmos.app.ui.theme.TextPrimary
+                ) {
                     ProvideTextStyle(
-                        value = MaterialTheme.typography.bodyMedium.copy(color = Ink)
+                        value = MaterialTheme.typography.bodyMedium.copy(color = com.kosmos.app.ui.theme.TextPrimary)
                     ) {
                         RichText {
                             Markdown(content = text)
@@ -373,15 +451,9 @@ fun TypingIndicator() {
     ) {
         Box(
             modifier = Modifier
-                .background(SurfaceCard, shape = RoundedCornerShape(18.dp))
-                .border(1.dp, Hairline, shape = RoundedCornerShape(18.dp))
-                .padding(horizontal = 14.dp, vertical = 12.dp)
+                .glassEffect(shape = RoundedCornerShape(18.dp))
         ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                color = SkyBlue,
-                strokeWidth = 2.dp
-            )
+            com.kosmos.app.ui.component.ThinkingDots()
         }
     }
 }
@@ -408,15 +480,13 @@ fun ChatInputBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
     ) {
         if (sharedInput is com.kosmos.app.platform.share.SharedInput.Image) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .background(SurfaceCard, shape = RoundedCornerShape(12.dp))
-                    .border(1.dp, Hairline, shape = RoundedCornerShape(12.dp))
+                    .glassEffect(shape = RoundedCornerShape(12.dp))
                     .padding(12.dp)
             ) {
                 Row(
@@ -425,11 +495,11 @@ fun ChatInputBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.image_attached), color = SkyBlue, style = MaterialTheme.typography.bodyMedium)
-                        Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.image_size_kb, sharedInput.sizeBytes / 1024), color = MutedText, style = MaterialTheme.typography.bodySmall)
+                        Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.image_attached), color = com.kosmos.app.ui.theme.Cyan, style = MaterialTheme.typography.bodyMedium)
+                        Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.image_size_kb, sharedInput.sizeBytes / 1024), color = com.kosmos.app.ui.theme.TextMuted, style = MaterialTheme.typography.bodySmall)
                     }
                     IconButton(onClick = { onClearSharedInput() }) {
-                        Text("X", color = MutedText)
+                        Text("X", color = com.kosmos.app.ui.theme.TextMuted)
                     }
                 }
             }
@@ -438,8 +508,7 @@ fun ChatInputBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .background(SurfaceCard, shape = RoundedCornerShape(12.dp))
-                    .border(1.dp, Hairline, shape = RoundedCornerShape(12.dp))
+                    .glassEffect(shape = RoundedCornerShape(12.dp))
                     .padding(12.dp)
             ) {
                 Row(
@@ -448,11 +517,11 @@ fun ChatInputBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Document Attached", color = SkyBlue, style = MaterialTheme.typography.bodyMedium)
-                        Text(sharedInput.fileName, color = MutedText, style = MaterialTheme.typography.bodySmall)
+                        Text("Document Attached", color = com.kosmos.app.ui.theme.Cyan, style = MaterialTheme.typography.bodyMedium)
+                        Text(sharedInput.fileName, color = com.kosmos.app.ui.theme.TextMuted, style = MaterialTheme.typography.bodySmall)
                     }
                     IconButton(onClick = { onClearSharedInput() }) {
-                        Text("X", color = MutedText)
+                        Text("X", color = com.kosmos.app.ui.theme.TextMuted)
                     }
                 }
             }
@@ -461,36 +530,36 @@ fun ChatInputBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.Bottom
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .glassEffect(
+                    shape = RoundedCornerShape(28.dp),
+                    borderColor = com.kosmos.app.ui.theme.BorderHighColor
+                )
+                .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = { onAttachClick() },
                 enabled = !isLoading,
-                modifier = Modifier
-                    .padding(end = 8.dp)
-                    .size(48.dp)
-                    .background(SurfaceCard, shape = RoundedCornerShape(24.dp))
-                    .border(1.dp, Hairline, shape = RoundedCornerShape(24.dp))
+                modifier = Modifier.size(40.dp)
             ) {
-                Text(
-                    text = "+", 
-                    color = if (!isLoading) SkyBlue else MutedText,
-                    style = MaterialTheme.typography.titleLarge
+                Icon(
+                    painter = painterResource(id = com.kosmos.app.R.drawable.ic_attach),
+                    contentDescription = "Attach",
+                    tint = if (!isLoading) com.kosmos.app.ui.theme.TextSecondary else com.kosmos.app.ui.theme.TextMuted,
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .background(SurfaceCard, shape = RoundedCornerShape(24.dp))
-                    .border(1.dp, Hairline, shape = RoundedCornerShape(24.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 8.dp)
             ) {
                 if (textState.text.isEmpty()) {
                     Text(
                         text = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.chat_input_hint),
-                        color = MutedText,
+                        color = com.kosmos.app.ui.theme.TextMuted,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -498,14 +567,12 @@ fun ChatInputBar(
                     value = textState,
                     onValueChange = { textState = it },
                     modifier = Modifier.fillMaxWidth(),
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = Ink),
-                    cursorBrush = SolidColor(SkyBlue),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = com.kosmos.app.ui.theme.TextPrimary),
+                    cursorBrush = SolidColor(com.kosmos.app.ui.theme.Cyan),
                     enabled = !isLoading,
                     maxLines = 5
                 )
             }
-            
-            Spacer(modifier = Modifier.width(8.dp))
             
             if (textState.text.isNotBlank()) {
                 IconButton(
@@ -515,29 +582,164 @@ fun ChatInputBar(
                     },
                     enabled = !isLoading,
                     modifier = Modifier
-                        .size(48.dp)
-                        .background(if (!isLoading) SkyBlue else Hairline, shape = RoundedCornerShape(24.dp))
+                        .size(40.dp)
+                        .background(
+                            brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                colors = listOf(com.kosmos.app.ui.theme.Cyan, com.kosmos.app.ui.theme.Violet)
+                            ),
+                            shape = androidx.compose.foundation.shape.CircleShape
+                        )
                 ) {
                     Text(
                         text = "↑", 
-                        color = if (!isLoading) SurfaceCard else MutedText,
+                        color = androidx.compose.ui.graphics.Color.White,
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
             } else {
+                val micBg = if (isRecording) com.kosmos.app.ui.theme.Danger.copy(alpha = 0.2f) else com.kosmos.app.ui.theme.GlassColor
+                val micBorder = if (isRecording) com.kosmos.app.ui.theme.Danger else com.kosmos.app.ui.theme.BorderColor
+                val micIconColor = if (isRecording) com.kosmos.app.ui.theme.Danger else com.kosmos.app.ui.theme.TextSecondary
                 IconButton(
                     onClick = { onMicClick() },
                     enabled = !isLoading,
                     modifier = Modifier
-                        .size(48.dp)
-                        .background(if (!isLoading) (if (isRecording) androidx.compose.ui.graphics.Color.Red else Ink) else Hairline, shape = RoundedCornerShape(24.dp))
+                        .size(40.dp)
+                        .background(micBg, shape = androidx.compose.foundation.shape.CircleShape)
+                        .border(1.dp, micBorder, shape = androidx.compose.foundation.shape.CircleShape)
                 ) {
-                    Text(
-                        text = if (isRecording) "■" else "M", // Mic/Stop placeholder
-                        color = if (!isLoading) SurfaceCard else MutedText,
-                        style = MaterialTheme.typography.titleMedium
+                    Icon(
+                        painter = painterResource(id = if (isRecording) com.kosmos.app.R.drawable.ic_stop else com.kosmos.app.R.drawable.ic_mic),
+                        contentDescription = if (isRecording) "Stop" else "Microphone",
+                        tint = micIconColor,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun CalendarDraftCard(
+    draft: com.kosmos.app.domain.model.CalendarDraft,
+    onApprove: () -> Unit,
+    onReject: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassEffect(
+                backgroundColor = com.kosmos.app.ui.theme.SurfaceColor,
+                shape = RoundedCornerShape(24.dp),
+                borderColor = com.kosmos.app.ui.theme.BorderHighColor
+            )
+            .padding(20.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .background(com.kosmos.app.ui.theme.Cyan, androidx.compose.foundation.shape.CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("K", color = com.kosmos.app.ui.theme.BgColor, fontSize = 12.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                "Kosmos suggests an event",
+                color = com.kosmos.app.ui.theme.TextMuted,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassEffect(
+                    backgroundColor = com.kosmos.app.ui.theme.GlassColor,
+                    shape = RoundedCornerShape(16.dp)
+                )
+                .border(1.dp, com.kosmos.app.ui.theme.BorderColor, RoundedCornerShape(16.dp))
+                .padding(16.dp)
+        ) {
+            Column {
+                Text(
+                    text = draft.title,
+                    color = com.kosmos.app.ui.theme.TextPrimary,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("📅", fontSize = 14.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = draft.startIso.take(10),
+                        color = com.kosmos.app.ui.theme.TextSecondary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🕒", fontSize = 14.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "${draft.startIso.takeLast(5)} - ${draft.endIso?.takeLast(5) ?: ""}",
+                        color = com.kosmos.app.ui.theme.TextSecondary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (draft.note != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text("💬", fontSize = 14.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = draft.note ?: "",
+                            color = com.kosmos.app.ui.theme.TextMuted,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onReject() }
+                    .background(com.kosmos.app.ui.theme.Danger.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                    .border(1.dp, com.kosmos.app.ui.theme.BorderColor, RoundedCornerShape(12.dp))
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Reject", color = com.kosmos.app.ui.theme.Danger, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onApprove() }
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                            colors = listOf(com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.2f), com.kosmos.app.ui.theme.Violet.copy(alpha = 0.2f))
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .border(1.dp, com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Approve & Save", color = com.kosmos.app.ui.theme.Cyan, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             }
         }
     }

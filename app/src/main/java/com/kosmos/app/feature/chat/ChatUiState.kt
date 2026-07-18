@@ -18,5 +18,6 @@ data class ChatUiState(
     val streamingThinking: String? = null,
     val warningMessage: String? = null,
     val engineState: ModelLoadState = ModelLoadState.Loading,
-    val isRecording: Boolean = false
+    val isRecording: Boolean = false,
+    val pendingCalendarDraft: com.kosmos.app.domain.model.CalendarDraft? = null
 )

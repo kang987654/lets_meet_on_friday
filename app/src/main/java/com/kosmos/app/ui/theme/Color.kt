@@ -2,22 +2,28 @@ package com.kosmos.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val SkyBlue = Color(0xFF5BC2E7)
-val SkyBlueStrong = Color(0xFF39AED8)
-val SkyBlueSoft = Color(0xFFEAF8FD)
+val BgColor = Color(0xFF040D1F)
+val SurfaceColor = Color(0xFF071526)
+val GlassColor = Color(0x0DFFFFFF) // ~0.05
+val GlassMidColor = Color(0x14FFFFFF) // ~0.08
+val GlassHighColor = Color(0x1EFFFFFF) // ~0.12
+val BorderColor = Color(0x14FFFFFF) // ~0.08
+val BorderHighColor = Color(0x26FFFFFF) // ~0.15
 
-val Ink = Color(0xFF1F2A33)
-val BodyText = Color(0xFF42515C)
-val MutedText = Color(0xFF758390)
+val Cyan = Color(0xFF22D3EE)
+val CyanDim = Color(0x2622D3EE) // ~0.15
+val CyanGlow = Color(0x4D22D3EE) // ~0.3
 
-val Canvas = Color(0xFFF7FBFD)
-val SurfaceCard = Color(0xFFFFFFFF)
-val Hairline = Color(0xFFD9E6EC)
+val Violet = Color(0xFF818CF8)
+val VioletDim = Color(0x26818CF8) // ~0.15
 
-val SemanticSuccess = Color(0xFF2FA36B)
-val SemanticWarning = Color(0xFFF4A62A)
-val SemanticDanger = Color(0xFFE35D5D)
-val SemanticInfo = SkyBlue
+val Success = Color(0xFF34D399)
+val SuccessDim = Color(0x2634D399)
 
-val OnPrimary = Color(0xFFFFFFFF)
-val Overlay = Color(0x84141E26) // rgba(20, 30, 38, 0.52) - 0.52 * 255 = 132 = 0x84
+val Danger = Color(0xFFF87171)
+val DangerDim = Color(0x26F87171)
+
+val TextPrimary = Color(0xFFF1F5F9)
+val TextSecondary = Color(0xFF94A3B8)
+val TextMuted = Color(0xFF475569)
+val Amber = Color(0xFFFBBF24)

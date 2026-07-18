@@ -97,10 +97,16 @@ class PromptAssembler @Inject constructor() {
                       Args: {"date": "string ('today' or 'week')"}
                 """.trimIndent())
             }
-            if (availableTools == null || availableTools.contains("SearchWeb")) {
+            if (availableTools == null || availableTools.contains("AddMemory")) {
                 appendLine("""
-                    - "SearchWeb": Searches the web for information.
-                      Args: {"query": "string"}
+                    - "AddMemory": Saves permanent knowledge, facts, or preferences about the user.
+                      Args: {"content": "string (the fact to remember)", "tags": "string array (e.g. ['food', 'preference'])"}
+                """.trimIndent())
+            }
+            if (availableTools == null || availableTools.contains("SearchWikipedia")) {
+                appendLine("""
+                    - "SearchWikipedia": Query summary and infobox from Wikipedia for a given topic.
+                      Args: {"topic": "string (search keyword)", "lang": "string (e.g. 'ko' or 'en')"}
                 """.trimIndent())
             }
         }.trimEnd()

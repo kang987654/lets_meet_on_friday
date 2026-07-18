@@ -17,15 +17,29 @@ import com.kosmos.app.feature.chat.ChatScreen
 fun AppNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
-    startDestination: String = AppDestination.Chat.route
+    startDestination: String = AppDestination.Splash.route
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination,
         modifier = modifier
     ) {
+        composable(route = AppDestination.Splash.route) {
+            com.kosmos.app.feature.splash.SplashScreen(
+                onInitializationComplete = {
+                    navController.navigate(AppDestination.Chat.route) {
+                        popUpTo(AppDestination.Splash.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
         composable(route = AppDestination.Chat.route) {
-            ChatScreen()
+            ChatScreen(
+                onSettingsClick = {
+                    navController.navigate(AppDestination.Settings.route)
+                }
+            )
         }
         
         composable(route = AppDestination.Calendar.route) {

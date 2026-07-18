@@ -1,0 +1,10 @@
+{
+  "description": "This on-device AI assistant app offers a private and intelligent experience for users, enabling seamless text and voice interactions, schedule management, and task organization.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

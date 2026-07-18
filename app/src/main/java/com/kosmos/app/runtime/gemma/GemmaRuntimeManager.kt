@@ -50,6 +50,10 @@ class GemmaRuntimeManager @Inject constructor(
         _loadState.value = ModelLoadState.InitializingEngine
     }
 
+    override fun setReady(modelInfo: ModelInfo) {
+        _loadState.value = ModelLoadState.Ready(modelInfo)
+    }
+
     override fun checkModelFile() {
         val externalModelsDir = context.getExternalFilesDir("models")
         val internalModelsDir = File(context.filesDir, "models")
@@ -76,7 +80,7 @@ class GemmaRuntimeManager @Inject constructor(
         }
 
         if (modelFile != null) {
-            _loadState.value = ModelLoadState.Ready(
+            _loadState.value = ModelLoadState.FileFound(
                 ModelInfo(
                     modelId = "gemma-4-e4b-it",
                     modelPath = modelFile.absolutePath,

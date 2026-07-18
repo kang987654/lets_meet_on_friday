@@ -16,6 +16,7 @@ data class KnowledgeEntity(
     val content: String,
     val sourceSessionId: String?,
     val tags: String, // CSV format
+    val embedding: String, // Comma-separated floats
     val createdAt: Long,
     val updatedAt: Long
 )

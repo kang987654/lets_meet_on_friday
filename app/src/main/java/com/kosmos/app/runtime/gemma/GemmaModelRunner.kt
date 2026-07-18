@@ -295,13 +295,14 @@ class GemmaModelRunner @Inject constructor(
     }
 
     override suspend fun warmUp() {
+        runtimeManager.checkModelFile() // Re-check file existence in case user just added it
         val currentState = runtimeManager.loadState.value
-        if (currentState is ModelLoadState.Ready) {
+        if (currentState is ModelLoadState.FileFound) {
             runtimeManager.setInitializing()
             withContext(Dispatchers.IO) {
                 ensureInferenceInitialized(currentState.modelInfo.modelPath)
             }
-            runtimeManager.checkModelFile() // restores to Ready after load
+            runtimeManager.setReady(currentState.modelInfo)
         }
     }
 

@@ -20,10 +20,12 @@ class SettingsViewModel @Inject constructor(
 
     val uiState: StateFlow<SettingsUiState> = combine(
         settingsDataStore.responseStyleFlow,
+        settingsDataStore.maxTokensFlow,
         runtimeManager.loadState
-    ) { responseStyle, loadState ->
+    ) { responseStyle, maxTokens, loadState ->
         SettingsUiState(
             responseStyle = responseStyle,
+            maxTokens = maxTokens,
             modelLoadState = loadState
         )
     }.stateIn(
@@ -35,6 +37,12 @@ class SettingsViewModel @Inject constructor(
     fun onResponseStyleChanged(style: String) {
         viewModelScope.launch {
             settingsDataStore.saveResponseStyle(style)
+        }
+    }
+
+    fun onMaxTokensChanged(tokens: Int) {
+        viewModelScope.launch {
+            settingsDataStore.saveMaxTokens(tokens)
         }
     }
 

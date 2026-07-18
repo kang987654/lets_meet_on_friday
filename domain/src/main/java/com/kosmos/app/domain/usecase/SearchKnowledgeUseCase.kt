@@ -2,11 +2,13 @@ package com.kosmos.app.domain.usecase
 
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.memory.KnowledgeRepository
+import com.kosmos.app.domain.memory.TextEmbedder
 import com.kosmos.app.domain.model.KnowledgeNote
 import javax.inject.Inject
 
 class SearchKnowledgeUseCase @Inject constructor(
-    private val repository: KnowledgeRepository
+    private val repository: KnowledgeRepository,
+    private val textEmbedder: TextEmbedder
 ) {
     /**
      * @param query 검색어 (없으면 무시)
@@ -16,33 +18,22 @@ class SearchKnowledgeUseCase @Inject constructor(
     suspend operator fun invoke(
         query: String? = null,
         tags: List<String>? = null,
-        limit: Int = 10
+        limit: Int = 3 // RAG용이므로 3개 정도로 축소
     ): AppResult<List<KnowledgeNote>> {
         val hasQuery = !query.isNullOrBlank()
-        val hasTags = !tags.isNullOrEmpty()
 
-        return when {
-            hasQuery && !hasTags -> {
+        return if (hasQuery) {
+            val embeddingResult = textEmbedder.embed(query as String)
+            if (embeddingResult is AppResult.Success) {
+                // Vector search (가장 정확한 방법)
+                repository.searchByVector(embeddingResult.data, limit)
+            } else {
+                // Embedder 실패 시 Fallback으로 일반 텍스트 검색 수행
                 repository.search(query, limit)
             }
-            !hasQuery && hasTags -> {
-                repository.searchByTags(tags, limit)
-            }
-            hasQuery && hasTags -> {
-                // 둘 다 있는 경우: (임시 구현) Query로 찾은 것 중 태그 필터링
-                when (val result = repository.search(query, limit)) {
-                    is AppResult.Success -> {
-                        val filtered = result.data.filter { note ->
-                            tags.any { tag -> note.tags.contains(tag) }
-                        }
-                        AppResult.Success(filtered.take(limit))
-                    }
-                    is AppResult.Failure -> result
-                }
-            }
-            else -> {
-                repository.searchRecent(limit)
-            }
+        } else {
+            // query가 없으면 최근 기록 반환
+            repository.searchRecent(limit)
         }
     }
 }

@@ -29,11 +29,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.kosmos.app.ui.theme.Ink
-import com.kosmos.app.ui.theme.MutedText
-import com.kosmos.app.ui.theme.SemanticDanger
-import com.kosmos.app.ui.theme.SkyBlue
-import com.kosmos.app.ui.theme.SurfaceCard
+import com.kosmos.app.ui.theme.TextPrimary
+import com.kosmos.app.ui.theme.TextMuted
+import com.kosmos.app.ui.theme.Danger
+import com.kosmos.app.ui.theme.Cyan
+import com.kosmos.app.ui.theme.GlassColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,7 +56,7 @@ fun VoiceOverlay(
             onDismiss()
         },
         sheetState = sheetState,
-        containerColor = SurfaceCard,
+        containerColor = GlassColor,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -70,24 +70,24 @@ fun VoiceOverlay(
                     Text(
                         text = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.voice_listening),
                         style = MaterialTheme.typography.headlineMedium,
-                        color = Ink
+                        color = TextPrimary
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     
                     Box(
                         modifier = Modifier
                             .size(80.dp)
-                            .background(SkyBlue.copy(alpha = 0.2f), shape = RoundedCornerShape(40.dp))
+                            .background(Cyan.copy(alpha = 0.2f), shape = RoundedCornerShape(40.dp))
                             .padding(20.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(modifier = Modifier.size(24.dp).background(SkyBlue, shape = RoundedCornerShape(12.dp)))
+                        Box(modifier = Modifier.size(24.dp).background(Cyan, shape = RoundedCornerShape(12.dp)))
                     }
                     
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
                         onClick = { viewModel.stopListening() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Ink)
+                        colors = ButtonDefaults.buttonColors(containerColor = TextPrimary)
                     ) {
                         Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.done))
                     }
@@ -96,17 +96,17 @@ fun VoiceOverlay(
                     Text(
                         text = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.voice_transcribing),
                         style = MaterialTheme.typography.headlineMedium,
-                        color = Ink
+                        color = TextPrimary
                     )
                     Spacer(modifier = Modifier.height(32.dp))
-                    CircularProgressIndicator(color = SkyBlue)
+                    CircularProgressIndicator(color = Cyan)
                     Spacer(modifier = Modifier.height(32.dp))
                 }
                 is VoiceUiState.Success -> {
                     Text(
                         text = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.voice_confirm_title),
                         style = MaterialTheme.typography.headlineMedium,
-                        color = Ink
+                        color = TextPrimary
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     
@@ -119,7 +119,7 @@ fun VoiceOverlay(
                         Text(
                             text = state.transcript,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Ink,
+                            color = TextPrimary,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -138,7 +138,7 @@ fun VoiceOverlay(
                             },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.cancel), color = MutedText)
+                            Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.cancel), color = TextMuted)
                         }
                         Button(
                             onClick = {
@@ -147,7 +147,7 @@ fun VoiceOverlay(
                                 onDismiss()
                             },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = SkyBlue)
+                            colors = ButtonDefaults.buttonColors(containerColor = Cyan)
                         ) {
                             Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.send))
                         }
@@ -157,13 +157,13 @@ fun VoiceOverlay(
                     Text(
                         text = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.voice_error_title),
                         style = MaterialTheme.typography.headlineMedium,
-                        color = SemanticDanger
+                        color = Danger
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = state.message,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MutedText
+                        color = TextMuted
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
@@ -171,7 +171,7 @@ fun VoiceOverlay(
                             viewModel.reset()
                             onDismiss()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Ink)
+                        colors = ButtonDefaults.buttonColors(containerColor = TextPrimary)
                     ) {
                         Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.close))
                     }

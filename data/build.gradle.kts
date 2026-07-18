@@ -16,6 +16,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    packaging {
+    }
 }
 
 ksp {
@@ -41,6 +44,9 @@ dependencies {
 
     // Network
     implementation(libs.okhttp)
+    
+    // MediaPipe
+    implementation(libs.mediapipe.tasks.text)
 
     // Serialization
     implementation(libs.kotlinx.serialization.json)

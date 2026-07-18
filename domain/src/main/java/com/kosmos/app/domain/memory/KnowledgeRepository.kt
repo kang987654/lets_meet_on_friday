@@ -15,5 +15,6 @@ interface KnowledgeRepository {
     suspend fun search(query: String, limit: Int = 10): AppResult<List<KnowledgeNote>>
     suspend fun searchRecent(limit: Int = 10): AppResult<List<KnowledgeNote>>
     suspend fun searchByTags(tags: List<String>, limit: Int = 10): AppResult<List<KnowledgeNote>>
+    suspend fun searchByVector(queryEmbedding: FloatArray, limit: Int = 3): AppResult<List<KnowledgeNote>>
     fun getPagedData(): Flow<PagingData<KnowledgeNote>>
 }

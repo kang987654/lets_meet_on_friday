@@ -54,7 +54,8 @@ class ChatViewModel @Inject constructor(
     private val shareIntentHandler: ShareIntentHandler,
     private val runtimeMetricsCollector: RuntimeMetricsCollector,
     private val modelRunner: ModelRunner,
-    private val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder
+    private val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder,
+    private val addScheduleUseCase: com.kosmos.app.domain.usecase.AddScheduleUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -94,12 +95,6 @@ class ChatViewModel @Inject constructor(
 
     fun setSharedInput(input: com.kosmos.app.platform.share.SharedInput?) {
         _uiState.update { it.copy(sharedInput = input) }
-    }
-
-    fun warmUpEngine() {
-        viewModelScope.launch {
-            modelRunner.warmUp()
-        }
     }
 
     private fun observeThermalWarning() {
@@ -264,9 +259,7 @@ class ChatViewModel @Inject constructor(
                         if (agentResult.actionCard.actionType == com.kosmos.app.domain.model.ActionCard.ActionType.CALENDAR_DRAFT) {
                             val draftPayload = agentResult.actionCard.payload as? com.kosmos.app.domain.model.ActionPayload.CalendarDraftPayload
                             if (draftPayload != null) {
-                                // 기존에 ApprovalRequest를 사용하는 로직이 있다면 연동
-                                // 임시적으로 UI에 ActionCard 정보를 표시하거나 Pending 상태로 만듦
-                                // (실제 프로젝트 정책에 맞게 ApprovalCoordinator.requestApproval() 호출)
+                                _uiState.update { it.copy(pendingCalendarDraft = draftPayload.draft) }
                             }
                         }
                         // TODO: Action 카드를 ChatMessage로 저장하거나 별도의 UI State로 노출
@@ -285,6 +278,23 @@ class ChatViewModel @Inject constructor(
     fun rejectPendingRequest() {
         approvalCoordinator.consumePending() ?: return
         approvalCoordinator.reject()
+    }
+
+    fun approveCalendarDraft() {
+        val draft = _uiState.value.pendingCalendarDraft ?: return
+        viewModelScope.launch {
+            addScheduleUseCase(
+                title = draft.title,
+                startTime = draft.startIso,
+                endTime = draft.endIso ?: "",
+                description = draft.note
+            )
+            _uiState.update { it.copy(pendingCalendarDraft = null) }
+        }
+    }
+
+    fun rejectCalendarDraft() {
+        _uiState.update { it.copy(pendingCalendarDraft = null) }
     }
 
     fun toggleRecording() {

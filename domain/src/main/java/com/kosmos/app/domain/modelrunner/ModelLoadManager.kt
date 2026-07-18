@@ -6,4 +6,5 @@ interface ModelLoadManager {
     val loadState: StateFlow<ModelLoadState>
     fun checkModelFile()
     fun setInitializing()
+    fun setReady(modelInfo: ModelInfo)
 }

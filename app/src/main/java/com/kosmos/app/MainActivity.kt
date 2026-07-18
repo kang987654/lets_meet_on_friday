@@ -40,12 +40,14 @@ class MainActivity : ComponentActivity() {
         shareIntentHandler.handleIntent(intent)
 
         setContent {
-            MaterialTheme {
+            com.kosmos.app.ui.theme.KosmosTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen()
+                    com.kosmos.app.ui.component.AuroraBackground {
+                        MainScreen()
+                    }
                 }
             }
         }

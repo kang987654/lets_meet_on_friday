@@ -14,8 +14,10 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.unit.dp
 import com.kosmos.app.navigation.AppDestination
 import com.kosmos.app.navigation.AppNavHost
+import com.kosmos.app.ui.component.glassEffect
 
 @Composable
 fun MainScreen() {
@@ -24,17 +26,20 @@ fun MainScreen() {
     val currentRoute = navBackStackEntry?.destination?.route
 
     Scaffold(
+        containerColor = Color.Transparent,
         bottomBar = {
             NavigationBar(
-                containerColor = Color.White
+                modifier = Modifier.glassEffect(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                ),
+                containerColor = Color.Transparent
             ) {
-                val SkyBlue = Color(0xFF5BC2E7)
+                val SkyBlue = com.kosmos.app.ui.theme.Cyan
 
                 val items = listOf(
                     BottomNavItem("채팅", AppDestination.Chat.route),
                     BottomNavItem("일정", AppDestination.Calendar.route),
-                    BottomNavItem("메모리", AppDestination.Memory.route),
-                    BottomNavItem("설정", AppDestination.Settings.route)
+                    BottomNavItem("메모리", AppDestination.Memory.route)
                 )
 
                 items.forEach { item ->
@@ -54,9 +59,9 @@ fun MainScreen() {
                         },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = SkyBlue,
-                            unselectedIconColor = Color.Gray,
+                            unselectedIconColor = com.kosmos.app.ui.theme.TextMuted,
                             selectedTextColor = SkyBlue,
-                            unselectedTextColor = Color.Gray,
+                            unselectedTextColor = com.kosmos.app.ui.theme.TextMuted,
                             indicatorColor = SkyBlue.copy(alpha = 0.1f)
                         )
                     )
