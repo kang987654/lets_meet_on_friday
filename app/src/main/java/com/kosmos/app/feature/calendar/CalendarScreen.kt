@@ -53,9 +53,14 @@ fun CalendarScreen(
             contentPadding = PaddingValues(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            val days = listOf("Mon" to "14", "Tue" to "15", "Wed" to "16", "Thu" to "17", "Fri" to "18", "Sat" to "19", "Sun" to "20")
+            val today = java.time.LocalDate.now()
+            val days = (0..6).map { i ->
+                val date = today.plusDays(i.toLong())
+                val dayStr = date.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+                Triple(dayStr, date.dayOfMonth.toString(), date == today)
+            }
             items(days.size) { i ->
-                DatePill(dayOfWeek = days[i].first, dayOfMonth = days[i].second, isSelected = i == 3) // Hardcoded selection for UI design match
+                DatePill(dayOfWeek = days[i].first, dayOfMonth = days[i].second, isSelected = days[i].third) 
             }
         }
 
@@ -129,38 +134,7 @@ fun ScheduleContent(data: ScheduleData) {
             TodayEventCard(event, color)
         }
 
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "UPCOMING",
-                color = com.kosmos.app.ui.theme.TextMuted,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
-        }
 
-        // Upcoming section (mocked visually based on Figma)
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassEffect(
-                        backgroundColor = com.kosmos.app.ui.theme.GlassColor,
-                        borderColor = com.kosmos.app.ui.theme.BorderColor,
-                        shape = RoundedCornerShape(16.dp)
-                    )
-            ) {
-                Column {
-                    UpcomingEventRow("Q3 Review Prep", "Tomorrow · 2:00 PM", com.kosmos.app.ui.theme.Cyan)
-                    Divider(color = com.kosmos.app.ui.theme.BorderColor, thickness = 1.dp)
-                    UpcomingEventRow("Design Sync", "Fri, Jul 19 · 10:00 AM", com.kosmos.app.ui.theme.Violet)
-                    Divider(color = com.kosmos.app.ui.theme.BorderColor, thickness = 1.dp)
-                    UpcomingEventRow("Sprint Planning", "Mon, Jul 22 · 9:00 AM", com.kosmos.app.ui.theme.Success)
-                }
-            }
-        }
 
         item { Spacer(modifier = Modifier.height(80.dp)) } // padding for bottom nav
     }
@@ -196,38 +170,11 @@ fun TodayEventCard(event: CalendarEvent, stripColor: Color) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(text = event.title, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
-            
-            // Duration pill
-            Box(modifier = Modifier.padding(end = 16.dp).align(Alignment.CenterVertically)) {
-                Box(
-                    modifier = Modifier
-                        .background(com.kosmos.app.ui.theme.BgColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                        .border(1.dp, com.kosmos.app.ui.theme.BorderColor, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(text = "30m", color = com.kosmos.app.ui.theme.TextSecondary, style = MaterialTheme.typography.labelSmall)
-                }
-            }
         }
     }
 }
 
-@Composable
-fun UpcomingEventRow(title: String, timeDesc: String, dotColor: Color) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(modifier = Modifier.size(8.dp).background(dotColor, androidx.compose.foundation.shape.CircleShape))
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = timeDesc, color = com.kosmos.app.ui.theme.TextMuted, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
-        }
-        Text(">", color = com.kosmos.app.ui.theme.TextMuted, fontWeight = FontWeight.Bold)
-    }
-}
+
 
 private fun formatIsoString(iso: String): String {
     return try {

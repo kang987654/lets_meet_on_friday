@@ -30,11 +30,6 @@ abstract class PlatformModule {
     ): CalendarTool
 
     @Binds
-    abstract fun bindWebSearchTool(
-        impl: com.kosmos.app.platform.network.WebSearchGateway
-    ): com.kosmos.app.domain.tool.WebSearchTool
-
-    @Binds
     abstract fun bindTemperatureProvider(
         impl: com.kosmos.app.platform.device.BatteryTemperatureProvider
     ): com.kosmos.app.platform.device.TemperatureProvider

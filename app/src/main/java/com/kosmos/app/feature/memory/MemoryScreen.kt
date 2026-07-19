@@ -61,6 +61,13 @@ fun MemoryScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(com.kosmos.app.ui.theme.BgColor)) {
+        Text(
+            text = "Memory & Tasks",
+            style = MaterialTheme.typography.headlineMedium,
+            color = com.kosmos.app.ui.theme.TextPrimary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 8.dp)
+        )
         // Top Tabs
         Row(
             modifier = Modifier
@@ -85,6 +92,11 @@ fun MemoryScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         if (uiState.selectedFilter == MemoryFilterType.TASK) {
+            val pendingCount = taskItems.itemSnapshotList.count { it?.isCompleted == false }
+            val doneCount = taskItems.itemSnapshotList.count { it?.isCompleted == true }
+            val totalCount = pendingCount + doneCount
+            val progress = if (totalCount > 0) doneCount.toFloat() / totalCount else 0f
+
             // Stats & Progress
             Row(
                 modifier = Modifier
@@ -94,7 +106,7 @@ fun MemoryScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "3 pending  ·  2 done",
+                    text = "$pendingCount pending  ·  $doneCount done",
                     style = MaterialTheme.typography.labelMedium,
                     color = com.kosmos.app.ui.theme.TextSecondary
                 )
@@ -106,8 +118,8 @@ fun MemoryScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.4f)
                             .fillMaxHeight()
+                            .fillMaxWidth(progress)
                             .background(com.kosmos.app.ui.theme.Success, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
                     )
                 }
@@ -193,11 +205,28 @@ fun MemoryScreen(
                                 Text(text = note.content, style = MaterialTheme.typography.bodyLarge, color = com.kosmos.app.ui.theme.TextPrimary)
                                 if (note.tags.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = note.tags.joinToString(" • "),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = com.kosmos.app.ui.theme.TextMuted
-                                    )
+                                    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                                    androidx.compose.foundation.layout.FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        note.tags.forEach { tag ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(
+                                                        color = com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.15f),
+                                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                                    )
+                                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                                            ) {
+                                                Text(
+                                                    text = tag,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = com.kosmos.app.ui.theme.Cyan
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

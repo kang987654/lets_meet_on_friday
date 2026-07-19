@@ -43,7 +43,7 @@ class GetTodayScheduleUseCase @Inject constructor(
                     id = task.id,
                     title = task.title,
                     startIso = dueIso,
-                    endIso = dueIso, // 종료 시간 배제, 시작 시간 단일 사용
+                    endIso = dueIso,
                     location = null,
                     description = null
                 )

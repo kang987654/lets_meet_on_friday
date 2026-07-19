@@ -146,17 +146,9 @@ class ChatViewModel @Inject constructor(
 
     private fun extractImageBytes(uri: Uri): ByteArray? {
         return try {
-            val bitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                android.graphics.ImageDecoder.decodeBitmap(
-                    android.graphics.ImageDecoder.createSource(context.contentResolver, uri)
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                inputStream.readBytes()
             }
-            val outputStream = java.io.ByteArrayOutputStream()
-            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, outputStream)
-            outputStream.toByteArray()
         } catch (e: Exception) {
             e.printStackTrace()
             null
@@ -300,14 +292,16 @@ class ChatViewModel @Inject constructor(
     fun toggleRecording() {
         if (_uiState.value.isRecording) {
             _uiState.update { it.copy(isRecording = false) }
-            val result = audioRecorder.stopRecording()
-            if (result is com.kosmos.app.core.common.AppResult.Success) {
-                val file = result.data
-                if (file.exists()) {
-                    sendMessage("", file.absolutePath)
+            viewModelScope.launch {
+                val result = audioRecorder.stopRecording()
+                if (result is com.kosmos.app.core.common.AppResult.Success) {
+                    val file = result.data
+                    if (file.exists()) {
+                        sendMessage("", file.absolutePath)
+                    }
+                } else if (result is com.kosmos.app.core.common.AppResult.Failure) {
+                    _uiState.update { it.copy(error = result.error) }
                 }
-            } else if (result is com.kosmos.app.core.common.AppResult.Failure) {
-                _uiState.update { it.copy(error = result.error) }
             }
         } else {
             val result = audioRecorder.startRecording()

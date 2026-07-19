@@ -12,6 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.collectLatest
@@ -44,7 +47,7 @@ fun SettingsScreen(
         )
 
         // 1. Model Status Section
-        SectionCard(title = "Local AI Model (Gemma)") {
+        SectionBox(title = "LOCAL AI MODEL (GEMMA)") {
             when (val state = uiState.modelLoadState) {
                 is ModelLoadState.Loading -> {
                     CircularProgressIndicator(color = com.kosmos.app.ui.theme.Cyan)
@@ -147,7 +150,7 @@ fun SettingsScreen(
         }
 
         // 2. Response Style Section
-        SectionCard(title = "Response Style") {
+        SectionBox(title = "RESPONSE STYLE") {
             val styles = listOf("CONCISE", "DEFAULT", "DETAILED")
             Row(
                 modifier = Modifier
@@ -179,20 +182,22 @@ fun SettingsScreen(
         }
         
         // 3. Context Window Section
-        SectionCard(title = "Context Window (Max Tokens)") {
+        SectionBox(title = "CONTEXT WINDOW") {
             Column {
+                var sliderValue by remember(uiState.maxTokens) { mutableStateOf(uiState.maxTokens.toFloat()) }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("Token Limit", color = com.kosmos.app.ui.theme.TextPrimary)
-                    Text("${uiState.maxTokens} Tokens", color = com.kosmos.app.ui.theme.Cyan, fontWeight = FontWeight.Bold)
+                    Text("${sliderValue.toInt()} Tokens", color = com.kosmos.app.ui.theme.Cyan, fontWeight = FontWeight.Bold)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Slider(
-                    value = uiState.maxTokens.toFloat(),
-                    onValueChange = { viewModel.onMaxTokensChanged(it.toInt()) },
+                    value = sliderValue,
+                    onValueChange = { sliderValue = it },
+                    onValueChangeFinished = { viewModel.onMaxTokensChanged(sliderValue.toInt()) },
                     valueRange = 1000f..8000f,
                     steps = 6, // 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000 -> 7 intervals, 6 steps
                     colors = SliderDefaults.colors(
@@ -210,7 +215,7 @@ fun SettingsScreen(
         }
 
         // 4. Security & Audit Section
-        SectionCard(title = "Security & Logs") {
+        SectionBox(title = "SECURITY & LOGS") {
             Text(
                 text = "View the history of model executions and API calls.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -237,7 +242,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SectionCard(
+private fun SectionBox(
     title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -255,12 +260,22 @@ private fun SectionCard(
                 .fillMaxWidth()
                 .padding(20.dp)
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = com.kosmos.app.ui.theme.TextPrimary
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = null,
+                    tint = com.kosmos.app.ui.theme.TextMuted,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 12.sp),
+                    fontWeight = FontWeight.Bold,
+                    color = com.kosmos.app.ui.theme.TextMuted,
+                    letterSpacing = 1.sp
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
             content()
         }

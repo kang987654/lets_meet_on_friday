@@ -1,3 +1,18 @@
+## [0.5.4] - 2026-07-19
+- **[Refactoring]** 기술 부채 청산, 하드코딩된 더미 UI 제거 및 최적화
+  - **`CalendarScreen.kt`**: 피그마 시안 확인용으로 하드코딩되었던 "Upcoming" 섹션 및 가짜 일정 행(`UpcomingEventRow`), 일정 시간 배지("30m") 제거 (DB 연동 순수 데이터만 출력)
+  - **`ChatViewModel.kt` & `ImageInputAdapter.kt`**: 첨부 이미지 이중 압축 버그 해결. ViewModel에서 Raw Bytes만 추출하고 Adapter에서 단방향(단일) 압축(JPEG)을 수행하도록 파이프라인 리팩토링 및 딜레이 감소
+  - **`WebSearchGateway.kt`**: 테스트용 가짜 지연 코드 및 Mock 검색 파일(`WebSearchTool.kt`, `SearchToolExecutor.kt`) 완전 삭제 및 Hilt(`PlatformModule`) 의존성 정리
+
+## [0.5.3] - 2026-07-19
+- **[UI/UX Hotfix]** Phase 3 피그마 스펙 완전 동기화 및 잔여 버그 수정 (2:32 AM 기준 리셋 후 재적용)
+  - **`OrbPulse.kt`**: 메인 커버 애니메이션의 회전축을 중앙(`pivot = Offset.Zero`)으로 고정하여 궤도 이탈 글리치 수정
+  - **`MainScreen.kt`**: 바텀 네비게이션 뒤로가기(Back) 누를 시 백스택 꼬임 현상을 방지하기 위해 `popUpTo(Chat.route)`로 홈 복귀 강제
+  - **`MemoryScreen.kt`**: 누락되었던 상단 "Memory & Tasks" 메인 헤더 복구 및 태그(Knowledge) 칩에 둥근 모서리/Glassmorphism 스타일 적용
+  - **`CalendarScreen.kt`**: "14~20일"로 하드코딩 되어있던 날짜 스크롤 바를 `LocalDate.now()` 기반으로 동적 생성하도록 수정
+  - **`ChatScreen.kt`**: 하단 전송 버튼을 종이비행기 모양(`ic_send.xml`) 에셋으로 교체하고, 마이크 버튼과의 전환 시 `AnimatedContent`를 적용하여 렌더링 글리치(네모->원형 깨짐) 원천 차단
+  - **`SettingsScreen.kt`**: 피그마 Phase 3 명세에 따라 `SectionBox` 대문자 타이틀 및 `Icons.Settings` 등 디테일 컴포넌트로 전면 교체
+
 ## [0.5.2] - 2026-07-18
 - **[UI/UX Hotfix]** 기획안(Phase 2) 누락분 `ChatScreen.kt` 피그마 UI 완전 동기화 및 마이그레이션 적용
   - 상단바: 기본 TopAppBar를 KOSMOS 커스텀 헤더(`CustomChatHeader`)로 교체 및 펄스 애니메이션이 들어간 초록색 상태 뱃지(`PulseGreenDot`) 구현

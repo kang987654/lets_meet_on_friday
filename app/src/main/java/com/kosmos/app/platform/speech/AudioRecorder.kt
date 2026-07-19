@@ -12,6 +12,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
@@ -87,7 +88,7 @@ open class AudioRecorder @Inject constructor(
         }
     }
 
-    open fun stopRecording(): com.kosmos.app.core.common.AppResult<File> {
+    suspend fun stopRecording(): com.kosmos.app.core.common.AppResult<File> {
         return try {
             isRecording = false
             audioRecord?.apply {
@@ -96,7 +97,7 @@ open class AudioRecorder @Inject constructor(
             }
             audioRecord = null
             
-            recordingJob?.cancel()
+            recordingJob?.cancelAndJoin()
             recordingJob = null
 
             val file = outputFile
@@ -110,7 +111,7 @@ open class AudioRecorder @Inject constructor(
             Log.e(TAG, "Failed to stop recording", e)
             audioRecord?.release()
             audioRecord = null
-            recordingJob?.cancel()
+            recordingJob?.cancelAndJoin()
             com.kosmos.app.core.common.AppResult.Failure(com.kosmos.app.core.common.AppError.SttError(e.message ?: "Failed to stop recording"))
         }
     }

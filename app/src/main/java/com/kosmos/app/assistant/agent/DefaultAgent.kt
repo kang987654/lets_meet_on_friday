@@ -49,7 +49,7 @@ class DefaultAgent @Inject constructor(
 
     override fun assemblePrompt(context: ContextBuilder.Context, userInput: String): ChatPrompt {
         // 일상 대화 또는 기본 봇 프롬프트 조합 (기본 도구 사용)
-        val availableTools = listOf("SearchWeb") // 캘린더 제외
+        val availableTools = listOf("SearchWikipedia") // 캘린더 제외
         return promptAssembler.assembleWithTools(context, userInput, availableTools, systemRole = "General Assistant")
     }
 }

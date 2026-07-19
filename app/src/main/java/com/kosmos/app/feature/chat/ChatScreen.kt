@@ -41,6 +41,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
@@ -83,6 +87,19 @@ import android.Manifest
  * 4. [스타일링] Figma 스펙(Phase 2)에 맞춘 Glassmorphism 기반의 유려한 컴포넌트(비대칭 모서리, 그라데이션)로 사용자 경험 극대화
  */
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * ChatScreen: 핵심 화면 (Main View)
+ * 
+ * [Architecture Context]
+ * - Layer: UI (Presentation)
+ * - Dependencies: ChatViewModel (Hilt), ModelRunner (Domain)
+ * 
+ * [Key Flow]
+ * 1. 사용자가 하단 ChatInputBar를 통해 텍스트/음성 메시지를 입력
+ * 2. ViewModel로 전달되어 Local LLM(Gemma)에 의해 추론 수행
+ * 3. 응답이 스트리밍되어 LazyColumn에 실시간 업데이트됨
+ * 4. 상단 헤더(CustomChatHeader)를 통해 AI 상태(Loading, Ready 등) 표시
+ */
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
@@ -305,7 +322,12 @@ fun CustomChatHeader(onSettingsClick: () -> Unit = {}) {
                 .size(36.dp)
                 .glassEffect(shape = androidx.compose.foundation.shape.CircleShape)
         ) {
-            Text("⚙️", fontSize = 16.sp)
+            androidx.compose.material3.Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "Settings",
+                tint = com.kosmos.app.ui.theme.TextSecondary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -574,46 +596,55 @@ fun ChatInputBar(
                 )
             }
             
-            if (textState.text.isNotBlank()) {
-                IconButton(
-                    onClick = {
-                        onSend(textState.text)
-                        textState = TextFieldValue("")
-                    },
-                    enabled = !isLoading,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                                colors = listOf(com.kosmos.app.ui.theme.Cyan, com.kosmos.app.ui.theme.Violet)
-                            ),
-                            shape = androidx.compose.foundation.shape.CircleShape
+            androidx.compose.animation.Crossfade(
+                targetState = textState.text.isNotBlank(),
+                modifier = Modifier.size(40.dp),
+                animationSpec = androidx.compose.animation.core.tween(durationMillis = 200),
+                label = "send_mic_transition"
+            ) { isTextPresent ->
+                if (isTextPresent) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                    colors = listOf(com.kosmos.app.ui.theme.Cyan, com.kosmos.app.ui.theme.Violet)
+                                )
+                            )
+                            .clickable(enabled = !isLoading) {
+                                onSend(textState.text)
+                                textState = TextFieldValue("")
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = com.kosmos.app.R.drawable.ic_send),
+                            contentDescription = "Send",
+                            tint = androidx.compose.ui.graphics.Color.White,
+                            modifier = Modifier.size(20.dp).padding(start = 2.dp)
                         )
-                ) {
-                    Text(
-                        text = "↑", 
-                        color = androidx.compose.ui.graphics.Color.White,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-            } else {
-                val micBg = if (isRecording) com.kosmos.app.ui.theme.Danger.copy(alpha = 0.2f) else com.kosmos.app.ui.theme.GlassColor
-                val micBorder = if (isRecording) com.kosmos.app.ui.theme.Danger else com.kosmos.app.ui.theme.BorderColor
-                val micIconColor = if (isRecording) com.kosmos.app.ui.theme.Danger else com.kosmos.app.ui.theme.TextSecondary
-                IconButton(
-                    onClick = { onMicClick() },
-                    enabled = !isLoading,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(micBg, shape = androidx.compose.foundation.shape.CircleShape)
-                        .border(1.dp, micBorder, shape = androidx.compose.foundation.shape.CircleShape)
-                ) {
-                    Icon(
-                        painter = painterResource(id = if (isRecording) com.kosmos.app.R.drawable.ic_stop else com.kosmos.app.R.drawable.ic_mic),
-                        contentDescription = if (isRecording) "Stop" else "Microphone",
-                        tint = micIconColor,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    }
+                } else {
+                    val micBg = if (isRecording) com.kosmos.app.ui.theme.Danger.copy(alpha = 0.2f) else com.kosmos.app.ui.theme.GlassColor
+                    val micBorder = if (isRecording) com.kosmos.app.ui.theme.Danger else com.kosmos.app.ui.theme.BorderColor
+                    val micIconColor = if (isRecording) com.kosmos.app.ui.theme.Danger else com.kosmos.app.ui.theme.TextSecondary
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(micBg)
+                            .border(1.dp, micBorder, shape = androidx.compose.foundation.shape.CircleShape)
+                            .clickable(enabled = !isLoading) { onMicClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = if (isRecording) com.kosmos.app.R.drawable.ic_stop else com.kosmos.app.R.drawable.ic_mic),
+                            contentDescription = if (isRecording) "Stop" else "Microphone",
+                            tint = micIconColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
         }

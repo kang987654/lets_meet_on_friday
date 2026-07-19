@@ -51,7 +51,7 @@ fun OrbPulse(modifier: Modifier = Modifier) {
             
             // Ring 2
             translate(left = centerOffset.x, top = centerOffset.y) {
-                rotate(ringSpin2) {
+                rotate(ringSpin2, pivot = Offset.Zero) {
                     drawCircle(color = Violet.copy(alpha = 0.2f), radius = 52.dp.toPx(), center = Offset(0f, 0f), style = Stroke(width = 1.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f))))
                     drawCircle(color = Violet, radius = 4.dp.toPx(), center = Offset(0f, 52.dp.toPx()))
                 }
@@ -59,7 +59,7 @@ fun OrbPulse(modifier: Modifier = Modifier) {
             
             // Ring 1
             translate(left = centerOffset.x, top = centerOffset.y) {
-                rotate(ringSpin1) {
+                rotate(ringSpin1, pivot = Offset.Zero) {
                     drawCircle(color = Cyan.copy(alpha = 0.2f), radius = 32.dp.toPx(), center = Offset(0f, 0f), style = Stroke(width = 1.dp.toPx()))
                     drawCircle(color = Cyan, radius = 6.dp.toPx(), center = Offset(0f, -32.dp.toPx()))
                 }

@@ -50,7 +50,7 @@ fun MainScreen() {
                         selected = selected,
                         onClick = {
                             navController.navigate(item.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
+                                popUpTo(AppDestination.Chat.route) {
                                     saveState = true
                                 }
                                 launchSingleTop = true
