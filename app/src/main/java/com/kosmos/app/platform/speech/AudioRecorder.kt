@@ -36,7 +36,11 @@ open class AudioRecorder @Inject constructor(
     private var audioRecord: AudioRecord? = null
     private var outputFile: File? = null
     private var recordingJob: Job? = null
-    private val coroutineScope = CoroutineScope(Dispatchers.IO)
+    // [WHY] SupervisorJob이 없으면 한 녹음 잡의 실패가 스코프를 취소시켜 이후 모든 녹음이 무음 실패한다.
+    private val coroutineScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+
+    // [WHY] 메인 스레드에서 쓰고 IO 스레드에서 읽는 루프 종료 플래그이므로 가시성 보장이 필요하다.
+    @Volatile
     private var isRecording = false
 
     companion object {
@@ -90,15 +94,17 @@ open class AudioRecorder @Inject constructor(
 
     open suspend fun stopRecording(): com.kosmos.app.core.common.AppResult<File> {
         return try {
+            // [WHY] release()를 writer 코루틴 종료 전에 호출하면 해제된 recorder에 read()가
+            // 들어가 undefined behavior가 된다. 플래그 해제 → writer join → stop/release 순서를 지킨다.
             isRecording = false
+            recordingJob?.cancelAndJoin()
+            recordingJob = null
+
             audioRecord?.apply {
                 stop()
                 release()
             }
             audioRecord = null
-            
-            recordingJob?.cancelAndJoin()
-            recordingJob = null
 
             val file = outputFile
             if (file != null && file.exists()) {
@@ -109,9 +115,10 @@ open class AudioRecorder @Inject constructor(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to stop recording", e)
-            audioRecord?.release()
-            audioRecord = null
             recordingJob?.cancelAndJoin()
+            recordingJob = null
+            runCatching { audioRecord?.release() }
+            audioRecord = null
             com.kosmos.app.core.common.AppResult.Failure(com.kosmos.app.core.common.AppError.SttError(e.message ?: "Failed to stop recording"))
         }
     }

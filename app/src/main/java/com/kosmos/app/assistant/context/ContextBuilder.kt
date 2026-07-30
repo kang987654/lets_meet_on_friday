@@ -35,7 +35,8 @@ class ContextBuilder @Inject constructor(
     data class Context(
         val recentConversations: List<ChatMessage>,
         val sessionId: String,
-        val responseStyle: String
+        val responseStyle: String,
+        val webSearchEnabled: Boolean = false
     )
 
     suspend fun build(sessionId: String): AppResult<Context> {
@@ -55,6 +56,13 @@ class ContextBuilder @Inject constructor(
             settingsDataStore.maxTokensFlow.first()
         } catch (e: Exception) {
             Constants.MAX_CONTEXT_TOKENS
+        }
+
+        // [WHY] 읽기 실패 시 프라이버시 우선 원칙에 따라 웹 검색은 비활성(false)으로 폴백한다.
+        val webSearchEnabled = try {
+            settingsDataStore.webSearchEnabledFlow.first()
+        } catch (e: Exception) {
+            false
         }
 
         return when (conversationsResult) {
@@ -91,7 +99,8 @@ class ContextBuilder @Inject constructor(
                     Context(
                         recentConversations = slidingWindow,
                         sessionId = sessionId,
-                        responseStyle = responseStyle
+                        responseStyle = responseStyle,
+                        webSearchEnabled = webSearchEnabled
                     )
                 )
             }

@@ -1,4 +1,6 @@
 # Trouble Shooting Log (v1)
+> **문서 버전**: v1.0 | **최종 수정일**: 2026-07-31 | **상태**: Approved (승인)
+> **관련 모듈**: `:app`, `:core`, `:domain`, `:data`
 
 이 문서는 Local Friday 앱 개발 과정에서 발생한 주요 문제점(Trouble)과 이를 해결한 과정(Shooting)을 기록합니다.
 유사한 문제가 다시 발생했을 때 참고하기 위한 목적입니다.

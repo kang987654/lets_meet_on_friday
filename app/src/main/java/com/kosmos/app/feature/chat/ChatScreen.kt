@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloat
@@ -55,7 +56,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.halilibo.richtext.commonmark.Markdown
 import com.halilibo.richtext.ui.material3.RichText
 import com.kosmos.app.domain.model.ChatMessage
-import com.kosmos.app.feature.voice.VoiceOverlay
 import androidx.compose.ui.unit.sp
 import com.kosmos.app.ui.component.glassEffect
 
@@ -103,11 +103,12 @@ import android.Manifest
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    webSearchEnabled: Boolean = false,
+    onToggleWebSearch: (Boolean) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
-    var showVoiceOverlay by remember { mutableStateOf(false) }
 
     // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(uiState.messages.size, uiState.isInFlight) {
@@ -170,10 +171,31 @@ fun ChatScreen(
         }
     }
 
+    // [WHY] 일괄 선요청(P4-11 제거) 대신 일정 승인 시점에 컨텍스트와 함께 캘린더 권한을 요청한다.
+    // 거부해도 일정은 로컬 DB에 저장되고 기기 캘린더 동기화만 생략된다 (ADR-004 Graceful Degradation).
+    val calendarPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* 결과와 무관하게 진행 — 미승인 시 로컬 저장만 수행 */ }
+
+    LaunchedEffect(uiState.pendingApproval) {
+        val needsCalendarPermission = uiState.pendingApproval?.calendarDraft != null
+        if (needsCalendarPermission &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) != PackageManager.PERMISSION_GRANTED
+        ) {
+            calendarPermissionLauncher.launch(
+                arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
+            )
+        }
+    }
+
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
-            com.kosmos.app.feature.chat.CustomChatHeader(onSettingsClick = onSettingsClick)
+            com.kosmos.app.feature.chat.CustomChatHeader(
+                onSettingsClick = onSettingsClick,
+                webSearchEnabled = webSearchEnabled,
+                onToggleWebSearch = onToggleWebSearch
+            )
         },
         bottomBar = {
             ChatInputBar(
@@ -205,7 +227,8 @@ fun ChatScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                if (uiState.warningMessage != null) {
+                val warningMessage = uiState.warningMessage
+                if (warningMessage != null) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -213,7 +236,7 @@ fun ChatScreen(
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(
-                            text = uiState.warningMessage!!,
+                            text = warningMessage,
                             color = androidx.compose.ui.graphics.Color(0xFFE65100), // Dark Orange
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
@@ -229,7 +252,9 @@ fun ChatScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(uiState.messages) { message ->
+                    // [WHY] key가 없으면 스트리밍 append마다 전체 행이 리바인드되고
+                    // 아코디언 확장 상태가 엉뚱한 버블에 붙을 수 있다.
+                    items(uiState.messages, key = { it.id }) { message ->
                         if (message.role == ChatMessage.Role.USER) {
                             ChatBubbleUser(text = message.content, inputType = message.inputType)
                         } else {
@@ -251,7 +276,10 @@ fun ChatScreen(
                 } // end LazyColumn
             } // end Column
 
-            if (uiState.pendingCalendarDraft != null) {
+            // [WHY] 캘린더 쓰기 승인(툴 콜)은 일반 다이얼로그 대신 구조화된 플로팅 초안 카드로
+            // 표시한다 (절충안, 2026-07-31). 승인/거절은 동일한 ApprovalCoordinator 경로를 사용한다.
+            val pendingDraft = uiState.pendingApproval?.calendarDraft
+            if (pendingDraft != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -259,17 +287,18 @@ fun ChatScreen(
                     contentAlignment = Alignment.BottomCenter
                 ) {
                     CalendarDraftCard(
-                        draft = uiState.pendingCalendarDraft!!,
-                        onApprove = { viewModel.approveCalendarDraft() },
-                        onReject = { viewModel.rejectCalendarDraft() }
+                        draft = pendingDraft,
+                        onApprove = { viewModel.approvePendingRequest() },
+                        onReject = { viewModel.rejectPendingRequest() }
                     )
                 }
             }
         } // end Box
     } // end Scaffold
 
-    if (uiState.pendingApproval != null) {
-        val request = uiState.pendingApproval!!
+    // 캘린더 초안이 없는 일반 승인(메모리 저장 등)만 승인 시트로 표시 — 초안 카드와 이중 노출 방지
+    val request = uiState.pendingApproval
+    if (request != null && request.calendarDraft == null) {
         com.kosmos.app.feature.approval.ApprovalSheet(
             request = request,
             onApprove = { viewModel.approvePendingRequest() },
@@ -277,30 +306,31 @@ fun ChatScreen(
         )
     }
 
-    // VoiceOverlay placeholder removed
 }
 
-@Composable
-fun PulseGreenDot() {
-    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1f,
-        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-            animation = androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.LinearEasing),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-    Box(
-        modifier = Modifier
-            .size(6.dp)
-            .background(com.kosmos.app.ui.theme.Success.copy(alpha = alpha), shape = RoundedCornerShape(3.dp))
-    )
+// [WHY] takeLast(5) 등 문자열 슬라이싱은 초/오프셋(Z, +09:00)이 붙은 ISO에서 깨지므로
+// java.time 파서로 기기 시간대 기준 표시 값을 계산한다. 파싱 실패 시 원문 폴백.
+private fun parseDraftDateTime(iso: String): java.time.LocalDateTime? {
+    val zoneId = java.time.ZoneId.systemDefault()
+    return runCatching { java.time.OffsetDateTime.parse(iso).atZoneSameInstant(zoneId).toLocalDateTime() }.getOrNull()
+        ?: runCatching { java.time.Instant.parse(iso).atZone(zoneId).toLocalDateTime() }.getOrNull()
+        ?: runCatching { java.time.LocalDateTime.parse(iso) }.getOrNull()
 }
 
+private fun formatDraftDate(iso: String): String =
+    parseDraftDateTime(iso)?.toLocalDate()?.toString() ?: iso
+
+private fun formatDraftTime(iso: String): String =
+    parseDraftDateTime(iso)?.toLocalTime()
+        ?.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+        ?: iso
+
 @Composable
-fun CustomChatHeader(onSettingsClick: () -> Unit = {}) {
+fun CustomChatHeader(
+    onSettingsClick: () -> Unit = {},
+    webSearchEnabled: Boolean = false,
+    onToggleWebSearch: (Boolean) -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -315,19 +345,38 @@ fun CustomChatHeader(onSettingsClick: () -> Unit = {}) {
             letterSpacing = 1.sp,
             color = com.kosmos.app.ui.theme.TextPrimary
         )
-        
-        IconButton(
-            onClick = onSettingsClick,
-            modifier = Modifier
-                .size(36.dp)
-                .glassEffect(shape = androidx.compose.foundation.shape.CircleShape)
-        ) {
-            androidx.compose.material3.Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "Settings",
-                tint = com.kosmos.app.ui.theme.TextSecondary,
-                modifier = Modifier.size(20.dp)
-            )
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // 웹 검색 허용 토글 — ON: 승인 없이 검색 허용 / OFF(기본): 모델에 툴 미노출 + 실행 차단
+            IconButton(
+                onClick = { onToggleWebSearch(!webSearchEnabled) },
+                modifier = Modifier
+                    .size(36.dp)
+                    .glassEffect(shape = androidx.compose.foundation.shape.CircleShape)
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = Icons.Default.Language,
+                    contentDescription = "WebSearchToggle",
+                    tint = if (webSearchEnabled) com.kosmos.app.ui.theme.Cyan else com.kosmos.app.ui.theme.TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(8.dp))
+
+            IconButton(
+                onClick = onSettingsClick,
+                modifier = Modifier
+                    .size(36.dp)
+                    .glassEffect(shape = androidx.compose.foundation.shape.CircleShape)
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = com.kosmos.app.ui.theme.TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }
@@ -709,7 +758,7 @@ fun CalendarDraftCard(
                     Text("📅", fontSize = 14.sp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = draft.startIso.take(10),
+                        text = formatDraftDate(draft.startIso),
                         color = com.kosmos.app.ui.theme.TextSecondary,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -719,7 +768,10 @@ fun CalendarDraftCard(
                     Text("🕒", fontSize = 14.sp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "${draft.startIso.takeLast(5)} - ${draft.endIso?.takeLast(5) ?: ""}",
+                        text = buildString {
+                            append(formatDraftTime(draft.startIso))
+                            draft.endIso?.let { append(" - ").append(formatDraftTime(it)) }
+                        },
                         color = com.kosmos.app.ui.theme.TextSecondary,
                         style = MaterialTheme.typography.bodyMedium
                     )

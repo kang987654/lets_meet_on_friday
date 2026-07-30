@@ -2,8 +2,6 @@ package com.kosmos.app.assistant.agent
 
 import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.assistant.context.PromptAssembler
-import com.kosmos.app.assistant.context.ResponseParser
-import com.kosmos.app.assistant.guard.PreExecutionGuard
 import com.kosmos.app.assistant.orchestrator.ChatRequest
 import com.kosmos.app.assistant.tool.ToolRegistry
 import com.kosmos.app.domain.agent.AgentResult
@@ -28,28 +26,25 @@ import javax.inject.Inject
 class CalendarAgent @Inject constructor(
     modelRunner: ModelRunner,
     toolRegistry: ToolRegistry,
-    responseParser: ResponseParser,
-    preExecutionGuard: PreExecutionGuard,
     auditTrailService: AuditTrailService,
     conversationRepository: ConversationRepository,
+    approvalCoordinator: com.kosmos.app.assistant.approval.ApprovalCoordinator,
     private val promptAssembler: PromptAssembler
 ) : BaseAgent(
     modelRunner,
     toolRegistry,
-    responseParser,
-    preExecutionGuard,
     auditTrailService,
-    conversationRepository
+    conversationRepository,
+    approvalCoordinator
 ) {
 
     override suspend fun execute(request: ChatRequest, context: ContextBuilder.Context): AgentResult {
-        val initialPrompt = assemblePrompt(context, request.message)
-        return executeToolLoop(request, initialPrompt)
+        val tools = availableTools(context)
+        val initialPrompt = promptAssembler.assembleWithTools(context, request.message, tools, systemRole = "Calendar Assistant")
+        return executeToolLoop(request, initialPrompt, tools)
     }
 
-    override fun assemblePrompt(context: ContextBuilder.Context, userInput: String): ChatPrompt {
-        // 캘린더 전용 프롬프트 조합 (도구: AddSchedule, GetSchedule 한정)
-        val availableTools = listOf("AddSchedule", "GetSchedule")
-        return promptAssembler.assembleWithTools(context, userInput, availableTools, systemRole = "Calendar Assistant")
-    }
+    // 캘린더 전용 도구 한정 — 프롬프트 노출과 실행 시점 검증에 동일 목록 사용
+    override fun availableTools(context: ContextBuilder.Context): List<String> =
+        listOf("AddSchedule", "GetSchedule")
 }

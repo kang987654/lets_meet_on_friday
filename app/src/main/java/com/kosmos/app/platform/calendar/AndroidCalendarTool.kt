@@ -96,11 +96,12 @@ class AndroidCalendarTool @Inject constructor(
                 System.currentTimeMillis()
             }
             
-            val endMs = if (draft.endIso.isNullOrBlank()) {
+            val endIso = draft.endIso
+            val endMs = if (endIso.isNullOrBlank()) {
                 startMs + 3600000L // 1 hour fallback
             } else {
                 try {
-                    isoToMs(draft.endIso!!)
+                    isoToMs(endIso)
                 } catch (e: Exception) {
                     startMs + 3600000L
                 }
@@ -137,12 +138,18 @@ class AndroidCalendarTool @Inject constructor(
         return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     }
 
+    // [WHY] Instant.toString()은 UTC 고정이라 KST 19:00 이벤트가 10:00으로 표시된다.
+    // 기기 시간대의 오프셋을 포함한 ISO 문자열로 변환한다.
     private fun msToIso(ms: Long): String {
-        return Instant.ofEpochMilli(ms).toString()
+        return Instant.ofEpochMilli(ms)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toOffsetDateTime()
+            .toString()
     }
 
     private fun isoToMs(iso: String): Long {
-        return Instant.parse(iso).toEpochMilli()
+        return runCatching { java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli() }
+            .getOrElse { Instant.parse(iso).toEpochMilli() }
     }
     
     private fun getDefaultCalendarId(): Long {

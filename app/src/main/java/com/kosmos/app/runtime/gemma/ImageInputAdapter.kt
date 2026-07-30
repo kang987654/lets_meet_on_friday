@@ -27,11 +27,8 @@ class ImageInputAdapter @Inject constructor() : ImageProcessor {
         private const val JPEG_QUALITY = 85
     }
 
-    // GC 스파이크 방지를 위한 재사용 가능한 비트맵 풀 (inBitmap)
-    private var reusableBitmap: Bitmap? = null
-
     /**
-     * Bitmap을 적절한 크기로 리사이즈 후 압축하여 ByteArray로 변환합니다.
+     * Bitmap을 JPEG로 압축하여 ByteArray로 변환합니다.
      */
     suspend fun processImage(bitmap: Bitmap): AppResult<ByteArray> = withContext(Dispatchers.Default) {
         try {
@@ -46,27 +43,19 @@ class ImageInputAdapter @Inject constructor() : ImageProcessor {
     }
 
     /**
-     * ByteArray를 Bitmap 객체로 디코딩합니다. RGB_565 및 inBitmap을 활용하여 메모리 효율을 높입니다.
+     * ByteArray를 Bitmap 객체로 디코딩합니다.
+     * [WHY] 이전의 싱글턴 공유 reusableBitmap(inBitmap 풀)은 반환 인스턴스가 풀 슬롯 그 자체라서
+     * 이전 호출자가 든 비트맵의 픽셀을 다음 디코딩이 덮어쓰고, 동시 호출 시 경합하며,
+     * 대형 비트맵이 앱 수명 동안 상주하는 문제가 있어 제거했다.
      */
     suspend fun decodeImage(byteArray: ByteArray): AppResult<Bitmap> = withContext(Dispatchers.Default) {
         try {
             val options = BitmapFactory.Options().apply {
                 inPreferredConfig = Bitmap.Config.RGB_565
-                inMutable = true
-                reusableBitmap?.let {
-                    // inBitmap을 위한 메모리 크기 검증
-                    val optionsBounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, optionsBounds)
-                    val requiredBytes = optionsBounds.outWidth * optionsBounds.outHeight * 2 // RGB_565 = 2 bytes/pixel
-                    if (it.allocationByteCount >= requiredBytes) {
-                        inBitmap = it
-                    }
-                }
             }
 
             val bitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, options)
             if (bitmap != null) {
-                reusableBitmap = bitmap
                 AppResult.Success(bitmap)
             } else {
                 AppResult.Failure(AppError.UnsupportedImageFormat("디코딩 결과가 null입니다."))
@@ -75,5 +64,4 @@ class ImageInputAdapter @Inject constructor() : ImageProcessor {
             AppResult.Failure(AppError.UnsupportedImageFormat("디코딩 실패: ${e.message}"))
         }
     }
-
 }

@@ -14,15 +14,9 @@ class GemmaTokenizer @Inject constructor(
 ) : Tokenizer {
 
     override fun sizeInTokens(text: String): Int {
-        val currentState = runtimeManager.loadState.value
-        if (currentState is ModelLoadState.Ready) {
-            // Note: LiteRT-LM (unlike MediaPipe tasks-genai) does not provide a direct sizeInTokens(String) method.
-            // A conversation's getTokenCount() is stateful. We fallback to estimation for v0.
-            return estimateTokens(text)
-        } else {
-            // Model not loaded yet, use estimation
-            return estimateTokens(text)
-        }
+        // [WHY] LiteRT-LM은 stateless sizeInTokens(String) API를 제공하지 않아 v0에서는
+        // 로드 상태와 무관하게 추정치를 사용한다 (기존의 동일 분기 두 개를 통합).
+        return estimateTokens(text)
     }
 
     private fun estimateTokens(text: String): Int {

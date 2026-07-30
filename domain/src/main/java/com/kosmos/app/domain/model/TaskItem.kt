@@ -6,5 +6,7 @@ data class TaskItem(
     val title: String,
     val isCompleted: Boolean,
     val dueDateIso: String? = null,
+    val endDateIso: String? = null,
+    val description: String? = null,
     val createdAt: Long
 )

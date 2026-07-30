@@ -44,8 +44,19 @@ class PromptAssembler @Inject constructor() {
 
     fun assembleWithTools(context: ContextBuilder.Context, userInput: String, availableTools: List<String>, systemRole: String): ChatPrompt {
         val systemMessages = context.recentConversations.filter { it.role == com.kosmos.app.domain.model.ChatMessage.Role.SYSTEM }
-        val dialogHistory = context.recentConversations.filter { it.role != com.kosmos.app.domain.model.ChatMessage.Role.SYSTEM }
-        
+        // [WHY] 현재 턴의 사용자 메시지는 이미 DB에 저장된 뒤 컨텍스트로 로드되므로,
+        // history 마지막과 currentInput이 중복되지 않도록 마지막 동일 USER 메시지를 제외한다.
+        val dialogHistory = context.recentConversations
+            .filter { it.role != com.kosmos.app.domain.model.ChatMessage.Role.SYSTEM }
+            .let { history ->
+                val last = history.lastOrNull()
+                if (last?.role == com.kosmos.app.domain.model.ChatMessage.Role.USER && last.content == userInput) {
+                    history.dropLast(1)
+                } else {
+                    history
+                }
+            }
+
         val systemInstruction = buildString {
             appendLine(buildSystemBlock(context.responseStyle, systemRole))
             appendLine(buildTimeBlock())

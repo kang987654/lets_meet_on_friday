@@ -22,19 +22,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Request basic permissions
-        val requiredPermissions = arrayOf(
-            android.Manifest.permission.RECORD_AUDIO,
-            android.Manifest.permission.READ_CALENDAR,
-            android.Manifest.permission.WRITE_CALENDAR
-        )
-        val missingPermissions = requiredPermissions.filter {
-            androidx.core.content.ContextCompat.checkSelfPermission(this, it) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        }
-        if (missingPermissions.isNotEmpty()) {
-            androidx.core.app.ActivityCompat.requestPermissions(this, missingPermissions.toTypedArray(), 100)
-        }
+
+        // [WHY] 첫 실행 시 일괄 권한 요청(deprecated API, 결과 미처리)은 제거한다.
+        // 권한은 각 기능 진입 시점에 컨텍스트와 함께 요청한다 (예: ChatScreen 마이크 요청 플로우).
 
         // Handle intent on cold start
         shareIntentHandler.handleIntent(intent)

@@ -1264,3 +1264,26 @@ GemmaModelRunner → {새모델}ModelRunner
 > - 멀티모듈 Gradle 분리
 > - 문서 파일 직접 파싱 기반 요약
 > - 세션 전체 웹 검색 ON
+---
+
+## 15. 아키텍처 결정 기록 (ADR)
+
+### ADR-001. 웹 검색 승인 모델을 건별 승인에서 전역 토글로 변경 (2026-07-31)
+- **결정**: `SearchWikipedia` 도구는 건별 승인 다이얼로그 대신 채팅 헤더의 영속형 토글(`SettingsDataStore.webSearchEnabledFlow`, 기본 OFF)로 허용을 제어한다.
+- **근거**: 검색마다 승인 다이얼로그가 뜨는 UX가 사용을 방해했고, 사용자 요청으로 기획 변경. 프라이버시는 "기본 OFF + 이중 방어(프롬프트 미노출 + `BaseAgent` 실행 시점 allowlist 차단)"로 유지한다.
+- **영향**: `core/security/ApprovalRules`의 `WEB_SEARCH`는 `requiresApproval=false`(토글 게이트)로 재정의됨. PRD F7 개정.
+
+### ADR-002. 툴 승인·allowlist를 실행 공통 경로(BaseAgent)에서 강제 (2026-07-31)
+- **결정**: 각 `ToolExecutor`가 `actionType`을 선언하고, `BaseAgent.executeToolInner`가 ① 에이전트별 allowlist 검증 ② `ApprovalRules.requiresApproval` 기반 `ApprovalCoordinator` 승인 대기를 일괄 수행한 후에만 실행한다.
+- **근거**: 기존에는 allowlist가 프롬프트 텍스트에만 존재하고 승인은 `AddScheduleToolExecutor` 내부 하드코딩뿐이라, 모델(또는 주입된 문서)이 임의 툴을 무승인 실행할 수 있었다.
+- **영향**: `AddMemory`는 MEMORY_WRITE 승인 대상으로 편입되어 DefaultAgent에 노출. 신규 툴은 executor의 `actionType` 선언만으로 정책이 적용된다.
+
+### ADR-003. 첨부 문서를 SYSTEM 역할에서 USER 역할 구분 블록으로 격리 (2026-07-31)
+- **결정**: `documentText`는 `[Attached Document]` 구분 블록을 붙여 USER 역할로 저장한다.
+- **근거**: SYSTEM 역할 저장 시 문서 내 지시문이 시스템 프롬프트로 승격되어 세션 내내 지속되는 프롬프트 인젝션 경로가 됨.
+- **영향**: `PromptAssembler`의 `[Context / Knowledge]` 블록에는 내부 RAG 메모리만 포함된다.
+
+### ADR-004. 기기 시스템 캘린더 실연동 — 로컬 DB 우선 + Best-Effort 동기화 (2026-07-31)
+- **결정**: `AddScheduleUseCase`는 로컬 Room DB 저장(단일 진실 원천) 후 `CalendarTool`(AndroidCalendarTool)로 기기 캘린더에 best-effort 삽입한다. `GetTodayScheduleUseCase`는 기기 캘린더 이벤트를 읽어 (제목, 시작 시각) 기준 중복 제거 후 로컬 일정과 병합한다.
+- **근거**: 바인딩만 되고 미사용이던 `AndroidCalendarTool`을 PRD 원안대로 배선(사용자 결정 2026-07-31). 권한 미보유/캘린더 계정 부재 시에도 앱 기능이 죽지 않도록, 동기화 실패는 경고 로깅으로 강등한다(Graceful Degradation).
+- **영향**: 캘린더 권한은 일괄 선요청 대신 컨텍스트 요청 — ChatScreen(일정 승인 시 WRITE+READ), CalendarScreen(진입 시 READ, 승인 시 재조회). Robolectric 환경(권한 거부)에서도 기존 E2E가 로컬 경로로 통과한다.

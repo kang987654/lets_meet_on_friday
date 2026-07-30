@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -18,6 +19,19 @@ class SettingsDataStore @Inject constructor(
     companion object {
         private val RESPONSE_STYLE_KEY = stringPreferencesKey("response_style")
         private val MAX_TOKENS_KEY = intPreferencesKey("max_tokens")
+        private val WEB_SEARCH_ENABLED_KEY = booleanPreferencesKey("web_search_enabled")
+    }
+
+    // [WHY] 프라이버시 우선 원칙에 따라 웹 검색(네트워크 egress)은 기본 비활성화(false)이며,
+    // 사용자가 채팅 헤더 토글로 명시적으로 허용해야 활성화된다. (2026-07-31 기획 변경)
+    val webSearchEnabledFlow: Flow<Boolean> = dataStore.data.map {
+        it[WEB_SEARCH_ENABLED_KEY] ?: false
+    }
+
+    suspend fun saveWebSearchEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[WEB_SEARCH_ENABLED_KEY] = enabled
+        }
     }
 
     val responseStyleFlow: Flow<String> = dataStore.data.map {

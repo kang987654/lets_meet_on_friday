@@ -1,3 +1,87 @@
+## [0.5.12] - 2026-07-31
+- **[Refactoring/Decision]** 음성 입력을 Gemma 멀티모달 직접 입력으로 확정 (사용자 결정)
+  - 도달 불가 상태였던 시스템 STT 대안 파이프라인 전체 삭제: `feature/voice`(VoiceOverlay/VoiceViewModel/VoiceUiState), `AndroidSpeechToTextTool`, `ProcessVoiceInputUseCase`, `domain/tool/SpeechToTextTool`(+SttState), PlatformModule 바인딩
+- **[UI/Refactoring]** 일정 승인 UI를 플로팅 초안 카드로 통일 (절충안, 사용자 결정)
+  - `ApprovalRequest`에 `calendarDraft` 페이로드 추가 — AddSchedule 승인 시 일반 다이얼로그(ApprovalSheet) 대신 기존 `CalendarDraftCard` UI로 렌더링, 승인/거절은 동일한 `ApprovalCoordinator` 경로 유지 (메모리 저장 등 비캘린더 승인은 시트 유지)
+  - 패배한 설계 경로 제거: `ResponseParser`(항상 TextOutput 스텁), `PreExecutionGuard`/`ExecutionPolicy`, `ModelOutput`, `ActionCard`/`ActionPayload`, `AssistantResponse`, `AgentResult.Action`, `ChatUiState.pendingCalendarDraft` 및 관련 ViewModel 로직 — BaseAgent 응답 처리를 텍스트 저장·반환으로 단순화
+  - `ChatViewModel`의 미사용 `addScheduleUseCase` 의존 제거 (E2E 테스트 3건 배선만 동기화, 검증 로직 불변)
+- **[QA/Test]** 전체 테스트 + lintDebug 통과
+
+## [0.5.11] - 2026-07-31
+- **[Feature/Calendar]** 기기 시스템 캘린더 실연동 (ADR-004, 사용자 결정에 따른 옵션 A)
+  - 바인딩만 되고 미사용이던 `AndroidCalendarTool`을 실제 배선: `AddScheduleUseCase`가 로컬 저장(단일 진실 원천) 후 기기 캘린더에 best-effort 삽입, 실패(권한 미보유 등) 시 로컬 저장 유지 + 경고 로깅
+  - `GetTodayScheduleUseCase`가 기기 캘린더 이벤트를 읽어 (제목, 시작 시각) 중복 제거 후 로컬 일정과 병합 — 캘린더 화면/GetSchedule 툴 모두 기기 일정 반영
+  - 캘린더 권한 컨텍스트 요청: ChatScreen 일정 승인 시(WRITE+READ), CalendarScreen 진입 시(READ, 승인 직후 재조회)
+  - `GetTodayScheduleUseCaseTest`에 FakeCalendarTool 반영, 전체 테스트 + lintDebug 통과
+
+## [0.5.10] - 2026-07-31
+- **[Performance]** 추론·렌더링 핫패스 최적화
+  - 이미지 JPEG 이중 압축 제거(`ProcessImageInputUseCase`는 검증·위임만, 압축은 `SendChatMessageUseCase` 단일 지점), `ImageInputAdapter`의 공유 bitmap pool 제거(동시 경합·픽셀 덮어쓰기·상주 메모리 문제)
+  - 배터리 온도 조회 5초 캐시(토큰마다 Binder 왕복 제거), `BaseAgent` 스트리밍 파싱을 `<tool_call` 태그 감지 후에만 수행, 임계 발열(≥48°C) 시 감사 로그만 남기고 추론을 진행하던 문제 수정(실제 차단)
+  - 채팅 LazyColumn `key={id}` 부여, `AuroraBackground`를 RESUMED 상태에서만 애니메이션(백그라운드 배터리 소모 제거)
+- **[Refactoring]** 컨벤션·에러 처리 정비
+  - `runCatchingCancellable` 공통 헬퍼 신설 후 5개 리포지토리 적용 — 코루틴 취소가 가짜 DB 오류로 변환되던 문제 해소, 읽기 실패의 `DbWriteError` 오분류 정정
+  - `!!` 사용 전부 제거(BaseAgent/ChatScreen/AndroidCalendarTool), `KnowledgeNote` FloatArray equals/hashCode 구현, 툴 루프 상한 초과를 Timeout 대신 추론 오류로 보고
+  - 죽은 코드 삭제(PulseGreenDot, PlaceholderScreen, GemmaTokenizer 동일 분기, resetCount 등), `RuntimeMetricsCollector`에 SupervisorJob+AtomicInteger 적용
+  - Room/Paging 의존성 버전 카탈로그 통일(하드코딩 중복 제거), `collectAsStateWithLifecycle` 통일, `DEFAULT_MODEL_FILENAME`을 공식 다운로드 산출 파일명과 일치, domain의 `:core`를 `api()`로 전이
+- **[QA/Test]** 전체 테스트 + lintDebug + build 통과
+- **[Pending/Backlog]** 사용자 결정 대기: 기기 캘린더 실연동(P3-2), feature/voice 삭제 여부, ResponseParser/CalendarDraft 경로 완성 여부. 이월 과제: ToolExecutor Map<String,Any> 대체, KnowledgeDao LIKE escape, 임베딩 BLOB 전환, MediaPipeTextEmbedder lazy-init, domain paging 의존 제거, WorkManager 다운로드, ChatViewModel 스트리밍 파싱 단일화
+
+## [0.5.9] - 2026-07-31
+- **[Fix/Stability]** LLM 런타임 수명주기 경합 해소 (`GemmaModelRunner`)
+  - `close()`가 메인 스레드에서 추론 중 네이티브 세션과 무동기화로 실행되던 use-after-free/ANR 위험 제거 — 취소 요청 후 LLM 디스패처에서 Mutex 직렬화 해제
+  - `warmUp()`(Dispatchers.IO)과 첫 generate의 Engine 이중 초기화 경합 수정(동일 디스패처+Mutex), `conversation!!` NPE 제거
+  - 세션 내 에이전트 전환 시 새 systemInstruction이 무시되던 Conversation 재사용 결함 수정, 툴 루프의 stateful 대화 중복 전송(currentInput+rawOutput 재전송) 제거, 첫 턴 사용자 메시지 이중 포함 제거 — 컨텍스트 토큰 낭비 대폭 감소
+  - `BaseAgent`의 fire-and-forget 중간 취소가 다음 루프 추론을 죽일 수 있던 경합을 Job 추적+join으로 구조화
+- **[Fix/Crash]** Memory 탭 Paging 중복 키 크래시 수정 — `DefaultPagingSource` key를 페이지 번호에서 offset 기반으로 재작성 (Paging3 initialLoadSize 3× 충돌)
+- **[Fix/UX]** 공유 인텐트 콜드 스타트 유실 수정 (`ShareIntentHandler` replay=1 + 소비 후 클리어), 모델 다운로드 다이얼로그 취소 버튼 추가(Job 취소 연동), Import 후 재시작 로직의 raw thread/sleep 제거, 캘린더 초안 저장 실패 시 무음 dismiss 대신 에러 노출·카드 유지
+- **[Security/Privacy]** `allowBackup=false` — 대화/지식/감사 DB가 클라우드 자동 백업되던 문제 차단 (백업은 앱 내 Export/Import 경로 사용)
+- **[Fix/Platform]** `AudioRecorder` 해제 순서 교정(release 전 writer join, @Volatile, SupervisorJob), `ApprovalCoordinator` AtomicReference+60초 타임아웃 자동 거절, `SpeechRecognizer` release()/에러 코드 로깅, MainActivity 일괄 권한 요청 제거, 채팅 이미지 첨부 읽기를 메인 스레드에서 Dispatchers.IO로 이동
+- **[QA/Test]** 전체 테스트 + lintDebug 통과
+
+## [0.5.8] - 2026-07-31
+- **[Fix/Calendar]** 일정 데이터 손실 및 시간대 표시 결함 수정
+  - `AddScheduleUseCase`: `endTime` 무성 폐기 및 `description` title 뭉개짐 수정 — `TaskItem`/`TaskEntity`에 `endDateIso`/`description` 필드 추가(Room v3→4 명시적 Migration, `fallbackToDestructiveMigration` 제거), 하드코딩 `Success(1L)` 대신 실제 Task ID(String) 반환
+  - `GetTodayScheduleUseCase.parseIsoToMs` 재작성: 오프셋 포함 시간(`+09:00` KST 등)이 조용히 드롭되던 휴리스틱을 `OffsetDateTime→Instant→LocalDateTime→LocalDate` 표준 폴백 체인으로 대체 (0.5.5의 "예외 안전성 강화" 기록 정정 — 당시 오프셋 드롭 결함 잔존했음)
+  - WEEK 범위 8일 → 7일(오늘 포함) 경계 수정, 일정 정렬을 ISO 사전순에서 파싱된 epoch ms 기준으로 변경
+  - 시간대 표시: `AndroidCalendarTool.msToIso`의 UTC 고정(`Instant.toString`) → 기기 시간대 오프셋 포함으로, `CalendarScreen.formatIsoString`/`CalendarDraftCard`의 문자열 슬라이싱(`takeLast(5)`) → java.time 파서 기반 표시로 교체 (KST 19:00가 "10:00 AM"으로 표시되던 버그)
+  - `CalendarScreen` 헤더 "July 2026" 하드코딩 → 현재 년월 동적 표시
+- **[QA/Test]** `GetTodayScheduleUseCaseTest` 신규 작성 (오프셋 파싱/혼합 포맷 정렬/7일 경계/불량 입력 스킵, 4건) — 전체 테스트 통과
+- **[Pending]** 기기 캘린더 실연동(AndroidCalendarTool 배선) 여부는 기획 결정 대기 (docs/agent/task.md P3-2)
+
+## [0.5.7] - 2026-07-31
+- **[Security/Architecture]** 툴 승인·allowlist 실행 시점 강제 (ADR-002)
+  - `ToolExecutor`에 `actionType`/`buildApprovalRequest` 계약 추가, `BaseAgent.executeToolInner`에서 ① 에이전트별 allowlist 검증 ② `ApprovalRules` 기반 사용자 승인 대기를 공통 수행 — 프롬프트에만 존재하던 장식용 allowlist와 `AddScheduleToolExecutor` 하드코딩 승인을 단일 정책 경로로 통합
+  - `AddMemory` 툴을 MEMORY_WRITE 승인 대상으로 편입하고 DefaultAgent에 노출 (기존: 등록만 되고 도달 불가 + 무승인)
+  - `IntentClassifier` 캘린더 문맥 키워드에 "약속"/"미팅"/"스케줄" 추가 — allowlist 강제 도입 후 라우팅 누락이 툴 차단으로 이어지는 문제 보완
+- **[Feature/UX]** 웹 검색 허용 전역 토글 도입 (기획 변경, ADR-001, PRD F7 개정)
+  - 채팅 헤더 설정 버튼 왼쪽에 웹 검색 토글(`Icons.Default.Language`, contentDescription "WebSearchToggle") 배치, `WebSearchViewModel` + `SettingsDataStore.webSearchEnabledFlow`(기본 OFF)로 영속화
+  - OFF 시 SearchWikipedia를 모델 프롬프트에서 제외하고 실행 계층에서도 차단(이중 방어), ON 시 건별 승인 없이 실행
+- **[Security/Fix]** 프롬프트 인젝션 경로 차단 (ADR-003)
+  - 첨부 문서(`documentText`)를 SYSTEM 역할 대신 USER 역할 `[Attached Document]` 구분 블록으로 저장 — 문서 내 지시문의 시스템 프롬프트 승격 차단, 저장 실패 시 오류 반환
+  - 툴 응답 JSON을 문자열 연결에서 `JSONObject` 조립로 전환(4개 실행기) — 따옴표/개행 파손 및 2차 인젝션 차단
+  - `WikipediaSearchToolImpl`: `HttpUrl.Builder` 쿼리 인코딩(한국어/특수문자 안전), lang 파라미터 호스트 검증, `response.use` 커넥션 누수 수정
+  - `AddScheduleToolExecutor`: title/startTime 누락 시 기본값 무성 진행 대신 실행 거부 후 모델이 되묻도록 오류 반환
+- **[Refactoring]** 죽은 정책 스켈레톤 정리 및 감사 로그 실질화
+  - 미사용 파일 9종 삭제: `domain/agent/Agent`, `domain/policy/*`, `domain/model/ApprovalRequest`, `domain/tool/FileTool`, `domain/modelrunner/InferenceMetrics`, `core/config/{ModelConfig,AppConfig,FeatureFlags}`
+  - `Redaction`을 `AuditTrailService.redact`에 실배선하고 이메일/전화번호 PII 마스킹 추가, 감사 저장 실패(AppResult.Failure) 무음 유실을 `AppLogger` 경고로 표면화
+  - `PermissionPolicy`/`ErrorCodeMapper`는 계약 테스트가 참조하므로 유지 (개선은 후속)
+- **[Build/QA]** androidTest 스코프 Compose BOM 누락으로 `lintDebug`가 실패하던 기존 문제 수정. 전체 테스트 + lintDebug 통과
+
+## [0.5.6] - 2026-07-31
+- **[Fix/Critical]** 백업(Export)/복원(Import) 기능 전면 수리 (`ExportImportManager`)
+  - 백업 대상 DB 파일명이 실제 Room DB(`kosmos_db`)와 달라 빈 Zip을 만들고 Success를 반환하던 무동작 버그 수정 — DB 이름을 `Constants.DATABASE_NAME` 단일 소스로 통일 (`DatabaseModule` 공유)
+  - Export 시 Hilt 싱글턴 `RoomDatabase.close()` 호출로 이후 모든 DB 접근이 죽던 치명 결함 제거, `PRAGMA wal_checkpoint(TRUNCATE)`를 Cursor 소비(`use { moveToFirst() }`)로 실제 실행되도록 수정
+  - Import 시 Zip Slip(경로 탈출) 방어(canonicalPath 검증), zip-bomb 상한(512MB/1,000엔트리), 디렉터리 엔트리 처리 추가
+  - 복원 시 checkpoint 선행 및 백업에 없는 stale `-wal`/`-shm` 사이드카 삭제로 복원본 손상 방지
+  - `printStackTrace` → `AppLogger` 전환, 실패/취소 시 부분 산출물(Zip) 정리, `CancellationException` rethrow
+- **[Fix]** 모델 다운로드 원자성 확보 (`ModelDownloadService`, `DownloadModelUseCase`)
+  - `.part` 임시 파일 다운로드 후 성공 시에만 rename — 중단된 부분 파일이 유효 모델로 선택되던 문제 차단 (`GemmaRuntimeManager`의 `.litertlm` 필터와 정합 확인)
+  - 비-2xx 응답 시 커넥션 누수 수정(`response.use`), 자체 OkHttpClient 제거 후 DI 공유 클라이언트(타임아웃 설정 포함) 주입, fileName 폴백의 URL 쿼리스트링 제거
+  - 디스크 부족 오류를 `NetworkUnavailable`이 아닌 `InsufficientStorage`로 구분 매핑
+- **[Docs]** 문서 기반 정비: `trouble_shooting.md`·`nvidia_skills_analysis.md`·`agent_workflow_guide.md`에 표준 메타데이터 헤더 추가, `.agents/01·03`의 특정 에이전트 전용 도구명을 중립 표현으로 수정, 감사 후속 수정 계획서(`docs/agent/implementation_plan.md`, `task.md`) 작성
+- **[QA/Test]** 전체 단위 및 Robolectric E2E 테스트 통과 확인. (미수행 항목 명시: `ExportImportManager` 신규 단위 테스트는 추후 작성 예정)
+
 ## [0.5.5] - 2026-07-31
 - **[Refactoring]** 프로젝트 전 영역(app, core, domain, data) 3단계 안전 리팩터링 및 KDoc 문서화 완료
   - **`Core 모듈`**: `AppError`, `AppResult`, `Constants`, `AppConfig`, `FeatureFlags`, `ModelConfig`, `AppLogger`, `ErrorCode`, `ErrorCodeMapper`, `ApprovalRules`, `PermissionPolicy`, `Redaction` 등 12개 주요 클래스/인터페이스에 표준 KDoc 헤더(`Role`, `Architecture Context`, `Key Flow`) 명시 및 `Constants.DEFAULT_MODEL_DOWNLOAD_URL` 중앙 관리 통합

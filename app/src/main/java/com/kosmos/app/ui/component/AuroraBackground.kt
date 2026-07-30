@@ -17,17 +17,34 @@ fun AuroraBackground(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit = {}
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "Aurora")
-    
-    val time by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 2f * Math.PI.toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "time"
-    )
+    // [WHY] 백그라운드/정지 상태에서도 무한 애니메이션이 매 프레임 전체 화면 Canvas를 다시 그리면
+    // 온디바이스 LLM 앱에 상시 GPU/배터리 비용이 얹힌다. RESUMED 상태에서만 transition을 구성한다.
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    val animateState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            animateState.value = event.targetState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val time: Float
+    if (animateState.value) {
+        val infiniteTransition = rememberInfiniteTransition(label = "Aurora")
+        val animatedTime by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 2f * Math.PI.toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(12000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "time"
+        )
+        time = animatedTime
+    } else {
+        time = 0f
+    }
 
     androidx.compose.foundation.layout.Box(modifier = modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {

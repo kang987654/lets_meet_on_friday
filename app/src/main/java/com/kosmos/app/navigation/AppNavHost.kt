@@ -1,12 +1,9 @@
 package com.kosmos.app.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -35,10 +32,15 @@ fun AppNavHost(
         }
         
         composable(route = AppDestination.Chat.route) {
+            val webSearchViewModel: com.kosmos.app.feature.chat.WebSearchViewModel =
+                androidx.hilt.navigation.compose.hiltViewModel()
+            val webSearchEnabled by webSearchViewModel.webSearchEnabled.collectAsStateWithLifecycle()
             ChatScreen(
                 onSettingsClick = {
                     navController.navigate(AppDestination.Settings.route)
-                }
+                },
+                webSearchEnabled = webSearchEnabled,
+                onToggleWebSearch = webSearchViewModel::setWebSearchEnabled
             )
         }
         
@@ -72,15 +74,5 @@ fun AppNavHost(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-    }
-}
-
-@Composable
-fun PlaceholderScreen(text: String) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = text, color = Color.Gray)
     }
 }

@@ -4,22 +4,11 @@ import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.assistant.context.ContextBuilder
-import com.kosmos.app.assistant.context.PromptAssembler
-import com.kosmos.app.assistant.context.ResponseParser
-import com.kosmos.app.assistant.context.ToolParser
-import com.kosmos.app.assistant.guard.ExecutionPolicy
-import com.kosmos.app.assistant.guard.PreExecutionGuard
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.InputType
-import com.kosmos.app.domain.model.ModelOutput
-import com.kosmos.app.domain.modelrunner.ModelRunner
-import com.kosmos.app.domain.modelrunner.ChatPrompt
-import com.kosmos.app.assistant.tool.ToolRegistry
 import java.util.UUID
 import javax.inject.Inject
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 
 /**
  * [AssistantOrchestrator]
@@ -29,7 +18,7 @@ import kotlinx.coroutines.launch
  *
  * ### Architecture Context
  * - **Layer**: Assistant (Orchestration)
- * - **Dependencies**: [ModelRunner], [ContextBuilder], [PromptAssembler], [PreExecutionGuard], [ToolRegistry]
+ * - **Dependencies**: [ContextBuilder], [TaskRouter], [AuditTrailService], [ConversationRepository]
  *
  * ### Key Flow
  * 1. 유저 메시지 DB 저장
@@ -55,8 +44,14 @@ class AssistantOrchestrator @Inject constructor(
         }
 
         // 2. 문서 텍스트 저장
+        // [WHY] 첨부 문서를 SYSTEM 역할로 저장하면 문서 안의 지시문이 시스템 프롬프트로 승격되어
+        // 세션 내내 지속되는 프롬프트 인젝션 경로가 된다. USER 역할의 구분된 블록으로 저장한다.
         if (request.documentText != null) {
-            createAndSaveMessage(request.sessionId, ChatMessage.Role.SYSTEM, request.documentText, InputType.TEXT)
+            val documentBlock = "[Attached Document]\n\"\"\"\n${request.documentText}\n\"\"\""
+            val saveDocResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.USER, documentBlock, InputType.TEXT)
+            if (saveDocResult is AppResult.Failure) {
+                return AgentResult.Error(saveDocResult.error)
+            }
         }
 
         // 3. 컨텍스트 구성

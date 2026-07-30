@@ -22,8 +22,16 @@ sealed class SharedInput {
 class ShareIntentHandler @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private val _sharedInputFlow = MutableSharedFlow<AppResult<SharedInput>>(extraBufferCapacity = 1)
+    // [WHY] replay=1이 없으면 콜드 스타트 시(구독자인 ChatViewModel이 생기기 전) 공유 인텐트가 유실된다.
+    // 늦은 구독자도 마지막 공유를 수신하며, 소비 후 clearConsumed()로 재전달을 막는다.
+    private val _sharedInputFlow = MutableSharedFlow<AppResult<SharedInput>>(replay = 1, extraBufferCapacity = 1)
     val sharedInputFlow = _sharedInputFlow.asSharedFlow()
+
+    /** 공유 입력을 소비한 뒤 호출 — replay 캐시를 비워 재구독 시 중복 처리를 방지합니다. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun clearConsumed() {
+        _sharedInputFlow.resetReplayCache()
+    }
 
     fun handleIntent(intent: Intent?) {
         if (intent == null) return
@@ -41,7 +49,12 @@ class ShareIntentHandler @Inject constructor(
                 }
             }
             type.startsWith("image/") -> {
-                val uri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                val uri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM)
+                }
                 if (uri != null) {
                     processImageUri(uri, type)
                 } else {

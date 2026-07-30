@@ -75,14 +75,10 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
-    // Room
+    // Room ([WHY] 버전 카탈로그로 통일 — 하드코딩 버전과 카탈로그 버전이 갈라지는 드리프트 방지)
     implementation(libs.androidx.room.runtime)
-    implementation("androidx.room:room-ktx:2.6.1")
-    implementation("androidx.room:room-paging:2.6.1")
-
-    // Paging 3
-    implementation("androidx.paging:paging-runtime-ktx:3.3.0")
-    implementation("androidx.paging:paging-compose:3.3.0")
+    implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.room.paging)
 
     ksp(libs.androidx.room.compiler)
 
@@ -129,6 +125,8 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.ext.junit)
     
+    // [WHY] BOM은 configuration별로 적용되므로 androidTest 스코프에도 명시해야 버전이 해석된다.
+    androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.hilt.android.testing)
     kspAndroidTest(libs.hilt.compiler)

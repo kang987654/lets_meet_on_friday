@@ -23,8 +23,14 @@ class RuntimeMetricsCollector @Inject constructor(
     private val temperatureProvider: TemperatureProvider,
     private val auditTrailService: AuditTrailService
 ) {
-    private var continuousInferenceCount = 0
-    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)
+    // [WHY] LLM 디스패처와 UI 스레드에서 함께 증감되므로 원자적 카운터를 사용한다.
+    private val continuousInferenceCount = java.util.concurrent.atomic.AtomicInteger(0)
+
+    // [WHY] SupervisorJob이 없으면 감사 로깅 launch 하나가 실패할 때 스코프 전체가 죽어
+    // 이후 모든 발열 감사 이벤트가 무음으로 유실된다.
+    private val scope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+    )
 
     private val _thermalWarning = MutableStateFlow<AppError?>(null)
     val thermalWarning: StateFlow<AppError?> = _thermalWarning.asStateFlow()
@@ -51,19 +57,19 @@ class RuntimeMetricsCollector @Inject constructor(
     }
 
     suspend fun handleCooldownIfNecessary() {
-        if (continuousInferenceCount >= 5) {
+        if (continuousInferenceCount.get() >= 5) {
             kotlinx.coroutines.delay(1000)
-            continuousInferenceCount = 0
+            continuousInferenceCount.set(0)
         }
     }
 
     fun recordStart() {
-        continuousInferenceCount++
+        continuousInferenceCount.incrementAndGet()
     }
 
     fun recordEnd(durationMs: Long): AppResult<InferenceMetrics> {
         val temp = temperatureProvider.getCurrentTemperatureCelsius()
-        val metrics = InferenceMetrics(durationMs, temp, continuousInferenceCount)
+        val metrics = InferenceMetrics(durationMs, temp, continuousInferenceCount.get())
 
         return when {
             temp >= 48.0f -> {
@@ -89,7 +95,4 @@ class RuntimeMetricsCollector @Inject constructor(
         }
     }
 
-    fun resetCount() {
-        continuousInferenceCount = 0
-    }
 }

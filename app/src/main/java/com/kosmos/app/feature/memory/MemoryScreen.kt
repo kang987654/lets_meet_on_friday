@@ -41,17 +41,16 @@ fun MemoryScreen(
                 uri = uri,
                 onSuccess = {
                     android.widget.Toast.makeText(context, "복원이 완료되었습니다. 앱을 재시작합니다.", android.widget.Toast.LENGTH_LONG).show()
-                    kotlin.concurrent.thread {
-                        Thread.sleep(2000)
-                        val packageManager = context.packageManager
-                        val intent = packageManager.getLaunchIntentForPackage(context.packageName)
-                        val componentName = intent?.component
+                    // [WHY] 컴포지션보다 오래 사는 raw thread + sleep 대신 메인 루퍼에 지연 예약한다.
+                    // startActivity가 메인 스레드에서 실행된 뒤 프로세스를 종료해 재시작 경합을 줄인다.
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                        val componentName = launchIntent?.component
                         if (componentName != null) {
-                            val mainIntent = android.content.Intent.makeRestartActivityTask(componentName)
-                            context.startActivity(mainIntent)
+                            context.startActivity(android.content.Intent.makeRestartActivityTask(componentName))
                         }
                         kotlin.system.exitProcess(0)
-                    }
+                    }, 2000)
                 },
                 onError = { error ->
                     android.widget.Toast.makeText(context, "복원 실패: $error", android.widget.Toast.LENGTH_LONG).show()

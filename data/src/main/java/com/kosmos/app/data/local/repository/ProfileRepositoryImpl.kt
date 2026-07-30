@@ -49,6 +49,8 @@ class ProfileRepositoryImpl @Inject constructor(
             }
             
             AppResult.Success(Unit)
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Failure(AppError.DbWriteError("profile"))
         }

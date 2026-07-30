@@ -3,8 +3,21 @@ package com.kosmos.app.assistant.tool
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
+import org.json.JSONObject
 import javax.inject.Inject
 
+/**
+ * [GetScheduleToolExecutor]
+ * 모델의 `GetSchedule` 툴 콜을 받아 오늘/이번 주 일정을 조회하는 실행기입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Assistant (Tool)
+ * - **Dependencies**: [GetTodayScheduleUseCase]
+ *
+ * ### Key Flow
+ * 1. `date` 인자("today"/"week")로 조회 범위를 결정합니다.
+ * 2. 조회 결과를 JSON(JSONObject 이스케이프 적용) 문자열로 반환합니다.
+ */
 class GetScheduleToolExecutor @Inject constructor(
     private val getTodayScheduleUseCase: GetTodayScheduleUseCase
 ) : ToolExecutor {
@@ -26,9 +39,10 @@ class GetScheduleToolExecutor @Inject constructor(
                     append("- ${event.title} (${event.startIso})\n")
                 }
             }
-            "{\"status\": \"success\", \"data\": \"$text\"}"
+            // [WHY] 일정 제목에 따옴표/개행이 있어도 JSON이 깨지지 않도록 JSONObject로 조립한다.
+            JSONObject().put("status", "success").put("data", text).toString()
         } else {
-            "{\"status\": \"error\", \"message\": \"일정 조회 실패\"}"
+            JSONObject().put("status", "error").put("message", "일정 조회 실패").toString()
         }
     }
 }

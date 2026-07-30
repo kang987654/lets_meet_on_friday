@@ -23,6 +23,8 @@ import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import com.kosmos.app.di.LLMDispatcher
 
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
@@ -54,6 +56,14 @@ class GemmaModelRunner @Inject constructor(
     private var engine: Engine? = null
     private var conversation: Conversation? = null
     private var currentSessionId: String? = null
+    private var currentSystemInstruction: String? = null
+
+    // [WHY] llmDispatcher(limitedParallelism(1))는 suspension point에서 코루틴이 교차될 수 있어
+    // 단독으로는 상호배제가 아니다. 엔진/대화 수명주기(초기화·생성·해제)는 뮤텍스로 직렬화한다.
+    private val lifecycleMutex = kotlinx.coroutines.sync.Mutex()
+    private val closeScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + llmDispatcher
+    )
 
     override suspend fun generate(
         prompt: ChatPrompt,
@@ -65,9 +75,15 @@ class GemmaModelRunner @Inject constructor(
         }
 
         try {
+            lifecycleMutex.withLock {
             ensureInferenceInitialized(currentState.modelInfo.modelPath)
             
+            // [WHY] 임계 발열(≥48°C) 시 추론을 진행하면서 감사 로그만 남기던 문제 수정 —
+            // 사전 조건 실패면 실제로 추론을 중단하고 오류를 반환한다.
             val preconditionResult = metricsCollector.checkPreconditions()
+            if (preconditionResult is AppResult.Failure) {
+                return@withLock AppResult.Failure(preconditionResult.error)
+            }
             metricsCollector.handleCooldownIfNecessary()
 
             metricsCollector.recordStart()
@@ -119,6 +135,7 @@ class GemmaModelRunner @Inject constructor(
                     AppResult.Failure(AppError.ModelInferenceError("응답 생성 결과가 null입니다."))
                 }
             }
+            }
         } catch (e: Exception) {
             AppResult.Failure(AppError.ModelInferenceError(e.message ?: "추론 중 알 수 없는 오류 발생"))
         }
@@ -136,9 +153,15 @@ class GemmaModelRunner @Inject constructor(
         }
 
         try {
+            lifecycleMutex.withLock {
             ensureInferenceInitialized(currentState.modelInfo.modelPath)
             
+            // [WHY] 임계 발열(≥48°C) 시 추론을 진행하면서 감사 로그만 남기던 문제 수정 —
+            // 사전 조건 실패면 실제로 추론을 중단하고 오류를 반환한다.
             val preconditionResult = metricsCollector.checkPreconditions()
+            if (preconditionResult is AppResult.Failure) {
+                return@withLock AppResult.Failure(preconditionResult.error)
+            }
             metricsCollector.handleCooldownIfNecessary()
             metricsCollector.recordStart()
             val startTime = System.currentTimeMillis()
@@ -201,6 +224,7 @@ class GemmaModelRunner @Inject constructor(
                     AppResult.Failure(AppError.ModelInferenceError("응답 생성 결과가 null입니다."))
                 }
             }
+            }
         } catch (e: Exception) {
             AppResult.Failure(AppError.ModelInferenceError("멀티모달 추론 중 오류 발생: ${e.message}"))
         }
@@ -217,9 +241,15 @@ class GemmaModelRunner @Inject constructor(
         }
 
         try {
+            lifecycleMutex.withLock {
             ensureInferenceInitialized(currentState.modelInfo.modelPath)
             
+            // [WHY] 임계 발열(≥48°C) 시 추론을 진행하면서 감사 로그만 남기던 문제 수정 —
+            // 사전 조건 실패면 실제로 추론을 중단하고 오류를 반환한다.
             val preconditionResult = metricsCollector.checkPreconditions()
+            if (preconditionResult is AppResult.Failure) {
+                return@withLock AppResult.Failure(preconditionResult.error)
+            }
             metricsCollector.handleCooldownIfNecessary()
             metricsCollector.recordStart()
             val startTime = System.currentTimeMillis()
@@ -275,23 +305,33 @@ class GemmaModelRunner @Inject constructor(
                     AppResult.Failure(AppError.ModelInferenceError("음성 응답 생성 결과가 null입니다."))
                 }
             }
+            }
         } catch (e: Exception) {
             AppResult.Failure(AppError.ModelInferenceError("음성 추론 중 오류 발생: ${e.message}"))
         }
     }
 
     override suspend fun cancel() {
+        // [WHY] cancelProcess는 진행 중 스트리밍을 중단시키기 위한 호출이므로 뮤텍스를 잡지 않는다
+        // (생성 본문이 뮤텍스를 보유 중이어도 취소가 가능해야 함).
         conversation?.cancelProcess()
     }
 
-
-
     override fun close() {
-        conversation?.close()
-        conversation = null
-        engine?.close()
-        engine = null
-        currentSessionId = null
+        // [WHY] 메인 스레드에서 네이티브 close를 직접 부르면 진행 중 추론과 경합(use-after-free)하고
+        // blocking으로 ANR 위험이 있다. 진행 중 생성에 취소를 요청한 뒤, LLM 디스패처에서
+        // 뮤텍스로 직렬화하여(현재 생성 종료 후) 해제한다.
+        runCatching { conversation?.cancelProcess() }
+        closeScope.launch {
+            lifecycleMutex.withLock {
+                runCatching { conversation?.close() }
+                conversation = null
+                runCatching { engine?.close() }
+                engine = null
+                currentSessionId = null
+                currentSystemInstruction = null
+            }
+        }
     }
 
     override suspend fun warmUp() {
@@ -299,8 +339,12 @@ class GemmaModelRunner @Inject constructor(
         val currentState = runtimeManager.loadState.value
         if (currentState is ModelLoadState.FileFound) {
             runtimeManager.setInitializing()
-            withContext(Dispatchers.IO) {
-                ensureInferenceInitialized(currentState.modelInfo.modelPath)
+            // [WHY] Dispatchers.IO에서 초기화하면 llmDispatcher의 첫 generate와 이중 초기화 경합이
+            // 발생해 Engine이 누수된다. 동일 디스패처 + 뮤텍스로 직렬화한다.
+            withContext(llmDispatcher) {
+                lifecycleMutex.withLock {
+                    ensureInferenceInitialized(currentState.modelInfo.modelPath)
+                }
             }
             runtimeManager.setReady(currentState.modelInfo)
         }
@@ -338,29 +382,36 @@ class GemmaModelRunner @Inject constructor(
 
     private fun getOrCreateConversation(prompt: ChatPrompt): Conversation {
         val currentEngine = engine ?: throw IllegalStateException("Engine is not initialized")
+        val existing = conversation
         val isSameSession = currentSessionId == prompt.sessionId
-        val isTokenExceeded = conversation != null && conversation!!.getTokenCount() > 3000
+        // [WHY] TaskRouter가 세션 내에서 에이전트를 전환하면(Calendar ↔ Default) 시스템 지시가
+        // 달라지므로, 동일 세션이라도 systemInstruction 변경 시 대화를 재생성해야 한다.
+        val isSameSystemInstruction = currentSystemInstruction == prompt.systemInstruction
+        val isTokenExceeded = existing != null && existing.getTokenCount() > 3000
 
-        if (conversation == null || !isSameSession || isTokenExceeded) {
-            conversation?.close()
-            
-            val initialMessages = prompt.history.map {
-                if (it.role.name == "USER") Message.user(it.content) else Message.model(it.content)
-            }
-            
-            val config = ConversationConfig(
-                systemInstruction = Contents.of(prompt.systemInstruction),
-                initialMessages = initialMessages,
-                samplerConfig = SamplerConfig(
-                    temperature = 0.8,
-                    topK = 40,
-                    topP = 0.9
-                )
-            )
-            conversation = currentEngine.createConversation(config)
-            currentSessionId = prompt.sessionId
+        if (existing != null && isSameSession && isSameSystemInstruction && !isTokenExceeded) {
+            return existing
         }
-        
-        return conversation!!
+
+        existing?.close()
+
+        val initialMessages = prompt.history.map {
+            if (it.role.name == "USER") Message.user(it.content) else Message.model(it.content)
+        }
+
+        val config = ConversationConfig(
+            systemInstruction = Contents.of(prompt.systemInstruction),
+            initialMessages = initialMessages,
+            samplerConfig = SamplerConfig(
+                temperature = 0.8,
+                topK = 40,
+                topP = 0.9
+            )
+        )
+        val newConversation = currentEngine.createConversation(config)
+        conversation = newConversation
+        currentSessionId = prompt.sessionId
+        currentSystemInstruction = prompt.systemInstruction
+        return newConversation
     }
 }

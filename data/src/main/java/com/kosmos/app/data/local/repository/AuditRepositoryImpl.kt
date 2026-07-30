@@ -30,6 +30,8 @@ class AuditRepositoryImpl @Inject constructor(
             )
             auditDao.insert(entity)
             AppResult.Success(Unit)
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Failure(AppError.DbWriteError("audit_log"))
         }

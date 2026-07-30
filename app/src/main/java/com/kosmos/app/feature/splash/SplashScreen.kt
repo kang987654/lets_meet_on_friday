@@ -10,7 +10,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,7 +27,7 @@ fun SplashScreen(
     viewModel: SplashViewModel = hiltViewModel(),
     onInitializationComplete: () -> Unit
 ) {
-    val loadState by viewModel.loadState.collectAsState()
+    val loadState by viewModel.loadState.collectAsStateWithLifecycle()
 
     LaunchedEffect(loadState) {
         if (loadState is ModelLoadState.Ready) {

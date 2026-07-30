@@ -31,8 +31,23 @@ fun CalendarScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedRange by viewModel.selectedRange.collectAsStateWithLifecycle()
 
+    // [WHY] 기기 캘린더 병합 조회(ADR-004)를 위해 화면 진입 시 READ_CALENDAR를 요청한다.
+    // 거부 시 로컬 일정만 표시되며, 권한 승인 직후 재조회한다.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val readCalendarLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) viewModel.loadSchedule()
+    }
+
     LaunchedEffect(Unit) {
         viewModel.loadSchedule()
+        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.READ_CALENDAR
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            readCalendarLauncher.launch(android.Manifest.permission.READ_CALENDAR)
+        }
     }
 
     Column(
@@ -44,7 +59,9 @@ fun CalendarScreen(
         // Header
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Text("Schedule", style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold)
-            Text("July 2026", color = com.kosmos.app.ui.theme.TextMuted, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+            val headerMonth = java.time.LocalDate.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.ENGLISH))
+            Text(headerMonth, color = com.kosmos.app.ui.theme.TextMuted, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
         }
 
         // Date Strip
@@ -176,22 +193,20 @@ fun TodayEventCard(event: CalendarEvent, stripColor: Color) {
 
 
 
+// [WHY] 문자열 슬라이싱은 오프셋(+09:00)/UTC(Z) 포맷에서 깨지고 시간대 변환도 못 하므로
+// java.time 파서로 기기 시간대 기준 표시 시각을 계산한다.
 private fun formatIsoString(iso: String): String {
-    return try {
-        if (iso.contains("T")) {
-            val parts = iso.split("T")
-            val time = parts[1].substringBeforeLast(":")
-            
-            // Simple parsing for AM/PM format (assuming HH:mm)
-            val hours = time.split(":")[0].toIntOrNull() ?: 0
-            val mins = time.split(":")[1]
-            val amPm = if (hours >= 12) "PM" else "AM"
-            val displayHour = if (hours % 12 == 0) 12 else hours % 12
-            "$displayHour:$mins $amPm"
-        } else {
-            iso
-        }
-    } catch (e: Exception) {
-        iso
-    }
+    val zoneId = java.time.ZoneId.systemDefault()
+    val localTime: java.time.LocalTime? =
+        runCatching { java.time.OffsetDateTime.parse(iso).atZoneSameInstant(zoneId).toLocalTime() }.getOrNull()
+            ?: runCatching { java.time.Instant.parse(iso).atZone(zoneId).toLocalTime() }.getOrNull()
+            ?: runCatching { java.time.LocalDateTime.parse(iso).toLocalTime() }.getOrNull()
+
+    if (localTime == null) return iso
+
+    val hours = localTime.hour
+    val mins = "%02d".format(localTime.minute)
+    val amPm = if (hours >= 12) "PM" else "AM"
+    val displayHour = if (hours % 12 == 0) 12 else hours % 12
+    return "$displayHour:$mins $amPm"
 }

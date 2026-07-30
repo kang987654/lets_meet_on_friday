@@ -35,8 +35,18 @@ class ModelManagementViewModel @Inject constructor(
     private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
+    private var downloadJob: kotlinx.coroutines.Job? = null
+
+    /** 진행 중인 다운로드를 취소합니다. 부분 파일(.part)은 다운로드 서비스가 정리합니다. */
+    fun cancelDownload() {
+        downloadJob?.cancel()
+        downloadJob = null
+        _downloadState.value = DownloadState.Idle
+    }
+
     fun downloadModel(url: String) {
-        viewModelScope.launch {
+        if (downloadJob?.isActive == true) return
+        downloadJob = viewModelScope.launch {
             _downloadState.value = DownloadState.Downloading(0)
             downloadModelUseCase(url).collect { result ->
                 when (result) {

@@ -36,7 +36,19 @@ class DownloadModelUseCase @Inject constructor(
                 AppResult.Success(progress) as AppResult<Int>
             }
             .catch { e ->
-                emit(AppResult.Failure(AppError.NetworkUnavailable("Model download failed: ${e.message}")))
+                emit(AppResult.Failure(mapDownloadError(e)))
             }
+    }
+
+    // [WHY] 디스크 부족까지 네트워크 오류로 뭉개면 사용자가 잘못된 조치(와이파이 확인 등)를
+    // 하게 되므로, 저장 공간 관련 예외는 InsufficientStorage로 구분해 매핑한다.
+    private fun mapDownloadError(e: Throwable): AppError {
+        val message = e.message ?: "Unknown error"
+        return when {
+            message.contains("space", ignoreCase = true) ||
+                message.contains("ENOSPC", ignoreCase = true) ->
+                AppError.InsufficientStorage(0L)
+            else -> AppError.NetworkUnavailable("Model download failed: $message")
+        }
     }
 }

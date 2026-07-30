@@ -54,8 +54,7 @@ class ChatViewModel @Inject constructor(
     private val shareIntentHandler: ShareIntentHandler,
     private val runtimeMetricsCollector: RuntimeMetricsCollector,
     private val modelRunner: ModelRunner,
-    private val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder,
-    private val addScheduleUseCase: com.kosmos.app.domain.usecase.AddScheduleUseCase
+    private val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -121,6 +120,8 @@ class ChatViewModel @Inject constructor(
                         _uiState.update { it.copy(error = result.error) }
                     }
                 }
+                // [WHY] replay=1 캐시를 소비 직후 비워 재구독(화면 복귀) 시 중복 처리를 방지한다.
+                shareIntentHandler.clearConsumed()
             }
         }
     }
@@ -158,14 +159,10 @@ class ChatViewModel @Inject constructor(
     fun sendMessage(text: String, audioFilePath: String? = null) {
         if ((text.isBlank() && audioFilePath == null) || _uiState.value.isInFlight) return
 
-        var imageBytes: ByteArray? = null
-        var documentText: String? = null
-
         val currentSharedInput = _uiState.value.sharedInput
-        if (currentSharedInput is com.kosmos.app.platform.share.SharedInput.Image) {
-            imageBytes = extractImageBytes(currentSharedInput.uri)
-        } else if (currentSharedInput is com.kosmos.app.platform.share.SharedInput.Document) {
-            documentText = "첨부된 문서 내용(${currentSharedInput.fileName}):\n${currentSharedInput.textContent}"
+        val isImageAttached = currentSharedInput is com.kosmos.app.platform.share.SharedInput.Image
+        val documentText = (currentSharedInput as? com.kosmos.app.platform.share.SharedInput.Document)?.let {
+            "첨부된 문서 내용(${it.fileName}):\n${it.textContent}"
         }
 
         clearSharedInput()
@@ -175,11 +172,11 @@ class ChatViewModel @Inject constructor(
             sessionId = sessionId,
             role = ChatMessage.Role.USER,
             content = if (audioFilePath != null && text.isBlank()) "(음성 메시지)" else text,
-            inputType = if (audioFilePath != null) InputType.VOICE else if (imageBytes != null) InputType.IMAGE else InputType.TEXT,
+            inputType = if (audioFilePath != null) InputType.VOICE else if (isImageAttached) InputType.IMAGE else InputType.TEXT,
             createdAt = System.currentTimeMillis()
         )
-        
-        _uiState.update { state -> 
+
+        _uiState.update { state ->
             state.copy(
                 messages = (state.messages + tempUserMessage).toImmutableList(),
                 isInFlight = true,
@@ -189,9 +186,16 @@ class ChatViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                // [WHY] 최대 10MB 이미지 전체 읽기는 메인 스레드 ANR 위험이 있어 IO에서 수행한다.
+                val imageBytes = if (currentSharedInput is com.kosmos.app.platform.share.SharedInput.Image) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        extractImageBytes(currentSharedInput.uri)
+                    }
+                } else null
+
                 _uiState.update { it.copy(streamingText = "", streamingThinking = null) }
                 var accumulatedRaw = ""
-                
+
                 val result = sendChatMessageUseCase(
                     sessionId = sessionId, 
                     message = text,
@@ -246,16 +250,6 @@ class ChatViewModel @Inject constructor(
                         )
                         _uiState.update { it.copy(messages = (it.messages + assistantMessage).toImmutableList()) }
                     }
-                    is AgentResult.Action -> {
-                        // Action 카드(예: 캘린더 승인 바텀시트)를 띄우기 위해 ApprovalCoordinator 등을 활용할 수 있음
-                        if (agentResult.actionCard.actionType == com.kosmos.app.domain.model.ActionCard.ActionType.CALENDAR_DRAFT) {
-                            val draftPayload = agentResult.actionCard.payload as? com.kosmos.app.domain.model.ActionPayload.CalendarDraftPayload
-                            if (draftPayload != null) {
-                                _uiState.update { it.copy(pendingCalendarDraft = draftPayload.draft) }
-                            }
-                        }
-                        // TODO: Action 카드를 ChatMessage로 저장하거나 별도의 UI State로 노출
-                    }
                     is AgentResult.Error -> {
                         _uiState.update { it.copy(error = agentResult.error) }
                     }
@@ -270,23 +264,6 @@ class ChatViewModel @Inject constructor(
     fun rejectPendingRequest() {
         approvalCoordinator.consumePending() ?: return
         approvalCoordinator.reject()
-    }
-
-    fun approveCalendarDraft() {
-        val draft = _uiState.value.pendingCalendarDraft ?: return
-        viewModelScope.launch {
-            addScheduleUseCase(
-                title = draft.title,
-                startTime = draft.startIso,
-                endTime = draft.endIso ?: "",
-                description = draft.note
-            )
-            _uiState.update { it.copy(pendingCalendarDraft = null) }
-        }
-    }
-
-    fun rejectCalendarDraft() {
-        _uiState.update { it.copy(pendingCalendarDraft = null) }
     }
 
     fun toggleRecording() {

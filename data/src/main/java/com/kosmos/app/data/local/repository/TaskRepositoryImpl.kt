@@ -12,7 +12,7 @@ class TaskRepositoryImpl @Inject constructor(
     private val dao: TaskDao
 ) : TaskRepository {
 
-    override suspend fun save(task: TaskItem): AppResult<Unit> = runCatching {
+    override suspend fun save(task: TaskItem): AppResult<Unit> = com.kosmos.app.core.common.runCatchingCancellable {
         dao.insert(
             TaskEntity(
                 id = task.id,
@@ -20,7 +20,9 @@ class TaskRepositoryImpl @Inject constructor(
                 isCompleted = task.isCompleted,
                 createdAt = task.createdAt,
                 completedAt = if (task.isCompleted) System.currentTimeMillis() else null,
-                dueDateIso = task.dueDateIso
+                dueDateIso = task.dueDateIso,
+                endDateIso = task.endDateIso,
+                description = task.description
             )
         )
     }.fold(
@@ -28,7 +30,7 @@ class TaskRepositoryImpl @Inject constructor(
         onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbWriteError("task_item")) }
     )
 
-    override suspend fun updateCompletion(taskId: String, isCompleted: Boolean): AppResult<Unit> = runCatching {
+    override suspend fun updateCompletion(taskId: String, isCompleted: Boolean): AppResult<Unit> = com.kosmos.app.core.common.runCatchingCancellable {
         val completedAt = if (isCompleted) System.currentTimeMillis() else null
         dao.updateCompletion(taskId, isCompleted, completedAt)
     }.fold(
@@ -36,7 +38,7 @@ class TaskRepositoryImpl @Inject constructor(
         onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbWriteError("task_item")) }
     )
 
-    override suspend fun getPendingTasksData(offset: Int, limit: Int): AppResult<List<TaskItem>> = runCatching {
+    override suspend fun getPendingTasksData(offset: Int, limit: Int): AppResult<List<TaskItem>> = com.kosmos.app.core.common.runCatchingCancellable {
         dao.getPendingTasks(offset, limit).map { it.toDomain() }
     }.fold(
         onSuccess = { AppResult.Success(it) },
@@ -49,6 +51,8 @@ class TaskRepositoryImpl @Inject constructor(
             title = title,
             isCompleted = isCompleted,
             dueDateIso = dueDateIso,
+            endDateIso = endDateIso,
+            description = description,
             createdAt = createdAt
         )
     }

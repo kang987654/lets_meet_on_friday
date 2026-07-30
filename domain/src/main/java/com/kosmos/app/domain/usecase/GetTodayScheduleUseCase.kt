@@ -31,7 +31,8 @@ import javax.inject.Inject
  */
 class GetTodayScheduleUseCase @Inject constructor(
     private val taskRepository: TaskRepository,
-    private val modelRunner: ModelRunner
+    private val modelRunner: ModelRunner,
+    private val calendarTool: com.kosmos.app.domain.tool.CalendarTool
 ) {
     suspend operator fun invoke(range: ScheduleData.RangeType): AppResult<ScheduleData> = withContext(Dispatchers.IO) {
         val zoneId = ZoneId.systemDefault()
@@ -39,10 +40,11 @@ class GetTodayScheduleUseCase @Inject constructor(
         val startMs = today.atStartOfDay(zoneId).toInstant().toEpochMilli()
         
         val endMs = when (range) {
-            ScheduleData.RangeType.TODAY -> 
+            ScheduleData.RangeType.TODAY ->
                 today.atTime(LocalTime.MAX).atZone(zoneId).toInstant().toEpochMilli()
-            ScheduleData.RangeType.WEEK -> 
-                today.plusDays(7).atTime(LocalTime.MAX).atZone(zoneId).toInstant().toEpochMilli()
+            // [WHY] "이번 주"는 오늘 포함 7일이므로 plusDays(6) 종료 시각까지다 (7은 8일이 됨).
+            ScheduleData.RangeType.WEEK ->
+                today.plusDays(6).atTime(LocalTime.MAX).atZone(zoneId).toInstant().toEpochMilli()
         }
 
         // 1. 내부 DB 일정 조회 및 필터링
@@ -59,23 +61,41 @@ class GetTodayScheduleUseCase @Inject constructor(
                     id = task.id,
                     title = task.title,
                     startIso = dueIso,
-                    endIso = dueIso,
+                    endIso = task.endDateIso ?: dueIso,
                     location = null,
-                    description = null
-                )
+                    description = task.description
+                ) to ms
             } else {
                 null
             }
-        }.sortedBy { it.startIso }
+        }
 
-        if (events.isEmpty()) {
+        // 2. 기기 시스템 캘린더 이벤트 병합 (권한 미보유 등 실패 시 로컬 일정만 사용 — ADR-004)
+        val deviceEvents = when (val deviceResult = calendarTool.readEvents(startMs, endMs)) {
+            is AppResult.Success -> deviceResult.data.mapNotNull { event ->
+                val ms = parseIsoToMs(event.startIso, zoneId) ?: return@mapNotNull null
+                event to ms
+            }
+            is AppResult.Failure -> emptyList()
+        }
+
+        // [WHY] AddSchedule로 로컬 저장 + 기기 동기화된 일정이 두 번 표시되지 않도록
+        // (제목, 시작 시각) 기준으로 기기 이벤트를 중복 제거한다.
+        val localKeys = events.map { it.first.title to it.second }.toSet()
+        val mergedEvents = events + deviceEvents.filter { (event, ms) -> (event.title to ms) !in localKeys }
+
+        // [WHY] ISO 문자열 사전순 정렬은 오프셋/로컬 포맷이 섞이면 시간 순서를 보장하지 못하므로
+        // 파싱된 epoch ms 기준으로 정렬한다.
+        val sortedEvents = mergedEvents.sortedBy { it.second }.map { it.first }
+
+        if (sortedEvents.isEmpty()) {
             return@withContext AppResult.Success(
                 ScheduleData(events = persistentListOf(), summary = null, rangeType = range)
             )
         }
 
-        // 2. AI 요약 (프롬프트 구성)
-        val eventListText = events.joinToString("\n") { 
+        // 3. AI 요약 (프롬프트 구성)
+        val eventListText = sortedEvents.joinToString("\n") {
             "- ${it.title} (시간: ${it.startIso})"
         }
         
@@ -100,20 +120,25 @@ class GetTodayScheduleUseCase @Inject constructor(
 
         AppResult.Success(
             ScheduleData(
-                events = events.toImmutableList(),
+                events = sortedEvents.toImmutableList(),
                 summary = summary,
                 rangeType = range
             )
         )
     }
 
+    /**
+     * ISO-8601 계열 문자열을 epoch ms로 변환합니다.
+     * [WHY] 오프셋 포함(`+09:00`, `-05:00`), UTC(`Z`), 로컬 일시, 날짜-only 네 가지 포맷을
+     * 표준 파서 폴백 체인으로 처리한다 — 과거 문자열 휴리스틱은 KST(+09:00) 이벤트를 조용히 버렸다.
+     */
     private fun parseIsoToMs(iso: String, zoneId: ZoneId): Long? {
         return runCatching {
-            if (iso.contains("Z") || iso.contains("+") || (iso.count { it == '-' } > 1 && iso.indexOf("+") > 0)) {
-                Instant.parse(iso).toEpochMilli()
-            } else {
-                LocalDateTime.parse(iso).atZone(zoneId).toInstant().toEpochMilli()
-            }
+            java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli()
+        }.getOrNull() ?: runCatching {
+            Instant.parse(iso).toEpochMilli()
+        }.getOrNull() ?: runCatching {
+            LocalDateTime.parse(iso).atZone(zoneId).toInstant().toEpochMilli()
         }.getOrNull() ?: runCatching {
             LocalDate.parse(iso).atStartOfDay(zoneId).toInstant().toEpochMilli()
         }.getOrNull()

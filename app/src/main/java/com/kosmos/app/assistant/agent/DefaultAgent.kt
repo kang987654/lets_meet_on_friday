@@ -2,8 +2,6 @@ package com.kosmos.app.assistant.agent
 
 import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.assistant.context.PromptAssembler
-import com.kosmos.app.assistant.context.ResponseParser
-import com.kosmos.app.assistant.guard.PreExecutionGuard
 import com.kosmos.app.assistant.orchestrator.ChatRequest
 import com.kosmos.app.assistant.tool.ToolRegistry
 import com.kosmos.app.domain.agent.AgentResult
@@ -28,28 +26,30 @@ import javax.inject.Inject
 class DefaultAgent @Inject constructor(
     modelRunner: ModelRunner,
     toolRegistry: ToolRegistry,
-    responseParser: ResponseParser,
-    preExecutionGuard: PreExecutionGuard,
     auditTrailService: AuditTrailService,
     conversationRepository: ConversationRepository,
+    approvalCoordinator: com.kosmos.app.assistant.approval.ApprovalCoordinator,
     private val promptAssembler: PromptAssembler
 ) : BaseAgent(
     modelRunner,
     toolRegistry,
-    responseParser,
-    preExecutionGuard,
     auditTrailService,
-    conversationRepository
+    conversationRepository,
+    approvalCoordinator
 ) {
 
     override suspend fun execute(request: ChatRequest, context: ContextBuilder.Context): AgentResult {
-        val initialPrompt = assemblePrompt(context, request.message)
-        return executeToolLoop(request, initialPrompt)
+        val tools = availableTools(context)
+        val initialPrompt = promptAssembler.assembleWithTools(context, request.message, tools, systemRole = "General Assistant")
+        return executeToolLoop(request, initialPrompt, tools)
     }
 
-    override fun assemblePrompt(context: ContextBuilder.Context, userInput: String): ChatPrompt {
-        // 일상 대화 또는 기본 봇 프롬프트 조합 (기본 도구 사용)
-        val availableTools = listOf("SearchWikipedia") // 캘린더 제외
-        return promptAssembler.assembleWithTools(context, userInput, availableTools, systemRole = "General Assistant")
+    // [WHY] 웹 검색은 프라이버시 우선 원칙에 따라 전역 토글이 켜진 경우에만 노출/허용된다.
+    // AddMemory는 승인(MEMORY_WRITE) 기반으로 상시 제공한다.
+    override fun availableTools(context: ContextBuilder.Context): List<String> = buildList {
+        add("AddMemory")
+        if (context.webSearchEnabled) {
+            add("SearchWikipedia")
+        }
     }
 }

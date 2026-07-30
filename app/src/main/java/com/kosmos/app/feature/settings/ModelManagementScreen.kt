@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kosmos.app.ui.component.glassEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -21,7 +22,7 @@ fun ModelManagementScreen(
     viewModel: ModelManagementViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
-    val downloadState by viewModel.downloadState.collectAsState()
+    val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
     var customUrl by remember { mutableStateOf("") }
     
     val defaultModelUrl = com.kosmos.app.core.common.Constants.DEFAULT_MODEL_DOWNLOAD_URL
@@ -142,11 +143,12 @@ fun ModelManagementScreen(
         }
     }
 
-    // Foreground Progress Dialog (Uncancellable)
+    // Foreground Progress Dialog (with Cancel)
     when (val state = downloadState) {
         is DownloadState.Downloading -> {
             Dialog(
-                onDismissRequest = { /* Cannot dismiss */ },
+                // [WHY] 수 GB 다운로드 동안 사용자를 가두지 않도록 명시적 취소 경로를 제공한다.
+                onDismissRequest = { /* 배경 탭 오동작 방지 — 취소는 버튼으로만 */ },
                 properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
             ) {
                 Box(
@@ -171,6 +173,9 @@ fun ModelManagementScreen(
                             trackColor = com.kosmos.app.ui.theme.GlassColor
                         )
                         Text("${state.progress}%", color = com.kosmos.app.ui.theme.TextSecondary)
+                        TextButton(onClick = { viewModel.cancelDownload() }) {
+                            Text("Cancel", color = com.kosmos.app.ui.theme.TextSecondary)
+                        }
                     }
                 }
             }

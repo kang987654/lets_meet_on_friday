@@ -1,5 +1,7 @@
 package com.kosmos.app.domain.audit
 
+import com.kosmos.app.core.logging.AppLogger
+import com.kosmos.app.core.security.Redaction
 import com.kosmos.app.domain.memory.AuditRepository
 import com.kosmos.app.domain.model.AuditEvent
 import com.kosmos.app.domain.model.AuditEventType
@@ -9,6 +11,10 @@ import javax.inject.Inject
 class AuditTrailService @Inject constructor(
     private val auditRepository: AuditRepository
 ) {
+    private companion object {
+        const val TAG = "AuditTrailService"
+    }
+
     suspend fun logModelRun(sessionId: String, prompt: String, output: String) {
         val details = "Prompt: ${redact(prompt)}\nOutput: ${redact(output)}"
         saveEvent(sessionId, AuditEventType.MODEL_RUN, details)
@@ -49,23 +55,21 @@ class AuditTrailService @Inject constructor(
                 details = details,
                 timestamp = System.currentTimeMillis()
             )
-            auditRepository.save(event)
+            // [WHY] save는 실패를 예외가 아닌 AppResult로 돌려주므로 값 검사 없이는 유실이 무음으로 지나간다.
+            val result = auditRepository.save(event)
+            if (result is com.kosmos.app.core.common.AppResult.Failure) {
+                AppLogger.w(TAG, "Failed to save audit event ($type): ${result.error}")
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             // 앱 크래시 방지를 위한 Fallback 로깅
-            println("AuditTrailService: Failed to save audit event: ${e.message}")
+            AppLogger.e(TAG, "Failed to save audit event ($type)", e)
         }
     }
 
     /**
-     * 민감 텍스트 Redaction 적용
-     * 너무 긴 텍스트는 로깅 사이즈 초과 방지를 위해 자르고 마스킹 처리합니다.
+     * 민감 텍스트 Redaction 적용 — [Redaction] 코어 정책(PII 마스킹 + 길이 절단)을 사용합니다.
      */
-    private fun redact(text: String): String {
-        val maxLength = 500
-        return if (text.length > maxLength) {
-            text.take(maxLength) + "... [REDACTED_DUE_TO_LENGTH]"
-        } else {
-            text
-        }
-    }
+    private fun redact(text: String): String = Redaction.sanitize(text)
 }

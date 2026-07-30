@@ -1,7 +1,5 @@
 package com.kosmos.app.di
 
-import com.kosmos.app.domain.tool.SpeechToTextTool
-import com.kosmos.app.platform.speech.AndroidSpeechToTextTool
 import com.kosmos.app.domain.tool.CalendarTool
 import com.kosmos.app.platform.calendar.AndroidCalendarTool
 import dagger.Binds
@@ -19,11 +17,6 @@ abstract class PlatformModule {
     abstract fun bindModelDownloader(
         impl: ModelDownloadService
     ): ModelDownloader
-    @Binds
-    abstract fun bindSpeechToTextTool(
-        impl: AndroidSpeechToTextTool
-    ): SpeechToTextTool
-
     @Binds
     abstract fun bindCalendarTool(
         impl: AndroidCalendarTool

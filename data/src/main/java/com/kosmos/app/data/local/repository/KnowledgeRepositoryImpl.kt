@@ -18,7 +18,7 @@ class KnowledgeRepositoryImpl @Inject constructor(
     private val dao: KnowledgeDao
 ) : KnowledgeRepository {
 
-    override suspend fun save(note: KnowledgeNote): AppResult<Unit> = runCatching {
+    override suspend fun save(note: KnowledgeNote): AppResult<Unit> = com.kosmos.app.core.common.runCatchingCancellable {
         val embeddingStr = note.embedding?.joinToString(",") ?: ""
         dao.insert(
             KnowledgeEntity(
@@ -36,14 +36,14 @@ class KnowledgeRepositoryImpl @Inject constructor(
         onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbWriteError("knowledge_note")) }
     )
 
-    override suspend fun delete(noteId: String): AppResult<Unit> = runCatching {
+    override suspend fun delete(noteId: String): AppResult<Unit> = com.kosmos.app.core.common.runCatchingCancellable {
         dao.delete(noteId)
     }.fold(
         onSuccess = { AppResult.Success(Unit) },
         onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbWriteError("knowledge_note")) }
     )
 
-    override suspend fun search(query: String, limit: Int): AppResult<List<KnowledgeNote>> = runCatching {
+    override suspend fun search(query: String, limit: Int): AppResult<List<KnowledgeNote>> = com.kosmos.app.core.common.runCatchingCancellable {
         // 기존 LIKE 검색
         dao.search(query, limit).map { it.toDomain() }
     }.fold(
@@ -51,14 +51,14 @@ class KnowledgeRepositoryImpl @Inject constructor(
         onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.SearchError(it.message ?: "search err")) }
     )
 
-    override suspend fun searchRecent(limit: Int): AppResult<List<KnowledgeNote>> = runCatching {
+    override suspend fun searchRecent(limit: Int): AppResult<List<KnowledgeNote>> = com.kosmos.app.core.common.runCatchingCancellable {
         dao.searchRecent(limit).map { it.toDomain() }
     }.fold(
         onSuccess = { AppResult.Success(it) },
         onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.SearchError(it.message ?: "search err")) }
     )
 
-    override suspend fun searchByTags(tags: List<String>, limit: Int): AppResult<List<KnowledgeNote>> = runCatching {
+    override suspend fun searchByTags(tags: List<String>, limit: Int): AppResult<List<KnowledgeNote>> = com.kosmos.app.core.common.runCatchingCancellable {
         // SQLite의 LIKE 검색을 위해 각 태그별로 검색 결과를 모은 후 중복을 제거 (간이 구현)
         val results = mutableSetOf<KnowledgeEntity>()
         for (tag in tags) {
@@ -71,9 +71,11 @@ class KnowledgeRepositoryImpl @Inject constructor(
     )
 
     // 코사인 유사도 계산 지원 (RAG)
-    override suspend fun searchByVector(queryEmbedding: FloatArray, limit: Int): AppResult<List<KnowledgeNote>> = runCatching {
+    // [WHY] 최대 1000행의 CSV 파싱+코사인 연산이 호출자 디스패처(메인 가능)에서 돌지 않도록 Default로 이동한다.
+    override suspend fun searchByVector(queryEmbedding: FloatArray, limit: Int): AppResult<List<KnowledgeNote>> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+      com.kosmos.app.core.common.runCatchingCancellable {
         val allEntities = dao.searchRecent(1000) // 모두 가져옴 (모바일 특성상 데이터가 많지 않음)
-        
+
         val scoredList = allEntities.mapNotNull { entity ->
             val entityEmbedding = entity.embedding.split(",")
                 .mapNotNull { it.toFloatOrNull() }
@@ -92,10 +94,11 @@ class KnowledgeRepositoryImpl @Inject constructor(
             .sortedByDescending { it.second }
             .take(limit)
             .map { it.first }
-    }.fold(
+      }.fold(
         onSuccess = { AppResult.Success(it) },
         onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.SearchError(it.message ?: "vector search err")) }
-    )
+      )
+    }
     
     private fun cosineSimilarity(v1: FloatArray, v2: FloatArray): Float {
         var dotProduct = 0f

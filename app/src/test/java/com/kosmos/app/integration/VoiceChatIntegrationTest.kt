@@ -90,7 +90,6 @@ class VoiceChatIntegrationTest {
         override suspend fun stopRecording(): com.kosmos.app.core.common.AppResult<java.io.File> = com.kosmos.app.core.common.AppResult.Success(java.io.File.createTempFile("test", ".m4a", ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir))
     }
 
-    @Inject lateinit var addScheduleUseCase: com.kosmos.app.domain.usecase.AddScheduleUseCase
 
     private lateinit var viewModel: ChatViewModel
 
@@ -108,8 +107,7 @@ class VoiceChatIntegrationTest {
             shareIntentHandler = shareIntentHandler,
             runtimeMetricsCollector = runtimeMetricsCollector,
             modelRunner = modelRunner,
-            audioRecorder = audioRecorder,
-            addScheduleUseCase = addScheduleUseCase
+            audioRecorder = audioRecorder
         )
     }
 

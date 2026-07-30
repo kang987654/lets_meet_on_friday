@@ -144,7 +144,6 @@ class MultimodalChatE2ETest {
     @Inject lateinit var approvalCoordinator: ApprovalCoordinator
     @Inject lateinit var shareIntentHandler: ShareIntentHandler
     @Inject lateinit var runtimeMetricsCollector: RuntimeMetricsCollector
-    @Inject lateinit var addScheduleUseCase: com.kosmos.app.domain.usecase.AddScheduleUseCase
 
     private lateinit var viewModel: ChatViewModel
 
@@ -162,8 +161,7 @@ class MultimodalChatE2ETest {
             shareIntentHandler = shareIntentHandler,
             runtimeMetricsCollector = runtimeMetricsCollector,
             modelRunner = fakeModelRunner,
-            audioRecorder = audioRecorder,
-            addScheduleUseCase = addScheduleUseCase
+            audioRecorder = audioRecorder
         )
     }
 

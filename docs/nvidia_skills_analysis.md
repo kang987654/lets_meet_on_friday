@@ -1,4 +1,6 @@
 # NVIDIA Agent Skills 분석 및 개인 비서 앱 활용 전략
+> **문서 버전**: v1.0 | **최종 수정일**: 2026-07-31 | **상태**: Approved (승인)
+> **관련 모듈**: 프로젝트 전 영역 (개발 프로세스 참고 자료)
 
 이 문서는 [NVIDIA Agent Skills](https://github.com/NVIDIA/skills/tree/main/skills) 레포지토리에 수록된 공식 검증 기술(Skills)을 분석하고, 이를 **개인 비서 앱** 프로젝트의 **개발 과정**과 **런타임 기능** 측면으로 분류하여 정리한 보고서입니다.
 

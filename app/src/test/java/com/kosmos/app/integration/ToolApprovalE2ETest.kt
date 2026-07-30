@@ -127,7 +127,6 @@ class ToolApprovalE2ETest {
         override fun close() {}
     }
 
-    @Inject lateinit var addScheduleUseCase: com.kosmos.app.domain.usecase.AddScheduleUseCase
 
     private lateinit var viewModel: ChatViewModel
 
@@ -144,8 +143,7 @@ class ToolApprovalE2ETest {
             shareIntentHandler = shareIntentHandler,
             runtimeMetricsCollector = runtimeMetricsCollector,
             modelRunner = mockModelRunner,
-            audioRecorder = audioRecorder,
-            addScheduleUseCase = addScheduleUseCase
+            audioRecorder = audioRecorder
         )
     }
 

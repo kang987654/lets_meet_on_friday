@@ -21,8 +21,11 @@ object Constants {
     const val THERMAL_WARNING_CELSIUS = 43f
     const val THERMAL_SHUTDOWN_CELSIUS = 48f
     const val THERMAL_COOLDOWN_INFERENCE_COUNT = 5
+    const val DATABASE_NAME = "kosmos_db"
     const val MODEL_DIR_NAME = "models"
-    const val DEFAULT_MODEL_FILENAME = "gemma-4-e4b-it-int4.litertlm"
+    // [WHY] 공식 다운로드 URL이 실제로 생성하는 파일명과 일치시켜, NotFound 안내가
+    // 사용자가 절대 만들 수 없는 파일명을 요구하지 않도록 한다.
+    const val DEFAULT_MODEL_FILENAME = "gemma-4-E4B-it.litertlm"
     const val DEFAULT_MODEL_DOWNLOAD_URL = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
     const val CALENDAR_DRAFT_MIN_CONFIDENCE = 0.7f
 }
