@@ -88,7 +88,7 @@ open class AudioRecorder @Inject constructor(
         }
     }
 
-    suspend fun stopRecording(): com.kosmos.app.core.common.AppResult<File> {
+    open suspend fun stopRecording(): com.kosmos.app.core.common.AppResult<File> {
         return try {
             isRecording = false
             audioRecord?.apply {

@@ -73,13 +73,14 @@ class ToolApprovalE2ETest {
         override val loadState = MutableStateFlow<ModelLoadState>(ModelLoadState.Ready(ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
         override fun checkModelFile() {}
         override fun setInitializing() {}
+        override fun setReady(modelInfo: com.kosmos.app.domain.modelrunner.ModelInfo) {}
     }
 
     @dagger.hilt.android.testing.BindValue
     @JvmField
     val audioRecorder: AudioRecorder = object : com.kosmos.app.platform.speech.AudioRecorder(ApplicationProvider.getApplicationContext()) {
         override fun startRecording(): com.kosmos.app.core.common.AppResult<Unit> = com.kosmos.app.core.common.AppResult.Success(Unit)
-        override fun stopRecording(): com.kosmos.app.core.common.AppResult<java.io.File> = com.kosmos.app.core.common.AppResult.Success(java.io.File.createTempFile("t", "a"))
+        override suspend fun stopRecording(): com.kosmos.app.core.common.AppResult<java.io.File> = com.kosmos.app.core.common.AppResult.Success(java.io.File.createTempFile("t", "a"))
     }
 
     @dagger.hilt.android.testing.BindValue
@@ -126,6 +127,8 @@ class ToolApprovalE2ETest {
         override fun close() {}
     }
 
+    @Inject lateinit var addScheduleUseCase: com.kosmos.app.domain.usecase.AddScheduleUseCase
+
     private lateinit var viewModel: ChatViewModel
 
     @Before
@@ -141,7 +144,8 @@ class ToolApprovalE2ETest {
             shareIntentHandler = shareIntentHandler,
             runtimeMetricsCollector = runtimeMetricsCollector,
             modelRunner = mockModelRunner,
-            audioRecorder = audioRecorder
+            audioRecorder = audioRecorder,
+            addScheduleUseCase = addScheduleUseCase
         )
     }
 

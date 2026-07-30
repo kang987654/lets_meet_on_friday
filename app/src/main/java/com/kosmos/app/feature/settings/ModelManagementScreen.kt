@@ -24,7 +24,7 @@ fun ModelManagementScreen(
     val downloadState by viewModel.downloadState.collectAsState()
     var customUrl by remember { mutableStateOf("") }
     
-    val defaultModelUrl = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
+    val defaultModelUrl = com.kosmos.app.core.common.Constants.DEFAULT_MODEL_DOWNLOAD_URL
 
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,

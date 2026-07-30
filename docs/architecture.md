@@ -1,7 +1,9 @@
 # architecture.md — Local Friday
+> **문서 버전**: v1.2 | **최종 수정일**: 2026-07-31 | **상태**: Approved (승인)
+> **관련 모듈**: `:app`, `:core`, `:domain`, `:data`
+
 ## Android Offline-First Personal AI Assistant
 
-**문서 버전**: 1.2
 **기준 PRD**: PRD.md v1.2
 **기준 계약 문서**: api_spec.yaml v1.2.0
 **아키텍처 패턴**: Modular Monolith (Single Android App)

@@ -1,5 +1,16 @@
 package com.kosmos.app.core.common
 
+/**
+ * [AppError]
+ * 애플리케이션 전역에서 발생하는 도메인, 데이터, 모델 및 플랫폼 에러를 세분화하여 정의한 봉인 클래스(sealed class)입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Core (Common)
+ * - **Dependencies**: 없음
+ *
+ * ### Key Flow
+ * 1. [AppResult.Failure]에 담겨 계층 간 에러 전달 시 사용됩니다.
+ */
 sealed class AppError {
     data class ModelNotFound(val path: String) : AppError()
     data class ModelNotReady(val reason: String) : AppError()

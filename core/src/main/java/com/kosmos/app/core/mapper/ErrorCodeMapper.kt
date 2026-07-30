@@ -3,6 +3,17 @@ package com.kosmos.app.core.mapper
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.security.PermissionPolicy
 
+/**
+ * [ErrorCodeMapper]
+ * 내부 도메인/시스템 에러([AppError])를 UI 표출용 정규화 오류 코드([ErrorCode])로 변환하는 매퍼 싱글톤입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Core (Mapper)
+ * - **Dependencies**: [AppError], [ErrorCode], [PermissionPolicy]
+ *
+ * ### Key Flow
+ * 1. [AppError] 인스턴스를 전달받아 패턴 매칭 및 필드 분석을 통해 UI 표출용 [ErrorCode]를 1:1로 변환합니다.
+ */
 object ErrorCodeMapper {
     fun toErrorCode(error: AppError): ErrorCode = when (error) {
         is AppError.ValidationError -> when {

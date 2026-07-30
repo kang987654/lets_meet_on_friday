@@ -2,6 +2,18 @@ package com.kosmos.app.core.logging
 
 import java.lang.reflect.Method
 
+/**
+ * [AppLogger]
+ * 안드로이드 런타임 환경(`android.util.Log`)과 일반 JVM/Robolectric 환경(Standard Output)을 리플렉션으로 감지하여 안전하게 로깅을 제공하는 유틸리티 싱글톤입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Core (Logging)
+ * - **Dependencies**: 없음
+ *
+ * ### Key Flow
+ * 1. `android.util.Log` 클래스를 리플렉션으로 검색합니다.
+ * 2. 안드로이드 환경이면 `android.util.Log` 메소드를 실행하고, JVM/단위 테스트 환경이면 Standard Console에 출력합니다.
+ */
 object AppLogger {
     private var dMethod: Method? = null
     private var eMethod: Method? = null

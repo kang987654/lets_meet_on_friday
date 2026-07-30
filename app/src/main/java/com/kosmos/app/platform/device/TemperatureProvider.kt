@@ -21,10 +21,3 @@ class BatteryTemperatureProvider @Inject constructor(
     }
 }
 
-class FakeTemperatureProvider : TemperatureProvider {
-    var mockedTemperature: Float = 35.0f
-
-    override fun getCurrentTemperatureCelsius(): Float {
-        return mockedTemperature
-    }
-}

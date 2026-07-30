@@ -1,3 +1,12 @@
+## [0.5.5] - 2026-07-31
+- **[Refactoring]** 프로젝트 전 영역(app, core, domain, data) 3단계 안전 리팩터링 및 KDoc 문서화 완료
+  - **`Core 모듈`**: `AppError`, `AppResult`, `Constants`, `AppConfig`, `FeatureFlags`, `ModelConfig`, `AppLogger`, `ErrorCode`, `ErrorCodeMapper`, `ApprovalRules`, `PermissionPolicy`, `Redaction` 등 12개 주요 클래스/인터페이스에 표준 KDoc 헤더(`Role`, `Architecture Context`, `Key Flow`) 명시 및 `Constants.DEFAULT_MODEL_DOWNLOAD_URL` 중앙 관리 통합
+  - **`Mockup 격리`**: `src/main/` 메인 소스 트리에 있던 `FakeTemperatureProvider` 목업 클래스를 `src/test/` 하위 테스트 픽스처 패키지로 이관하여 비즈니스 코드와 완전 격리
+  - **`GetTodayScheduleUseCase.kt`**: `runCatching` 기반 안전한 ISO 날짜 파싱 및 `ZoneId` 매개변수화로 예외 안전성(Null Safety) 강화, AI 요약 실패 시 `null` 폴백 처리 명시
+  - **`MemoryViewModel.kt` & `ChatViewModel.kt`**: StateFlow 불변성(Immutability) 및 Null Safety 방어 코드 보완
+  - **`구조 정돈`**: 구현 파일이 존재하는 패키지의 redundant `.gitkeep` 파일 13개 정리 및 미구현 전용 패키지만 유지
+  - **`QA/Test`**: E2E 테스트 버튼 셀렉터(`Attach`, `Send` contentDescription) 및 테스트 픽스처 시그니처 보완 후 전체 17개 단위 및 Robolectric E2E 통합 테스트 100% 통과 완료 (`./gradlew test`)
+
 ## [0.5.4] - 2026-07-19
 - **[Refactoring]** 기술 부채 청산, 하드코딩된 더미 UI 제거 및 최적화
   - **`CalendarScreen.kt`**: 피그마 시안 확인용으로 하드코딩되었던 "Upcoming" 섹션 및 가짜 일정 행(`UpcomingEventRow`), 일정 시간 배지("30m") 제거 (DB 연동 순수 데이터만 출력)

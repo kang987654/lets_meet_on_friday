@@ -1,30 +1,66 @@
-*.iml
-.gradle
-/local.properties
-/.idea/
-.DS_Store
-Thumbs.db
+# =====================================================================
+# lets_meet_on_friday - Git Ignore Configuration
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# 1. Android & Gradle Build Artifacts
+# ---------------------------------------------------------------------
+.gradle/
 build/
+**/build/
 /captures
-/model
-.externalNativeBuild
+.externalNativeBuild/
 .cxx/
+*.apk
+*.aar
+
+# ---------------------------------------------------------------------
+# 2. IDE & Editor Configuration
+# ---------------------------------------------------------------------
+.idea/
+*.iml
+.vscode/
+.kotlin/
+
+# ---------------------------------------------------------------------
+# 3. Local Properties & Key Secrets
+# ---------------------------------------------------------------------
 local.properties
-
-# Android Studio temp files
-*.hprof
-*.prof
-
-# Keystore files
+key.properties
 *.jks
 *.keystore
-key.properties
 *.p8
 *.p12
+.env
+.env.*
 
-# AI generated logs/tasks (Antigravity)
+# ---------------------------------------------------------------------
+# 4. On-Device AI Models & Large Binaries
+# (Prevents large LLM binaries like Gemma 4 from cluttering git)
+# ---------------------------------------------------------------------
+*.litertlm
+*.bin
+*.onnx
+/model/
+
+# ---------------------------------------------------------------------
+# 5. Web Prototype (Node.js) Dependencies
+# ---------------------------------------------------------------------
+On-device AI Assistant App/node_modules/
+On-device AI Assistant App/dist/
+
+# ---------------------------------------------------------------------
+# 6. AI Agent Tool Cache & Scratch Files
+# ---------------------------------------------------------------------
 .cache/
 .gemini/
+*.patch
+scratch/
 
-# Kotlin compiler cache
-.kotlin/
+# ---------------------------------------------------------------------
+# 7. OS & Profiler Temp Files
+# ---------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.hprof
+*.prof

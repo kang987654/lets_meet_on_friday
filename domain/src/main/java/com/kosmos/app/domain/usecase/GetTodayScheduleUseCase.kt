@@ -12,21 +12,37 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.Instant
+import java.time.LocalDateTime
 import javax.inject.Inject
 
+/**
+ * [GetTodayScheduleUseCase]
+ * 지정된 기간(오늘 또는 이번 주)의 일정을 DB에서 조회하고, Gemma LLM을 통해 간결한 1~2문장의 요약(Summary)을 생성하는 유즈케이스입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Domain (UseCase)
+ * - **Dependencies**: [TaskRepository], [ModelRunner]
+ *
+ * ### Key Flow
+ * 1. 시스템 현재 시각 기준 범위(오늘/주간) 밀리초 타임스탬프 계산.
+ * 2. [TaskRepository]에서 작업 목록 조회 후 해당 범위 내 일정을 [CalendarEvent]로 필터링.
+ * 3. 일정이 존재할 경우 [ModelRunner]에 요약 프롬프트를 전달하여 친절한 간결 요약문 생성 (실패 시 null 폴백).
+ */
 class GetTodayScheduleUseCase @Inject constructor(
     private val taskRepository: TaskRepository,
     private val modelRunner: ModelRunner
 ) {
     suspend operator fun invoke(range: ScheduleData.RangeType): AppResult<ScheduleData> = withContext(Dispatchers.IO) {
-        val today = LocalDate.now(ZoneId.systemDefault())
-        val startMs = today.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val zoneId = ZoneId.systemDefault()
+        val today = LocalDate.now(zoneId)
+        val startMs = today.atStartOfDay(zoneId).toInstant().toEpochMilli()
         
         val endMs = when (range) {
             ScheduleData.RangeType.TODAY -> 
-                today.atTime(LocalTime.MAX).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                today.atTime(LocalTime.MAX).atZone(zoneId).toInstant().toEpochMilli()
             ScheduleData.RangeType.WEEK -> 
-                today.plusDays(7).atTime(LocalTime.MAX).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                today.plusDays(7).atTime(LocalTime.MAX).atZone(zoneId).toInstant().toEpochMilli()
         }
 
         // 1. 내부 DB 일정 조회 및 필터링
@@ -37,7 +53,7 @@ class GetTodayScheduleUseCase @Inject constructor(
         val tasks = (tasksResult as AppResult.Success).data
         val events = tasks.mapNotNull { task ->
             val dueIso = task.dueDateIso ?: return@mapNotNull null
-            val ms = parseIsoToMs(dueIso) ?: return@mapNotNull null
+            val ms = parseIsoToMs(dueIso, zoneId) ?: return@mapNotNull null
             if (ms in startMs..endMs) {
                 CalendarEvent(
                     id = task.id,
@@ -79,7 +95,7 @@ class GetTodayScheduleUseCase @Inject constructor(
         )
         val summary = when (val result = modelRunner.generate(chatPrompt)) {
             is AppResult.Success -> result.data.trim()
-            is AppResult.Failure -> null // AI 요약 실패 시 null 반환 (Fallback)
+            is AppResult.Failure -> null // [WHY] AI 요약 실패 시 앱 다운을 막기 위해 null 폴백 처리
         }
 
         AppResult.Success(
@@ -91,25 +107,15 @@ class GetTodayScheduleUseCase @Inject constructor(
         )
     }
 
-    private fun parseIsoToMs(iso: String): Long? {
-        return try {
+    private fun parseIsoToMs(iso: String, zoneId: ZoneId): Long? {
+        return runCatching {
             if (iso.contains("Z") || iso.contains("+") || (iso.count { it == '-' } > 1 && iso.indexOf("+") > 0)) {
-                java.time.Instant.parse(iso).toEpochMilli()
+                Instant.parse(iso).toEpochMilli()
             } else {
-                java.time.LocalDateTime.parse(iso)
-                    .atZone(java.time.ZoneId.systemDefault())
-                    .toInstant()
-                    .toEpochMilli()
+                LocalDateTime.parse(iso).atZone(zoneId).toInstant().toEpochMilli()
             }
-        } catch (e: Exception) {
-            try {
-                java.time.LocalDate.parse(iso)
-                    .atStartOfDay(java.time.ZoneId.systemDefault())
-                    .toInstant()
-                    .toEpochMilli()
-            } catch (e2: Exception) {
-                null
-            }
-        }
+        }.getOrNull() ?: runCatching {
+            LocalDate.parse(iso).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        }.getOrNull()
     }
 }

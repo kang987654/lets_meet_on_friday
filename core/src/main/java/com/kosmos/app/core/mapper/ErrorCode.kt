@@ -1,5 +1,16 @@
 package com.kosmos.app.core.mapper
 
+/**
+ * [ErrorCode]
+ * 사용자 표출용 에러 코드 식별자를 정의하는 열거형(enum)입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Core (Mapper)
+ * - **Dependencies**: 없음
+ *
+ * ### Key Flow
+ * 1. 도메인/플랫폼의 [AppError]를 UI 레이어 메시지로 매핑할 때 정규화된 오류 코드로 참조됩니다.
+ */
 enum class ErrorCode {
     EMPTY_INPUT,
     INPUT_TOO_LONG,

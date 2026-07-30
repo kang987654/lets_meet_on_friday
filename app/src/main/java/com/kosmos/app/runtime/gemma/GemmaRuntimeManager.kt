@@ -34,7 +34,7 @@ class GemmaRuntimeManager @Inject constructor(
     override val loadState: StateFlow<ModelLoadState> = _loadState.asStateFlow()
 
     // TODO(v0): 실제 사용 시 설정(SettingsDataStore)에서 모델 경로를 읽어오는 구조로 개선 가능
-    private val defaultModelFileName = "gemma-4-e4b-it-int4.litertlm"
+    private val defaultModelFileName = com.kosmos.app.core.common.Constants.DEFAULT_MODEL_FILENAME
 
     // [최적화 노트]
     // 1. mmap 적용: LiteRT-LM LlmInferenceOptions의 setModelPath는 

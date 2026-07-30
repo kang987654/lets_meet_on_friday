@@ -1,7 +1,9 @@
 # PRD.md — Local Friday
+> **문서 버전**: v1.2 | **최종 수정일**: 2026-07-31 | **상태**: Approved (승인)
+> **관련 모듈**: `:app`, `:core`, `:domain`, `:data`
+
 ## Offline-First Personal AI Assistant for Android
 
-**문서 버전**: 1.2
 **v0(MVP) 대상 환경**: Samsung Galaxy S25 Ultra / Android
 **확장 고려**: Windows / 상위 모델
 

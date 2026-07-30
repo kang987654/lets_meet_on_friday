@@ -9,6 +9,7 @@ import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.assertIsDisplayed
@@ -128,12 +129,13 @@ class MultimodalChatE2ETest {
         override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(ModelLoadState.Ready(ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
         override fun checkModelFile() {}
         override fun setInitializing() {}
+        override fun setReady(modelInfo: com.kosmos.app.domain.modelrunner.ModelInfo) {}
     }
 
     @BindValue
     val audioRecorder: AudioRecorder = object : com.kosmos.app.platform.speech.AudioRecorder(ApplicationProvider.getApplicationContext()) {
         override fun startRecording(): com.kosmos.app.core.common.AppResult<Unit> = com.kosmos.app.core.common.AppResult.Success(Unit)
-        override fun stopRecording(): com.kosmos.app.core.common.AppResult<java.io.File> = com.kosmos.app.core.common.AppResult.Success(java.io.File.createTempFile("t", "a"))
+        override suspend fun stopRecording(): com.kosmos.app.core.common.AppResult<java.io.File> = com.kosmos.app.core.common.AppResult.Success(java.io.File.createTempFile("t", "a"))
     }
 
     @Inject lateinit var sessionStore: SessionStore
@@ -142,6 +144,7 @@ class MultimodalChatE2ETest {
     @Inject lateinit var approvalCoordinator: ApprovalCoordinator
     @Inject lateinit var shareIntentHandler: ShareIntentHandler
     @Inject lateinit var runtimeMetricsCollector: RuntimeMetricsCollector
+    @Inject lateinit var addScheduleUseCase: com.kosmos.app.domain.usecase.AddScheduleUseCase
 
     private lateinit var viewModel: ChatViewModel
 
@@ -159,7 +162,8 @@ class MultimodalChatE2ETest {
             shareIntentHandler = shareIntentHandler,
             runtimeMetricsCollector = runtimeMetricsCollector,
             modelRunner = fakeModelRunner,
-            audioRecorder = audioRecorder
+            audioRecorder = audioRecorder,
+            addScheduleUseCase = addScheduleUseCase
         )
     }
 
@@ -197,8 +201,8 @@ class MultimodalChatE2ETest {
 
         composeTestRule.waitForIdle()
 
-        // 1. Click attach button ("+")
-        composeTestRule.onNodeWithText("+").performClick()
+        // 1. Click attach button ("Attach")
+        composeTestRule.onNodeWithContentDescription("Attach").performClick()
         
         composeTestRule.waitForIdle()
 
@@ -209,8 +213,8 @@ class MultimodalChatE2ETest {
         composeTestRule.onNode(androidx.compose.ui.test.hasSetTextAction())
             .performTextInput("Please summarize this document.")
 
-        // 4. Send message ("↑")
-        composeTestRule.onNodeWithText("↑").performClick()
+        // 4. Send message ("Send")
+        composeTestRule.onNodeWithContentDescription("Send").performClick()
 
         // 5. Wait for the model runner to receive the prompt with the document content injected
         val runner = fakeModelRunner as FakeE2EModelRunner

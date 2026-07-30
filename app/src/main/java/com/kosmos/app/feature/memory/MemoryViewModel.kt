@@ -22,6 +22,19 @@ import com.kosmos.app.domain.usecase.ImportMemoryUseCase
 import com.kosmos.app.core.common.AppResult
 import java.io.File
 
+/**
+ * [MemoryViewModel]
+ * 지식 노트(Knowledge Notes) 및 할 일(Task) 목록의 페이징 데이터 표시와 데이터 백업/복원(Export/Import)을 제어하는 뷰모델입니다.
+ *
+ * ### Architecture Context
+ * - **Layer**: Feature / Presentation (Memory)
+ * - **Dependencies**: [KnowledgeRepository], [TaskRepository], [ExportMemoryUseCase], [ImportMemoryUseCase]
+ *
+ * ### Key Flow
+ * 1. Paging3 및 Flow를 통해 지식 노트 및 Task 데이터를 UI에 관찰 가능한 스트림으로 서빙합니다.
+ * 2. 탭 필터 변경 및 Task 완료 처리 UI 액션을 도메인/리포지토리로 전달합니다.
+ * 3. [ExportMemoryUseCase] 및 [ImportMemoryUseCase]를 호출하여 지식/일정 백업 Zip 파일 생성을 수행합니다.
+ */
 @HiltViewModel
 class MemoryViewModel @Inject constructor(
     private val knowledgeRepository: KnowledgeRepository,
@@ -29,6 +42,7 @@ class MemoryViewModel @Inject constructor(
     private val exportMemoryUseCase: ExportMemoryUseCase,
     private val importMemoryUseCase: ImportMemoryUseCase
 ) : ViewModel() {
+
 
     private val _uiState = MutableStateFlow(MemoryUiState())
     val uiState: StateFlow<MemoryUiState> = _uiState.asStateFlow()
