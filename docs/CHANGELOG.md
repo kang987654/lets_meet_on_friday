@@ -1,3 +1,12 @@
+## [0.7.1] - 2026-08-06
+- **[Fix]** `AddMemory` 툴의 태그가 전부 유실되던 버그 — `AddMemoryToolExecutor`가 `tagsRaw is List<*>`로 분기했으나 `org.json`은 JSON 배열을 `List`가 아닌 `JSONArray`로 주므로 이 분기는 절대 참이 되지 않았다. 프롬프트가 지시한 정식 형태(`{"tags":["work","urgent"]}`)로 보낸 태그가 조용히 사라지고 콤마 문자열 폴백만 동작하던 상태(재현 확인: `isList=false`, 결과 `[]`)
+- **[Fix]** `KnowledgeDao` LIKE 와일드카드 미이스케이프 — Room 파라미터 바인딩은 SQL 인젝션을 막지만 `%`/`_`는 바인딩된 값 안쪽에 있어 와일드카드로 해석됐다. `100%` 검색이 `100` 포함 전체를, `%` 한 글자가 테이블 전체를 매칭해 노트 100건이 RAG 프롬프트로 쏟아지고 컨텍스트 예산을 터뜨렸다. `SqlLike.escape` + 두 쿼리에 `ESCAPE '\'` 적용, 빈 검색어 가드 추가
+- **[Fix]** 태그 부분 매칭 — `tags`는 `"work,urgent"` 형태 콤마 문자열인데 `LIKE '%work%'`가 `"workflow"`에도 매칭됐다. 구분자로 양쪽을 감싸 정확히 한 개 토큰으로 매칭 (사용자 결정)
+- **[Fix]** 승인·실행 인자 검증 불일치 — `AddScheduleToolExecutor`의 `buildApprovalRequest`는 누락된 제목을 `(제목 없음)`으로 표시하고 `execute`는 거부했기 때문에, 사용자가 애초에 실행될 수 없는 초안을 승인할 수 있었다. 검증을 한 곳으로 모아 승인 단계에서 먼저 실패하게 변경
+- **[Fix]** JSON이 깨진 `<tool_call>`을 빈 `catch`로 삼켜 툴 콜이 흔적 없이 사라지던 문제 — 모델은 오류를 받지 못하고 그 턴이 평문 답변으로 처리돼 사용자에게는 요청이 무시된 것처럼 보였다. `ParsedStream.malformedToolCalls`로 노출하고 `BaseAgent`가 형식 오류를 모델에게 되돌려 재작성 기회를 준다
+- **[Refactoring]** 툴 인자 해석을 `ToolArguments` 래퍼로 일원화 — `ToolExecutor`의 두 시그니처를 `Map<String, Any>` → `ToolArguments`로 교체하고 executor 4곳의 `as? String` 캐스트를 제거. `JSONObject.NULL`을 "값 없음"으로 정규화(non-null `Any`라서 생기던 함정 제거), 숫자·불린은 문자열로 강제 변환(모델이 따옴표를 빠뜨려도 대화가 멈추지 않도록), 배열·객체는 타입 오류로 보고. 누락(`MISSING`)과 타입 오류(`WRONG_TYPE`)를 구분해 모델이 무엇을 고칠지 알 수 있게 함 — 기존에는 둘을 뭉개 모델이 이미 보낸 값을 반복 요구받는 루프에 빠졌다
+- **[QA/Test]** 신규 테스트 33건 — `ToolArgumentsTest`(14건, JSON 배열 태그 회귀 방지 포함), `SqlLikeEscapeTest`(6건, 백슬래시 우선 처리 순서 검증), `KnowledgeSearchEscapeTest`(10건, 인메모리 Room으로 실제 쿼리 검증), `ToolParserTest`(+3건). 전체 84건 + lintDebug 통과. `ToolApprovalE2ETest`가 승인 경로를 태워 회귀 안전망 역할
+
 ## [0.7.0] - 2026-08-05
 - **[UI/UX]** Phase B-3 2~3단계 — 모델 다운로드를 WorkManager 전경 작업으로 이관 (ADR-006)
   - 다운로드가 `viewModelScope`를 벗어나 `ModelDownloadWorker`(@HiltWorker)로 이동 — 화면을 벗어나거나 앱을 닫아도 전송이 계속된다. 진행 카드 문구도 "앱을 종료하면 다운로드가 중단됩니다" → "앱을 닫아도 백그라운드에서 계속 진행됩니다"로 사실에 맞게 교체
