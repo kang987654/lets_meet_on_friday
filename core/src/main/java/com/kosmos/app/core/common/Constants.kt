@@ -28,5 +28,18 @@ object Constants {
     const val DEFAULT_MODEL_FILENAME = "gemma-4-E4B-it.litertlm"
     const val DEFAULT_MODEL_DOWNLOAD_URL = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
     const val CALENDAR_DRAFT_MIN_CONFIDENCE = 0.7f
+
+    // --- 모델 다운로드 (WorkManager 전경 작업, ADR-006) ---
+    const val MODEL_DOWNLOAD_WORK_NAME = "model_download"
+    // [WHY] 서버가 Content-Length 를 주지 않는 경우(chunked)에도 저장 공간 사전 점검을
+    // 포기하지 않기 위한 보수적 하한값이다.
+    const val EXPECTED_MODEL_SIZE_BYTES = 3_900_000_000L
+    // [WHY] 모델 파일만 딱 들어가는 용량으로 다운로드를 허용하면 기기가 즉시 저장공간 부족에
+    // 빠지므로 여유분을 요구한다.
+    const val MODEL_DOWNLOAD_SPACE_SLACK_BYTES = 256L * 1024 * 1024
+    const val MODEL_PART_SUFFIX = ".part"
+    const val MODEL_PART_META_SUFFIX = ".part.meta"
+    const val MODEL_BACKUP_SUFFIX = ".bak"
+    const val MODEL_DOWNLOAD_MAX_ATTEMPTS = 5
 }
 
