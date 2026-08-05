@@ -130,17 +130,9 @@ class GetTodayScheduleUseCase @Inject constructor(
     /**
      * ISO-8601 계열 문자열을 epoch ms로 변환합니다.
      * [WHY] 오프셋 포함(`+09:00`, `-05:00`), UTC(`Z`), 로컬 일시, 날짜-only 네 가지 포맷을
-     * 표준 파서 폴백 체인으로 처리한다 — 과거 문자열 휴리스틱은 KST(+09:00) 이벤트를 조용히 버렸다.
+     * 표준 파서 폴백 체인으로 처리한다. 파싱 규칙은 화면(CalendarViewModel 날짜 필터)과도
+     * 공유해야 하므로 [IsoDateTimeParser]에 위임한다 — 규칙이 갈라지면 목록과 필터가 어긋난다.
      */
-    private fun parseIsoToMs(iso: String, zoneId: ZoneId): Long? {
-        return runCatching {
-            java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli()
-        }.getOrNull() ?: runCatching {
-            Instant.parse(iso).toEpochMilli()
-        }.getOrNull() ?: runCatching {
-            LocalDateTime.parse(iso).atZone(zoneId).toInstant().toEpochMilli()
-        }.getOrNull() ?: runCatching {
-            LocalDate.parse(iso).atStartOfDay(zoneId).toInstant().toEpochMilli()
-        }.getOrNull()
-    }
+    private fun parseIsoToMs(iso: String, zoneId: ZoneId): Long? =
+        com.kosmos.app.domain.util.IsoDateTimeParser.toEpochMillis(iso, zoneId)
 }

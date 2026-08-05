@@ -63,6 +63,9 @@ info:
     - `AppError.ImageTooLarge` → `IMAGE_TOO_LARGE`
     - `AppError.UnsupportedImageFormat` → `UNSUPPORTED_IMAGE_FORMAT`
     - `AppError.ValidationError(field=naturalLanguageRequest, reason=missing_time)` → `MISSING_TIME_INFO`
+    - `AppError.ValidationError(그 외 reason)` → `INVALID_INPUT`
+      (reason은 `core/common/ValidationReason.kt`의 표준 토큰(blank/too_long/missing_time)만 사용하며,
+       매퍼는 부분 문자열 추측 없이 정확히 일치시킨다. 사용자 노출 문구는 `core/mapper/ErrorMessages.kt`가 담당)
     - `AppError.InFlightConflict` → `IN_FLIGHT_CONFLICT`
     - `AppError.DuplicateEvent` → `DUPLICATE_EVENT`
     - `AppError.PermissionDenied(permission=READ_CALENDAR|WRITE_CALENDAR)` → `PERMISSION_DENIED_CALENDAR`
@@ -1859,6 +1862,7 @@ components:
         - IMAGE_TOO_LARGE
         - UNSUPPORTED_IMAGE_FORMAT
         - MISSING_TIME_INFO
+        - INVALID_INPUT
         - IN_FLIGHT_CONFLICT
         - DUPLICATE_EVENT
         - PERMISSION_DENIED_CALENDAR

@@ -43,12 +43,12 @@ class SendChatMessageUseCase @Inject constructor(
 
         // 1. 유효성 검사 (빈 문자열)
         if (trimmedMessage.isBlank() && imageBytes == null && audioFilePath == null && documentText == null) {
-            return AppResult.Failure(AppError.ValidationError("message", "메시지를 입력해주세요."))
+            return AppResult.Failure(AppError.ValidationError(com.kosmos.app.core.common.ValidationField.CONTENT, com.kosmos.app.core.common.ValidationReason.BLANK))
         }
 
         // 2. 유효성 검사 (길이 제한)
         if (trimmedMessage.length > MAX_INPUT_CHARS) {
-            return AppResult.Failure(AppError.ValidationError("message", "입력 가능한 최대 글자 수($MAX_INPUT_CHARS)를 초과했습니다."))
+            return AppResult.Failure(AppError.ValidationError(com.kosmos.app.core.common.ValidationField.CONTENT, com.kosmos.app.core.common.ValidationReason.TOO_LONG))
         }
 
         val processedImageBytes = imageBytes?.let {

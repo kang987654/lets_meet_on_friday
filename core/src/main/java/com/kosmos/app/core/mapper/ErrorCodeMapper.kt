@@ -1,6 +1,7 @@
 package com.kosmos.app.core.mapper
 
 import com.kosmos.app.core.common.AppError
+import com.kosmos.app.core.common.ValidationReason
 import com.kosmos.app.core.security.PermissionPolicy
 
 /**
@@ -16,23 +17,13 @@ import com.kosmos.app.core.security.PermissionPolicy
  */
 object ErrorCodeMapper {
     fun toErrorCode(error: AppError): ErrorCode = when (error) {
-        is AppError.ValidationError -> when {
-            error.field == "content" && error.reason.contains("blank", ignoreCase = true) ->
-                ErrorCode.EMPTY_INPUT
-
-            error.field == "content" && (
-                error.reason.contains("too_long", ignoreCase = true) ||
-                error.reason.contains("length", ignoreCase = true) ||
-                error.reason.contains("길", ignoreCase = true)
-            ) -> ErrorCode.INPUT_TOO_LONG
-
-            error.field == "naturalLanguageRequest" && (
-                error.reason.contains("missing_time", ignoreCase = true) ||
-                error.reason.contains("time", ignoreCase = true) ||
-                error.reason.contains("시간", ignoreCase = true)
-            ) -> ErrorCode.MISSING_TIME_INFO
-
-            else -> ErrorCode.INPUT_TOO_LONG
+        // [WHY] 부분 일치 추측을 제거하고 표준 토큰([ValidationReason])과 정확히 매칭한다.
+        // 미분류는 INPUT_TOO_LONG이 아니라 INVALID_INPUT으로 떨어뜨려 오분류를 없앤다.
+        is AppError.ValidationError -> when (error.reason) {
+            ValidationReason.BLANK -> ErrorCode.EMPTY_INPUT
+            ValidationReason.TOO_LONG -> ErrorCode.INPUT_TOO_LONG
+            ValidationReason.MISSING_TIME -> ErrorCode.MISSING_TIME_INFO
+            else -> ErrorCode.INVALID_INPUT
         }
 
         is AppError.ImageTooLarge -> ErrorCode.IMAGE_TOO_LARGE

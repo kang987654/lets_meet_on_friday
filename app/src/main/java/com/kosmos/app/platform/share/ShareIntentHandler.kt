@@ -45,7 +45,7 @@ class ShareIntentHandler @Inject constructor(
                 if (!text.isNullOrBlank()) {
                     _sharedInputFlow.tryEmit(AppResult.Success(SharedInput.Text(text)))
                 } else {
-                    _sharedInputFlow.tryEmit(AppResult.Failure(AppError.ValidationError("Share", "Empty text")))
+                    _sharedInputFlow.tryEmit(AppResult.Failure(AppError.ValidationError(com.kosmos.app.core.common.ValidationField.CONTENT, com.kosmos.app.core.common.ValidationReason.BLANK)))
                 }
             }
             type.startsWith("image/") -> {
@@ -58,7 +58,7 @@ class ShareIntentHandler @Inject constructor(
                 if (uri != null) {
                     processImageUri(uri, type)
                 } else {
-                    _sharedInputFlow.tryEmit(AppResult.Failure(AppError.ValidationError("Share", "Empty URI")))
+                    _sharedInputFlow.tryEmit(AppResult.Failure(AppError.ValidationError(com.kosmos.app.core.common.ValidationField.CONTENT, com.kosmos.app.core.common.ValidationReason.BLANK)))
                 }
             }
             else -> {

@@ -20,6 +20,19 @@ class SettingsDataStore @Inject constructor(
         private val RESPONSE_STYLE_KEY = stringPreferencesKey("response_style")
         private val MAX_TOKENS_KEY = intPreferencesKey("max_tokens")
         private val WEB_SEARCH_ENABLED_KEY = booleanPreferencesKey("web_search_enabled")
+        private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
+    }
+
+    // [WHY] 테마 모드는 UI 계층의 enum(ThemeMode)이므로 data 계층에서는 키 문자열로만 다룬다
+    // (SYSTEM/LIGHT/DARK). 기본값 SYSTEM — 기기 설정을 따른다. (ADR-005)
+    val themeModeFlow: Flow<String> = dataStore.data.map {
+        it[THEME_MODE_KEY] ?: "SYSTEM"
+    }
+
+    suspend fun saveThemeMode(mode: String) {
+        dataStore.edit { prefs ->
+            prefs[THEME_MODE_KEY] = mode
+        }
     }
 
     // [WHY] 프라이버시 우선 원칙에 따라 웹 검색(네트워크 egress)은 기본 비활성화(false)이며,
