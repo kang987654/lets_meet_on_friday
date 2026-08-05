@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.approval
 
+import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,7 +12,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kosmos.app.assistant.approval.ApprovalRequest
 
-val SkyBlue = com.kosmos.app.ui.theme.Cyan
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,7 +22,7 @@ fun ApprovalSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onReject,
-        containerColor = com.kosmos.app.ui.theme.SurfaceColor,
+        containerColor = KosmosTheme.colors.surface,
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         Column(
@@ -34,14 +34,14 @@ fun ApprovalSheet(
                 text = request.title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = com.kosmos.app.ui.theme.TextPrimary,
+                color = KosmosTheme.colors.textPrimary,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
             Text(
                 text = request.description,
                 style = MaterialTheme.typography.bodyLarge,
-                color = com.kosmos.app.ui.theme.TextSecondary,
+                color = KosmosTheme.colors.textSecondary,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
@@ -53,8 +53,8 @@ fun ApprovalSheet(
                     onClick = onReject,
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = com.kosmos.app.ui.theme.TextMuted),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, com.kosmos.app.ui.theme.BorderColor)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = KosmosTheme.colors.textMuted),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, KosmosTheme.colors.border)
                 ) {
                     Text("취소")
                 }
@@ -63,9 +63,9 @@ fun ApprovalSheet(
                     onClick = onApprove,
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SkyBlue)
+                    colors = ButtonDefaults.buttonColors(containerColor = KosmosTheme.colors.accent)
                 ) {
-                    Text("승인", color = com.kosmos.app.ui.theme.BgColor, fontWeight = FontWeight.Bold)
+                    Text("승인", color = KosmosTheme.colors.onAccent, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(modifier = Modifier.height(32.dp))

@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.settings
 
+import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,10 +26,12 @@ import com.kosmos.app.domain.modelrunner.ModelLoadState
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
+    themeViewModel: com.kosmos.app.ui.theme.ThemeViewModel = hiltViewModel(),
     onNavigateToAudit: () -> Unit = {},
     onNavigateToModelManagement: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
 
     Column(
@@ -41,7 +44,7 @@ fun SettingsScreen(
         Text(
             text = "Settings",
             style = MaterialTheme.typography.headlineMedium,
-            color = com.kosmos.app.ui.theme.TextPrimary,
+            color = KosmosTheme.colors.textPrimary,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -50,31 +53,31 @@ fun SettingsScreen(
         SectionBox(title = "LOCAL AI MODEL (GEMMA)") {
             when (val state = uiState.modelLoadState) {
                 is ModelLoadState.Loading -> {
-                    CircularProgressIndicator(color = com.kosmos.app.ui.theme.Cyan)
-                    Text("Checking model state...", color = com.kosmos.app.ui.theme.TextMuted, modifier = Modifier.padding(top = 8.dp))
+                    CircularProgressIndicator(color = KosmosTheme.colors.accent)
+                    Text("Checking model state...", color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 8.dp))
                 }
                 is ModelLoadState.FileFound -> {
-                    CircularProgressIndicator(color = com.kosmos.app.ui.theme.Cyan)
-                    Text("Model file found, preparing engine...", color = com.kosmos.app.ui.theme.TextMuted, modifier = Modifier.padding(top = 8.dp))
+                    CircularProgressIndicator(color = KosmosTheme.colors.accent)
+                    Text("Model file found, preparing engine...", color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 8.dp))
                 }
                 is ModelLoadState.InitializingEngine -> {
-                    CircularProgressIndicator(color = com.kosmos.app.ui.theme.Cyan)
-                    Text("Initializing AI Engine...", color = com.kosmos.app.ui.theme.TextMuted, modifier = Modifier.padding(top = 8.dp))
+                    CircularProgressIndicator(color = KosmosTheme.colors.accent)
+                    Text("Initializing AI Engine...", color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 8.dp))
                 }
                 is ModelLoadState.Ready -> {
                     Text(
                         text = "Status: Ready",
-                        color = com.kosmos.app.ui.theme.Success,
+                        color = KosmosTheme.colors.success,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Model ID: ${state.modelInfo.modelId}", color = com.kosmos.app.ui.theme.TextPrimary, style = MaterialTheme.typography.bodyMedium)
-                    Text("Version: ${state.modelInfo.modelVersion}", color = com.kosmos.app.ui.theme.TextPrimary, style = MaterialTheme.typography.bodyMedium)
-                    Text("Quantization: ${state.modelInfo.quantization}", color = com.kosmos.app.ui.theme.TextPrimary, style = MaterialTheme.typography.bodyMedium)
+                    Text("Model ID: ${state.modelInfo.modelId}", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
+                    Text("Version: ${state.modelInfo.modelVersion}", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
+                    Text("Quantization: ${state.modelInfo.quantization}", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
                     Text(
                         text = "Path: ${state.modelInfo.modelPath}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = com.kosmos.app.ui.theme.TextMuted,
+                        color = KosmosTheme.colors.textMuted,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -82,28 +85,28 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .glassEffect(
-                                backgroundColor = com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.15f),
-                                borderColor = com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.3f),
+                                backgroundColor = KosmosTheme.colors.accent.copy(alpha = 0.15f),
+                                borderColor = KosmosTheme.colors.accent.copy(alpha = 0.3f),
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                             )
                             .clickable { onNavigateToModelManagement() }
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Manage Models", color = com.kosmos.app.ui.theme.Cyan, fontWeight = FontWeight.Bold)
+                        Text("Manage Models", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
                     }
                 }
                 is ModelLoadState.NotFound -> {
                     Text(
                         text = "Status: Not Found",
-                        color = com.kosmos.app.ui.theme.Danger,
+                        color = KosmosTheme.colors.danger,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "The model file could not be found at the required path.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = com.kosmos.app.ui.theme.Danger
+                        color = KosmosTheme.colors.danger
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -115,41 +118,72 @@ fun SettingsScreen(
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("Refresh", color = com.kosmos.app.ui.theme.TextPrimary)
+                            Text("Refresh", color = KosmosTheme.colors.textPrimary)
                         }
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .glassEffect(
-                                    backgroundColor = com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.2f),
-                                    borderColor = com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.5f),
+                                    backgroundColor = KosmosTheme.colors.accent.copy(alpha = 0.2f),
+                                    borderColor = KosmosTheme.colors.accent.copy(alpha = 0.5f),
                                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                                 )
                                 .clickable { onNavigateToModelManagement() }
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("Download", color = com.kosmos.app.ui.theme.Cyan, fontWeight = FontWeight.Bold)
+                            Text("Download", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
                 is ModelLoadState.Error -> {
                     Text(
                         text = "Status: Error",
-                        color = com.kosmos.app.ui.theme.Danger,
+                        color = KosmosTheme.colors.danger,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "An error occurred: ${state.error}",
+                        text = com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = com.kosmos.app.ui.theme.Danger,
+                        color = KosmosTheme.colors.danger,
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
             }
         }
 
-        // 2. Response Style Section
+        // 2. Appearance Section (ADR-005: 라이트/다크 테마 전환)
+        SectionBox(title = "APPEARANCE") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                com.kosmos.app.ui.theme.ThemeMode.entries.forEach { mode ->
+                    val isSelected = themeMode == mode
+                    val bgColor = if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.2f) else androidx.compose.ui.graphics.Color.Transparent
+                    val textColor = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(bgColor, shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
+                            .clickable { themeViewModel.setThemeMode(mode) }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = mode.label,
+                            color = textColor,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        }
+
+        // 3. Response Style Section
         SectionBox(title = "RESPONSE STYLE") {
             val styles = listOf("CONCISE", "DEFAULT", "DETAILED")
             Row(
@@ -160,8 +194,8 @@ fun SettingsScreen(
             ) {
                 styles.forEach { style ->
                     val isSelected = uiState.responseStyle == style
-                    val bgColor = if (isSelected) com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.2f) else androidx.compose.ui.graphics.Color.Transparent
-                    val textColor = if (isSelected) com.kosmos.app.ui.theme.Cyan else com.kosmos.app.ui.theme.TextMuted
+                    val bgColor = if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.2f) else androidx.compose.ui.graphics.Color.Transparent
+                    val textColor = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted
                     
                     Box(
                         modifier = Modifier
@@ -190,8 +224,8 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Token Limit", color = com.kosmos.app.ui.theme.TextPrimary)
-                    Text("${sliderValue.toInt()} Tokens", color = com.kosmos.app.ui.theme.Cyan, fontWeight = FontWeight.Bold)
+                    Text("Token Limit", color = KosmosTheme.colors.textPrimary)
+                    Text("${sliderValue.toInt()} Tokens", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Slider(
@@ -201,15 +235,15 @@ fun SettingsScreen(
                     valueRange = 1000f..8000f,
                     steps = 6, // 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000 -> 7 intervals, 6 steps
                     colors = SliderDefaults.colors(
-                        thumbColor = com.kosmos.app.ui.theme.Cyan,
-                        activeTrackColor = com.kosmos.app.ui.theme.Cyan,
-                        inactiveTrackColor = com.kosmos.app.ui.theme.GlassColor
+                        thumbColor = KosmosTheme.colors.accent,
+                        activeTrackColor = KosmosTheme.colors.accent,
+                        inactiveTrackColor = KosmosTheme.colors.glass
                     )
                 )
                 Text(
                     text = "A larger context window allows the AI to remember more recent conversation history but uses more device memory.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = com.kosmos.app.ui.theme.TextMuted
+                    color = KosmosTheme.colors.textMuted
                 )
             }
         }
@@ -219,7 +253,7 @@ fun SettingsScreen(
             Text(
                 text = "View the history of model executions and API calls.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = com.kosmos.app.ui.theme.TextMuted
+                color = KosmosTheme.colors.textMuted
             )
             Spacer(modifier = Modifier.height(16.dp))
             Box(
@@ -227,13 +261,13 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .glassEffect(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                        borderColor = com.kosmos.app.ui.theme.BorderColor
+                        borderColor = KosmosTheme.colors.border
                     )
                     .clickable { onNavigateToAudit() }
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("View Audit Logs", color = com.kosmos.app.ui.theme.TextPrimary, fontWeight = FontWeight.Medium)
+                Text("View Audit Logs", color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Medium)
             }
         }
         
@@ -250,8 +284,8 @@ private fun SectionBox(
         modifier = Modifier
             .fillMaxWidth()
             .glassEffect(
-                backgroundColor = com.kosmos.app.ui.theme.GlassColor,
-                borderColor = com.kosmos.app.ui.theme.BorderHighColor,
+                backgroundColor = KosmosTheme.colors.glass,
+                borderColor = KosmosTheme.colors.borderHigh,
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
             )
     ) {
@@ -264,7 +298,7 @@ private fun SectionBox(
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = null,
-                    tint = com.kosmos.app.ui.theme.TextMuted,
+                    tint = KosmosTheme.colors.textMuted,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -272,7 +306,7 @@ private fun SectionBox(
                     text = title,
                     style = MaterialTheme.typography.titleSmall.copy(fontSize = 12.sp),
                     fontWeight = FontWeight.Bold,
-                    color = com.kosmos.app.ui.theme.TextMuted,
+                    color = KosmosTheme.colors.textMuted,
                     letterSpacing = 1.sp
                 )
             }

@@ -221,6 +221,19 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 진행 중인 응답 생성을 중단합니다.
+     * [WHY] 온디바이스 추론은 응답이 길어질 수 있어 사용자가 끊을 수단이 필요하다.
+     * 코루틴을 취소하면 스트리밍된 부분 응답의 DB 저장까지 함께 날아가므로,
+     * 모델 스트림만 중단(cancelProcess)하고 파이프라인은 정상 종료시켜 부분 응답을 보존한다.
+     */
+    fun cancelGeneration() {
+        if (!_uiState.value.isInFlight) return
+        viewModelScope.launch {
+            modelRunner.cancel()
+        }
+    }
+
     fun clearSharedInput() {
         _uiState.update { it.copy(sharedInput = null) }
     }

@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.calendar
 
+import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -22,7 +23,6 @@ import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.ui.component.glassEffect
 import androidx.compose.foundation.clickable
 
-val SkyBlue = com.kosmos.app.ui.theme.Cyan
 
 @Composable
 fun CalendarScreen(
@@ -30,6 +30,7 @@ fun CalendarScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedRange by viewModel.selectedRange.collectAsStateWithLifecycle()
+    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
 
     // [WHY] 기기 캘린더 병합 조회(ADR-004)를 위해 화면 진입 시 READ_CALENDAR를 요청한다.
     // 거부 시 로컬 일정만 표시되며, 권한 승인 직후 재조회한다.
@@ -53,31 +54,58 @@ fun CalendarScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(com.kosmos.app.ui.theme.BgColor)
+            .background(KosmosTheme.colors.bg)
             .padding(top = 16.dp)
     ) {
         // Header
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-            Text("Schedule", style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold)
+            Text("Schedule", style = MaterialTheme.typography.headlineMedium, color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold)
             val headerMonth = java.time.LocalDate.now()
                 .format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.ENGLISH))
-            Text(headerMonth, color = com.kosmos.app.ui.theme.TextMuted, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+            Text(headerMonth, color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
         }
 
-        // Date Strip
+        // Range Segment (오늘 / 이번 주)
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .fillMaxWidth()
+                .glassEffect(shape = RoundedCornerShape(16.dp)),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            RangeSegment(
+                label = "오늘",
+                isSelected = selectedRange == ScheduleData.RangeType.TODAY,
+                onClick = { viewModel.onRangeSelected(ScheduleData.RangeType.TODAY) },
+                modifier = Modifier.weight(1f)
+            )
+            RangeSegment(
+                label = "이번 주",
+                isSelected = selectedRange == ScheduleData.RangeType.WEEK,
+                onClick = { viewModel.onRangeSelected(ScheduleData.RangeType.WEEK) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Date Strip — 탭하면 해당 날짜만 필터링, 같은 날짜 재탭 시 해제
+        val today = java.time.LocalDate.now()
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            val today = java.time.LocalDate.now()
-            val days = (0..6).map { i ->
-                val date = today.plusDays(i.toLong())
-                val dayStr = date.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
-                Triple(dayStr, date.dayOfMonth.toString(), date == today)
-            }
+            val days = (0..6).map { i -> today.plusDays(i.toLong()) }
             items(days.size) { i ->
-                DatePill(dayOfWeek = days[i].first, dayOfMonth = days[i].second, isSelected = days[i].third) 
+                val date = days[i]
+                DatePill(
+                    dayOfWeek = date.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() },
+                    dayOfMonth = date.dayOfMonth.toString(),
+                    isSelected = date == (selectedDate ?: today),
+                    isFiltered = date == selectedDate,
+                    onClick = { viewModel.onDateSelected(date) }
+                )
             }
         }
 
@@ -86,47 +114,101 @@ fun CalendarScreen(
         Box(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             when (val state = uiState) {
                 is CalendarUiState.Idle, is CalendarUiState.Loading -> {
-                    CircularProgressIndicator(color = SkyBlue, modifier = Modifier.align(Alignment.Center))
+                    CircularProgressIndicator(color = KosmosTheme.colors.accent, modifier = Modifier.align(Alignment.Center))
                 }
                 is CalendarUiState.Empty -> {
-                    Text("일정이 없습니다.", color = com.kosmos.app.ui.theme.TextMuted, modifier = Modifier.align(Alignment.Center))
+                    Text("일정이 없습니다.", color = KosmosTheme.colors.textMuted, modifier = Modifier.align(Alignment.Center))
                 }
                 is CalendarUiState.Error -> {
-                    Text("오류 발생: ${state.error}", color = com.kosmos.app.ui.theme.Danger, modifier = Modifier.align(Alignment.Center))
+                    Text(
+                        com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error),
+                        color = KosmosTheme.colors.danger,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
                 is CalendarUiState.Success -> {
-                    ScheduleContent(state.scheduleData)
+                    val sectionLabel = when {
+                        selectedDate != null && selectedDate == today -> "TODAY"
+                        selectedDate != null -> selectedDate?.format(
+                            java.time.format.DateTimeFormatter.ofPattern("M월 d일", java.util.Locale.KOREAN)
+                        ).orEmpty()
+                        selectedRange == ScheduleData.RangeType.WEEK -> "THIS WEEK"
+                        else -> "TODAY"
+                    }
+                    ScheduleContent(state.scheduleData, sectionLabel)
                 }
             }
         }
     }
 }
 
+/** 조회 범위 세그먼트 버튼 (오늘 / 이번 주) */
 @Composable
-fun DatePill(dayOfWeek: String, dayOfMonth: String, isSelected: Boolean) {
-    val bgColor = if (isSelected) com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.1f) else com.kosmos.app.ui.theme.GlassColor
-    val borderColor = if (isSelected) com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.5f) else com.kosmos.app.ui.theme.BorderColor
+private fun RangeSegment(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .background(
+                if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.2f) else Color.Transparent,
+                shape = RoundedCornerShape(16.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
+fun DatePill(
+    dayOfWeek: String,
+    dayOfMonth: String,
+    isSelected: Boolean,
+    isFiltered: Boolean = false,
+    onClick: () -> Unit = {}
+) {
+    // 필터가 걸린 날짜는 테두리를 강조해 "이 날짜만 보고 있음"을 드러낸다
+    val bgColor = if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.1f) else KosmosTheme.colors.glass
+    val borderColor = when {
+        isFiltered -> KosmosTheme.colors.accent
+        isSelected -> KosmosTheme.colors.accent.copy(alpha = 0.5f)
+        else -> KosmosTheme.colors.border
+    }
     Box(
         modifier = Modifier
             .width(60.dp)
             .height(80.dp)
-            .glassEffect(backgroundColor = bgColor, borderColor = borderColor, shape = RoundedCornerShape(16.dp)),
+            .glassEffect(backgroundColor = bgColor, borderColor = borderColor, shape = RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = dayOfWeek, color = if (isSelected) com.kosmos.app.ui.theme.Cyan else com.kosmos.app.ui.theme.TextMuted, style = MaterialTheme.typography.labelMedium)
+            Text(text = dayOfWeek, color = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted, style = MaterialTheme.typography.labelMedium)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = dayOfMonth, color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(text = dayOfMonth, color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             if (isSelected) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Box(modifier = Modifier.size(4.dp).background(com.kosmos.app.ui.theme.Cyan, androidx.compose.foundation.shape.CircleShape))
+                Box(modifier = Modifier.size(4.dp).background(KosmosTheme.colors.accent, androidx.compose.foundation.shape.CircleShape))
             }
         }
     }
 }
 
 @Composable
-fun ScheduleContent(data: ScheduleData) {
+fun ScheduleContent(data: ScheduleData, sectionLabel: String = "TODAY") {
+    // [WHY] LazyListScope 람다는 @Composable이 아니므로 테마 토큰을 바깥에서 읽어둔다.
+    val eventAccents = listOf(KosmosTheme.colors.accent, KosmosTheme.colors.accentAlt, KosmosTheme.colors.warning)
+
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize()
@@ -134,8 +216,8 @@ fun ScheduleContent(data: ScheduleData) {
         // Today section
         item {
             Text(
-                text = "TODAY  ·  ${data.events.size} EVENTS",
-                color = com.kosmos.app.ui.theme.TextMuted,
+                text = "$sectionLabel  ·  ${data.events.size} EVENTS",
+                color = KosmosTheme.colors.textMuted,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp,
@@ -143,11 +225,9 @@ fun ScheduleContent(data: ScheduleData) {
             )
         }
 
-        val colors = listOf(com.kosmos.app.ui.theme.Cyan, com.kosmos.app.ui.theme.Violet, com.kosmos.app.ui.theme.Amber)
-
         items(data.events.size) { index ->
             val event = data.events[index]
-            val color = colors[index % colors.size]
+            val color = eventAccents[index % eventAccents.size]
             TodayEventCard(event, color)
         }
 
@@ -164,8 +244,8 @@ fun TodayEventCard(event: CalendarEvent, stripColor: Color) {
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
             .glassEffect(
-                backgroundColor = com.kosmos.app.ui.theme.GlassColor,
-                borderColor = com.kosmos.app.ui.theme.BorderColor,
+                backgroundColor = KosmosTheme.colors.glass,
+                borderColor = KosmosTheme.colors.border,
                 shape = RoundedCornerShape(16.dp)
             )
     ) {
@@ -185,7 +265,7 @@ fun TodayEventCard(event: CalendarEvent, stripColor: Color) {
                     letterSpacing = 1.sp
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                Text(text = event.title, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(text = event.title, color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
         }
     }

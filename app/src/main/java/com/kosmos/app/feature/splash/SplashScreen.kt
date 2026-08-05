@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.splash
 
+import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -40,8 +41,9 @@ fun SplashScreen(
         
         if (loadState is ModelLoadState.Error || loadState is ModelLoadState.NotFound) {
             val errorMessage = when (val state = loadState) {
-                is ModelLoadState.Error -> state.error.toString()
-                is ModelLoadState.NotFound -> "Model not found at: ${state.expectedPath}"
+                is ModelLoadState.Error -> com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error)
+                is ModelLoadState.NotFound ->
+                    "AI 모델 파일이 없어요. 설정 > 모델 관리에서 내려받아 주세요.\n(경로: ${state.expectedPath})"
                 else -> ""
             }
             
@@ -50,8 +52,8 @@ fun SplashScreen(
                 modifier = Modifier.padding(32.dp)
             ) {
                 Text(
-                    text = "Failed to load models:\n$errorMessage",
-                    color = Color.White,
+                    text = errorMessage,
+                    color = KosmosTheme.colors.textPrimary,
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(16.dp))

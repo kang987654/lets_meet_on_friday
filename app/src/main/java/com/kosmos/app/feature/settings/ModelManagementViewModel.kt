@@ -58,11 +58,9 @@ class ModelManagementViewModel @Inject constructor(
                         }
                     }
                     is AppResult.Failure -> {
-                        val errorMsg = when (val e = result.error) {
-                            is com.kosmos.app.core.common.AppError.NetworkUnavailable -> e.reason
-                            else -> e.toString()
-                        }
-                        _downloadState.value = DownloadState.Error(errorMsg)
+                        _downloadState.value = DownloadState.Error(
+                            com.kosmos.app.core.mapper.ErrorMessages.userMessage(result.error)
+                        )
                     }
                 }
             }

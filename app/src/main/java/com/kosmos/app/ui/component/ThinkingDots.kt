@@ -10,7 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
-import com.kosmos.app.ui.theme.Cyan
+import com.kosmos.app.ui.theme.KosmosTheme
 
 @Composable
 fun ThinkingDots(modifier: Modifier = Modifier) {
@@ -43,8 +43,8 @@ fun ThinkingDots(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.size(6.dp).graphicsLayer { translationY = dot1 }.background(Cyan, CircleShape))
-        Box(modifier = Modifier.size(6.dp).graphicsLayer { translationY = dot2 }.background(Cyan, CircleShape))
-        Box(modifier = Modifier.size(6.dp).graphicsLayer { translationY = dot3 }.background(Cyan, CircleShape))
+        Box(modifier = Modifier.size(6.dp).graphicsLayer { translationY = dot1 }.background(KosmosTheme.colors.accent, CircleShape))
+        Box(modifier = Modifier.size(6.dp).graphicsLayer { translationY = dot2 }.background(KosmosTheme.colors.accent, CircleShape))
+        Box(modifier = Modifier.size(6.dp).graphicsLayer { translationY = dot3 }.background(KosmosTheme.colors.accent, CircleShape))
     }
 }

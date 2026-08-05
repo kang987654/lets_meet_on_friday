@@ -17,8 +17,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kosmos.app.ui.theme.Cyan
-import com.kosmos.app.ui.theme.Violet
+import com.kosmos.app.ui.theme.KosmosTheme
 
 @Composable
 fun OrbPulse(modifier: Modifier = Modifier) {
@@ -42,26 +41,30 @@ fun OrbPulse(modifier: Modifier = Modifier) {
         label = "pulse"
     )
 
+    // [WHY] DrawScope는 @Composable이 아니므로 테마 토큰을 미리 읽어둔다.
+    val accent = KosmosTheme.colors.accent
+    val accentAlt = KosmosTheme.colors.accentAlt
+
     Box(modifier = modifier.size(160.dp), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.size(160.dp)) {
             val centerOffset = Offset(size.width / 2, size.height / 2)
             
             // Ring 3
-            drawCircle(color = Cyan.copy(alpha = 0.08f), radius = 72.dp.toPx(), style = Stroke(width = 1.dp.toPx()))
+            drawCircle(color = accent.copy(alpha = 0.08f), radius = 72.dp.toPx(), style = Stroke(width = 1.dp.toPx()))
             
             // Ring 2
             translate(left = centerOffset.x, top = centerOffset.y) {
                 rotate(ringSpin2, pivot = Offset.Zero) {
-                    drawCircle(color = Violet.copy(alpha = 0.2f), radius = 52.dp.toPx(), center = Offset(0f, 0f), style = Stroke(width = 1.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f))))
-                    drawCircle(color = Violet, radius = 4.dp.toPx(), center = Offset(0f, 52.dp.toPx()))
+                    drawCircle(color = accentAlt.copy(alpha = 0.2f), radius = 52.dp.toPx(), center = Offset(0f, 0f), style = Stroke(width = 1.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f))))
+                    drawCircle(color = accentAlt, radius = 4.dp.toPx(), center = Offset(0f, 52.dp.toPx()))
                 }
             }
             
             // Ring 1
             translate(left = centerOffset.x, top = centerOffset.y) {
                 rotate(ringSpin1, pivot = Offset.Zero) {
-                    drawCircle(color = Cyan.copy(alpha = 0.2f), radius = 32.dp.toPx(), center = Offset(0f, 0f), style = Stroke(width = 1.dp.toPx()))
-                    drawCircle(color = Cyan, radius = 6.dp.toPx(), center = Offset(0f, -32.dp.toPx()))
+                    drawCircle(color = accent.copy(alpha = 0.2f), radius = 32.dp.toPx(), center = Offset(0f, 0f), style = Stroke(width = 1.dp.toPx()))
+                    drawCircle(color = accent, radius = 6.dp.toPx(), center = Offset(0f, -32.dp.toPx()))
                 }
             }
         }
@@ -76,7 +79,7 @@ fun OrbPulse(modifier: Modifier = Modifier) {
             Canvas(modifier = Modifier.size(96.dp)) {
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(Cyan.copy(alpha = 0.9f), Cyan.copy(alpha = 0.4f), Violet.copy(alpha = 0.6f)),
+                        colors = listOf(accent.copy(alpha = 0.9f), accent.copy(alpha = 0.4f), accentAlt.copy(alpha = 0.6f)),
                         center = Offset(size.width * 0.35f, size.height * 0.35f),
                         radius = size.width
                     )

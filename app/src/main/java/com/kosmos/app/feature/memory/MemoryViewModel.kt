@@ -75,7 +75,7 @@ class MemoryViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = exportMemoryUseCase()) {
                 is AppResult.Success -> onSuccess(result.data)
-                is AppResult.Failure -> onError(result.error.toString())
+                is AppResult.Failure -> onError(com.kosmos.app.core.mapper.ErrorMessages.userMessage(result.error))
             }
         }
     }
@@ -84,7 +84,7 @@ class MemoryViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = importMemoryUseCase(uri.toString())) {
                 is AppResult.Success -> onSuccess()
-                is AppResult.Failure -> onError(result.error.toString())
+                is AppResult.Failure -> onError(com.kosmos.app.core.mapper.ErrorMessages.userMessage(result.error))
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.settings
 
+import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -33,14 +34,14 @@ fun AuditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Audit Logs", fontWeight = FontWeight.Bold, color = com.kosmos.app.ui.theme.TextPrimary) },
+                title = { Text("Audit Logs", fontWeight = FontWeight.Bold, color = KosmosTheme.colors.textPrimary) },
                 navigationIcon = {
                     TextButton(onClick = onNavigateBack) {
-                        Text("Back", color = com.kosmos.app.ui.theme.TextSecondary)
+                        Text("Back", color = KosmosTheme.colors.textSecondary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = com.kosmos.app.ui.theme.BgColor
+                    containerColor = KosmosTheme.colors.bg
                 )
             )
         }
@@ -49,14 +50,14 @@ fun AuditScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(com.kosmos.app.ui.theme.BgColor)
+                .background(KosmosTheme.colors.bg)
         ) {
             if (auditLogItems.itemCount == 0) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No audit logs recorded.", color = com.kosmos.app.ui.theme.TextMuted)
+                    Text("No audit logs recorded.", color = KosmosTheme.colors.textMuted)
                 }
             } else {
                 LazyColumn(
@@ -87,8 +88,8 @@ fun AuditEventCard(event: AuditEvent) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, com.kosmos.app.ui.theme.BorderColor, RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = com.kosmos.app.ui.theme.SurfaceColor)
+            .border(1.dp, KosmosTheme.colors.border, RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = KosmosTheme.colors.surface)
     ) {
         Column(
             modifier = Modifier
@@ -118,7 +119,7 @@ fun AuditEventCard(event: AuditEvent) {
                 Text(
                     text = formatTimestamp(event.timestamp),
                     style = MaterialTheme.typography.bodySmall,
-                    color = com.kosmos.app.ui.theme.TextMuted
+                    color = KosmosTheme.colors.textMuted
                 )
             }
             
@@ -126,14 +127,14 @@ fun AuditEventCard(event: AuditEvent) {
             Text(
                 text = event.details,
                 style = MaterialTheme.typography.bodyMedium,
-                color = com.kosmos.app.ui.theme.TextPrimary
+                color = KosmosTheme.colors.textPrimary
             )
             
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Session: ${event.sessionId.take(8)}...",
                 style = MaterialTheme.typography.labelSmall,
-                color = com.kosmos.app.ui.theme.TextMuted
+                color = KosmosTheme.colors.textMuted
             )
         }
     }
@@ -150,13 +151,14 @@ private fun formatTimestamp(timestamp: Long): String {
     }
 }
 
+@Composable
 private fun getTagColors(type: AuditEventType): Pair<Color, Color> {
     return when (type) {
-        AuditEventType.MODEL_RUN -> com.kosmos.app.ui.theme.Cyan.copy(alpha=0.15f) to com.kosmos.app.ui.theme.Cyan
-        AuditEventType.TOOL_CALL -> com.kosmos.app.ui.theme.Success.copy(alpha=0.15f) to com.kosmos.app.ui.theme.Success
-        AuditEventType.APPROVAL_GRANTED -> com.kosmos.app.ui.theme.Amber.copy(alpha=0.15f) to com.kosmos.app.ui.theme.Amber
-        AuditEventType.APPROVAL_REJECTED -> com.kosmos.app.ui.theme.Danger.copy(alpha=0.15f) to com.kosmos.app.ui.theme.Danger
-        AuditEventType.ERROR -> com.kosmos.app.ui.theme.Danger.copy(alpha=0.1f) to com.kosmos.app.ui.theme.Danger
-        else -> com.kosmos.app.ui.theme.GlassColor to com.kosmos.app.ui.theme.TextMuted
+        AuditEventType.MODEL_RUN -> KosmosTheme.colors.accent.copy(alpha=0.15f) to KosmosTheme.colors.accent
+        AuditEventType.TOOL_CALL -> KosmosTheme.colors.success.copy(alpha=0.15f) to KosmosTheme.colors.success
+        AuditEventType.APPROVAL_GRANTED -> KosmosTheme.colors.warning.copy(alpha=0.15f) to KosmosTheme.colors.warning
+        AuditEventType.APPROVAL_REJECTED -> KosmosTheme.colors.danger.copy(alpha=0.15f) to KosmosTheme.colors.danger
+        AuditEventType.ERROR -> KosmosTheme.colors.danger.copy(alpha=0.1f) to KosmosTheme.colors.danger
+        else -> KosmosTheme.colors.glass to KosmosTheme.colors.textMuted
     }
 }

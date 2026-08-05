@@ -6,7 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kosmos.app.ui.MainScreen
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -30,7 +32,12 @@ class MainActivity : ComponentActivity() {
         shareIntentHandler.handleIntent(intent)
 
         setContent {
-            com.kosmos.app.ui.theme.KosmosTheme {
+            // [WHY] 저장된 테마 모드를 앱 루트에서 구독해 전체 트리에 적용한다 (ADR-005).
+            val themeViewModel: com.kosmos.app.ui.theme.ThemeViewModel =
+                androidx.lifecycle.viewmodel.compose.viewModel()
+            val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
+
+            com.kosmos.app.ui.theme.KosmosTheme(themeMode = themeMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.memory
 
+import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -59,11 +60,11 @@ fun MemoryScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(com.kosmos.app.ui.theme.BgColor)) {
+    Column(modifier = Modifier.fillMaxSize().background(KosmosTheme.colors.bg)) {
         Text(
             text = "Memory & Tasks",
             style = MaterialTheme.typography.headlineMedium,
-            color = com.kosmos.app.ui.theme.TextPrimary,
+            color = KosmosTheme.colors.textPrimary,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 8.dp)
         )
@@ -107,19 +108,19 @@ fun MemoryScreen(
                 Text(
                     text = "$pendingCount pending  ·  $doneCount done",
                     style = MaterialTheme.typography.labelMedium,
-                    color = com.kosmos.app.ui.theme.TextSecondary
+                    color = KosmosTheme.colors.textSecondary
                 )
                 Box(
                     modifier = Modifier
                         .width(60.dp)
                         .height(4.dp)
-                        .background(com.kosmos.app.ui.theme.GlassColor, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                        .background(KosmosTheme.colors.glass, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
                             .fillMaxWidth(progress)
-                            .background(com.kosmos.app.ui.theme.Success, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                            .background(KosmosTheme.colors.success, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
                     )
                 }
             }
@@ -160,7 +161,7 @@ fun MemoryScreen(
                             .padding(vertical = 4.dp)
                             .border(
                                 width = 1.dp,
-                                color = com.kosmos.app.ui.theme.BorderColor,
+                                color = KosmosTheme.colors.border,
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
                             )
                             .clickable { /* Add Task */ }
@@ -169,13 +170,13 @@ fun MemoryScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "+",
-                                color = com.kosmos.app.ui.theme.TextSecondary,
+                                color = KosmosTheme.colors.textSecondary,
                                 style = MaterialTheme.typography.titleMedium,
                                 modifier = Modifier.padding(end = 12.dp)
                             )
                             Text(
                                 text = "Add new task...",
-                                color = com.kosmos.app.ui.theme.TextSecondary,
+                                color = KosmosTheme.colors.textSecondary,
                                 style = MaterialTheme.typography.bodyLarge
                             )
                         }
@@ -183,7 +184,7 @@ fun MemoryScreen(
                 }
             }
 
-            if (uiState.selectedFilter == MemoryFilterType.ALL || uiState.selectedFilter == MemoryFilterType.KNOWLEDGE) {
+            if (uiState.selectedFilter == MemoryFilterType.KNOWLEDGE) {
                 items(
                     count = knowledgeItems.itemCount,
                     key = knowledgeItems.itemKey { it.id },
@@ -195,13 +196,13 @@ fun MemoryScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .glassEffect(
-                                    backgroundColor = com.kosmos.app.ui.theme.GlassColor,
-                                    borderColor = com.kosmos.app.ui.theme.BorderHighColor,
+                                    backgroundColor = KosmosTheme.colors.glass,
+                                    borderColor = KosmosTheme.colors.borderHigh,
                                     shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
                                 )
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text(text = note.content, style = MaterialTheme.typography.bodyLarge, color = com.kosmos.app.ui.theme.TextPrimary)
+                                Text(text = note.content, style = MaterialTheme.typography.bodyLarge, color = KosmosTheme.colors.textPrimary)
                                 if (note.tags.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(8.dp))
                                     @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -213,7 +214,7 @@ fun MemoryScreen(
                                             Box(
                                                 modifier = Modifier
                                                     .background(
-                                                        color = com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.15f),
+                                                        color = KosmosTheme.colors.accent.copy(alpha = 0.15f),
                                                         shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
                                                     )
                                                     .padding(horizontal = 10.dp, vertical = 4.dp)
@@ -221,7 +222,7 @@ fun MemoryScreen(
                                                 Text(
                                                     text = tag,
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = com.kosmos.app.ui.theme.Cyan
+                                                    color = KosmosTheme.colors.accent
                                                 )
                                             }
                                         }
@@ -238,9 +239,9 @@ fun MemoryScreen(
 
 @Composable
 fun TabButton(text: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val bgColor = if (isSelected) com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.1f) else com.kosmos.app.ui.theme.GlassColor
-    val borderColor = if (isSelected) com.kosmos.app.ui.theme.Cyan.copy(alpha = 0.5f) else com.kosmos.app.ui.theme.BorderColor
-    val textColor = if (isSelected) com.kosmos.app.ui.theme.Cyan else com.kosmos.app.ui.theme.TextSecondary
+    val bgColor = if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.1f) else KosmosTheme.colors.glass
+    val borderColor = if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.5f) else KosmosTheme.colors.border
+    val textColor = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textSecondary
     
     Box(
         modifier = modifier
@@ -263,8 +264,8 @@ fun TaskItemRow(title: String, isCompleted: Boolean, onToggle: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .glassEffect(
-                backgroundColor = com.kosmos.app.ui.theme.GlassColor,
-                borderColor = com.kosmos.app.ui.theme.BorderColor,
+                backgroundColor = KosmosTheme.colors.glass,
+                borderColor = KosmosTheme.colors.border,
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
             )
             .clickable { onToggle() }
@@ -281,17 +282,17 @@ fun TaskItemRow(title: String, isCompleted: Boolean, onToggle: () -> Unit) {
                     .size(24.dp)
                     .border(
                         width = 1.dp,
-                        color = if (isCompleted) com.kosmos.app.ui.theme.Success else com.kosmos.app.ui.theme.TextMuted,
+                        color = if (isCompleted) KosmosTheme.colors.success else KosmosTheme.colors.textMuted,
                         shape = androidx.compose.foundation.shape.CircleShape
                     )
                     .background(
-                        color = if (isCompleted) com.kosmos.app.ui.theme.Success.copy(alpha = 0.1f) else androidx.compose.ui.graphics.Color.Transparent,
+                        color = if (isCompleted) KosmosTheme.colors.success.copy(alpha = 0.1f) else androidx.compose.ui.graphics.Color.Transparent,
                         shape = androidx.compose.foundation.shape.CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 if (isCompleted) {
-                    Text("✓", color = com.kosmos.app.ui.theme.Success, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("✓", color = KosmosTheme.colors.success, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
             
@@ -301,7 +302,7 @@ fun TaskItemRow(title: String, isCompleted: Boolean, onToggle: () -> Unit) {
             Text(
                 text = title, 
                 style = MaterialTheme.typography.bodyLarge, 
-                color = if (isCompleted) com.kosmos.app.ui.theme.TextMuted else com.kosmos.app.ui.theme.TextPrimary,
+                color = if (isCompleted) KosmosTheme.colors.textMuted else KosmosTheme.colors.textPrimary,
                 textDecoration = if (isCompleted) androidx.compose.ui.text.style.TextDecoration.LineThrough else androidx.compose.ui.text.style.TextDecoration.None,
                 modifier = Modifier.weight(1f)
             )
@@ -310,7 +311,7 @@ fun TaskItemRow(title: String, isCompleted: Boolean, onToggle: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(6.dp)
-                    .background(com.kosmos.app.ui.theme.Danger, shape = androidx.compose.foundation.shape.CircleShape)
+                    .background(KosmosTheme.colors.danger, shape = androidx.compose.foundation.shape.CircleShape)
             )
         }
     }

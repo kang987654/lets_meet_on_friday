@@ -1,5 +1,6 @@
 package com.kosmos.app.ui
 
+import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -34,7 +35,7 @@ fun MainScreen() {
                 ),
                 containerColor = Color.Transparent
             ) {
-                val SkyBlue = com.kosmos.app.ui.theme.Cyan
+                val SkyBlue = KosmosTheme.colors.accent
 
                 val items = listOf(
                     BottomNavItem("채팅", AppDestination.Chat.route),
@@ -59,9 +60,9 @@ fun MainScreen() {
                         },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = SkyBlue,
-                            unselectedIconColor = com.kosmos.app.ui.theme.TextMuted,
+                            unselectedIconColor = KosmosTheme.colors.textMuted,
                             selectedTextColor = SkyBlue,
-                            unselectedTextColor = com.kosmos.app.ui.theme.TextMuted,
+                            unselectedTextColor = KosmosTheme.colors.textMuted,
                             indicatorColor = SkyBlue.copy(alpha = 0.1f)
                         )
                     )

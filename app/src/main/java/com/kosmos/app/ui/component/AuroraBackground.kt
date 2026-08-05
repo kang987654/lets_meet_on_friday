@@ -8,8 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import com.kosmos.app.ui.theme.Cyan
-import com.kosmos.app.ui.theme.Violet
+import com.kosmos.app.ui.theme.KosmosTheme
 import kotlin.math.sin
 
 @Composable
@@ -46,6 +45,12 @@ fun AuroraBackground(
         time = 0f
     }
 
+    // [WHY] DrawScope는 @Composable이 아니므로 테마 토큰을 Canvas 바깥에서 미리 읽어둔다.
+    // auroraAlpha는 라이트 테마에서 연출 강도를 낮추는 배율이다.
+    val accent = KosmosTheme.colors.accent
+    val accentAlt = KosmosTheme.colors.accentAlt
+    val auroraAlpha = KosmosTheme.colors.auroraAlpha
+
     androidx.compose.foundation.layout.Box(modifier = modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
@@ -62,7 +67,7 @@ fun AuroraBackground(
 
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Cyan.copy(alpha = 0.18f), Cyan.copy(alpha = 0f)),
+                    colors = listOf(accent.copy(alpha = 0.18f * auroraAlpha), accent.copy(alpha = 0f)),
                     center = Offset(x1, y1),
                     radius = width * 0.7f
                 ),
@@ -72,7 +77,7 @@ fun AuroraBackground(
 
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Violet.copy(alpha = 0.15f), Violet.copy(alpha = 0f)),
+                    colors = listOf(accentAlt.copy(alpha = 0.15f * auroraAlpha), accentAlt.copy(alpha = 0f)),
                     center = Offset(x2, y2),
                     radius = width * 0.6f
                 ),
@@ -82,7 +87,7 @@ fun AuroraBackground(
 
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Cyan.copy(alpha = 0.1f), Cyan.copy(alpha = 0f)),
+                    colors = listOf(accent.copy(alpha = 0.1f * auroraAlpha), accent.copy(alpha = 0f)),
                     center = Offset(x3, y3),
                     radius = width * 0.5f
                 ),
