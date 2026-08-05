@@ -44,8 +44,13 @@ class KnowledgeRepositoryImpl @Inject constructor(
     )
 
     override suspend fun search(query: String, limit: Int): AppResult<List<KnowledgeNote>> = com.kosmos.app.core.common.runCatchingCancellable {
-        // 기존 LIKE 검색
-        dao.search(query, limit).map { it.toDomain() }
+        // [WHY] 빈 검색어는 '%%' 패턴이 되어 테이블 전체를 매칭한다. 그 결과 100건이
+        // RAG 프롬프트로 쏟아져 컨텍스트 예산을 터뜨리므로 조회 전에 차단한다.
+        if (query.isBlank()) {
+            emptyList()
+        } else {
+            dao.search(com.kosmos.app.core.common.SqlLike.escape(query), limit).map { it.toDomain() }
+        }
     }.fold(
         onSuccess = { AppResult.Success(it) },
         onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.SearchError(it.message ?: "search err")) }
@@ -62,7 +67,10 @@ class KnowledgeRepositoryImpl @Inject constructor(
         // SQLite의 LIKE 검색을 위해 각 태그별로 검색 결과를 모은 후 중복을 제거 (간이 구현)
         val results = mutableSetOf<KnowledgeEntity>()
         for (tag in tags) {
-            results.addAll(dao.searchByTags(tag, limit))
+            val normalized = tag.trim()
+            // 공백만인 태그는 구분자 사이의 빈 토큰에 매칭되므로 건너뛴다.
+            if (normalized.isEmpty()) continue
+            results.addAll(dao.searchByTags(com.kosmos.app.core.common.SqlLike.escape(normalized), limit))
         }
         results.map { it.toDomain() }.take(limit)
     }.fold(
