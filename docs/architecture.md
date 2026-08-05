@@ -1295,3 +1295,18 @@ GemmaModelRunner → {새모델}ModelRunner
 - **부가 토큰**: `onAccent`(accent 배경 위 전경색 — 다크는 어두운 남색, 라이트는 흰색)와 `auroraAlpha`(라이트에서 배경 연출 강도 0.35배 감쇠)를 도입해 대비·시각 과잉 문제를 해결한다.
 - **모드 선택**: `ThemeMode`(SYSTEM/LIGHT/DARK, 기본 SYSTEM)를 설정 화면 APPEARANCE 섹션에서 선택하고 DataStore(`theme_mode`)에 영속한다. `ThemeViewModel`을 MainActivity 루트에서 구독해 전체 트리에 적용하며, 상태바 아이콘 명암(`isAppearanceLightStatusBars`)도 함께 동기화한다.
 - **제약**: `DrawScope`/`LazyListScope` 람다는 `@Composable`이 아니므로 토큰을 바깥에서 `val`로 추출해 전달한다(AuroraBackground, OrbPulse, ScheduleContent). `Modifier.glassEffect`의 색상 기본값은 테마 의존이므로 `null` 기본값 + `composed {}` 내부 해석 방식을 사용한다.
+
+### ADR-006. 모델 다운로드를 WorkManager 전경 작업으로 이관 + HTTP Range 재개 (2026-08-05)
+- **결정**: 3.6GB 모델 다운로드를 `viewModelScope`에서 `@HiltWorker` 기반 `CoroutineWorker`(`ModelDownloadWorker`)로 이관하고, 전경 서비스 알림으로 진행률을 노출한다. 전송 실패는 HTTP `Range`/`If-Range`로 받은 지점부터 이어받는다.
+- **근거**: 기존 구조는 화면을 벗어나거나 앱이 백그라운드로 가면 전송이 죽었다(진행 카드가 "앱을 종료하면 다운로드가 중단됩니다"라고 안내할 정도로 한계가 노출돼 있었다). 또한 재시도를 붙여도 `.part`를 `finally`에서 무조건 삭제했기 때문에 매번 0바이트부터 다시 받아야 해 재시도 자체가 무의미했다.
+- **계층 배치**: `:domain`·`:core`는 Pure Kotlin JVM이라 Android 타입을 참조할 수 없으므로 인터페이스(`ModelDownloadScheduler`, `ModelDownloadStatus`)만 `:domain`에 두고 구현(`WorkManagerModelDownloadScheduler`, Worker, 알림)은 `:app`에 둔다. `:data`는 바이트 전송(`ModelDownloadService`)만 담당하며 WorkManager를 의존하지 않는다. `DownloadModelUseCase`는 `status`/`enqueue`/`cancel`/`acknowledge` 4개 위임만 남긴 얇은 파사드가 되어, ViewModel이 계속 `:domain`만 의존한다.
+- **작업 정책**: 유니크 작업명 `model_download` + `ExistingWorkPolicy.KEEP`(버튼 연타로 3.6GB를 두 번 받지 않는다. 이전 작업이 이미 종료된 경우엔 KEEP도 새 작업을 넣으므로 재시도 경로는 막히지 않는다), 제약은 `NetworkType.UNMETERED`(사용자 결정 — 이동통신 데이터 요금 사고 방지) + `setRequiresStorageNotLow`, 백오프는 `EXPONENTIAL` 30초 시작, 최대 5회 시도.
+- **중복 방지 이전**: `ModelManagementViewModel.downloadJob?.isActive` 가드를 제거했다. 이 가드는 ViewModel이 죽으면 함께 사라져 실제로 중복을 막지 못했다.
+- **예외 분류**: `ModelDownloadException`을 `Transient`(IOException·타임아웃·5xx·408·429) / `Permanent`(4xx·크기 불일치·확정 실패) / `InsufficientStorage`로 나눠 `Transient`에만 `Result.retry()`를 반환한다. 이전 구현의 `message.contains("space")` 부분 문자열 판정(→ `InsufficientStorage(0L)` 하드코딩)을 제거했다 — ADR 이전 `ValidationReason` 도입과 같은 이유다.
+- **실패 사유 전달**: 출력 `Data`에 렌더된 문자열이 아니라 `ErrorCode` 이름을 실어 프로세스 경계를 넘긴다. 사용자 문구의 단일 출처는 `ErrorMessages`로 유지되고, `InsufficientStorage`는 실제 필요 바이트 수를 함께 전달해 UI가 필요 용량을 안내할 수 있다.
+- **`.part` 보존 및 `.bak` 롤백**: 일시적 실패와 사용자 취소에서는 `.part`와 `.part.meta`(url·ETag·총 크기 사이드카, 첫 바이트 이전에 기록)를 남겨 다음 시도가 이어받는다. 영구 실패에서만 정리한다. 확정 단계는 기존 모델을 `.bak`으로 옮긴 뒤 rename 하고 실패 시 되돌린다 — 이전 구현은 `target.delete()`를 먼저 해서 rename이 실패하면 사용자가 동작하던 모델까지 잃었다.
+- **무결성 검증(수용된 리스크)**: 크기 비교만 한다. 3.6GB SHA-256은 수 분이 걸려 실용적이지 않다. 손상 파일이 크기만 일치하는 경우는 검출하지 못한다.
+- **Graceful Degradation**: 알림 권한 거부나 API 31+ 전경 서비스 시작 제약으로 `setForeground`가 실패해도 경고 로깅으로 강등하고 전송을 계속한다(ADR-004 선례). POST_NOTIFICATIONS는 다운로드 시작 시 요청하되 결과와 무관하게 진행한다 — 알림 거부는 피드백을 떨어뜨릴 뿐 기능을 막지 않는다.
+- **부수 발견**: `:data`에 `kotlin-serialization` 플러그인이 누락되어 있어 모듈 내부에서 선언한 `@Serializable` 클래스의 직렬화기가 생성되지 않았다(컴파일은 통과하고 런타임에 `SerializationException`). `PartMeta`가 이어받기 판정에 실패하며 드러났고, 같은 원인으로 `ExportManifest` 기반 내보내기/가져오기도 동작하지 않던 상태였다. 플러그인 추가로 함께 해소.
+- **제약(단위 테스트 불가 — 수동 QA 필요)**: 실제 전경 서비스 승격, 알림 렌더링, Doze 모드 백오프 타이밍, 실제 3.6GB 처리량, 알림이 꺼진 상태의 `SystemForegroundService` 동작, API 31+ `ForegroundServiceStartNotAllowedException` 경로. 핵심 확인 시나리오: ① 다운로드 시작 → 앱 강제 종료 → 재진입 시 진행률이 이어지는지 ② Wi-Fi를 끊었다 다시 연결했을 때 받은 지점부터 이어받는지 ③ Wi-Fi 없을 때 "Wi-Fi 연결을 기다리는 중" 카드가 뜨는지.
+- **아이콘 부채**: `res/`에 다운로드용 24dp 모노 벡터가 없어 `android.R.drawable.stat_sys_download` 계열을 임시 사용한다.

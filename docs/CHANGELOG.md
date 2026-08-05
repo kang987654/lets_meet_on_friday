@@ -1,3 +1,25 @@
+## [0.7.0] - 2026-08-05
+- **[UI/UX]** Phase B-3 2~3단계 — 모델 다운로드를 WorkManager 전경 작업으로 이관 (ADR-006)
+  - 다운로드가 `viewModelScope`를 벗어나 `ModelDownloadWorker`(@HiltWorker)로 이동 — 화면을 벗어나거나 앱을 닫아도 전송이 계속된다. 진행 카드 문구도 "앱을 종료하면 다운로드가 중단됩니다" → "앱을 닫아도 백그라운드에서 계속 진행됩니다"로 사실에 맞게 교체
+  - 전경 서비스 알림으로 진행률(받은 용량/전체 용량)과 취소 액션 노출, 완료/실패 알림 추가. 알림 인프라(`NotificationChannels`, `DownloadNotifier`)는 프로젝트 최초 도입
+  - 진행 카드에 대기 상태(`Queued`) 추가 — Wi-Fi 전용 제약 때문에 Wi-Fi가 없으면 작업이 멈춰 있는데, 카드가 없으면 "다운로드 버튼이 먹지 않는" 것으로 보인다
+  - 실패 다이얼로그에 재시도 버튼과 이어받기 안내 추가, 취소를 "일시 중지"(부분 파일 보존)와 "취소 후 삭제"(저장 공간 회수)로 분리
+  - POST_NOTIFICATIONS 컨텍스트 요청(API 33+) — 거부되어도 다운로드는 진행한다
+- **[Feature]** HTTP Range 이어받기 및 저장 공간 사전 점검
+  - `.part` + `.part.meta`(url·ETag·총 크기) 사이드카로 프로세스가 죽어도 재개 가능. ETag 불일치나 200 응답 시에는 처음부터 다시 받아 버전이 섞인 손상 파일을 만들지 않는다
+  - 전송 시작 전 `Content-Length` 기반으로 필요 용량(+256MB 여유)을 점검하고, 부족하면 실제 필요 바이트 수와 함께 차단
+  - 재시도 정책: `Transient`(IOException·타임아웃·5xx·408·429)만 최대 5회 지수 백오프(30초 시작), `Permanent`(4xx·크기 불일치)는 즉시 실패
+  - 네트워크 제약 `NetworkType.UNMETERED` — 3.6GB를 이동통신 데이터로 받지 않는다 (사용자 결정)
+  - 다운로드 전용 OkHttpClient 분리(`@DownloadClient`, read 60s / callTimeout 무제한) — 공유 클라이언트의 30초 read timeout은 대용량 스트림에서 끊긴다
+- **[Fix]** `:data` 모듈에 `kotlin-serialization` 플러그인 누락 — 모듈 내부 `@Serializable` 클래스의 직렬화기가 생성되지 않아 컴파일은 통과하고 런타임에 `SerializationException`이 발생하던 상태. `PartMeta` 이어받기 실패로 발견했고, 같은 원인으로 `ExportManifest` 기반 내보내기/가져오기도 동작하지 않고 있었다
+- **[Fix]** 다운로드 확정 시 기존 모델 파괴 회귀 — `target.delete()`를 먼저 하고 rename 했기 때문에 rename이 실패하면 새 모델도 없고 쓰던 모델도 없는 상태가 됐다. 기존 파일을 `.bak`으로 옮긴 뒤 rename 하고 실패 시 되돌린다
+- **[Fix]** `.part`를 `finally`에서 무조건 삭제하던 동작 제거 — 재시도가 매번 0바이트부터 다시 받게 만든 원인. 영구 실패에서만 정리한다
+- **[Fix]** 저장 공간 부족 판정의 부분 문자열 매칭(`message.contains("space")` → `InsufficientStorage(0L)` 하드코딩) 제거 — `ModelDownloadException` 타입 분기로 대체하고 실제 필요 바이트 수를 전달
+- **[Fix]** 중복 다운로드 방지를 `downloadJob?.isActive` 가드에서 WorkManager 유니크 작업(KEEP)으로 이관 — 옛 가드는 ViewModel이 죽으면 함께 사라져 실제로 중복을 막지 못했다
+- **[Refactoring]** `ModelDownloader`를 `Flow<Int>`(퍼센트) → `Flow<DownloadProgress>`(바이트)로 확장하고 `probe`/`clearPartial`/`partialBytes` 추가. `DownloadModelUseCase`는 `status`/`enqueue`/`cancel`/`acknowledge` 파사드로 재작성(예약과 관찰이 분리된 관심사가 됐다). `ModelDownloadService`의 하드코딩 `"models"`를 `Constants.MODEL_DIR_NAME`으로 교체
+- **[QA/Test]** 신규 테스트 25건 — `DownloadStatusMappingTest`(10건, WorkInfo 전 상태 번역), `ModelDownloadWorkerTest`(6건, 재시도/실패 분류·완료 부수효과), `ModelDownloadResumeTest`(9건, MockWebServer 기반 실제 이어받기·부분 파일 보존·기존 모델 보호). 전체 51건 + lintDebug 통과
+- **[Known Issue]** 알림 아이콘은 `android.R.drawable.stat_sys_download` 계열 임시 사용 — 24dp 모노 벡터 필요. 전경 승격·알림 렌더링·Doze 백오프는 단위 테스트 불가 영역으로 ADR-006에 수동 QA 체크리스트 기재
+
 ## [0.6.1] - 2026-07-31
 - **[UI/UX]** UI 개선 계획서 Phase A — 죽은 인터랙션 활성화
   - 캘린더: 장식이던 날짜 스트립(`DatePill`)을 실제 필터로 연결(탭 → 해당 일자만 표시, 재탭 시 해제, 오늘이 아닌 날짜 선택 시 주간 범위 자동 확장), 미사용이던 `selectedRange`를 오늘/이번 주 세그먼트 UI로 노출, 섹션 헤더가 현재 필터를 반영

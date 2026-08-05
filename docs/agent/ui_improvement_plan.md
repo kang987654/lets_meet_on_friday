@@ -1,5 +1,5 @@
 # ui_improvement_plan.md — 전체 UI 개선 계획서
-> **문서 버전**: v1.1 | **최종 수정일**: 2026-07-31 | **상태**: In Progress (Phase A·B(1~2)·C·D 완료, B-3 2~3단계만 잔여)
+> **문서 버전**: v1.2 | **최종 수정일**: 2026-08-05 | **상태**: Done (Phase A·B·C·D 완료. README 스크린샷 갱신만 잔여)
 > **관련 모듈**: `:app` (feature/*, ui/*), `:core` (mapper)
 > **기준 문서**: PRD.md v1.2 / architecture.md v1.2 (ADR-001~004) / DESIGN.md / CHANGELOG 0.5.12
 
@@ -106,17 +106,21 @@
 - [x] B-1 ErrorCodeMapper 재배선 + 사용자 문구 (`ValidationReason` 표준 토큰, `ErrorMessages`, 표시 지점 6곳 연결, 회귀 테스트 5건)
 - [x] B-2 웹 검색 토글 스낵바 (+ 표시되지 않던 `uiState.error`도 스낵바로 노출)
 - [x] Phase B(1~2) 검증 (test/lint 통과)
-- [~] B-3 1단계만 완료: 다이얼로그 → 화면 내 진행 카드(진행률·잔여 저장 공간·취소).
-> 진행 메모: 2~3단계(WorkManager 이관 + Foreground 알림 + 재시도)는 계획서 권고대로 **별도 세션**으로 남김.
-> 착수 시 필요한 것: WorkManager+Hilt(HiltWorker/WorkerFactory), POST_NOTIFICATIONS(API 33+), 알림 채널,
-> `DownloadModelUseCase`를 Worker로 이관하되 `.part` 원자화(0.5.6) 정합 유지, WorkInfo 진행률 관찰.
+- [x] B-3 1단계: 다이얼로그 → 화면 내 진행 카드(진행률·잔여 저장 공간·취소)
+- [x] B-3 2~3단계: WorkManager 이관 + 전경 알림 + 재시도 (v0.7.0, ADR-006)
+> 이관 시 범위가 확대된 부분: 재시도가 의미를 갖도록 HTTP Range 이어받기(`.part` + `.part.meta`)를 함께 구현했고,
+> 저장 공간 사전 점검과 기존 모델 파괴 회귀(`.bak` 롤백)도 같이 수정했다. 네트워크 제약은 Wi-Fi 전용(사용자 결정).
+> 부수 발견: `:data`에 `kotlin-serialization` 플러그인이 빠져 있어 모듈 내 `@Serializable`이 런타임에 깨지던 상태였다
+> (내보내기/가져오기도 함께 영향). 플러그인 추가로 해소.
+> 남은 것: 알림용 24dp 모노 벡터 아이콘, 그리고 ADR-006의 수동 QA 체크리스트(전경 승격·Doze 백오프·실제 3.6GB 전송).
 - [x] C-1 날짜 구분선 (`ChatRow` 도입 — 오늘/어제/M월 d일)
 - [x] C-2 롱프레스 복사 (양쪽 버블 `combinedClickable` + 스낵바)
 - [x] C-3 최신으로 이동 FAB (사용자 스크롤 이탈 시 자동 스크롤 일시 해제)
 - [x] C-4 첨부 썸네일 프리뷰 (`inSampleSize` 다운샘플, IO 디코딩, 외부 라이브러리 없음)
 - [x] Phase C 검증 (test/lint/build 통과)
 - [x] D 디자인 정본 결정(D-b: 라이트/다크 전환) → 토큰화 + 테마 선택 UI + DESIGN.md v2.0 + ADR-005 (v0.6.0)
-- [ ] 최종: 전체 test/lint, CHANGELOG, README 스크린샷/기능 서술 갱신
+- [x] 최종: 전체 test/lint 통과(51건), CHANGELOG 0.7.0 기록
+- [ ] README 스크린샷 갱신 (라이트/다크 테마 반영 — 실기기 캡처가 필요해 미착수)
 
 ## 7. 이월 백로그 (UI 외 — CHANGELOG 0.5.10 Pending 참조)
 ToolExecutor `Map<String,Any>` 대체, KnowledgeDao LIKE escape, 임베딩 BLOB 전환, MediaPipeTextEmbedder lazy-init, domain paging 의존 제거, ChatViewModel 스트리밍 파싱 단일화, MemoryViewModel 콜백→UiState 이벤트 전환
