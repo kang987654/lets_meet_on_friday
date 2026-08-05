@@ -1,3 +1,29 @@
+## [0.6.1] - 2026-07-31
+- **[UI/UX]** UI 개선 계획서 Phase A — 죽은 인터랙션 활성화
+  - 캘린더: 장식이던 날짜 스트립(`DatePill`)을 실제 필터로 연결(탭 → 해당 일자만 표시, 재탭 시 해제, 오늘이 아닌 날짜 선택 시 주간 범위 자동 확장), 미사용이던 `selectedRange`를 오늘/이번 주 세그먼트 UI로 노출, 섹션 헤더가 현재 필터를 반영
+  - Memory: 기본 필터를 `ALL` → `KNOWLEDGE`로 변경해 첫 진입 시 두 탭 모두 미선택으로 보이던 문제 해결(`MemoryFilterType.ALL` 제거)
+  - 채팅: 생성 중 전송 버튼을 정지 버튼으로 전환(`ChatViewModel.cancelGeneration()`) — 모델 스트림만 중단하고 파이프라인은 정상 종료시켜 부분 응답을 보존
+  - ISO 파싱 규칙을 `domain/util/IsoDateTimeParser`로 추출해 유즈케이스와 화면 필터가 동일 규칙을 공유
+- **[UI/UX]** Phase B(1~2) — 신뢰감 있는 피드백
+  - `ErrorCodeMapper` 재작성: 부분 문자열 추측(예: "timeout" → MISSING_TIME_INFO) 제거 후 표준 토큰(`ValidationReason`) 정확 매칭, 미분류를 `INPUT_TOO_LONG` 오분류 대신 신규 `INVALID_INPUT`으로 처리
+  - `ErrorMessages` 신설: 모든 `ErrorCode`에 사용자 문구(한국어) 매핑. 캘린더·설정·스플래시·모델 관리·메모리 백업 등 표시 지점 6곳을 연결해 `DbWriteError(task_item)` 같은 내부 클래스명 노출 제거
+  - 채팅: 표시 경로가 아예 없어 무음으로 사라졌던 `uiState.error`를 스낵바로 노출, 웹 검색 토글 변경 시 허용/차단 안내 스낵바 추가
+  - `ErrorMessageMappingTest` 신규(5건): 표준 토큰 매핑, 오분류 회귀, 내부 식별자 미노출, 전체 코드 문구 보유 검증. `docs/api_spec.yaml` 매핑 계약에 `INVALID_INPUT` 및 토큰 규칙 반영
+- **[UI/UX]** Phase B-3 1단계 — 모델 다운로드 진행을 모달 다이얼로그에서 화면 내 카드로 이동(진행률·잔여 저장 공간·취소 노출). WorkManager 이관(2~3단계)은 계획서 권고대로 별도 세션으로 이월
+- **[UI/UX]** Phase C — 채팅 화면 완성도
+  - 날짜 구분선 추가(`ChatRow` 도입 — 오늘/어제/M월 d일), 메시지 롱프레스 복사(+스낵바), 최신으로 이동 FAB(사용자가 위로 스크롤하면 자동 스크롤 일시 해제), 이미지 첨부 썸네일 프리뷰(`inSampleSize` 다운샘플 + IO 디코딩, 외부 이미지 라이브러리 미추가)
+- **[QA/Test]** 전체 테스트 + lintDebug + build(릴리스 포함) 통과
+
+## [0.6.0] - 2026-07-31
+- **[UI/Feature]** 라이트/다크 테마 전환 지원 (ADR-005, 사용자 결정 D-b)
+  - **시맨틱 토큰 도입**: 하드코딩된 top-level `Color` 상수 20종(BgColor/Cyan/TextPrimary 등)을 `KosmosColors` 데이터 클래스로 대체하고 `LocalKosmosColors` CompositionLocal로 주입 — 전 화면 190여 개 색상 참조를 `KosmosTheme.colors.<토큰>` 형태로 일괄 전환
+  - **라이트 팔레트 신설**: `docs/DESIGN.md`의 Sky Blue 기획(canvas #F7FBFD / ink #1F2A33 / primary-strong #39AED8 / hairline #D9E6EC)을 Glassmorphism 구조에 적용 — 밝은 배경에서 white-on-white로 경계가 사라지지 않도록 카드 표면을 불투명에 가깝게 올리고 hairline 테두리로 계층 구성
+  - **테마 선택 UI**: 설정 화면에 APPEARANCE 섹션 추가(시스템 설정/라이트/다크), `ThemeMode`를 DataStore(`theme_mode`, 기본 SYSTEM)에 영속. `ThemeViewModel`을 MainActivity 루트에서 구독해 즉시 전체 적용, 상태바 아이콘 명암도 동기화
+  - **대비·연출 보정**: `onAccent` 토큰 도입으로 accent 배경 위 텍스트/아이콘 대비 확보(다크=남색, 라이트=흰색), `auroraAlpha`로 라이트에서 배경 오로라 강도 0.35배 감쇠, 라이트에서 안 보이던 `Color.White` 하드코딩 텍스트 5곳과 하드코딩 오렌지 경고 배너를 토큰으로 교체
+  - **구조 대응**: `DrawScope`/`LazyListScope`는 비-Composable이므로 토큰을 바깥에서 추출해 전달(AuroraBackground/OrbPulse/ScheduleContent), `Modifier.glassEffect`는 색상 기본값을 null + `composed {}` 내부 해석으로 변경
+- **[Docs]** `DESIGN.md` v2.0 개정 — 라이트/다크 양쪽 팔레트와 토큰 구현 위치·접근 규칙 명시(문서·구현 불일치 해소), `architecture.md` ADR-005 추가
+- **[QA/Test]** 전체 테스트 + lintDebug + build(릴리스 포함) 통과
+
 ## [0.5.12] - 2026-07-31
 - **[Refactoring/Decision]** 음성 입력을 Gemma 멀티모달 직접 입력으로 확정 (사용자 결정)
   - 도달 불가 상태였던 시스템 STT 대안 파이프라인 전체 삭제: `feature/voice`(VoiceOverlay/VoiceViewModel/VoiceUiState), `AndroidSpeechToTextTool`, `ProcessVoiceInputUseCase`, `domain/tool/SpeechToTextTool`(+SttState), PlatformModule 바인딩

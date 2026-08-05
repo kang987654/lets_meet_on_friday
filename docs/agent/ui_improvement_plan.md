@@ -1,5 +1,5 @@
 # ui_improvement_plan.md — 전체 UI 개선 계획서
-> **문서 버전**: v1.0 | **최종 수정일**: 2026-07-31 | **상태**: Draft (착수 전)
+> **문서 버전**: v1.1 | **최종 수정일**: 2026-07-31 | **상태**: In Progress (Phase A·B(1~2)·C·D 완료, B-3 2~3단계만 잔여)
 > **관련 모듈**: `:app` (feature/*, ui/*), `:core` (mapper)
 > **기준 문서**: PRD.md v1.2 / architecture.md v1.2 (ADR-001~004) / DESIGN.md / CHANGELOG 0.5.12
 
@@ -86,32 +86,36 @@
 
 ---
 
-## 5. Phase D — 디자인 정본 확정 (⚖️ 결정 선행)
+## 5. Phase D — 디자인 정본 확정 ✅ 완료 (2026-07-31, v0.6.0)
 
-- **현황**: `DESIGN.md`는 Sky Blue(#5bc2e7) 라이트 톤 기획이나, 실제 구현은 다크 Glassmorphism(Cyan/Violet, AuroraBackground). 문서와 실물 불일치.
-- **선택지**:
-  - **(D-a, 권장)** 다크 Glassmorphism을 정본으로 확정 → `DESIGN.md`를 실물 기준으로 개정(v2.0), 색상 토큰 표를 `ui/theme/Color.kt` 기준으로 재작성
-  - **(D-b)** 라이트/다크 테마 전환 지원 → `KosmosTheme`에 다이나믹 컬러 스킴 도입 (비용 큼: 전 화면 하드코딩 색상 참조를 토큰화해야 함 — 현재 `com.kosmos.app.ui.theme.Cyan` 직접 참조 다수)
-- **결정 및 근거를 architecture.md ADR-005로 기록할 것.**
+- **결정**: **D-b(라이트/다크 전환 지원)** 채택 — 사용자 결정. ADR-005 기록 완료.
+- **구현 완료**: `KosmosColors` 시맨틱 토큰 + `LocalKosmosColors` CompositionLocal, 라이트 팔레트(DESIGN.md Sky Blue 기반) 신설, 설정 APPEARANCE 섹션(SYSTEM/LIGHT/DARK) + DataStore 영속, `onAccent`/`auroraAlpha` 보정 토큰, `DESIGN.md` v2.0 개정.
+- **이후 규칙 (신규 UI 작업 시 필수)**:
+  - 색상은 반드시 `KosmosTheme.colors.<토큰>` 사용 — `Color(0xFF...)` 리터럴이나 `Color.White` 직접 사용 금지
+  - `DrawScope`/`LazyListScope` 람다 안에서는 토큰 접근 불가 → 바깥에서 `val`로 추출해 전달
+  - 신규 화면 추가 시 **라이트 모드에서도 반드시 육안 확인** (대비 손실이 다크에서는 드러나지 않음)
 
 ---
 
 ## 6. 진행 체크리스트
 
-- [ ] A-1 캘린더 날짜 선택 + Today/Week 세그먼트
-- [ ] A-2 Memory 기본 필터 KNOWLEDGE
-- [ ] A-3 스트리밍 정지 버튼
-- [ ] Phase A 검증 (test/lint/CHANGELOG)
-- [ ] B-1 ErrorCodeMapper 재배선 + 사용자 문구
-- [ ] B-2 웹 검색 토글 스낵바
-- [ ] Phase B(1~2) 검증
-- [ ] B-3 다운로드 WorkManager 이관 (별도 세션 권장)
-- [ ] C-1 날짜 구분선
-- [ ] C-2 롱프레스 복사
-- [ ] C-3 최신으로 이동 FAB
-- [ ] C-4 첨부 썸네일 프리뷰
-- [ ] Phase C 검증
-- [ ] D ⚖️ 디자인 정본 결정 → DESIGN.md 개정 + ADR-005
+- [x] A-1 캘린더 날짜 선택 + Today/Week 세그먼트 (선택 날짜 필터, 재탭 해제, 오늘 아닌 날짜 선택 시 주간 자동 확장)
+- [x] A-2 Memory 기본 필터 KNOWLEDGE (`MemoryFilterType.ALL` 제거)
+- [x] A-3 스트리밍 정지 버튼 (`InputAction` 3-상태 전환, `cancelGeneration()` — 부분 응답 보존)
+- [x] Phase A 검증 (test/lint 통과)
+- [x] B-1 ErrorCodeMapper 재배선 + 사용자 문구 (`ValidationReason` 표준 토큰, `ErrorMessages`, 표시 지점 6곳 연결, 회귀 테스트 5건)
+- [x] B-2 웹 검색 토글 스낵바 (+ 표시되지 않던 `uiState.error`도 스낵바로 노출)
+- [x] Phase B(1~2) 검증 (test/lint 통과)
+- [~] B-3 1단계만 완료: 다이얼로그 → 화면 내 진행 카드(진행률·잔여 저장 공간·취소).
+> 진행 메모: 2~3단계(WorkManager 이관 + Foreground 알림 + 재시도)는 계획서 권고대로 **별도 세션**으로 남김.
+> 착수 시 필요한 것: WorkManager+Hilt(HiltWorker/WorkerFactory), POST_NOTIFICATIONS(API 33+), 알림 채널,
+> `DownloadModelUseCase`를 Worker로 이관하되 `.part` 원자화(0.5.6) 정합 유지, WorkInfo 진행률 관찰.
+- [x] C-1 날짜 구분선 (`ChatRow` 도입 — 오늘/어제/M월 d일)
+- [x] C-2 롱프레스 복사 (양쪽 버블 `combinedClickable` + 스낵바)
+- [x] C-3 최신으로 이동 FAB (사용자 스크롤 이탈 시 자동 스크롤 일시 해제)
+- [x] C-4 첨부 썸네일 프리뷰 (`inSampleSize` 다운샘플, IO 디코딩, 외부 라이브러리 없음)
+- [x] Phase C 검증 (test/lint/build 통과)
+- [x] D 디자인 정본 결정(D-b: 라이트/다크 전환) → 토큰화 + 테마 선택 UI + DESIGN.md v2.0 + ADR-005 (v0.6.0)
 - [ ] 최종: 전체 test/lint, CHANGELOG, README 스크린샷/기능 서술 갱신
 
 ## 7. 이월 백로그 (UI 외 — CHANGELOG 0.5.10 Pending 참조)

@@ -1287,3 +1287,11 @@ GemmaModelRunner → {새모델}ModelRunner
 - **결정**: `AddScheduleUseCase`는 로컬 Room DB 저장(단일 진실 원천) 후 `CalendarTool`(AndroidCalendarTool)로 기기 캘린더에 best-effort 삽입한다. `GetTodayScheduleUseCase`는 기기 캘린더 이벤트를 읽어 (제목, 시작 시각) 기준 중복 제거 후 로컬 일정과 병합한다.
 - **근거**: 바인딩만 되고 미사용이던 `AndroidCalendarTool`을 PRD 원안대로 배선(사용자 결정 2026-07-31). 권한 미보유/캘린더 계정 부재 시에도 앱 기능이 죽지 않도록, 동기화 실패는 경고 로깅으로 강등한다(Graceful Degradation).
 - **영향**: 캘린더 권한은 일괄 선요청 대신 컨텍스트 요청 — ChatScreen(일정 승인 시 WRITE+READ), CalendarScreen(진입 시 READ, 승인 시 재조회). Robolectric 환경(권한 거부)에서도 기존 E2E가 로컬 경로로 통과한다.
+
+### ADR-005. 라이트/다크 테마 전환 지원 — 시맨틱 색상 토큰 도입 (2026-07-31)
+- **결정**: 문서(DESIGN.md v1.2, Sky Blue 라이트 기획)와 구현(다크 Glassmorphism)의 불일치를 **양쪽 모두 지원**하는 방향으로 해소한다(사용자 결정: 옵션 D-b). 하드코딩된 top-level `Color` 상수(BgColor/Cyan/TextPrimary 등 20종)를 `KosmosColors` 시맨틱 토큰 데이터 클래스로 대체하고, `LocalKosmosColors` CompositionLocal로 테마별 팔레트를 주입한다.
+- **토큰 접근**: 화면은 `KosmosTheme.colors.<토큰>`으로 접근한다. 색상 리터럴 직접 사용 금지.
+- **팔레트**: 다크는 기존 v0.4.0 Glassmorphism 값을 계승, 라이트는 DESIGN.md의 Sky Blue 팔레트(canvas #F7FBFD / ink #1F2A33 / primary-strong #39AED8 / hairline #D9E6EC)를 Glassmorphism 구조에 적용한다. 라이트에서는 흰색 반투명 대신 카드 표면을 불투명에 가깝게 올리고 hairline 테두리로 계층을 만든다.
+- **부가 토큰**: `onAccent`(accent 배경 위 전경색 — 다크는 어두운 남색, 라이트는 흰색)와 `auroraAlpha`(라이트에서 배경 연출 강도 0.35배 감쇠)를 도입해 대비·시각 과잉 문제를 해결한다.
+- **모드 선택**: `ThemeMode`(SYSTEM/LIGHT/DARK, 기본 SYSTEM)를 설정 화면 APPEARANCE 섹션에서 선택하고 DataStore(`theme_mode`)에 영속한다. `ThemeViewModel`을 MainActivity 루트에서 구독해 전체 트리에 적용하며, 상태바 아이콘 명암(`isAppearanceLightStatusBars`)도 함께 동기화한다.
+- **제약**: `DrawScope`/`LazyListScope` 람다는 `@Composable`이 아니므로 토큰을 바깥에서 `val`로 추출해 전달한다(AuroraBackground, OrbPulse, ScheduleContent). `Modifier.glassEffect`의 색상 기본값은 테마 의존이므로 `null` 기본값 + `composed {}` 내부 해석 방식을 사용한다.

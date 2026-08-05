@@ -85,7 +85,7 @@ sequenceDiagram
 | :--- | :--- |
 | **Language** | Kotlin `2.0.21` |
 | **Build & Plugin** | AGP `9.0+`, Gradle KTS, KSP |
-| **UI & Styling** | Jetpack Compose, Material 3, Glassmorphism, Custom Aurora Animations |
+| **UI & Styling** | Jetpack Compose, Material 3, Glassmorphism, Custom Aurora Animations, 라이트/다크 테마 전환 (시맨틱 색상 토큰) |
 | **Architecture** | Clean Architecture, Multi-Module, Reactive Flow / StateFlow |
 | **Dependency Injection** | Hilt |
 | **On-Device AI** | LiteRT-LM (`litertlm-android`), Gemma 4-E4B-it INT4, MediaPipe Tasks Text Embedder |

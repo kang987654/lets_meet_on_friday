@@ -1,7 +1,12 @@
 ---
-version: v1.2
-name: Local Friday
-description: 오프라인 우선 개인 AI 비서 앱을 위한 차분하고 신뢰감 있는 모바일 UI 시스템. 메인 컬러는 Sky Blue (#5bc2e7)이며, 이는 친절함·명료함·도움의 느낌을 전달한다. 화면은 밝고 깨끗한 캔버스 위에 얇은 경계선과 절제된 강조를 사용하며, 과도한 그림자보다 정보 구조와 여백으로 계층을 만든다. 대화형 인터페이스는 가볍고 빠르게 느껴져야 하며, 승인·권한·오류와 같은 중요한 순간은 시각적으로 분명하되 위협적이지 않게 표현한다.
+version: v2.0
+name: Local Friday (KOSMOS)
+description: 오프라인 우선 개인 AI 비서 앱을 위한 차분하고 신뢰감 있는 모바일 UI 시스템. 라이트/다크 두 테마를 모두 지원하며(ADR-005), 사용자가 시스템 설정·라이트·다크 중 선택한다. 라이트는 Sky Blue(#5BC2E7) 기반의 밝고 깨끗한 캔버스, 다크는 Cyan/Violet 기반의 Glassmorphism이다. 두 테마 모두 얇은 경계선과 절제된 강조로 계층을 만들고, 승인·권한·오류와 같은 중요한 순간은 시각적으로 분명하되 위협적이지 않게 표현한다.
+implementation:
+  tokens: "app/src/main/java/com/kosmos/app/ui/theme/Color.kt (KosmosColors)"
+  access: "KosmosTheme.colors.<토큰> — 색상 리터럴 직접 사용 금지"
+  mode: "ThemeMode(SYSTEM/LIGHT/DARK), DataStore key `theme_mode`, 기본 SYSTEM"
+# 아래 colors 블록은 라이트 테마 팔레트다. 다크 팔레트는 colors-dark 참조.
 colors:
   primary: "#5BC2E7"
   primary-strong: "#39AED8"
@@ -19,6 +24,25 @@ colors:
   on-primary: "#FFFFFF"
   on-dark: "#FFFFFF"
   overlay: "rgba(20, 30, 38, 0.52)"
+
+# 다크 테마 팔레트 (v0.4.0 Glassmorphism 구현 계승, ADR-005에서 정식 문서화)
+colors-dark:
+  primary: "#22D3EE"        # accent
+  primary-alt: "#818CF8"    # accentAlt
+  on-primary: "#040D1F"     # onAccent — 밝은 cyan 위 어두운 전경
+  canvas: "#040D1F"         # bg
+  surface-card: "#071526"   # surface
+  glass: "rgba(255,255,255,0.05)"
+  glass-mid: "rgba(255,255,255,0.08)"
+  glass-high: "rgba(255,255,255,0.12)"
+  hairline: "rgba(255,255,255,0.08)"
+  hairline-high: "rgba(255,255,255,0.15)"
+  ink: "#F1F5F9"            # textPrimary
+  body: "#94A3B8"           # textSecondary
+  muted: "#475569"          # textMuted
+  success: "#34D399"
+  warning: "#FBBF24"
+  danger: "#F87171"
 
 typography:
   display-lg:
