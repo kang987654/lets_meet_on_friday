@@ -56,6 +56,7 @@ dependencies {
     implementation(project(":domain"))
     implementation(project(":data"))
 
+    implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -74,6 +75,11 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
+
+    // WorkManager (모델 다운로드 전경 작업 — ADR-006)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     // Room ([WHY] 버전 카탈로그로 통일 — 하드코딩 버전과 카탈로그 버전이 갈라지는 드리프트 방지)
     implementation(libs.androidx.room.runtime)
@@ -124,7 +130,9 @@ dependencies {
     kspTest(libs.hilt.compiler)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.ext.junit)
-    
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.okhttp.mockwebserver)
+
     // [WHY] BOM은 configuration별로 적용되므로 androidTest 스코프에도 명시해야 버전이 해석된다.
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
