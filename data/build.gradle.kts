@@ -1,5 +1,9 @@
 plugins {
     id("com.android.library")
+    // [WHY] 이 플러그인이 없으면 :data 안에서 선언한 @Serializable 클래스의 직렬화기가
+    // 생성되지 않아, 컴파일은 통과하지만 런타임에 SerializationException 이 난다.
+    // ExportManifest(내보내기 manifest.json)와 PartMeta(다운로드 이어받기)가 여기 해당한다.
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
 }
