@@ -26,10 +26,9 @@ class SearchWikipediaToolExecutor @Inject constructor(
 
     override val actionType: ApprovalRules.ActionType = ApprovalRules.ActionType.WEB_SEARCH
 
-    override suspend fun execute(args: Map<String, Any>, sessionId: String): String {
-        val topic = args["topic"] as? String
-            ?: return JSONObject().put("status", "error").put("message", "topic is required").toString()
-        val lang = args["lang"] as? String ?: "ko"
+    override suspend fun execute(args: ToolArguments, sessionId: String): String {
+        val topic = args.requireString("topic")
+        val lang = args.optString("lang") ?: "ko"
 
         return when (val res = queryWikipediaUseCase(topic, lang)) {
             is AppResult.Success -> {

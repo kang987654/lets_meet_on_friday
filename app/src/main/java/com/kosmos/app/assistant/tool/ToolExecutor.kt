@@ -19,8 +19,13 @@ interface ToolExecutor {
     val actionType: ApprovalRules.ActionType?
         get() = null
 
-    /** 승인 다이얼로그에 표시할 요청 정보를 구성합니다. */
-    fun buildApprovalRequest(args: Map<String, Any>, sessionId: String): ApprovalRequest =
+    /**
+     * 승인 다이얼로그에 표시할 요청 정보를 구성합니다.
+     *
+     * [WHY] 필수 인자가 없으면 [ToolArgumentException]을 던져야 한다 — 승인 카드에 기본값을
+     * 채워 보여준 뒤 [execute]에서 거부하면, 사용자가 애초에 실행 불가능한 초안을 승인하게 된다.
+     */
+    fun buildApprovalRequest(args: ToolArguments, sessionId: String): ApprovalRequest =
         ApprovalRequest(
             sessionId = sessionId,
             title = "$name 실행 승인",
@@ -30,6 +35,9 @@ interface ToolExecutor {
     /**
      * 파싱된 매개변수와 세션 ID를 받아 툴을 실행하고,
      * 그 결과를 LLM 컨텍스트에 추가할 JSON/텍스트 문자열 형태로 반환합니다.
+     *
+     * 인자가 없거나 모양이 다르면 [ToolArgumentException]을 던지고, `BaseAgent`가 이를
+     * 구조화된 오류로 변환해 모델에게 되돌립니다.
      */
-    suspend fun execute(args: Map<String, Any>, sessionId: String): String
+    suspend fun execute(args: ToolArguments, sessionId: String): String
 }

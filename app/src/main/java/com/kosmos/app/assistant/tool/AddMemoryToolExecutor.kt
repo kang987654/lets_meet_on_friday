@@ -28,8 +28,10 @@ class AddMemoryToolExecutor @Inject constructor(
     // 경로이므로(주입된 문서가 가짜 '기억'을 심는 벡터) 사용자 승인을 요구한다.
     override val actionType: ApprovalRules.ActionType = ApprovalRules.ActionType.MEMORY_WRITE
 
-    override fun buildApprovalRequest(args: Map<String, Any>, sessionId: String): ApprovalRequest {
-        val content = (args["content"] as? String).orEmpty()
+    // [WHY] 승인과 실행이 같은 필수 인자 검증을 통과하도록 requireString 을 양쪽에서 쓴다.
+    // 내용이 없으면 승인 카드를 띄우지 않고 곧바로 오류가 모델에게 돌아간다.
+    override fun buildApprovalRequest(args: ToolArguments, sessionId: String): ApprovalRequest {
+        val content = args.requireString("content")
         val preview = if (content.length > 80) content.take(80) + "…" else content
         return ApprovalRequest(
             sessionId = sessionId,
@@ -38,16 +40,13 @@ class AddMemoryToolExecutor @Inject constructor(
         )
     }
 
-    override suspend fun execute(args: Map<String, Any>, sessionId: String): String {
-        val content = args["content"] as? String
-            ?: return JSONObject().put("status", "error").put("message", "content is required").toString()
-        val tagsRaw = args["tags"]
-
-        val tags = if (tagsRaw is List<*>) {
-            tagsRaw.filterIsInstance<String>()
-        } else if (tagsRaw is String) {
-            tagsRaw.split(",").map { it.trim() }
-        } else emptyList()
+    override suspend fun execute(args: ToolArguments, sessionId: String): String {
+        val content = args.requireString("content")
+        // [WHY] 기존 구현은 `tagsRaw is List<*>` 로 분기했는데, org.json 은 JSON 배열을
+        // List 가 아닌 JSONArray 로 주므로 이 분기가 절대 참이 되지 않았다. 결과적으로
+        // 프롬프트가 지시한 정식 형태(`{"tags":["work","urgent"]}`)로 보낸 태그가 전부
+        // 조용히 버려지고 콤마 문자열 폴백만 동작했다.
+        val tags = args.stringList("tags")
 
         return when (val res = saveKnowledgeUseCase(content, tags)) {
             is AppResult.Success -> {

@@ -27,46 +27,57 @@ class AddScheduleToolExecutor @Inject constructor(
 
     override val actionType: ApprovalRules.ActionType = ApprovalRules.ActionType.CALENDAR_WRITE
 
-    override fun buildApprovalRequest(args: Map<String, Any>, sessionId: String): ApprovalRequest {
-        val title = args["title"] as? String ?: "(제목 없음)"
-        val startTime = args["startTime"] as? String ?: "(시간 미정)"
+    override fun buildApprovalRequest(args: ToolArguments, sessionId: String): ApprovalRequest {
+        val draft = parse(args)
         return ApprovalRequest(
             sessionId = sessionId,
             title = "일정 추가 승인",
-            description = "일정: '$title' ($startTime)",
+            description = "일정: '${draft.title}' (${draft.startTime})",
             // [WHY] 캘린더 승인은 일반 다이얼로그 대신 플로팅 초안 카드(CalendarDraftCard)로
             // 렌더링하기 위해 구조화된 초안을 함께 전달한다 (절충안, 2026-07-31).
             calendarDraft = com.kosmos.app.domain.model.CalendarDraft(
-                title = title,
-                startIso = startTime,
-                endIso = (args["endTime"] as? String)?.takeIf { it.isNotBlank() },
-                note = args["description"] as? String,
+                title = draft.title,
+                startIso = draft.startTime,
+                endIso = draft.endTime.takeIf { it.isNotBlank() },
+                note = draft.description,
                 confidence = 1.0f
             )
         )
     }
 
-    override suspend fun execute(args: Map<String, Any>, sessionId: String): String {
-        // [WHY] 인자 누락 시 "Event"/"" 기본값으로 무성 진행하면 쓰레기 일정이 저장되므로,
-        // 실행하지 않고 오류를 돌려 모델이 사용자에게 되묻도록 한다 (프롬프트 수칙과 일치).
-        val title = (args["title"] as? String)?.takeIf { it.isNotBlank() }
-            ?: return errorJson("title 인자가 필요합니다. 사용자에게 일정 제목을 확인하세요.")
-        val startTime = (args["startTime"] as? String)?.takeIf { it.isNotBlank() }
-            ?: return errorJson("startTime 인자가 필요합니다. 사용자에게 일정 시작 시간을 확인하세요.")
-        val endTime = args["endTime"] as? String ?: ""
-        val desc = args["description"] as? String
+    override suspend fun execute(args: ToolArguments, sessionId: String): String {
+        val draft = parse(args)
 
-        val res = addScheduleUseCase(title, startTime, endTime, desc)
+        val res = addScheduleUseCase(draft.title, draft.startTime, draft.endTime, draft.description)
         return if (res is AppResult.Success) {
             JSONObject()
                 .put("status", "success")
                 .put("message", "일정이 성공적으로 추가되었습니다.")
                 .toString()
         } else {
-            errorJson("일정 추가 실패")
+            JSONObject().put("status", "error").put("message", "일정 추가 실패").toString()
         }
     }
 
-    private fun errorJson(message: String): String =
-        JSONObject().put("status", "error").put("message", message).toString()
+    /**
+     * 인자를 한 곳에서 검증합니다.
+     *
+     * [WHY] 이전에는 승인과 실행이 인자를 각자 읽었고 기본값도 달랐다("(제목 없음)" vs 거부).
+     * 그래서 사용자가 애초에 실행될 수 없는 초안을 승인하는 경우가 있었다. 검증을 하나로 모아
+     * 필수 인자가 없으면 승인 단계에서 이미 실패하게 만든다 — 누락은 ToolArgumentException 이
+     * 되어 BaseAgent 가 모델에게 되돌린다.
+     */
+    private fun parse(args: ToolArguments) = ScheduleDraft(
+        title = args.requireString("title"),
+        startTime = args.requireString("startTime"),
+        endTime = args.optString("endTime") ?: "",
+        description = args.optString("description")
+    )
+
+    private data class ScheduleDraft(
+        val title: String,
+        val startTime: String,
+        val endTime: String,
+        val description: String?
+    )
 }

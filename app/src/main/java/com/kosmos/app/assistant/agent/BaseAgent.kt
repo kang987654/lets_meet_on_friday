@@ -117,6 +117,26 @@ abstract class BaseAgent(
                 prompt = prompt.copy(currentInput = newInput)
                 continue
             }
+
+            // [WHY] JSON이 깨진 tool_call은 이전에 조용히 버려져, 모델은 오류를 받지 못하고
+            // 그 턴이 평문 답변으로 처리됐다 — 사용자에게는 요청이 무시된 것처럼 보인다.
+            // 형식 오류를 되돌려 모델이 스스로 고쳐 다시 호출할 기회를 준다.
+            if (parsed.malformedToolCalls.isNotEmpty()) {
+                auditTrailService.logError(
+                    request.sessionId,
+                    "Malformed tool_call JSON: ${parsed.malformedToolCalls.first().take(200)}"
+                )
+                val errorJson = org.json.JSONObject()
+                    .put("status", "error")
+                    .put(
+                        "message",
+                        "tool_call 의 JSON 형식이 올바르지 않습니다. " +
+                            "{\"name\": \"툴이름\", \"args\": { ... }} 형태로 다시 작성하세요."
+                    )
+                    .toString()
+                prompt = prompt.copy(currentInput = "<tool_response>\n$errorJson\n</tool_response>")
+                continue
+            }
             break
         }
 
@@ -153,18 +173,45 @@ abstract class BaseAgent(
             ?: return org.json.JSONObject().put("status", "error")
                 .put("message", "알 수 없는 Tool입니다: ${call.name}").toString()
 
-        val actionType = executor.actionType
-        if (actionType != null && com.kosmos.app.core.security.ApprovalRules.requiresApproval(actionType)) {
-            val approvalRequest = executor.buildApprovalRequest(call.args, sessionId)
-            val approved = approvalCoordinator.requireApproval(approvalRequest)
-            if (!approved) {
-                auditTrailService.logApprovalRejected(sessionId, "${call.name}: ${approvalRequest.description}")
-                return "{\"status\": \"error\", \"message\": \"사용자가 취소했습니다\"}"
+        // [WHY] 인자 검증 실패는 승인 전에 걸러야 한다 — 필수 인자가 없는 초안을 승인 카드로
+        // 띄우면 사용자가 실행될 수 없는 요청을 승인하게 된다. 또한 누락과 타입 오류를 구분해
+        // 되돌려야 모델이 "안 보냈다"와 "모양이 틀렸다" 중 무엇을 고칠지 알 수 있다.
+        return try {
+            val actionType = executor.actionType
+            if (actionType != null && com.kosmos.app.core.security.ApprovalRules.requiresApproval(actionType)) {
+                val approvalRequest = executor.buildApprovalRequest(call.args, sessionId)
+                val approved = approvalCoordinator.requireApproval(approvalRequest)
+                if (!approved) {
+                    auditTrailService.logApprovalRejected(sessionId, "${call.name}: ${approvalRequest.description}")
+                    return "{\"status\": \"error\", \"message\": \"사용자가 취소했습니다\"}"
+                }
+                auditTrailService.logApprovalGranted(sessionId, "${call.name}: ${approvalRequest.description}")
             }
-            auditTrailService.logApprovalGranted(sessionId, "${call.name}: ${approvalRequest.description}")
+            executor.execute(call.args, sessionId)
+        } catch (e: com.kosmos.app.assistant.tool.ToolArgumentException) {
+            auditTrailService.logError(sessionId, "Invalid tool argument: ${call.name}.${e.field} (${e.reason})")
+            toolArgumentErrorJson(call.name, e)
         }
+    }
 
-        return executor.execute(call.args, sessionId)
+    /** 인자 오류를 모델이 스스로 고칠 수 있는 구조화된 형태로 되돌립니다. */
+    private fun toolArgumentErrorJson(
+        toolName: String,
+        e: com.kosmos.app.assistant.tool.ToolArgumentException
+    ): String {
+        val guidance = when (e.reason) {
+            com.kosmos.app.assistant.tool.ToolArgumentException.Reason.MISSING ->
+                "'${e.field}' 인자가 없습니다. 사용자에게 값을 확인한 뒤 다시 호출하세요."
+            com.kosmos.app.assistant.tool.ToolArgumentException.Reason.WRONG_TYPE ->
+                "'${e.field}' 인자의 형식이 올바르지 않습니다. 문자열로 다시 보내세요."
+        }
+        return org.json.JSONObject()
+            .put("status", "error")
+            .put("tool", toolName)
+            .put("field", e.field)
+            .put("reason", e.reason.name.lowercase())
+            .put("message", guidance)
+            .toString()
     }
 
     private suspend fun handleErrorAndReturn(sessionId: String, errorMsg: String): AgentResult.Error {

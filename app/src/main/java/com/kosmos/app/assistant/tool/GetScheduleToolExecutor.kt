@@ -23,8 +23,10 @@ class GetScheduleToolExecutor @Inject constructor(
 ) : ToolExecutor {
     override val name: String = "GetSchedule"
 
-    override suspend fun execute(args: Map<String, Any>, sessionId: String): String {
-        val range = if ((args["date"] as? String)?.lowercase()?.contains("week") == true) {
+    override suspend fun execute(args: ToolArguments, sessionId: String): String {
+        // [WHY] date 는 없어도 오늘로 수렴하는 선택 인자다. optString 이 숫자·불린도 문자열로
+        // 강제하므로, 모델이 따옴표를 빠뜨려도 조회 범위 판정이 조용히 틀어지지 않는다.
+        val range = if (args.optString("date")?.lowercase()?.contains("week") == true) {
             ScheduleData.RangeType.WEEK
         } else {
             ScheduleData.RangeType.TODAY

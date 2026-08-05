@@ -27,7 +27,37 @@ class ToolParserTest {
         
         val toolCall = result.toolCalls[0]
         assertEquals("AddSchedule", toolCall.name)
-        assertEquals("미팅", toolCall.args["title"])
+        assertEquals("미팅", toolCall.args.optString("title"))
+    }
+
+    @Test
+    fun `parseStream surfaces malformed tool call instead of silently dropping it`() {
+        // [WHY] 이전에는 빈 catch 로 삼켜서 툴 콜이 흔적 없이 사라졌고, 모델은 오류를 받지
+        // 못한 채 그 턴이 평문 답변으로 처리됐다.
+        val raw = "확인해보겠습니다.<tool_call>{\"name\":\"AddSchedule\", \"args\":{</tool_call>"
+        val result = ToolParser.parseStream(raw)
+
+        assertEquals(0, result.toolCalls.size)
+        assertEquals(1, result.malformedToolCalls.size)
+        assertEquals("확인해보겠습니다.", result.content)
+    }
+
+    @Test
+    fun `parseStream treats a tool call without a name as malformed`() {
+        val raw = "<tool_call>{\"args\":{\"title\":\"미팅\"}}</tool_call>"
+        val result = ToolParser.parseStream(raw)
+
+        assertEquals(0, result.toolCalls.size)
+        assertEquals(1, result.malformedToolCalls.size)
+    }
+
+    @Test
+    fun `parseStream yields empty args when the tool call omits them`() {
+        val raw = "<tool_call>{\"name\":\"GetSchedule\"}</tool_call>"
+        val result = ToolParser.parseStream(raw)
+
+        assertEquals(1, result.toolCalls.size)
+        assertEquals(null, result.toolCalls[0].args.optString("date"))
     }
 
     @Test
