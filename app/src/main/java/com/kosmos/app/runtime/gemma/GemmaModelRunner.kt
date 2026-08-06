@@ -13,6 +13,7 @@ import com.google.ai.edge.litertlm.SamplerConfig
 import android.util.Log
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.modelrunner.ChatPrompt
@@ -93,7 +94,7 @@ class GemmaModelRunner @Inject constructor(
         // [WHY] 이미지를 텍스트보다 앞에 넣는다 — 마지막 토큰이 텍스트여야 응답 품질이 안정적이다.
         listOf(
             com.google.ai.edge.litertlm.Content.ImageBytes(imageBytes),
-            com.google.ai.edge.litertlm.Content.Text(prompt.currentInput)
+            com.google.ai.edge.litertlm.Content.Text(userText(prompt))
         )
     }
 
@@ -104,7 +105,7 @@ class GemmaModelRunner @Inject constructor(
     ): AppResult<ModelTurn> = runTurn(prompt, onToken, "음성 추론 중 오류 발생") {
         listOf(
             com.google.ai.edge.litertlm.Content.AudioFile(audioPath),
-            com.google.ai.edge.litertlm.Content.Text(prompt.currentInput)
+            com.google.ai.edge.litertlm.Content.Text(userText(prompt))
         )
     }
 
@@ -161,10 +162,13 @@ class GemmaModelRunner @Inject constructor(
                                 onToken.invoke(token)
                                 finalResponse += token
 
+                                // [WHY] 임계 온도 48·경고 온도 43 은 `Constants` 에 이미 있었으나
+                                // 여기와 `RuntimeMetricsCollector` 가 각각 리터럴을 복제하고 있었다.
+                                // 정책을 한 곳에서 바꿀 수 없는 상태였다.
                                 val currentTemp = metricsCollector.getCurrentTemp()
-                                if (currentTemp >= 48.0f) {
+                                if (currentTemp >= Constants.THERMAL_SHUTDOWN_CELSIUS) {
                                     kotlinx.coroutines.delay(50)
-                                } else if (currentTemp >= 43.0f) {
+                                } else if (currentTemp >= Constants.THERMAL_WARNING_CELSIUS) {
                                     kotlinx.coroutines.delay(15)
                                 }
                             }
@@ -213,6 +217,9 @@ class GemmaModelRunner @Inject constructor(
         // [WHY] 툴 실행 결과는 사용자 발화가 아니라 **TOOL 역할 메시지**로 보내야 모델 템플릿의
         // 역할과 맞는다. Contents 오버로드는 무조건 Message.user 로 감싸므로(바이트코드 확인)
         // 여기서 직접 Message.tool 로 감싼다 — 공식 문서의 수동 툴 호출 예제와 같은 형태다.
+        //
+        // [WHY] 이 턴에는 turnContext 를 싣지 않는다. 같은 왕복의 첫 턴에서 이미 보냈고,
+        // 툴 응답 턴은 사용자 발화가 아니다.
         prompt.toolResponse?.let { response ->
             return Message.tool(
                 Contents.of(
@@ -224,8 +231,21 @@ class GemmaModelRunner @Inject constructor(
             return Message.user(Contents.of(*extras.toTypedArray()))
         }
         return Message.user(
-            Contents.of(com.google.ai.edge.litertlm.Content.Text(prompt.currentInput))
+            Contents.of(com.google.ai.edge.litertlm.Content.Text(userText(prompt)))
         )
+    }
+
+    /**
+     * 사용자 턴 본문입니다. 휘발성 문맥([ChatPrompt.turnContext] — 현재 시각, 검색된 기억)이
+     * 앞머리에 붙습니다.
+     *
+     * [WHY] 그 내용이 시스템 지시에 있으면 지시가 턴마다 달라져 Conversation 이 파괴되고
+     * 툴 선언까지 전부 다시 프리필된다 (실측치는 [ChatPrompt.turnContext] 주석).
+     */
+    private fun userText(prompt: ChatPrompt): String {
+        val context = prompt.turnContext
+        return if (context.isNullOrBlank()) prompt.currentInput
+        else "$context\n\n${prompt.currentInput}"
     }
 
     /**
@@ -303,8 +323,15 @@ class GemmaModelRunner @Inject constructor(
         if (engine == null) {
             // [WHY] 네이티브(liblitertlm_jni)의 로그는 기본적으로 억제되어 있어 constrained
             // decoding 문법 생성 실패, 데이터 프로세서 선택 같은 결정적 진단이 logcat 에 전혀
-            // 남지 않았다. 툴 호출 디버깅 동안 INFO 이상을 노출한다.
-            runCatching { Engine.setNativeMinLogSeverity(com.google.ai.edge.litertlm.LogSeverity.INFO) }
+            // 남지 않았다. 툴 호출 디버깅에는 그 노출이 결정적이었으므로 디버그 빌드에서는
+            // 유지하고, 릴리스에서는 네이티브 기본값(억제)으로 되돌린다 — INFO 는 토큰 단위로
+            // 쏟아져 정작 필요한 로그를 밀어낸다(실기기에서 확인).
+            val severity = if (com.kosmos.app.BuildConfig.DEBUG) {
+                com.google.ai.edge.litertlm.LogSeverity.INFO
+            } else {
+                com.google.ai.edge.litertlm.LogSeverity.ERROR
+            }
+            runCatching { Engine.setNativeMinLogSeverity(severity) }
             try {
                 val engineConfig = EngineConfig(
                     modelPath = modelPath,
@@ -354,10 +381,15 @@ class GemmaModelRunner @Inject constructor(
             return existing
         }
 
-        // [WHY] 3000 은 자체 XML 규약 시절의 값이다. 네이티브 선언 경로에서는 툴 선언만
-        // ~2천 토큰이라 거의 매 턴 재생성(전체 프리필)됐다. gemma-4 의 컨텍스트는 32K —
-        // 기기 메모리를 감안해 8000 으로 올린다.
-        val isTokenExceeded = existing != null && existing.getTokenCount() > 8000
+        // [WHY] 임계값을 사용자 설정(프리필 예산)에서 파생시킨다. 예전에는 런타임에 박힌
+        // 8000 이어서, 설정에서 예산을 내려도 살아 있는 대화의 KV 는 8000 토큰까지 자랐다 —
+        // 설정이 메모리에 아무 영향을 주지 못했다.
+        //
+        // [WHY] 하한이 필요하다. 예산 최소값(1000)을 그대로 쓰면 시스템 지시 + 툴 선언만으로
+        // 이미 임계값을 넘어 **매 턴 재생성**되고, 재생성이야말로 우리가 없애려는 비용이다.
+        val resetThreshold = prompt.contextBudgetTokens
+            .coerceAtLeast(Constants.MIN_CONVERSATION_RESET_TOKENS)
+        val isTokenExceeded = existing != null && existing.getTokenCount() > resetThreshold
 
         if (existing != null && isSameSession && isSameSystemInstruction && isSameTools && !isTokenExceeded) {
             return existing
@@ -451,8 +483,14 @@ class GemmaModelRunner @Inject constructor(
     // [WHY] toolCalls=[] 만으로는 "선언이 템플릿에 안 들어감"과 "모델이 호출을 거부"를 구분할 수
     // 없다. 렌더링된 프리페이스에 툴 블록이 있는지가 모델 파일의 템플릿 지원 여부를 실기기에서
     // 확정하는 유일한 단서다 (Gemma 3n 계열 템플릿에는 툴 블록이 없다).
+    //
+    // [WHY] 디버그 빌드로 한정한다. `renderPrefaceIntoString()` 은 템플릿 전체를 실제로
+    // 렌더링하는 작업이고, 그것도 LLM 디스패처의 수명주기 뮤텍스 안에서 일어난다 — 릴리스에서
+    // 매 재생성마다 낼 비용이 아니다. 프리페이스 2천 자를 logcat 에 남기는 것 자체도
+    // 사용자 발화와 검색된 기억이 로그로 새는 경로다.
     @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
     private fun logConversationCreated(prompt: ChatPrompt, created: Conversation) {
+        if (!com.kosmos.app.BuildConfig.DEBUG) return
         Log.d(
             "GemmaModelRunner",
             "conversation created: tools=${prompt.enabledTools}, " +

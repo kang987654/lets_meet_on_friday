@@ -215,8 +215,12 @@ fun SettingsScreen(
             }
         }
         
-        // 3. Context Window Section
-        SectionBox(title = "CONTEXT WINDOW") {
+        // 3. Prefill Budget Section
+        // [WHY] 예전 제목은 "CONTEXT WINDOW / Token Limit" 이었다. 이 값은 모델의 컨텍스트
+        // 윈도우가 아니다 — `EngineConfig.maxNumTokens` 로 전달되지 않으며, 우리가 매 턴
+        // 모델에게 실어 보내는 양(히스토리 예산)과 대화를 언제 재설정할지를 정한다.
+        // 이름이 실제 동작과 다르면 사용자는 만져도 아무 효과가 없다고 느끼게 된다.
+        SectionBox(title = "대화 기억 범위") {
             Column {
                 var sliderValue by remember(uiState.maxTokens) { mutableStateOf(uiState.maxTokens.toFloat()) }
                 Row(
@@ -224,8 +228,8 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Token Limit", color = KosmosTheme.colors.textPrimary)
-                    Text("${sliderValue.toInt()} Tokens", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
+                    Text("한 번에 참고할 분량", color = KosmosTheme.colors.textPrimary)
+                    Text("${sliderValue.toInt()} 토큰", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Slider(
@@ -241,7 +245,8 @@ fun SettingsScreen(
                     )
                 )
                 Text(
-                    text = "A larger context window allows the AI to remember more recent conversation history but uses more device memory.",
+                    text = "값을 올리면 이전 대화를 더 많이 참고하지만 응답이 느려지고 메모리를 더 씁니다. " +
+                        "모델이 한 번에 읽을 수 있는 전체 한도와는 다릅니다.",
                     style = MaterialTheme.typography.bodySmall,
                     color = KosmosTheme.colors.textMuted
                 )

@@ -1,5 +1,6 @@
 package com.kosmos.app.assistant.context
 
+import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ChatPrompt
 import javax.inject.Inject
 
@@ -12,45 +13,43 @@ import javax.inject.Inject
  * - **Dependencies**: [ContextBuilder.Context], [ChatPrompt]
  *
  * ### Key Flow
- * 1. 컨텍스트에서 System 메시지와 일반 사용자/AI History 분리
- * 2. 기본 시스템 인스트럭션 및 외부 주입 지식 병합
- * 3. [ChatPrompt] 객체로 래핑하여 반환
+ * 1. 컨텍스트에서 System 메시지(RAG 기억)와 일반 사용자/AI History 분리
+ * 2. **하루 동안 고정되는** 시스템 지시(역할·스타일·날짜 블록·툴 사용 태도)를 조립
+ * 3. **턴마다 달라지는** 검색된 기억은 [ChatPrompt.turnContext] 로 분리
+ * 4. [ChatPrompt] 객체로 래핑하여 반환
+ *
+ * [WHY] 2·3 의 분리가 이 클래스의 핵심 계약이다. 예전에는 **분 단위 시각**과 RAG 기억이 함께
+ * 시스템 지시 안에 있어서 지시가 턴마다 달라졌고, 런타임이 그때마다 Conversation 을 파괴하고
+ * 툴 선언(~2천 토큰)까지 전부 다시 프리필했다(PC 실측: 2번째 턴 0.5초 → 3.8초).
+ *
+ * [WHY] 그렇다고 날짜 블록까지 사용자 턴으로 옮기면 **안 된다.** PC 실험에서 `[System Data]`
+ * 블록이 사용자 발화 앞에 붙으면 조회 질문이 툴 호출로 샜다 — "내 자전거 비밀번호 뭐였지?"에
+ * `add_memory` 를, "내가 뭘 좋아한다고 했지?"에 `get_schedule` 을 호출했다(조회 3케이스 중
+ * 1/3 만 정상). 날짜 목록이 날짜·캘린더 툴을 프라이밍하는 것으로 보인다. 같은 조건에서 블록을
+ * 시스템 지시에 두면 3/3 정상이었고, 원인이 규칙 문구가 아니라 **블록의 위치**임을 변형 실험
+ * (문구만 바꿈 / 위치만 바꿈)으로 분리했다.
+ *
+ * [WHY] 그래서 날짜 블록은 시스템 지시에 남기되 **분 단위 시계를 뺀다.** 일정 등록에 실제로
+ * 필요한 것은 파생 날짜와 요일이고 그것들은 하루에 한 번만 바뀐다. 그 결과 시스템 지시가
+ * 하루 동안 고정되어 대화가 재사용된다. 이 배치가 전체 16케이스 **16/16** 으로 최선이었다
+ * (분 단위 시각 15/16, 날짜 블록을 턴으로 옮긴 변형 11/14).
  */
 class PromptAssembler @Inject constructor() {
 
-    fun assemble(context: ContextBuilder.Context, userInput: String): ChatPrompt {
-        val systemMessages = context.recentConversations.filter { it.role == com.kosmos.app.domain.model.ChatMessage.Role.SYSTEM }
-        val dialogHistory = context.recentConversations.filter { it.role != com.kosmos.app.domain.model.ChatMessage.Role.SYSTEM }
-        
-        val systemInstruction = buildString {
-            appendLine(buildSystemBlock(context.responseStyle))
-            appendLine(buildTimeBlock())
-            appendLine(buildFormatBlock())
-            if (systemMessages.isNotEmpty()) {
-                appendLine("\n[Context / Knowledge]")
-                systemMessages.forEach { msg ->
-                    appendLine(msg.content)
-                }
-            }
-        }
-
-        return ChatPrompt(
-            sessionId = context.sessionId,
-            systemInstruction = systemInstruction,
-            history = dialogHistory,
-            currentInput = buildInputBlock(userInput)
-        )
-    }
-
-    fun assembleWithTools(context: ContextBuilder.Context, userInput: String, availableTools: List<String>, systemRole: String): ChatPrompt {
-        val systemMessages = context.recentConversations.filter { it.role == com.kosmos.app.domain.model.ChatMessage.Role.SYSTEM }
+    fun assembleWithTools(
+        context: ContextBuilder.Context,
+        userInput: String,
+        availableTools: List<String>,
+        systemRole: String
+    ): ChatPrompt {
+        val systemMessages = context.recentConversations.filter { it.role == ChatMessage.Role.SYSTEM }
         // [WHY] 현재 턴의 사용자 메시지는 이미 DB에 저장된 뒤 컨텍스트로 로드되므로,
         // history 마지막과 currentInput이 중복되지 않도록 마지막 동일 USER 메시지를 제외한다.
         val dialogHistory = context.recentConversations
-            .filter { it.role != com.kosmos.app.domain.model.ChatMessage.Role.SYSTEM }
+            .filter { it.role != ChatMessage.Role.SYSTEM }
             .let { history ->
                 val last = history.lastOrNull()
-                if (last?.role == com.kosmos.app.domain.model.ChatMessage.Role.USER && last.content == userInput) {
+                if (last?.role == ChatMessage.Role.USER && last.content == userInput) {
                     history.dropLast(1)
                 } else {
                     history
@@ -59,60 +58,94 @@ class PromptAssembler @Inject constructor() {
 
         val systemInstruction = buildString {
             appendLine(buildSystemBlock(context.responseStyle, systemRole))
-            appendLine(buildTimeBlock())
-            appendLine(buildFormatBlock(availableTools))
-            if (systemMessages.isNotEmpty()) {
-                appendLine("\n[Context / Knowledge]")
-                systemMessages.forEach { msg ->
-                    appendLine(msg.content)
-                }
-            }
+            appendLine(buildDateBlock())
+            append(buildFormatBlock(availableTools))
         }
 
         return ChatPrompt(
             sessionId = context.sessionId,
             systemInstruction = systemInstruction,
             history = dialogHistory,
-            currentInput = buildInputBlock(userInput)
+            currentInput = userInput,
+            turnContext = buildTurnContext(systemMessages),
+            contextBudgetTokens = context.maxTokens
         )
     }
 
-    private fun buildSystemBlock(responseStyle: String, systemRole: String = "personal assistant named Kosmos."): String {
+    private fun buildSystemBlock(responseStyle: String, systemRole: String): String {
         return buildString {
             appendLine("[System]")
             appendLine("You are a $systemRole")
             appendLine("Always respond in Korean unless the user speaks another language.")
-            if (responseStyle.isNotBlank() && responseStyle != "DEFAULT") {
-                appendLine("[Style: $responseStyle]")
+            styleInstruction(responseStyle)?.let { appendLine(it) }
+        }.trimEnd()
+    }
+
+    /**
+     * 응답 스타일 설정을 **모델이 따를 수 있는 지시문**으로 바꿉니다.
+     *
+     * [WHY] 예전에는 `[Style: CONCISE]` 라벨 한 줄만 넣었다. 모델은 그 대문자 토큰이 무엇을
+     * 요구하는지 알 길이 없어 설정이 사실상 아무 효과가 없었다. 설정 화면이 제공하는 세 값은
+     * 지시문으로 풀어 주고, 그 밖의 값(사용자가 직접 넣은 문장)은 그대로 전달한다.
+     */
+    private fun styleInstruction(responseStyle: String): String? = when {
+        responseStyle.isBlank() || responseStyle == "DEFAULT" -> null
+        responseStyle == "CONCISE" ->
+            "Answer in one or two short sentences. Do not restate the question or add a preamble."
+        responseStyle == "DETAILED" ->
+            "Answer thoroughly: give the reasoning and the relevant context, not just the conclusion."
+        else -> "[Style: $responseStyle]"
+    }
+
+    /**
+     * 이 턴에만 유효한 문맥입니다 — RAG 로 검색된 기억. 기억이 없으면 null 입니다.
+     *
+     * [WHY] 검색 결과는 질의(마지막 사용자 발화)마다 달라지므로, 시스템 지시에 두면 지시가 매 턴
+     * 달라져 대화가 재생성된다. 또 시스템 지시에 두면 **저장된 메모의 문장이 시스템 권한으로
+     * 승격된다** — 메모는 웹·문서·대화에서 온 텍스트일 수 있으므로 실재하는 주입 경로다.
+     * ADR-003 이 첨부 문서에 대해 내린 결정과 같은 근거다.
+     *
+     * [WHY] 날짜 블록은 **여기 오지 않는다** — 클래스 주석의 프라이밍 실측 참고.
+     */
+    private fun buildTurnContext(systemMessages: List<ChatMessage>): String? {
+        if (systemMessages.isEmpty()) return null
+        return buildString {
+            appendLine("[Context / Knowledge]")
+            systemMessages.forEach { msg ->
+                appendLine(msg.content)
             }
         }.trimEnd()
     }
 
     /**
-     * [WHY] 초 단위였던 것을 분 단위로 내렸다. 시스템 지시가 매 턴 달라지면
-     * `GemmaModelRunner.getOrCreateConversation` 의 재사용 조건이 항상 거짓이 되어
-     * Conversation 을 매번 파괴·재생성(전체 프리필)했다 — 그 판정이 사실상 죽은 코드였다.
+     * 오늘 날짜·요일과 파생 날짜를 시스템 지시에 제공합니다.
      *
      * [WHY] 요일과 파생 날짜(내일·모레·다음주 월요일)를 함께 준다. PC 실험에서 모델이 시각만
      * 주면 "다음주 월요일"을 **한 주 틀리게**(8/10 → 8/17) 계산했고, 요일과 파생 날짜를 풀어
      * 주면 정확해졌다. 상대 날짜 해석은 일정 등록의 필수 전제라 계산을 모델에게 맡기지 않는다.
+     *
+     * [WHY] **분 단위 시계(`HH:mm`)를 넣지 않는다.** 넣으면 시스템 지시가 매 턴 달라져 대화가
+     * 재생성되고 턴당 3초 이상을 프리필에만 쓴다(PC 실측). 날짜 단위로 만들면 지시가 하루 동안
+     * 고정되어 대화가 재사용되고, 일정 등록 정확도는 전혀 떨어지지 않았다(16/16). 대가는
+     * "지금 몇 시야?" 나 "한 시간 뒤" 같은 시계 의존 발화를 다룰 수 없다는 것 — 알림 기능이
+     * 없는 현재로서는 지불할 값이 있는 대가이며, 되돌리려면 이 한 줄에 시각을 넣으면 된다
+     * (그 순간 프리필 비용이 함께 돌아온다).
      */
-    private fun buildTimeBlock(): String {
-        val now = java.time.LocalDateTime.now(java.time.ZoneId.systemDefault())
-        val dateTime = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+    private fun buildDateBlock(): String {
+        val today = java.time.LocalDate.now(java.time.ZoneId.systemDefault())
         val date = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
-        val weekday = now.dayOfWeek.getDisplayName(
+        val weekday = today.dayOfWeek.getDisplayName(
             java.time.format.TextStyle.FULL,
             java.util.Locale.ENGLISH
         )
         // [WHY] 한국어에서 주는 월요일에 시작하므로 `next(MONDAY)` 가 곧 "다음주 월요일"이다
         // (오늘이 월요일이면 7일 뒤, 토·일요일이면 이틀·하루 뒤 — 모두 의도와 맞는다).
-        val nextMonday = now.with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY))
+        val nextMonday = today.with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY))
         return buildString {
-            appendLine("[System Data] Current Time: ${now.format(dateTime)} ($weekday)")
+            appendLine("[System Data] Today: ${today.format(date)} ($weekday)")
             append(
-                "[System Data] 오늘=${now.format(date)}, 내일=${now.plusDays(1).format(date)}, " +
-                    "모레=${now.plusDays(2).format(date)}, 다음주 월요일=${nextMonday.format(date)}"
+                "[System Data] 오늘=${today.format(date)}, 내일=${today.plusDays(1).format(date)}, " +
+                    "모레=${today.plusDays(2).format(date)}, 다음주 월요일=${nextMonday.format(date)}"
             )
         }
     }
@@ -124,13 +157,10 @@ class PromptAssembler @Inject constructor() {
      * 적었다. 그 규약은 Gemma 의 채팅 템플릿에 없어서 실기기에서 모델이 **한 번도** 따르지
      * 않았다 — 평문으로 "저는 영구적으로 저장하지 않습니다"라고 답했다. 이제 선언은
      * `ConversationConfig.tools` 가 모델의 정식 함수호출 템플릿으로 전달한다 (ADR-008).
-     *
-     * [WHY] 부수 효과로 `$'$'toolsDesc` 가 열 0 에 있어 `trimIndent()` 가 블록 전체의 들여쓰기를
-     * 못 벗기던 포맷 버그도 사라졌다.
      */
     // [WHY] trimIndent 템플릿에 여러 줄 변수를 보간하면 보간된 줄만 들여쓰기가 어긋난다
     // (예전 $toolsDesc 포맷 버그와 동일 패턴). 조건부 여러 줄 블록이므로 buildString 으로 만든다.
-    private fun buildFormatBlock(availableTools: List<String>? = null): String = buildString {
+    private fun buildFormatBlock(availableTools: List<String>?): String = buildString {
         appendLine("[Tool Usage Guidelines]")
         if (availableTools.isNullOrEmpty()) {
             appendLine("You have no tools available in this turn.")
@@ -160,17 +190,18 @@ class PromptAssembler @Inject constructor() {
                 appendLine("- The user asks a factual question you are not sure about — Korean triggers: \"검색해줘\", \"찾아봐\", \"~가 뭐야?\": call `search_wikipedia`.")
             }
         }
-        // [WHY] 이전 문구는 "If you lack mandatory information … DO NOT guess. Ask the user
-        // first." 였다. PC 실험에서 이 한 줄이 **일정 등록을 막는 주범**이었다 — 모델이 상대
-        // 날짜("내일", "모레", "다음주 월요일")를 '없는 필수 정보'로 판단해 호출 대신 되물었고
-        // (자기가 날짜를 계산해 놓고도 되물었다), 선택 파라미터인 end_time 까지 필수로
-        // 착각했다. 일정 4케이스 중 3케이스 실패 → 아래 두 줄로 교체하니 4/4 성공.
+        // [WHY] "above" 는 같은 시스템 지시 안의 [System Data] 날짜 블록을 가리킨다. 그 블록의
+        // 위치를 옮기면 이 문구도 함께 옮겨야 한다 — 가리키는 곳이 틀리면 규칙이 무력해진다.
         appendLine(
             "Resolve relative dates and times yourself from the [System Data] values above — " +
                 "\"내일\", \"모레\", \"다음주 월요일\", \"오후 3시\" are NOT missing information. " +
                 "Compute the absolute ISO 8601 value and call the tool. " +
                 "Never ask the user to restate a date you can compute."
         )
+        // [WHY] 이전 문구는 "If you lack mandatory information … DO NOT guess. Ask the user
+        // first." 였다. PC 실험에서 이 한 줄이 **일정 등록을 막는 주범**이었다 — 모델이 상대
+        // 날짜를 '없는 필수 정보'로 판단해 호출 대신 되물었고, 선택 파라미터인 end_time 까지
+        // 필수로 착각했다. 일정 4케이스 중 3케이스 실패 → 위·아래 두 줄로 교체하니 4/4 성공.
         appendLine(
             "Optional parameters are never a reason to ask. Only ask the user when a REQUIRED " +
                 "parameter is genuinely absent."
@@ -178,8 +209,4 @@ class PromptAssembler @Inject constructor() {
         appendLine("Never alter numbers, dates, or proper nouns the user gave you — copy them exactly.")
         append("If you do not need a tool, simply provide your final response in plain text.")
     }
-
-    // [WHY] "[Current Input]" 라벨은 자체 XML 규약 시절의 잔재다. 네이티브 함수호출 경로에서
-    // 사용자 턴은 템플릿이 역할을 표시하므로 원문 그대로 보낸다 — gallery 도 raw 입력을 보낸다.
-    private fun buildInputBlock(userInput: String): String = userInput
 }

@@ -37,7 +37,16 @@ class ContextBuilder @Inject constructor(
         val recentConversations: List<ChatMessage>,
         val sessionId: String,
         val responseStyle: String,
-        val webSearchEnabled: Boolean = false
+        val webSearchEnabled: Boolean = false,
+        /**
+         * 설정에서 읽은 프리필 예산(토큰). 슬라이딩 윈도우뿐 아니라 런타임의 Conversation
+         * 재설정 임계값에도 쓰이므로 컨텍스트에 실어 내보낸다.
+         *
+         * [WHY] 예전에는 이 값이 이 클래스 안에서만 쓰이고 사라졌다. 그래서 사용자가 예산을
+         * 내려도 살아 있는 대화의 KV 는 런타임에 박힌 8000 토큰까지 자랐다 — 설정이 실제
+         * 메모리 사용에 아무 영향을 주지 못했다.
+         */
+        val maxTokens: Int = Constants.MAX_CONTEXT_TOKENS
     )
 
     suspend fun build(sessionId: String): AppResult<Context> {
@@ -104,7 +113,8 @@ class ContextBuilder @Inject constructor(
                         recentConversations = slidingWindow,
                         sessionId = sessionId,
                         responseStyle = responseStyle,
-                        webSearchEnabled = webSearchEnabled
+                        webSearchEnabled = webSearchEnabled,
+                        maxTokens = maxTokens
                     )
                 )
             }

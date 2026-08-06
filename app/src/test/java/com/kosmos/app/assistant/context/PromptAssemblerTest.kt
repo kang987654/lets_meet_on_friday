@@ -1,7 +1,13 @@
 package com.kosmos.app.assistant.context
 
+import com.kosmos.app.core.common.Constants
+import com.kosmos.app.domain.model.ChatMessage
+import com.kosmos.app.domain.model.InputType
+import com.kosmos.app.domain.modelrunner.ChatPrompt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -15,33 +21,97 @@ class PromptAssemblerTest {
         promptAssembler = PromptAssembler()
     }
 
+    private fun context(
+        responseStyle: String = "DEFAULT",
+        conversations: List<ChatMessage> = emptyList(),
+        maxTokens: Int = Constants.MAX_CONTEXT_TOKENS
+    ) = ContextBuilder.Context(
+        recentConversations = conversations,
+        sessionId = "s1",
+        responseStyle = responseStyle,
+        maxTokens = maxTokens
+    )
+
+    private fun prompt(
+        responseStyle: String = "DEFAULT",
+        conversations: List<ChatMessage> = emptyList(),
+        maxTokens: Int = Constants.MAX_CONTEXT_TOKENS,
+        userInput: String = "내일 3시에 치과 예약 잡아줘"
+    ): ChatPrompt = promptAssembler.assembleWithTools(
+        context = context(responseStyle, conversations, maxTokens),
+        userInput = userInput,
+        availableTools = listOf("AddSchedule", "GetSchedule", "AddMemory"),
+        systemRole = "personal assistant named Kosmos"
+    )
+
+    private fun memoryMessage(content: String) = ChatMessage(
+        id = "m1",
+        sessionId = "s1",
+        role = ChatMessage.Role.SYSTEM,
+        content = content,
+        inputType = InputType.TEXT,
+        searchUsed = false,
+        createdAt = 0L
+    )
+
+    // --- 시스템 지시는 하루 동안 고정된다 (프리필 재사용의 전제) ---
+
     @Test
-    fun `assemble system block correctly without custom response style when DEFAULT`() {
-        val testContext = ContextBuilder.Context(
-            recentConversations = emptyList(),
-            sessionId = "session-1",
-            responseStyle = "DEFAULT"
-        )
-        
-        val chatPrompt = promptAssembler.assemble(testContext, "test input")
-        
-        assertTrue(chatPrompt.systemInstruction.contains("[System]"))
-        assertTrue(chatPrompt.systemInstruction.contains("You are a personal assistant named Kosmos."))
-        assertFalse(chatPrompt.systemInstruction.contains("[Style:"))
+    fun `시스템 지시에는 턴마다 달라지는 값이 들어가지 않는다`() {
+        // [WHY] 이 테스트가 프리필 성능의 회귀 방지다. 분 단위 시각이나 검색된 기억이 시스템
+        // 지시로 새어 들어가면 런타임의 재사용 판정이 매 턴 거짓이 되고, 툴 선언(~2천 토큰)까지
+        // 전부 다시 프리필된다 — PC 실측으로 2번째 턴이 0.5초에서 3.8초로 늘었다.
+        val instruction = prompt(conversations = listOf(memoryMessage("자물쇠 비밀번호는 8282"))).systemInstruction
+
+        assertFalse("분 단위 시계가 시스템 지시에 있다", instruction.contains("Current Time"))
+        assertFalse("검색된 기억이 시스템 지시에 있다", instruction.contains("8282"))
+    }
+
+    @Test
+    fun `같은 날 같은 설정이면 시스템 지시가 두 번 조립해도 동일하다`() {
+        // [WHY] 문자열 동일성이 런타임의 대화 재사용 조건 그 자체다
+        // (GemmaModelRunner.getOrCreateConversation 의 isSameSystemInstruction). 검색된 기억이
+        // 달라져도 시스템 지시는 같아야 한다.
+        val first = prompt(conversations = listOf(memoryMessage("첫 기억"))).systemInstruction
+        val second = prompt(conversations = listOf(memoryMessage("다른 기억"))).systemInstruction
+
+        assertEquals(first, second)
+    }
+
+    @Test
+    fun `검색된 기억은 턴 문맥으로 전달된다`() {
+        // [WHY] 시스템 지시에 넣으면 저장된 메모의 문장이 시스템 권한으로 승격된다 —
+        // 첨부 문서를 USER 블록으로 저장하는 기존 결정(ADR-003)과 같은 이유로 사용자 턴에 싣는다.
+        val chatPrompt = prompt(conversations = listOf(memoryMessage("자물쇠 비밀번호는 8282")))
+
+        assertNotNull(chatPrompt.turnContext)
+        assertTrue(chatPrompt.turnContext!!.contains("[Context / Knowledge]"))
+        assertTrue(chatPrompt.turnContext!!.contains("8282"))
+    }
+
+    @Test
+    fun `기억이 없으면 턴 문맥이 없다`() {
+        // [WHY] 날짜 블록을 여기 담으면 안 된다 — `[System Data]` 목록이 사용자 발화 앞에
+        // 붙으면 조회 질문이 툴 호출로 샜다(PC 실측: 조회 3케이스 중 1/3 만 정상).
+        assertNull(prompt().turnContext)
+    }
+
+    @Test
+    fun `턴 문맥에는 날짜 블록이 들어가지 않는다`() {
+        val turnContext = prompt(conversations = listOf(memoryMessage("아무 기억"))).turnContext
+
+        assertNotNull(turnContext)
+        assertFalse("날짜 블록이 사용자 턴으로 새면 조회 질문이 툴 호출로 샌다", turnContext!!.contains("[System Data]"))
+    }
+
+    @Test
+    fun `설정의 프리필 예산이 프롬프트로 전달된다`() {
+        // [WHY] 런타임이 이 값으로 대화 재설정 임계값을 정한다. 전달되지 않으면 설정을
+        // 내려도 살아 있는 대화의 KV 가 계속 자란다.
+        assertEquals(3000, prompt(maxTokens = 3000).contextBudgetTokens)
     }
 
     // --- 상대 날짜 해석 (PC 실험 결과 고정) ---
-
-    private fun toolPrompt() = promptAssembler.assembleWithTools(
-        context = ContextBuilder.Context(
-            recentConversations = emptyList(),
-            sessionId = "s1",
-            responseStyle = "DEFAULT"
-        ),
-        userInput = "내일 3시에 치과 예약 잡아줘",
-        availableTools = listOf("AddSchedule", "GetSchedule", "AddMemory"),
-        systemRole = "personal assistant named Kosmos"
-    ).systemInstruction
 
     @Test
     fun `시스템 지시가 오늘 기준 파생 날짜를 계산해 제공한다`() {
@@ -50,7 +120,7 @@ class PromptAssemblerTest {
         val now = java.time.LocalDate.now()
         val fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
         val nextMonday = now.with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY))
-        val instruction = toolPrompt()
+        val instruction = prompt().systemInstruction
 
         assertTrue(instruction.contains("오늘=${now.format(fmt)}"))
         assertTrue(instruction.contains("내일=${now.plusDays(1).format(fmt)}"))
@@ -74,7 +144,7 @@ class PromptAssemblerTest {
         // [WHY] "If you lack mandatory information … DO NOT guess. Ask the user first." 가
         // 일정 등록을 막는 주범이었다(PC 실험: 4케이스 중 3 실패 → 교체 후 4/4). 이 회귀가
         // 되돌아오면 일정 기능이 조용히 죽으므로 문구를 테스트로 고정한다.
-        val instruction = toolPrompt()
+        val instruction = prompt().systemInstruction
 
         assertTrue(instruction.contains("Resolve relative dates and times yourself"))
         assertTrue(instruction.contains("are NOT missing information"))
@@ -86,18 +156,47 @@ class PromptAssemblerTest {
     }
 
     @Test
-    fun `assemble system block correctly with custom response style when not DEFAULT`() {
+    fun `날짜 규칙이 가리키는 위치에 실제로 날짜 블록이 있다`() {
+        // [WHY] 규칙은 "the [System Data] values above" 라고 같은 시스템 지시 안을 가리킨다.
+        // 블록이 이 문구보다 뒤에 오거나 아예 다른 메시지로 옮겨지면 규칙이 무력해진다.
+        val instruction = prompt().systemInstruction
+        val blockAt = instruction.indexOf("[System Data] Today:")
+        val ruleAt = instruction.indexOf("[System Data] values above")
+
+        assertTrue("날짜 블록이 없다", blockAt >= 0)
+        assertTrue("규칙 문구가 없다", ruleAt >= 0)
+        assertTrue("블록이 규칙보다 앞(above)에 있어야 한다", blockAt < ruleAt)
+    }
+
+    // --- 응답 스타일 ---
+
+    @Test
+    fun `기본 스타일에서는 스타일 지시가 없다`() {
+        val instruction = prompt(responseStyle = "DEFAULT").systemInstruction
+
+        assertTrue(instruction.contains("[System]"))
+        assertTrue(instruction.contains("You are a personal assistant named Kosmos"))
+        assertFalse(instruction.contains("[Style:"))
+    }
+
+    @Test
+    fun `설정 화면의 스타일 값은 실제 지시문으로 풀린다`() {
+        // [WHY] 예전에는 `[Style: CONCISE]` 라벨만 넣어, 모델이 그 대문자 토큰이 무엇을
+        // 요구하는지 알 길이 없었다 — 설정이 사실상 아무 효과가 없었다.
+        val concise = prompt(responseStyle = "CONCISE").systemInstruction
+        val detailed = prompt(responseStyle = "DETAILED").systemInstruction
+
+        assertTrue(concise.contains("one or two short sentences"))
+        assertFalse("라벨을 그대로 흘리면 안 된다", concise.contains("[Style: CONCISE]"))
+        assertTrue(detailed.contains("Answer thoroughly"))
+        assertFalse(detailed.contains("[Style: DETAILED]"))
+    }
+
+    @Test
+    fun `설정 화면에 없는 자유 문장 스타일은 그대로 전달된다`() {
         val testStyle = "친절하게 이모지 많이 써줘"
-        val testContext = ContextBuilder.Context(
-            recentConversations = emptyList(),
-            sessionId = "session-1",
-            responseStyle = testStyle
-        )
-        
-        val chatPrompt = promptAssembler.assemble(testContext, "test input")
-        
-        assertTrue(chatPrompt.systemInstruction.contains("[System]"))
-        assertTrue(chatPrompt.systemInstruction.contains("You are a personal assistant named Kosmos."))
-        assertTrue(chatPrompt.systemInstruction.contains("[Style: $testStyle]"))
+        val instruction = prompt(responseStyle = testStyle).systemInstruction
+
+        assertTrue(instruction.contains("[Style: $testStyle]"))
     }
 }

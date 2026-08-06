@@ -38,6 +38,9 @@ android {
     }
     buildFeatures {
         compose = true
+        // [WHY] 런타임 진단(프리페이스 렌더링, 네이티브 INFO 로그)을 디버그 빌드로 한정하려면
+        // BuildConfig.DEBUG 가 필요하다. AGP 8 부터 기본값이 false 라 명시해야 생성된다.
+        buildConfig = true
     }
     packaging {
         resources {
