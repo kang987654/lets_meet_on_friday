@@ -10,7 +10,7 @@
 - **[Fix]** 두 번째 이후 `<|think|>` 블록이 본문에 남아 노출되던 문제 — `find`(단수)를 `findAll`로 변경
 - **[QA/Test]** 신규 테스트 33건 — `FloatBytesTest`(5건, 바이트 순서 고정 포함), `KnowledgeEmbeddingBlobTest`(6건, BLOB 왕복·벡터 검색·태그 중복·페이지 경계), `KnowledgeEmbeddingMigrationTest`(7건, 마이그레이션 SQL 및 결과 DDL이 v5 스키마와 일치하는지), `ToolParserStreamTest`(9건, 점진 공급), `BaseAgentStreamTest`(6건, 턴 경계 회귀 방지). `BaseAgent` 테스트와 마이그레이션 테스트는 이 프로젝트에 처음 생겼다. 전체 142건 + lintDebug 통과
 - **[Known Issue]** FTS4/5 전환 보류 (사용자 결정) — 현재 `LIKE '%q%'`는 문자 단위 부분 일치라 `"의"`로도 `"회의"`가 걸리지만, FTS 기본 `unicode61` 토크나이저는 한국어 형태소를 분리하지 못해 공백으로만 자른다. `"회의를"`로 저장된 어절이 `"회의"` 검색에 걸리지 않아 RAG 회상 재현율이 떨어진다. 성능 문제도 현재 규모(노트 수백 건, `LIMIT 100`)에서 실측되지 않았다
-- **[Known Issue]** `MIGRATION_2_3` 누락 — `data/schemas/`에 2.json·3.json이 있는데 등록된 마이그레이션은 3→4부터다. `fallbackToDestructiveMigration()`은 다운그레이드 변형만 쓰므로 v2 DB를 가진 설치는 업그레이드 시 `IllegalStateException`으로 죽는다. v2 사용자가 실제로 존재하는지는 배포 이력 확인이 필요하다
+- **[Known Issue]** `MIGRATION_2_3` 누락 — `data/schemas/`에 2.json·3.json이 있는데 등록된 마이그레이션은 3→4부터라, v2 DB를 가진 설치는 업그레이드 시 `IllegalStateException`으로 죽는다. **조치하지 않는다 (사용자 결정)** — 배포 이력이 없는 개인 프로젝트이고 실기기 DB가 이미 v4 이상이라 도달 불가 경로다. 외부 배포 시 재검토
 
 ## [0.7.3] - 2026-08-06
 - **[Added]** 알림용 24dp 모노 벡터 3종 신설(`ic_stat_download`/`ic_stat_download_done`/`ic_stat_error`) — 기존에는 `android.R.drawable.stat_sys_*` 플랫폼 아이콘을 빌려 썼는데 제조사가 재스타일링하므로 기기별로 다르게 보이고 시스템 알림과 구분되지 않았다. 상태바는 아이콘을 알파 마스크로만 쓰므로 단색 실루엣으로 작성. 취소 액션 아이콘은 플랫폼 X 유지(API 24+ 대부분의 알림 UI가 액션 아이콘을 표시하지 않는다)

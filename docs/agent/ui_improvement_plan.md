@@ -153,7 +153,7 @@
 - [ ] **`SaveKnowledgeUseCase` 의 폴백 없는 실패 — 의도된 동작 (v0.7.3)** — 임베딩 없이 저장하면 그 노트가 벡터 검색에 영구히 안 잡히므로, 폴백이 오히려 조용한 데이터 손실이 된다
 
 새로 발견
-- [ ] **`MIGRATION_2_3` 누락** — `data/schemas/` 에 2.json·3.json 이 있는데 등록된 마이그레이션은 3→4 부터다. `fallbackToDestructiveMigration()` 은 다운그레이드 변형만 쓰므로 **v2 DB 를 가진 설치는 업그레이드 시 `IllegalStateException` 으로 죽는다.** v0.7.4에서 `KosmosMigrations` 를 분리하고 마이그레이션 테스트 패턴을 만들어 뒀으므로 검증 도구는 갖춰졌다. v2 사용자가 실제로 존재하는지는 배포 이력을 아는 사람만 판단할 수 있다
+- **`MIGRATION_2_3` 누락 — 조치하지 않음 (사용자 결정).** `data/schemas/` 에 2.json·3.json 이 있는데 등록된 마이그레이션은 3→4 부터라, v2 DB 를 가진 설치는 업그레이드 시 `IllegalStateException` 으로 죽는다. 다만 이 프로젝트는 배포 이력이 없는 개인 프로젝트이고 사용자는 한 명이므로, **실기기 DB 가 이미 v4 이상이라 2→3 경로는 도달할 수 없다.** 외부 배포를 하게 되면 다시 봐야 하는 항목이다(그때는 v0.7.4의 `KosmosMigrations` 분리와 마이그레이션 테스트 패턴이 검증 도구가 된다)
 - [ ] **`searchByVector` 의 전체 로드** — BLOB 전환으로 파싱 비용은 사라졌지만 `searchRecent(1000)` 후 코사인 연산 자체는 남는다. ANN 인덱스는 별건
 
 기존 세부 항목
