@@ -193,8 +193,10 @@ class ChatViewModel @Inject constructor(
                     }
                 } else null
 
-                _uiState.update { it.copy(streamingText = "", streamingThinking = null) }
-                var accumulatedRaw = ""
+                // [WHY] 빈 문자열이 아니라 null 이다 — ChatScreen 은 streamingText 가 null 일 때만
+                // 타이핑 인디케이터를 띄우므로, ""로 초기화하면 첫 토큰이 오기 전까지 빈 버블만
+                // 보이고 스피너가 사라진다.
+                _uiState.update { it.copy(streamingText = null, streamingThinking = null) }
 
                 val result = sendChatMessageUseCase(
                     sessionId = sessionId, 
@@ -202,13 +204,15 @@ class ChatViewModel @Inject constructor(
                     imageBytes = imageBytes,
                     documentText = documentText,
                     audioFilePath = audioFilePath,
-                    onToken = { token ->
-                        accumulatedRaw += token
-                        val parsed = com.kosmos.app.assistant.context.ToolParser.parseStream(accumulatedRaw)
+                    // [WHY] 여기에 누적기도 파서도 없다 — BaseAgent 가 턴 경계를 알고 파싱한
+                    // 결과를 넘긴다. 예전에는 이 콜백이 원시 토큰을 직접 누적했고, 툴 루프가
+                    // 다음 턴으로 넘어갈 때 비울 신호가 없어서 1턴 문장이 2턴에 이어붙었다
+                    // (ADR-007).
+                    onStream = { update ->
                         _uiState.update { state ->
                             state.copy(
-                                streamingText = parsed.content,
-                                streamingThinking = parsed.thinking
+                                streamingText = update.content,
+                                streamingThinking = update.thinking
                             )
                         }
                     }

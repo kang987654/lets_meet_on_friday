@@ -1,3 +1,17 @@
+## [0.7.4] - 2026-08-06
+- **[Performance]** 임베딩 저장을 콤마 구분 문자열에서 little-endian float BLOB 으로 전환 (Room v4→v5) — `searchByVector`가 1000행을 `split`+`toFloatOrNull`로 파싱해 RAG 질의 한 번에 30만 개 남짓 단기 할당이 발생했고, `toDomain()`이 같은 문자열을 다시 파싱하는 이중 파싱도 있었다. `FloatBytes`로 인코딩을 한 곳에 모았고 바이트 순서를 명시적으로 고정했다(`ByteBuffer` 기본값은 big-endian이라 플랫폼 기본값에 맡기면 조용히 깨진다)
+- **[Fix]** 임베딩 파싱 실패가 노트를 영구히 숨기던 실패 모드 — `mapNotNull`이 실패 항목을 조용히 버려 길이 비교에서 탈락한 노트가 벡터 검색에서 안 보였다. BLOB 은 길이가 구조적으로 보존된다
+- **[Fix]** `searchByTags`의 중복 제거를 `Set`에서 `distinctBy { id }`로 변경 — `KnowledgeEntity`가 `ByteArray` 필드를 갖게 되면서 `data class`의 `equals`가 참조 비교가 됐고, 그대로 두면 같은 노트가 태그마다 중복 반환된다. 문자열 임베딩 시절에는 값 비교라 우연히 동작했다
+- **[Added]** `MIGRATION_4_5` 및 마이그레이션 정의를 `KosmosMigrations`로 분리 — 인라인 익명 객체로는 테스트가 불가능했다. TEXT→BLOB 은 `ALTER`로 못 하고 CSV→바이트 재인코딩은 SQL로 표현할 수 없어, 새 테이블 복사 + Kotlin 행 단위 변환 + 인덱스 재생성으로 처리한다. 기존 임베딩을 버리는 쪽이 간단하지만 재생성 경로가 없어 기존 노트가 벡터 검색에서 영구히 사라진다 (사용자 결정)
+- **[Refactoring]** `:domain`에서 `androidx.paging` 의존 제거 — `AuditRepository.getPaged()`/`KnowledgeRepository.getPagedData()`가 `Flow<PagingData<T>>`를 반환해 Pure Kotlin JVM 모듈이 `androidx` 타입을 공개 계약에 노출했다(선언은 `implementation`인데 공개 시그니처에 나타나던 잠재적 누수). offset/limit 계약으로 교체하고 `Pager` 생성을 ViewModel로 올렸다 — `TaskRepository.getPendingTasksData`와 같은 형태다. `DefaultPagingSource`를 `ui/paging`으로 옮기고 세 ViewModel이 복제하던 `AppResult`→throw 변환을 `unwrapForPaging`으로 통합
+- **[Fix]** 스트리밍 파싱 단일화 — 툴 루프에서 1턴 문장이 2턴에 이어붙어 보이다가 완료 시 마지막 턴만 커밋돼 텍스트가 줄어드는 것처럼 보이던 문제. `ChatViewModel`이 원시 토큰을 직접 누적했으나 계약에 턴 경계 신호가 없어 비울 수 없었다. `ChatRequest.onToken`을 `onStream: (StreamUpdate)`로 바꿔 파싱을 `BaseAgent` 한 곳으로 모았다 (ADR-007)
+- **[Fix]** 스트리밍 중 `<tool_call>` 프로토콜 문법이 화면에 노출되던 문제 — 정규식이 닫는 태그를 요구해 열린 태그가 본문에 남았고, 툴 콜 턴에서는 가시 구간 대부분 동안 `<tool_call>{"name":"AddSch`가 한 글자씩 자라는 것이 보였다. 완전한 여는 태그와 꼬리의 부분 접두사를 모두 절단한다
+- **[Fix]** 생각 블록만 스트리밍되는 구간의 빈 버블 — 본문이 빈 문자열이라 `ChatScreen`이 "텍스트 있음"으로 판단해 타이핑 인디케이터까지 숨겼다. `StreamUpdate.content`를 nullable 로 정규화하고 `sendMessage` 초기값도 `""`에서 `null`로 변경
+- **[Fix]** 두 번째 이후 `<|think|>` 블록이 본문에 남아 노출되던 문제 — `find`(단수)를 `findAll`로 변경
+- **[QA/Test]** 신규 테스트 33건 — `FloatBytesTest`(5건, 바이트 순서 고정 포함), `KnowledgeEmbeddingBlobTest`(6건, BLOB 왕복·벡터 검색·태그 중복·페이지 경계), `KnowledgeEmbeddingMigrationTest`(7건, 마이그레이션 SQL 및 결과 DDL이 v5 스키마와 일치하는지), `ToolParserStreamTest`(9건, 점진 공급), `BaseAgentStreamTest`(6건, 턴 경계 회귀 방지). `BaseAgent` 테스트와 마이그레이션 테스트는 이 프로젝트에 처음 생겼다. 전체 142건 + lintDebug 통과
+- **[Known Issue]** FTS4/5 전환 보류 (사용자 결정) — 현재 `LIKE '%q%'`는 문자 단위 부분 일치라 `"의"`로도 `"회의"`가 걸리지만, FTS 기본 `unicode61` 토크나이저는 한국어 형태소를 분리하지 못해 공백으로만 자른다. `"회의를"`로 저장된 어절이 `"회의"` 검색에 걸리지 않아 RAG 회상 재현율이 떨어진다. 성능 문제도 현재 규모(노트 수백 건, `LIMIT 100`)에서 실측되지 않았다
+- **[Known Issue]** `MIGRATION_2_3` 누락 — `data/schemas/`에 2.json·3.json이 있는데 등록된 마이그레이션은 3→4부터다. `fallbackToDestructiveMigration()`은 다운그레이드 변형만 쓰므로 v2 DB를 가진 설치는 업그레이드 시 `IllegalStateException`으로 죽는다. v2 사용자가 실제로 존재하는지는 배포 이력 확인이 필요하다
+
 ## [0.7.3] - 2026-08-06
 - **[Added]** 알림용 24dp 모노 벡터 3종 신설(`ic_stat_download`/`ic_stat_download_done`/`ic_stat_error`) — 기존에는 `android.R.drawable.stat_sys_*` 플랫폼 아이콘을 빌려 썼는데 제조사가 재스타일링하므로 기기별로 다르게 보이고 시스템 알림과 구분되지 않았다. 상태바는 아이콘을 알파 마스크로만 쓰므로 단색 실루엣으로 작성. 취소 액션 아이콘은 플랫폼 X 유지(API 24+ 대부분의 알림 UI가 액션 아이콘을 표시하지 않는다)
 - **[Added]** `res/values/colors.xml` 신설 + 알림 3종에 `setColor` 적용 — 프로젝트 색은 Compose 토큰이 정본이지만 알림은 프레임워크가 그려서 색을 int로 넘겨야 하므로 accent(`#22D3EE`)만 리소스로 복제했다. 알림 그림자는 시스템 테마를 따라 라이트/다크 분기가 불가능하므로 단일 값을 쓴다

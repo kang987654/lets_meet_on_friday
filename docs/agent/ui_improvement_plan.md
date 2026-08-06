@@ -1,5 +1,5 @@
 # ui_improvement_plan.md — 전체 UI 개선 계획서
-> **문서 버전**: v1.4 | **최종 수정일**: 2026-08-06 | **상태**: Done (Phase A·B·C·D 완료. §7 이월 백로그 4건 + 실기기 QA만 잔여)
+> **문서 버전**: v1.5 | **최종 수정일**: 2026-08-06 | **상태**: Done (Phase A·B·C·D 및 §7 이월 백로그 완료. 보류 항목과 실기기 QA만 잔여)
 > **관련 모듈**: `:app` (feature/*, ui/*), `:core` (mapper)
 > **기준 문서**: PRD.md v1.2 / architecture.md v1.2 (ADR-001~004) / DESIGN.md / CHANGELOG 0.5.12
 
@@ -137,19 +137,27 @@
   - RAG 품질 저하 배너는 만들지 않았다 — 실패가 일시적이면 필요한 것은 재시도이고, 영구적이면 이미 저장 실패로 드러난다
   - `close()`도 추가하지 않았다 — `@Singleton`은 프로세스 수명과 같아 호출 지점이 없다. 소비자 없는 API를 남기지 않는다는 0.7.2의 `getPagedByType` 제거와 같은 기준
 
+- [x] **임베딩 BLOB 전환** (v0.7.4) — Room v4→v5. `FloatBytes`로 인코딩을 한 곳에 모으고 바이트 순서를 little-endian 으로 고정했다. 마이그레이션은 CSV→바이트 재인코딩이 SQL로 불가능해 Kotlin 행 단위로 처리하며, 이 프로젝트 최초의 마이그레이션 테스트를 함께 넣었다
+  - 부수 발견: `KnowledgeEntity` 가 `ByteArray` 를 갖게 되면서 `data class` 의 `equals` 가 참조 비교가 됐고, `searchByTags` 의 `Set` 중복 제거가 깨졌다. 문자열 시절에는 값 비교라 우연히 동작했다 → `distinctBy { id }`
+- [x] **domain paging 의존 제거** (v0.7.4) — offset/limit 계약으로 교체하고 `Pager` 생성을 ViewModel 로 올렸다. `domain/build.gradle.kts` 에서 paging 줄을 지우고도 컴파일되는 것이 판정이었다. `docs/architecture.md`·`trouble_shooting.md` 의 옛 지침(`Flow<PagingData>` 반환)도 함께 정정
+- [x] **ChatViewModel 스트리밍 파싱 단일화** (v0.7.4, ADR-007) — 원인은 계약이었다. `onToken` 이 원시 델타만 넘기고 턴 경계 신호가 없어 UI 가 누적기를 비울 수 없었다. `onStream: (StreamUpdate)` 로 바꿔 파싱을 `BaseAgent` 한 곳으로 모았고, `ModelRunner` 의 델타 계약은 그 위치에서 옳으므로 건드리지 않았다
+  - 함께 고친 것: 열린 `<tool_call>` 노출, 생각 블록만 오는 구간의 빈 버블(스피너까지 사라졌다), 두 번째 `<|think|>` 블록 누락
+
 ### 잔여
-성능 (남은 1건)
-- [ ] **임베딩 BLOB 전환** — `embedding: String`(콤마 구분 실수)이라 `searchByVector`가 1000행을 `split`+`toFloatOrNull`로 파싱해 RAG 질의 한 번에 30만 개 남짓 단기 할당이 발생한다. `toDomain()`이 같은 문자열을 다시 파싱하는 이중 파싱도 있음. 정밀도 손실은 없으나(`Float.toString`은 라운드트립 보장), `mapNotNull`이 파싱 실패 항목을 조용히 버려 길이 비교에서 탈락한 노트가 벡터 검색에서 영구히 안 보이게 되는 실패 모드가 있다. Room 스키마 마이그레이션(v4→v5) 필요
 
-UI 정확성 (남은 1건)
-- [ ] **ChatViewModel 스트리밍 파싱 단일화** — 같은 토큰 스트림을 3곳에서 각자 다른 누적 버퍼로 파싱한다. `BaseAgent`의 버퍼는 툴 루프마다 초기화되는데 `ChatViewModel.accumulatedRaw`는 초기화되지 않아 **툴 턴에서 1턴 텍스트가 2턴에 이어붙어 보인다**. 반쯤 열린 `<tool_call>`은 정규식에 걸리지 않아 **프로토콜 문법이 그대로 노출**되고, 닫히지 않은 `<|think|>`는 뒤 내용을 삼켜 버블이 잠깐 빈다. 0.5.10에서 `BaseAgent`에 적용한 "태그 감지 후에만 파싱" 최적화가 `ChatViewModel`의 동일 루프에는 적용되지 않았다. `ChatRequest.onToken` 계약을 3계층에 걸쳐 변경해야 함
+**§7 원래 목록은 v0.7.4로 전부 소진됐다.** 아래는 그 과정에서 새로 드러났거나 근거와 함께 보류한 항목이다.
 
-아키텍처
-- [ ] **domain paging 의존 제거** — `AuditRepository.getPaged()`, `KnowledgeRepository.getPagedData()`가 `Flow<PagingData<T>>`를 반환해 Pure Kotlin JVM 모듈이 `androidx` 타입을 공개 계약에 노출한다. 소비자가 ViewModel 2곳이고 둘 다 곧바로 `cachedIn`하므로 `Pager` 생성만 올리면 됨. 0.7.2에서 `getPagedByType`을 지워 옮길 계약이 하나 줄었다
+보류 (근거 있음)
+- [ ] **`content` 검색 FTS4/5 전환 — 보류 (사용자 결정, v0.7.4)** — 성능 항목으로 기록돼 있었지만 한국어에서 **검색 결과가 달라진다.** 현재 `LIKE '%q%'` 는 문자 단위 부분 일치라 `"의"` 로도 `"회의"` 가 걸리는데, FTS 기본 `unicode61` 토크나이저는 한국어 형태소를 분리하지 못해 공백으로만 자른다 — `"회의를"` 로 저장된 어절이 `"회의"` 검색에 안 걸려 RAG 회상 재현율이 떨어진다. 성능 문제도 현재 규모(노트 수백 건, `LIMIT 100`)에서 실측되지 않았다. **실제로 느려질 때 토크나이저 조사부터 다시 시작한다**(형태소 분석기나 n-gram 토크나이저 검토)
+- [ ] **`MediaPipeTextEmbedder.close()` — 추가하지 않음 (v0.7.3)** — `@Singleton` 은 프로세스 수명과 같아 호출 지점이 없다. 소비자 없는 API 를 남기지 않는다는 기준(0.7.2 `getPagedByType` 제거)을 적용
+- [ ] **`SaveKnowledgeUseCase` 의 폴백 없는 실패 — 의도된 동작 (v0.7.3)** — 임베딩 없이 저장하면 그 노트가 벡터 검색에 영구히 안 잡히므로, 폴백이 오히려 조용한 데이터 손실이 된다
 
-세부 항목
+새로 발견
+- [ ] **`MIGRATION_2_3` 누락** — `data/schemas/` 에 2.json·3.json 이 있는데 등록된 마이그레이션은 3→4 부터다. `fallbackToDestructiveMigration()` 은 다운그레이드 변형만 쓰므로 **v2 DB 를 가진 설치는 업그레이드 시 `IllegalStateException` 으로 죽는다.** v0.7.4에서 `KosmosMigrations` 를 분리하고 마이그레이션 테스트 패턴을 만들어 뒀으므로 검증 도구는 갖춰졌다. v2 사용자가 실제로 존재하는지는 배포 이력을 아는 사람만 판단할 수 있다
+- [ ] **`searchByVector` 의 전체 로드** — BLOB 전환으로 파싱 비용은 사라졌지만 `searchRecent(1000)` 후 코사인 연산 자체는 남는다. ANN 인덱스는 별건
+
+기존 세부 항목
 - [ ] per-tool `@Serializable` 타입 스키마 — `ToolArguments`로 런타임 결함은 제거했으나 인자 이름이 여전히 프롬프트 텍스트와 호출부에만 존재한다(컴파일 타임 검증 없음). `ToolExecutor` 제네릭화는 `ToolRegistry`/`BaseAgent`에 star projection이 번져 별건으로 남김
-- [ ] `content` 검색 FTS4/5 전환 — 와일드카드 접두사 패턴(`'%' || ...`)이라 인덱스를 쓰지 못하는 문제는 이스케이프로 해결되지 않는다
 - [ ] adaptive icon(`ic_launcher_foreground`) 및 KOSMOS 브랜드 마크 — 앱 아이콘 디자인 시 착수. 알림 아이콘(v0.7.3)은 제네릭 화살표로 처리했으므로 급하지 않다
 
 ### 확인 필요 (임의 판단하지 않음)
@@ -160,4 +168,6 @@ UI 정확성 (남은 1건)
 - ADR-006 수동 QA 체크리스트 — 전경 승격 / Doze 백오프 / 실제 3.6GB 전송
 - v0.7.2 백업 왕복 QA — 내보내기→저장→가져오기→재시작, 특히 **가져오기 진행 중 화면 회전**(`prd.md` V1-AC4)
 - v0.7.3 알림 아이콘 시각 확인 — 상태바 알파 마스크 결과(실루엣이 뭉개지지 않는지)와 알림 그림자의 accent 틴트. 라이트/다크 양쪽
+- **v0.7.4 기존 설치 업그레이드 (중요)** — v4 DB 가 있는 기기에 새 빌드를 설치해 기존 노트가 남아 있고 의미 검색이 동작하는지. 마이그레이션 테스트로 덮었지만 실제 WAL 상태와 함께 확인이 필요하다
+- v0.7.4 툴 콜 대화 — `<tool_call>` 문법이 화면에 보이지 않고, 완료 시 텍스트가 줄어들지 않는지. 응답 초반에 빈 버블 대신 타이핑 인디케이터가 보이는지
 - README 스크린샷 갱신 (라이트/다크)

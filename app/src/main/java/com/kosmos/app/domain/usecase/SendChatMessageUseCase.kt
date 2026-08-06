@@ -37,7 +37,7 @@ class SendChatMessageUseCase @Inject constructor(
         documentText: String? = null,
         audioFilePath: String? = null,
         imageTokenBudget: Int = 280,
-        onToken: ((String) -> Unit)? = null
+        onStream: ((com.kosmos.app.assistant.orchestrator.StreamUpdate) -> Unit)? = null
     ): AppResult<AgentResult> {
         val trimmedMessage = message.trim()
 
@@ -66,7 +66,7 @@ class SendChatMessageUseCase @Inject constructor(
             documentText = documentText,
             audioFilePath = audioFilePath,
             imageTokenBudget = imageTokenBudget,
-            onToken = onToken
+            onStream = onStream
         )
         
         return try {

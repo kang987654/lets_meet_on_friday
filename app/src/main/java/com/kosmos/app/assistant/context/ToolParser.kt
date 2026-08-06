@@ -45,11 +45,19 @@ object ToolParser {
         val malformed = mutableListOf<String>()
 
         // 1. Extract <|think|> blocks
+        // [WHY] findAll 이다 — 예전에는 find(단수)여서 두 번째 이후 생각 블록이 본문에 남아
+        // 프로토콜 문법이 그대로 노출됐다.
+        // [WHY] `|$` 대안은 스트리밍 때문에 필요하다. 닫는 태그가 아직 안 온 생각 블록도
+        // 본문에서 걷어내야 한다(그 구간의 content 는 비게 되고, 호출부가 null 로 정규화한다).
         val thinkRegex = Regex("<\\|think\\|>(.*?)(</\\|think\\|>|$)", RegexOption.DOT_MATCHES_ALL)
-        val thinkMatch = thinkRegex.find(text)
-        if (thinkMatch != null) {
-            thinkingProcess = thinkMatch.groupValues[1].trim()
-            text = text.replace(thinkMatch.value, "")
+        val thinkMatches = thinkRegex.findAll(text).toList()
+        if (thinkMatches.isNotEmpty()) {
+            thinkingProcess = thinkMatches
+                .map { it.groupValues[1].trim() }
+                .filter { it.isNotEmpty() }
+                .joinToString("\n")
+                .ifEmpty { null }
+            thinkMatches.forEach { text = text.replace(it.value, "") }
         }
 
         // 2. Extract <tool_call> blocks
@@ -81,10 +89,45 @@ object ToolParser {
         }
 
         return ParsedStream(
-            content = text.trimStart(),
+            content = stripIncompleteTag(text).trimStart(),
             thinking = thinkingProcess,
             toolCalls = toolCalls,
             malformedToolCalls = malformed
         )
     }
+
+    /**
+     * 아직 닫히지 않은 태그와 토큰 경계에 걸린 태그 조각을 본문에서 잘라냅니다.
+     *
+     * [WHY] `toolRegex` 는 닫는 태그를 요구하므로, 스트리밍 중 열려 있는 `<tool_call>` 은
+     * 매칭되지 않고 본문에 그대로 남아 화면에 렌더됐다. 툴 콜 턴에서는 가시 구간 대부분 동안
+     * `<tool_call>{"name":"AddSch` 가 한 글자씩 자라는 것이 보였다.
+     *
+     * [WHY] 꼬리의 부분 접두사(`<tool_c`, `<|th`, 심지어 `<`)도 자른다. 다음 토큰이 오면
+     * 복원되므로 손실이 없고, 자르지 않으면 태그가 완성되는 순간까지 조각이 노출된다.
+     * 모델이 실제로 쓴 `<` 하나가 한 틱 늦게 보이는 것은 그 대가로 받아들인다.
+     *
+     * [WHY] `parseStream` 밖에서도 쓸 수 있게 공개했다. 태그가 아직 완성되지 않은 구간에서는
+     * 전체 정규식 파싱이 불필요하지만(누적 문자열이 곧 본문) 꼬리 조각은 여전히 잘라야 한다.
+     * `BaseAgent` 가 O(n²) 파싱을 피하면서 이 함수만 호출한다.
+     */
+    fun stripIncompleteTag(text: String): String {
+        // 닫히지 않은 채 남은 완전한 여는 태그부터 잘라낸다.
+        val openIndex = OPEN_TAGS.mapNotNull { tag ->
+            text.indexOf(tag).takeIf { it >= 0 }
+        }.minOrNull()
+        if (openIndex != null) return text.substring(0, openIndex)
+
+        // 꼬리에 걸린 부분 접두사를 잘라낸다.
+        for (tag in OPEN_TAGS) {
+            for (length in (tag.length - 1) downTo 1) {
+                if (text.endsWith(tag.substring(0, length))) {
+                    return text.substring(0, text.length - length)
+                }
+            }
+        }
+        return text
+    }
+
+    private val OPEN_TAGS = listOf("<tool_call>", "<|think|>")
 }

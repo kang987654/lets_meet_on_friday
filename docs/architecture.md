@@ -117,7 +117,7 @@ Data / Runtime / Platform
 | STT | Android SpeechRecognizer | - | 온디바이스 오프라인 STT |
 | 이미지 처리 | Android BitmapFactory | - | 별도 라이브러리 없이 처리 |
 | JSON 직렬화 | kotlinx.serialization | JSON 1.9.0 / plugin 2.3.21 | Kotlin 친화적 직렬화 |
-| 페이지네이션 | Paging 3 | 3.4.2 | Room PagingSource 연동 |
+| 페이지네이션 | Paging 3 | 3.4.2 | `:app`에서만 사용 — ViewModel이 offset/limit 리포지토리를 `DefaultPagingSource`로 감싼다 (v0.7.4) |
 | Hilt-Compose Navigation | androidx.hilt.navigation.compose | 1.3.0 | Compose Navigation + Hilt ViewModel 연동 |
 
 ### 2-2. 빌드 툴체인 원칙
@@ -905,7 +905,7 @@ sealed class UiState<out T> {
 ### 7-2. UI 렌더링 성능 최적화 (Compose)
 - **상태 관찰 (Lifecycle)**: 백그라운드 전환 시 메모리 및 배터리 누수를 방지하기 위해, 모든 Compose Screen에서의 Flow 상태 수집은 반드시 `collectAsStateWithLifecycle()`을 사용한다.
 - **안정성 (Recomposition)**: `List`나 `Map`과 같은 불안정(Unstable) 자료형은 Compose 컴파일러가 상태 변경 여부를 판단할 수 없으므로, 데이터 변경 시마다 전체 UI가 재구성되는 원인이 된다. UI 모델(`UiState`) 내부의 컬렉션은 반드시 `kotlinx-collections-immutable`의 `ImmutableList` 등을 활용하여 작성한다.
-- **대용량 리스트 렌더링**: AuditLog, Knowledge 등 대규모 데이터를 UI 리스트로 렌더링할 경우, 메모리 초과(OOM)를 방지하기 위해 Room DB의 `PagingSource`와 연동하여 `Flow<PagingData<T>>`를 반환하고, Compose에서는 `collectAsLazyPagingItems()`로 수집하여 표시한다.
+- **대용량 리스트 렌더링**: AuditLog, Knowledge 등 대규모 데이터를 UI 리스트로 렌더링할 경우, 메모리 초과(OOM)를 방지하기 위해 페이징한다. 단, **리포지토리는 `Flow<PagingData<T>>`를 반환하지 않는다** — `:domain`은 Pure Kotlin JVM 모듈이므로 `androidx` 타입을 공개 계약에 노출하면 안 된다(v0.7.4). 리포지토리는 `suspend fun getX(offset: Int, limit: Int): AppResult<List<T>>`만 제공하고, ViewModel이 `ui/paging/DefaultPagingSource`로 감싸 `Pager`를 만든 뒤 `cachedIn(viewModelScope)`한다. Compose에서는 `collectAsLazyPagingItems()`로 수집한다.
 
 ### 7-3. ViewModel 상태 관리 패턴
 
@@ -1310,3 +1310,14 @@ GemmaModelRunner → {새모델}ModelRunner
 - **부수 발견**: `:data`에 `kotlin-serialization` 플러그인이 누락되어 있어 모듈 내부에서 선언한 `@Serializable` 클래스의 직렬화기가 생성되지 않았다(컴파일은 통과하고 런타임에 `SerializationException`). `PartMeta`가 이어받기 판정에 실패하며 드러났고, 같은 원인으로 `ExportManifest` 기반 내보내기/가져오기도 동작하지 않던 상태였다. 플러그인 추가로 함께 해소.
 - **제약(단위 테스트 불가 — 수동 QA 필요)**: 실제 전경 서비스 승격, 알림 렌더링, Doze 모드 백오프 타이밍, 실제 3.6GB 처리량, 알림이 꺼진 상태의 `SystemForegroundService` 동작, API 31+ `ForegroundServiceStartNotAllowedException` 경로. 핵심 확인 시나리오: ① 다운로드 시작 → 앱 강제 종료 → 재진입 시 진행률이 이어지는지 ② Wi-Fi를 끊었다 다시 연결했을 때 받은 지점부터 이어받는지 ③ Wi-Fi 없을 때 "Wi-Fi 연결을 기다리는 중" 카드가 뜨는지.
 - **아이콘 부채**: `res/`에 다운로드용 24dp 모노 벡터가 없어 `android.R.drawable.stat_sys_download` 계열을 임시 사용한다.
+
+### ADR-007. 스트리밍 계약을 원시 토큰에서 파싱 결과로 전환 (2026-08-06)
+- **결정**: 앱 내부 스트리밍 계약 `ChatRequest.onToken: ((String) -> Unit)?`(원시 델타 토큰)을 `onStream: ((StreamUpdate) -> Unit)?`(파싱된 `content`/`thinking`)으로 교체하고, 스트리밍 파싱 지점을 `BaseAgent` 한 곳으로 모은다.
+- **근거**: 같은 토큰 스트림을 세 곳이 각자 누적했고, 그중 `ChatViewModel.accumulatedRaw`만 스코프가 어긋나 있었다. 근본 원인은 계약에 **턴 경계 신호가 없다는 것**이다 — 툴 루프가 다음 턴으로 넘어가도 UI 콜백은 그 사실을 알 수 없어 누적기를 비울 수 없었다. 그래서 1턴 문장이 2턴 문장 앞에 남아 보이다가, 완료 시 마지막 턴만 커밋돼 텍스트가 줄어드는 것처럼 보였고 DB와 화면이 불일치했다.
+- **계층 경계**: `ModelRunner`의 원시 델타 계약은 **그대로 둔다**. 엔진 계층에서는 델타가 옳은 표현이고 `GemmaModelRunner`의 누적(`finalResponse`)은 generate 호출당 스코프라 이미 정확하다. 테스트 fake 5개가 이 인터페이스를 구현하므로 변경 비용도 크다. 바꾼 것은 앱 내부 계약뿐이다.
+- **누적기 배치**: `BaseAgent.accumulatedToken`은 툴 루프 `while` 안에 선언돼 턴마다 리셋된다. 파싱을 여기로 모으면 턴 누적 결함이 **구조적으로 불가능**해진다 — 규율이 아니라 스코프가 보장한다.
+- **성능 유지**: 0.5.10에서 도입한 "태그 감지 후에만 파싱" 최적화(토큰마다 전체 문자열을 정규식 재파싱하면 O(n²))를 유지한다. 태그가 하나도 없는 구간에서는 누적 문자열이 곧 본문이므로 정규식 파싱을 건너뛰고, 꼬리에 걸린 태그 조각만 `ToolParser.stripIncompleteTag`로 잘라낸다. 감지 윈도우는 `<tool_call`과 `<|think|` 양쪽을 본다.
+- **미완성 태그 절단**: `toolRegex`가 닫는 태그를 요구하므로 스트리밍 중 열린 `<tool_call>`은 매칭되지 않고 본문에 남아 화면에 렌더됐다(툴 콜 턴에서는 가시 구간 대부분 동안 `<tool_call>{"name":"AddSch`가 한 글자씩 자라는 것이 보였다). 완전한 여는 태그와 꼬리의 부분 접두사(`<tool_c`, `<` 하나까지)를 모두 잘라낸다. 다음 토큰에 복원되므로 손실은 없고, 모델이 실제로 쓴 `<`가 한 틱 늦게 보이는 것을 대가로 받아들인다.
+- **빈 본문의 `null` 정규화**: `StreamUpdate.content`는 보일 것이 없으면 `null`이다. 빈 문자열을 넘기면 UI가 "텍스트 있음"으로 오해해 타이핑 인디케이터를 숨겼고(`ChatScreen`의 조건이 `streamingText == null`), 생각 블록만 스트리밍되는 구간에서 **빈 버블에 스피너도 없는** 상태가 됐다.
+- **다중 생각 블록**: `thinkRegex`를 `find`(단수)에서 `findAll`로 바꿨다. 이전에는 두 번째 이후 블록이 본문에 남아 프로토콜 문법이 노출됐다. 닫히지 않은 블록을 버퍼 끝까지 매칭하는 `|$` 대안은 스트리밍에 필요하므로 유지한다.
+- **제약**: 스트리밍 렌더 자체(실기기 체감, 재구성 빈도)는 단위 테스트로 확인할 수 없다. 핵심 확인 시나리오: ① 툴 콜 대화에서 `<tool_call>` 문법이 보이지 않고 완료 시 텍스트가 줄어들지 않는지 ② 응답 초반 빈 버블 대신 타이핑 인디케이터가 보이는지.
