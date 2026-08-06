@@ -62,7 +62,11 @@ class GemmaRuntimeManager @Inject constructor(
 
         // 1. Check external dir first (Android Studio push target usually)
         if (externalModelsDir != null && externalModelsDir.exists()) {
-            val externalFile = externalModelsDir.listFiles()?.firstOrNull { it.name.endsWith(".litertlm") }
+            // [WHY] firstOrNull 은 파일시스템 나열 순서(비결정적)라 옛 모델이 남아 있으면 그게
+            // 잡힐 수 있다. 내부 저장소 분기와 같은 기준(최신 수정 파일)으로 통일한다.
+            val externalFile = externalModelsDir.listFiles()
+                ?.filter { it.name.endsWith(".litertlm") }
+                ?.maxByOrNull { it.lastModified() }
             if (externalFile != null) {
                 modelFile = externalFile
             }
@@ -80,6 +84,12 @@ class GemmaRuntimeManager @Inject constructor(
         }
 
         if (modelFile != null) {
+            // [WHY] 툴 호출 지원은 모델 파일에 달렸다(Gemma 4 = 지원, Gemma 3n = 미지원).
+            // 어느 파일이 실행됐는지는 실기기 진단의 첫 단서라 로그로 남긴다.
+            android.util.Log.i(
+                "GemmaRuntimeManager",
+                "model file: ${modelFile.name} (${modelFile.length()} bytes) at ${modelFile.parent}"
+            )
             _loadState.value = ModelLoadState.FileFound(
                 ModelInfo(
                     modelId = "gemma-4-e4b-it",

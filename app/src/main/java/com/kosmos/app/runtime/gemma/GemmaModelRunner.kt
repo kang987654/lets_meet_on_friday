@@ -7,6 +7,7 @@ import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.SamplerConfig
 import android.util.Log
@@ -170,7 +171,7 @@ class GemmaModelRunner @Inject constructor(
                     if (error != null) {
                         AppResult.Failure(AppError.ModelInferenceError(error.message ?: "스트리밍 중 에러 발생"))
                     } else {
-                        logTurn(finalResponse, toolCalls)
+                        logTurn(prompt, finalResponse, toolCalls)
                         AppResult.Success(ModelTurn(finalResponse, toolCalls))
                     }
                 } else {
@@ -187,7 +188,7 @@ class GemmaModelRunner @Inject constructor(
                     // [WHY] 텍스트가 비어도 툴 호출만 온 턴은 정상이다 — 모델이 말 없이 곧바로
                     // 툴을 부르는 경우가 흔하다. 둘 다 비었을 때만 실패로 본다.
                     if (messageText.isNotEmpty() || toolCalls.isNotEmpty()) {
-                        logTurn(messageText, toolCalls)
+                        logTurn(prompt, messageText, toolCalls)
                         AppResult.Success(ModelTurn(messageText, toolCalls))
                     } else {
                         AppResult.Failure(AppError.ModelInferenceError("응답 생성 결과가 null입니다."))
@@ -238,11 +239,12 @@ class GemmaModelRunner @Inject constructor(
     }
 
     // [WHY] 툴 호출 여부는 실기기에서만 확인할 수 있고 감사 로그에는 시스템 지시가 남지 않는다.
-    // 전환 검증을 위해 런타임 로그로 남긴다.
-    private fun logTurn(text: String, toolCalls: List<ModelToolCall>) {
+    // enabledTools 를 함께 남겨야 toolCalls=[] 가 "선언 안 됨"인지 "모델이 거부"인지 구분된다.
+    private fun logTurn(prompt: ChatPrompt, text: String, toolCalls: List<ModelToolCall>) {
         Log.d(
             "GemmaModelRunner",
-            "turn done: textLen=${text.length}, toolCalls=${toolCalls.map { it.name }}"
+            "turn done: textLen=${text.length}, toolCalls=${toolCalls.map { it.name }}, " +
+                "enabledTools=${prompt.enabledTools}"
         )
     }
 
@@ -316,6 +318,9 @@ class GemmaModelRunner @Inject constructor(
         }
     }
 
+    // [WHY] ExperimentalFlags 와 renderPrefaceIntoString 은 @ExperimentalApi — gallery 도 같은
+    // 플래그를 쓰므로 감수한다. 0.14.0 업그레이드 시점마다 존재 여부를 컴파일이 검증해 준다.
+    @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
     private fun getOrCreateConversation(prompt: ChatPrompt): Conversation {
         val currentEngine = engine ?: throw IllegalStateException("Engine is not initialized")
         val existing = conversation
@@ -354,11 +359,36 @@ class GemmaModelRunner @Inject constructor(
                 topP = 0.9
             )
         )
-        val newConversation = currentEngine.createConversation(config)
+        // [WHY] gallery 는 툴을 쓰는 모든 태스크에서 이 전역 플래그를 createConversation 직전에
+        // 켜고 직후에 끈다. 이 플래그가 툴 스키마로부터 FST 문법을 만들어 모델 출력을 호출
+        // 구문으로 강제한다 — 선언만으로는 4B 모델이 호출 형식을 지키지 못해 toolCalls 가
+        // 비었다(0.8.0 실기기). ConversationConfig 필드가 아니라 생성 시점에만 읽히는 전역이다.
+        ExperimentalFlags.enableConversationConstrainedDecoding = prompt.enabledTools.isNotEmpty()
+        val newConversation = try {
+            currentEngine.createConversation(config)
+        } finally {
+            ExperimentalFlags.enableConversationConstrainedDecoding = false
+        }
+        logConversationCreated(prompt, newConversation)
         conversation = newConversation
         currentSessionId = prompt.sessionId
         currentSystemInstruction = prompt.systemInstruction
         currentEnabledTools = prompt.enabledTools
         return newConversation
+    }
+
+    // [WHY] toolCalls=[] 만으로는 "선언이 템플릿에 안 들어감"과 "모델이 호출을 거부"를 구분할 수
+    // 없다. 렌더링된 프리페이스에 툴 블록이 있는지가 모델 파일의 템플릿 지원 여부를 실기기에서
+    // 확정하는 유일한 단서다 (Gemma 3n 계열 템플릿에는 툴 블록이 없다).
+    @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
+    private fun logConversationCreated(prompt: ChatPrompt, created: Conversation) {
+        Log.d(
+            "GemmaModelRunner",
+            "conversation created: tools=${prompt.enabledTools}, " +
+                "providers=${KosmosToolDeclarations.providersFor(prompt.enabledTools).size}"
+        )
+        runCatching { created.renderPrefaceIntoString() }
+            .onSuccess { preface -> Log.d("GemmaModelRunner", "preface: ${preface.take(2000)}") }
+            .onFailure { e -> Log.d("GemmaModelRunner", "preface render failed: ${e.message}") }
     }
 }

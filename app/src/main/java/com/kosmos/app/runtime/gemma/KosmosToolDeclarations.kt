@@ -60,12 +60,16 @@ object KosmosToolDeclarations {
         throw IllegalStateException("툴 실행은 ToolExecutor 가 담당합니다 (automaticToolCalling=false)")
 
     private class AddScheduleDeclaration : ToolSet {
+        // [WHY] endTime/description 을 non-null 로 두면 스키마의 required 가 4개가 되어 4B 모델이
+        // 전부 지어내야 호출을 낼 수 있다 — 문턱이 높고 환각 인자를 유도한다. nullable 파라미터는
+        // required 에서 빠진다(ReflectionTool). 실행부는 누락 인자를 이미 처리한다
+        // (AddScheduleToolExecutor.optString).
         @Tool(description = "사용자의 캘린더에 일정을 추가한다. 약속·예약·미팅·병원·시험 등 앞으로 일어날 일을 등록할 때 쓴다.")
         fun addSchedule(
             @ToolParam(description = "일정 제목. 예: '치과 예약'") title: String,
             @ToolParam(description = "시작 시각. ISO 8601 형식. 예: '2026-08-07T15:00:00'") startTime: String,
-            @ToolParam(description = "종료 시각. ISO 8601 형식. 모르면 빈 문자열.") endTime: String,
-            @ToolParam(description = "메모. 없으면 빈 문자열.") description: String
+            @ToolParam(description = "종료 시각. ISO 8601 형식. 모르면 생략.") endTime: String?,
+            @ToolParam(description = "메모. 없으면 생략.") description: String?
         ): Map<String, Any> = notExecutedHere()
     }
 
