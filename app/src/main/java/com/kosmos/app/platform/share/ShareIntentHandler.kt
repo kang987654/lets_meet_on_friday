@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -81,8 +82,10 @@ class ShareIntentHandler @Inject constructor(
                 }
             }
 
-            // 10MB limit (TASK-066)
-            if (sizeBytes > 10 * 1024 * 1024) {
+            // [WHY] 매직 넘버였던 것을 core 상수로 교체했다 — 같은 한도가
+            // `ImageInputAdapter`(단일 관문)에도 있으므로 두 값이 갈리면 안 된다. 여기 검사는
+            // 인테이크 단계에서 사용자에게 먼저 알려 주기 위한 것이고, 실제 방어는 관문에 있다.
+            if (sizeBytes > Constants.MAX_IMAGE_SIZE_BYTES) {
                 _sharedInputFlow.tryEmit(AppResult.Failure(AppError.ImageTooLarge(sizeBytes)))
                 return
             }

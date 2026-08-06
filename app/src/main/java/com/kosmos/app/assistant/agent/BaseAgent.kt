@@ -103,7 +103,7 @@ abstract class BaseAgent(
             val modelResult = if (request.audioFilePath != null && isFirstTurn) {
                 modelRunner.generateWithAudio(prompt, request.audioFilePath, wrappedOnToken)
             } else if (request.imageBytes != null && isFirstTurn) {
-                modelRunner.generateWithImage(prompt, request.imageBytes, request.imageTokenBudget, wrappedOnToken)
+                modelRunner.generateWithImage(prompt, request.imageBytes, wrappedOnToken)
             } else {
                 modelRunner.generate(prompt, wrappedOnToken)
             }

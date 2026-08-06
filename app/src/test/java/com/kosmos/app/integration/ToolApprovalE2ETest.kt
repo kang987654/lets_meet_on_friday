@@ -128,7 +128,6 @@ class ToolApprovalE2ETest {
         override suspend fun generateWithImage(
             prompt: com.kosmos.app.domain.modelrunner.ChatPrompt,
             imageBytes: ByteArray,
-            imageTokenBudget: Int,
             onToken: ((String) -> Unit)?
         ): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> = generate(prompt, onToken)
 

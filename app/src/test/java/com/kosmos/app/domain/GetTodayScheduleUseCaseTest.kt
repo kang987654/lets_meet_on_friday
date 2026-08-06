@@ -42,7 +42,7 @@ class GetTodayScheduleUseCaseTest {
         override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<ModelTurn> =
             AppResult.Success(ModelTurn("요약"))
         override suspend fun generateWithImage(
-            prompt: ChatPrompt, imageBytes: ByteArray, imageTokenBudget: Int, onToken: ((String) -> Unit)?
+            prompt: ChatPrompt, imageBytes: ByteArray, onToken: ((String) -> Unit)?
         ): AppResult<ModelTurn> = AppResult.Success(ModelTurn("요약"))
         override suspend fun generateWithAudio(
             prompt: ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?

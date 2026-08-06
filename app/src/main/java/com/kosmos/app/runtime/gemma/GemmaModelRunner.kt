@@ -88,7 +88,6 @@ class GemmaModelRunner @Inject constructor(
     override suspend fun generateWithImage(
         prompt: ChatPrompt,
         imageBytes: ByteArray,
-        imageTokenBudget: Int,
         onToken: ((String) -> Unit)?
     ): AppResult<ModelTurn> = runTurn(prompt, onToken, "멀티모달 추론 중 오류 발생") {
         // [WHY] 이미지를 텍스트보다 앞에 넣는다 — 마지막 토큰이 텍스트여야 응답 품질이 안정적이다.

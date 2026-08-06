@@ -63,7 +63,6 @@ class BaseAgentStreamTest {
         override suspend fun generateWithImage(
             prompt: ChatPrompt,
             imageBytes: ByteArray,
-            imageTokenBudget: Int,
             onToken: ((String) -> Unit)?
         ): AppResult<ModelTurn> = generate(prompt, onToken)
 

@@ -76,7 +76,7 @@ class FakeE2EModelRunner : ModelRunner {
         return AppResult.Success(ModelTurn("This is a response summary of the document."))
     }
     
-    override suspend fun generateWithImage(prompt: ChatPrompt, imageBytes: ByteArray, imageTokenBudget: Int, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
+    override suspend fun generateWithImage(prompt: ChatPrompt, imageBytes: ByteArray, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
         lastPrompt = prompt
         lastImageBytes = imageBytes
         generateCallCount++
