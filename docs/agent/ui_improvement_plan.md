@@ -159,6 +159,9 @@
 기존 세부 항목
 - [ ] per-tool `@Serializable` 타입 스키마 — `ToolArguments`로 런타임 결함은 제거했으나 인자 이름이 여전히 프롬프트 텍스트와 호출부에만 존재한다(컴파일 타임 검증 없음). `ToolExecutor` 제네릭화는 `ToolRegistry`/`BaseAgent`에 star projection이 번져 별건으로 남김
 - [ ] adaptive icon(`ic_launcher_foreground`) 및 KOSMOS 브랜드 마크 — 앱 아이콘 디자인 시 착수. 알림 아이콘(v0.7.3)은 제네릭 화살표로 처리했으므로 급하지 않다
+- [ ] **말풍선에 첨부 이미지 실제 표시** — 현재는 이모지+"첨부된 이미지" 텍스트 placeholder다. `ChatMessage`/`ConversationEntity` 에 첨부 경로 필드가 없어 Room 마이그레이션(v5→v6)이 필요하고, `GetContent` 로 받은 URI 는 `takePersistableUriPermission` 대상이 아니라 재시작 후 읽을 수 없으므로 **앱 전용 저장소로 복사**하는 설계가 함께 필요하다(메시지 삭제 시 정리 포함). 음성도 같은 구조를 쓰면 재생 UI 로 확장 가능
+- [ ] 카메라 촬영 입력 — 현재는 파일 피커/공유 시트만. `CAMERA` 권한과 `TakePicture` 계약 필요
+- [ ] TTS(응답 읽어주기) — 입력은 음성이 되는데 출력은 텍스트뿐이라 비대칭이다
 
 ### 확인 필요 (임의 판단하지 않음)
 
