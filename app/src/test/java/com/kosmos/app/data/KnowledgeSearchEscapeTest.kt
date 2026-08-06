@@ -49,7 +49,7 @@ class KnowledgeSearchEscapeTest {
         content = content,
         sourceSessionId = null,
         tags = tags,
-        embedding = "",
+        embedding = null,
         createdAt = id.hashCode().toLong(),
         updatedAt = 0L
     )

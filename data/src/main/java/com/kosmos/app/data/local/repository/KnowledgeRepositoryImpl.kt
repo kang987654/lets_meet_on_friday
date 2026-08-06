@@ -5,13 +5,6 @@ import com.kosmos.app.data.local.db.dao.KnowledgeDao
 import com.kosmos.app.data.local.db.entity.KnowledgeEntity
 import com.kosmos.app.domain.memory.KnowledgeRepository
 import com.kosmos.app.domain.model.KnowledgeNote
-import androidx.paging.Pager
-import androidx.paging.PagingConfig
-import androidx.paging.PagingData
-import androidx.paging.map
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-
 import javax.inject.Inject
 
 class KnowledgeRepositoryImpl @Inject constructor(
@@ -19,7 +12,6 @@ class KnowledgeRepositoryImpl @Inject constructor(
 ) : KnowledgeRepository {
 
     override suspend fun save(note: KnowledgeNote): AppResult<Unit> = com.kosmos.app.core.common.runCatchingCancellable {
-        val embeddingStr = note.embedding?.joinToString(",") ?: ""
         dao.insert(
             KnowledgeEntity(
                 id = note.id,
@@ -28,7 +20,7 @@ class KnowledgeRepositoryImpl @Inject constructor(
                 // [WHY] 태그에 콤마가 들어오면 이 칼럼 형식이 표현할 수 없다. CSV 인코딩을
                 // 소유한 계층이 그 불변식도 지킨다 (Tags KDoc 참조).
                 tags = com.kosmos.app.core.common.Tags.normalizeAll(note.tags).joinToString(","),
-                embedding = embeddingStr,
+                embedding = note.embedding?.let { com.kosmos.app.core.common.FloatBytes.encode(it) },
                 createdAt = note.createdAt,
                 updatedAt = note.updatedAt
             )
@@ -67,7 +59,10 @@ class KnowledgeRepositoryImpl @Inject constructor(
 
     override suspend fun searchByTags(tags: List<String>, limit: Int): AppResult<List<KnowledgeNote>> = com.kosmos.app.core.common.runCatchingCancellable {
         // SQLite의 LIKE 검색을 위해 각 태그별로 검색 결과를 모은 후 중복을 제거 (간이 구현)
-        val results = mutableSetOf<KnowledgeEntity>()
+        // [WHY] Set 이 아니라 List + distinctBy(id) 다 — KnowledgeEntity 는 ByteArray 필드를
+        // 가지므로 data class 의 equals 가 참조 비교가 되고, Set 으로는 같은 노트가 태그마다
+        // 중복 반환된다. 문자열 임베딩 시절에는 값 비교라 우연히 동작했다.
+        val results = mutableListOf<KnowledgeEntity>()
         for (tag in tags) {
             // [WHY] 저장 시와 같은 정규화를 적용해야 저장된 값과 형태가 맞는다. 콤마가 든
             // 검색어는 정규화 없이는 어떤 태그에도 매칭될 수 없다.
@@ -76,7 +71,7 @@ class KnowledgeRepositoryImpl @Inject constructor(
             if (normalized.isEmpty()) continue
             results.addAll(dao.searchByTags(com.kosmos.app.core.common.SqlLike.escape(normalized), limit))
         }
-        results.map { it.toDomain() }.take(limit)
+        results.distinctBy { it.id }.map { it.toDomain() }.take(limit)
     }.fold(
         onSuccess = { AppResult.Success(it) },
         onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.SearchError(it.message ?: "search err")) }
@@ -89,10 +84,9 @@ class KnowledgeRepositoryImpl @Inject constructor(
         val allEntities = dao.searchRecent(1000) // 모두 가져옴 (모바일 특성상 데이터가 많지 않음)
 
         val scoredList = allEntities.mapNotNull { entity ->
-            val entityEmbedding = entity.embedding.split(",")
-                .mapNotNull { it.toFloatOrNull() }
-                .toFloatArray()
-                
+            val blob = entity.embedding ?: return@mapNotNull null
+            val entityEmbedding = com.kosmos.app.core.common.FloatBytes.decode(blob)
+
             if (entityEmbedding.size == queryEmbedding.size && entityEmbedding.isNotEmpty()) {
                 val score = cosineSimilarity(queryEmbedding, entityEmbedding)
                 Pair(entity.toDomain(), score)
@@ -124,18 +118,16 @@ class KnowledgeRepositoryImpl @Inject constructor(
         return if (normA == 0f || normB == 0f) 0f else (dotProduct / (Math.sqrt(normA.toDouble()) * Math.sqrt(normB.toDouble()))).toFloat()
     }
 
-    override fun getPagedData(): Flow<PagingData<KnowledgeNote>> {
-        return Pager(
-            config = PagingConfig(pageSize = 20, enablePlaceholders = false)
-        ) {
-            dao.getPaged()
-        }.flow.map { pagingData ->
-            pagingData.map { it.toDomain() }
-        }
-    }
+    override suspend fun getNotes(offset: Int, limit: Int): AppResult<List<KnowledgeNote>> =
+        com.kosmos.app.core.common.runCatchingCancellable {
+            dao.getNotes(offset, limit).map { it.toDomain() }
+        }.fold(
+            onSuccess = { AppResult.Success(it) },
+            onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbReadError("knowledge_note")) }
+        )
 
     private fun KnowledgeEntity.toDomain(): KnowledgeNote {
-        val floatArr = embedding.split(",").mapNotNull { it.toFloatOrNull() }.toFloatArray()
+        val floatArr = embedding?.let { com.kosmos.app.core.common.FloatBytes.decode(it) } ?: FloatArray(0)
         return KnowledgeNote(
             id = id,
             content = content,

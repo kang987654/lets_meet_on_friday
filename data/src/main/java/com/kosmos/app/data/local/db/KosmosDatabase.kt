@@ -21,7 +21,7 @@ import com.kosmos.app.data.local.db.entity.TaskEntity
         TaskEntity::class,
         KnowledgeEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class KosmosDatabase : RoomDatabase() {

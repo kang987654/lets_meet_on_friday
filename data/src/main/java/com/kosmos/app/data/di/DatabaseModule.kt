@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.kosmos.app.data.local.db.KosmosDatabase
+import com.kosmos.app.data.local.db.KosmosMigrations
 import com.kosmos.app.data.local.db.dao.AuditDao
 import com.kosmos.app.data.local.db.dao.ConversationDao
 import com.kosmos.app.data.local.db.dao.KnowledgeDao
@@ -21,15 +22,6 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
-    // [WHY] 일정 종료 시각/설명 보존(v4)을 위한 스키마 확장. 사용자 메모리가 핵심 가치인 앱이므로
-    // 파괴적 마이그레이션 대신 명시적 Migration으로 데이터를 보존한다.
-    private val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
-        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE task_item ADD COLUMN endDateIso TEXT DEFAULT NULL")
-            db.execSQL("ALTER TABLE task_item ADD COLUMN description TEXT DEFAULT NULL")
-        }
-    }
-
     @Provides
     @Singleton
     fun provideKosmosDatabase(@ApplicationContext context: Context): KosmosDatabase {
@@ -39,7 +31,9 @@ object DatabaseModule {
             Constants.DATABASE_NAME
         )
         .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-        .addMigrations(MIGRATION_3_4)
+        // [WHY] 마이그레이션 정의는 KosmosMigrations 로 분리했다 — 인라인 익명 객체로는
+        // MigrationTestHelper 검증이 불가능했다.
+        .addMigrations(*KosmosMigrations.ALL)
         .fallbackToDestructiveMigrationOnDowngrade() // [WHY] 업그레이드 경로는 항상 명시적 Migration을 요구한다
         .build()
     }
