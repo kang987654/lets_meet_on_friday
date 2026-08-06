@@ -315,6 +315,7 @@ fun ChatScreen(
                                     ChatBubbleAssistant(
                                         text = message.content,
                                         thinkingProcess = message.thinkingProcess,
+                                        searchUsed = message.searchUsed,
                                         onLongPress = copyMessage
                                     )
                                 }
@@ -594,6 +595,7 @@ fun ChatBubbleUser(
 fun ChatBubbleAssistant(
     text: String,
     thinkingProcess: String? = null,
+    searchUsed: Boolean = false,
     onLongPress: () -> Unit = {}
 ) {
     var isThinkingExpanded by remember { mutableStateOf(false) }
@@ -669,6 +671,18 @@ fun ChatBubbleAssistant(
                         }
                     }
                 }
+            }
+
+            // [WHY] 이 답변이 네트워크로 나갔는지를 사용자가 볼 수 있어야 한다. 프라이버시
+            // 우선 원칙에서 웹 검색은 토글로 명시 허용하는 동작이므로, 실제로 쓰인 턴을
+            // 표시하지 않으면 토글의 의미가 절반만 남는다.
+            if (searchUsed) {
+                Text(
+                    text = "🌐 위키백과 검색 결과를 참고했어요",
+                    color = KosmosTheme.colors.textMuted,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(start = 14.dp, top = 4.dp)
+                )
             }
         }
     }

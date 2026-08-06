@@ -57,6 +57,9 @@ abstract class BaseAgent(
         var parsedResult: ToolParser.ParsedStream? = null
         var isFirstTurn = true
         var loopCount = 0
+        // [WHY] 웹 검색이 실제로 실행됐는지는 이 루프만 안다. 예전에는 최종 메시지를 항상
+        // `searchUsed = false` 로 저장해, DB 컬럼과 화면 표시가 통째로 죽어 있었다.
+        var searchUsed = false
         val MAX_TOOL_LOOP_COUNT = 3
         val THINK_TAG_WINDOW = 12 // "<|think|" 태그가 토큰 경계에 걸려도 감지되는 길이
 
@@ -118,17 +121,43 @@ abstract class BaseAgent(
 
             if (turn.toolCalls.isNotEmpty()) {
                 val call = turn.toolCalls.first() // 병렬 처리 방지
-                val toolJson = executeToolInner(
-                    ToolParser.ToolCallData(call.name, ToolArguments.of(call.args)),
+                val args = ToolArguments.of(call.args)
+                val outcome = executeToolInner(
+                    ToolParser.ToolCallData(call.name, args),
                     request.sessionId,
                     allowedTools
                 )
+                // [WHY] 감사 기록을 여기서 남긴다 — 이 지점만이 "어떤 툴이 실제로 실행되고
+                // 무엇을 돌려줬는가"를 안다. 승인 기록만으로는 승인이 필요 없는 툴(일정 조회,
+                // 웹 검색)의 실행이 감사에서 통째로 빠진다.
+                //
+                // [WHY] 추가 호출을 무음으로 버리지 않는다. 첫 호출만 실행하는 것은 의도한
+                // 정책이지만(병렬 실행 방지), 버려진 사실이 어디에도 남지 않으면 "왜 두 번째
+                // 일이 안 됐는가"를 나중에 추적할 방법이 없다.
+                val dropped = turn.toolCalls.drop(1)
+                auditTrailService.logToolCall(
+                    sessionId = request.sessionId,
+                    toolName = call.name,
+                    resultJson = outcome.resultJson,
+                    note = if (dropped.isEmpty()) null
+                    else "같은 턴의 추가 호출 ${dropped.size}건 미실행: ${dropped.map { it.name }}"
+                )
+                // [WHY] 웹 검색은 유일한 네트워크 egress 다. `SEARCH_USED` 감사 타입과
+                // 포맷터가 이미 있었지만 호출하는 곳이 없어, 프라이버시상 가장 기록이 필요한
+                // 동작이 감사 로그에 남지 않았다.
+                if (call.name == "SearchWikipedia" && outcome.executed) {
+                    searchUsed = true
+                    auditTrailService.logSearchEvent(
+                        request.sessionId,
+                        args.optString("topic") ?: ""
+                    )
+                }
                 // [WHY] Conversation은 stateful이라 직전 입력/출력이 이미 컨텍스트에 있다.
                 // 툴 결과만 전용 응답 타입으로 되돌린다 — 이전에는 `<tool_response>` 텍스트를
                 // 사용자 턴으로 위장해 보냈다.
                 prompt = prompt.copy(
                     currentInput = "",
-                    toolResponse = ToolResponseInput(call.name, toolJson)
+                    toolResponse = ToolResponseInput(call.name, outcome.resultJson)
                 )
                 continue
             }
@@ -138,20 +167,37 @@ abstract class BaseAgent(
         val finalParsed = parsedResult
             ?: return@coroutineScope handleErrorAndReturn(request.sessionId, "Model execution failed")
 
-        auditTrailService.logModelRun(request.sessionId, prompt.currentInput, lastTurn?.text.orEmpty())
+        // [WHY] `prompt.currentInput` 이 아니라 원문 요청을 기록한다. 툴을 쓴 턴에서는 루프가
+        // `currentInput = ""` 로 덮어쓰므로, 예전에는 **툴을 쓴 대화일수록** 감사 로그의
+        // 프롬프트가 빈 문자열이었다 — 정작 기록이 가장 필요한 턴이 비어 있었다.
+        auditTrailService.logModelRun(request.sessionId, request.message, lastTurn?.text.orEmpty())
 
         // [WHY] 일정 초안 등 액션성 흐름은 모두 툴 콜 + 승인 경로로 일원화되었으므로(2026-07-31 절충안),
         // 최종 응답은 텍스트로 저장·반환한다. (구 ResponseParser/PreExecutionGuard 경로 제거)
         val text = finalParsed.content
-        createAndSaveMessage(request.sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT, searchUsed = false, thinkingProcess = finalParsed.thinking)
-        return@coroutineScope AgentResult.Text(text, thinkingProcess = finalParsed.thinking)
+        createAndSaveMessage(request.sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT, searchUsed = searchUsed, thinkingProcess = finalParsed.thinking)
+        return@coroutineScope AgentResult.Text(
+            text,
+            thinkingProcess = finalParsed.thinking,
+            searchUsed = searchUsed
+        )
     }
+
+    /**
+     * 툴 실행 결과입니다.
+     *
+     * [WHY] 예전에는 JSON 문자열만 돌려줬다. 그러면 호출자가 "실제로 실행됐는가"를 알려면
+     * 그 문자열에서 `"status":"error"` 를 찾아야 하는데, 오류 JSON 을 만드는 곳이 네 군데이고
+     * 그중 하나는 공백이 다른 손수 만든 리터럴이라(`{"status": "error"...}`) 문자열 검사가
+     * 조용히 빗나간다. 실행 여부는 값으로 들고 나온다.
+     */
+    private data class ToolOutcome(val resultJson: String, val executed: Boolean)
 
     private suspend fun executeToolInner(
         call: ToolParser.ToolCallData,
         sessionId: String,
         allowedTools: List<String>
-    ): String {
+    ): ToolOutcome {
         // [WHY] allowlist가 프롬프트 텍스트에만 있으면 모델(또는 주입된 문서)이 임의 툴을 호출해도
         // 실행되므로, 실행 시점에 반드시 재검증한다.
         if (call.name !in allowedTools) {
@@ -161,12 +207,18 @@ abstract class BaseAgent(
             } else {
                 "이 에이전트에서 사용할 수 없는 도구입니다: ${call.name}"
             }
-            return org.json.JSONObject().put("status", "error").put("message", message).toString()
+            return ToolOutcome(
+                org.json.JSONObject().put("status", "error").put("message", message).toString(),
+                executed = false
+            )
         }
 
         val executor = toolRegistry.getExecutor(call.name)
-            ?: return org.json.JSONObject().put("status", "error")
-                .put("message", "알 수 없는 Tool입니다: ${call.name}").toString()
+            ?: return ToolOutcome(
+                org.json.JSONObject().put("status", "error")
+                    .put("message", "알 수 없는 Tool입니다: ${call.name}").toString(),
+                executed = false
+            )
 
         // [WHY] 인자 검증 실패는 승인 전에 걸러야 한다 — 필수 인자가 없는 초안을 승인 카드로
         // 띄우면 사용자가 실행될 수 없는 요청을 승인하게 된다. 또한 누락과 타입 오류를 구분해
@@ -178,14 +230,18 @@ abstract class BaseAgent(
                 val approved = approvalCoordinator.requireApproval(approvalRequest)
                 if (!approved) {
                     auditTrailService.logApprovalRejected(sessionId, "${call.name}: ${approvalRequest.description}")
-                    return "{\"status\": \"error\", \"message\": \"사용자가 취소했습니다\"}"
+                    return ToolOutcome(
+                        org.json.JSONObject().put("status", "error")
+                            .put("message", "사용자가 취소했습니다").toString(),
+                        executed = false
+                    )
                 }
                 auditTrailService.logApprovalGranted(sessionId, "${call.name}: ${approvalRequest.description}")
             }
-            executor.execute(call.args, sessionId)
+            ToolOutcome(executor.execute(call.args, sessionId), executed = true)
         } catch (e: com.kosmos.app.assistant.tool.ToolArgumentException) {
             auditTrailService.logError(sessionId, "Invalid tool argument: ${call.name}.${e.field} (${e.reason})")
-            toolArgumentErrorJson(call.name, e)
+            ToolOutcome(toolArgumentErrorJson(call.name, e), executed = false)
         }
     }
 

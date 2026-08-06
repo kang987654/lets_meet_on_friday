@@ -4,11 +4,13 @@ import com.kosmos.app.assistant.approval.ApprovalCoordinator
 import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.assistant.orchestrator.ChatRequest
 import com.kosmos.app.assistant.orchestrator.StreamUpdate
+import com.kosmos.app.assistant.tool.ToolExecutor
 import com.kosmos.app.assistant.tool.ToolRegistry
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.domain.memory.ConversationRepository
+import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelInfo
 import com.kosmos.app.domain.modelrunner.ModelLoadState
@@ -16,6 +18,8 @@ import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.modelrunner.ModelToolCall
 import com.kosmos.app.domain.modelrunner.ModelTurn
 import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -99,39 +103,151 @@ class BaseAgentStreamTest {
         )
     }
 
+    /** `logToolCall` 로 넘어간 인자 한 건. */
+    private data class ToolCallRecord(val tool: String, val resultJson: String, val note: String?)
+
     private class Harness(
         val result: AgentResult,
         val updates: List<StreamUpdate>,
-        val prompts: List<ChatPrompt>
+        val prompts: List<ChatPrompt>,
+        val audit: AuditTrailService,
+        val savedMessages: List<ChatMessage>,
+        val toolCallLog: List<ToolCallRecord>
     )
 
     private fun runAgent(
         vararg turns: ModelTurn,
-        allowedTools: List<String> = emptyList()
+        allowedTools: List<String> = emptyList(),
+        toolRegistry: ToolRegistry = mockk(relaxed = true),
+        userMessage: String = "질문"
     ): Harness {
         val updates = mutableListOf<StreamUpdate>()
         val runner = ChunkedModelRunner(turns.toList())
+        val saved = mutableListOf<ChatMessage>()
         val conversationRepository: ConversationRepository = mockk {
-            coEvery { save(any()) } returns AppResult.Success(Unit)
+            coEvery { save(any()) } answers {
+                saved += firstArg<ChatMessage>()
+                AppResult.Success(Unit)
+            }
+        }
+        val audit: AuditTrailService = mockk(relaxed = true)
+        // [WHY] `note` 가 nullable 이라 mockk 의 `match`(T : Any) 로는 검증할 수 없다.
+        // 넘어온 인자를 그대로 받아 두고 테스트가 값으로 확인한다.
+        val toolCallLog = mutableListOf<ToolCallRecord>()
+        coEvery { audit.logToolCall(any(), any(), any(), any()) } answers {
+            toolCallLog += ToolCallRecord(arg(1), arg(2), arg(3))
         }
         val agent = TestAgent(
             modelRunner = runner,
-            toolRegistry = mockk(relaxed = true),
-            auditTrailService = mockk(relaxed = true),
+            toolRegistry = toolRegistry,
+            auditTrailService = audit,
             conversationRepository = conversationRepository,
             approvalCoordinator = mockk(relaxed = true),
             allowedTools = allowedTools
         )
         val request = ChatRequest(
             sessionId = "s1",
-            message = "질문",
+            message = userMessage,
             onStream = { updates += it }
         )
         val result = runBlocking { agent.execute(request, mockk(relaxed = true)) }
-        return Harness(result, updates, runner.receivedPrompts)
+        return Harness(result, updates, runner.receivedPrompts, audit, saved, toolCallLog)
     }
 
-    private fun toolCall(name: String) = ModelToolCall(name, emptyMap())
+    /** 지정한 JSON 을 돌려주는 executor 하나만 가진 레지스트리. */
+    private fun registryWith(name: String, resultJson: String): ToolRegistry {
+        val executor: ToolExecutor = mockk {
+            every { this@mockk.name } returns name
+            every { actionType } returns null
+            coEvery { execute(any(), any()) } returns resultJson
+        }
+        return mockk { every { getExecutor(name) } returns executor }
+    }
+
+    private fun toolCall(name: String, args: Map<String, Any> = emptyMap()) =
+        ModelToolCall(name, args)
+
+    // --- 감사 기록 (골격 변경 때 끊긴 배선) ---
+
+    @Test
+    fun `툴이 실행되면 감사 로그에 TOOL_CALL 이 남는다`() {
+        // [WHY] `AuditEventType.TOOL_CALL` 은 enum 과 감사 화면 색상까지 있었지만 생산자가 한
+        // 곳도 없었다. 승인이 필요 없는 툴(일정 조회, 웹 검색)은 실행 흔적이 아예 없었다.
+        val harness = runAgent(
+            ModelTurn("", listOf(toolCall("GetSchedule"))),
+            ModelTurn("두 건 있습니다."),
+            allowedTools = listOf("GetSchedule"),
+            toolRegistry = registryWith("GetSchedule", """{"status":"success"}""")
+        )
+
+        assertEquals(
+            listOf(ToolCallRecord("GetSchedule", """{"status":"success"}""", null)),
+            harness.toolCallLog
+        )
+    }
+
+    @Test
+    fun `무시된 추가 툴 호출이 감사 기록에 남는다`() {
+        // [WHY] 첫 호출만 실행하는 것은 의도한 정책이지만, 버려진 사실이 어디에도 없으면
+        // "왜 두 번째 일이 안 됐는가"를 추적할 방법이 없다.
+        val harness = runAgent(
+            ModelTurn("", listOf(toolCall("GetSchedule"), toolCall("AddMemory"))),
+            ModelTurn("완료."),
+            allowedTools = listOf("GetSchedule"),
+            toolRegistry = registryWith("GetSchedule", """{"status":"success"}""")
+        )
+
+        val note = harness.toolCallLog.single().note
+        assertNotNull("무시된 호출이 기록되지 않았다", note)
+        assertTrue("기록에 무시된 툴 이름이 없다: $note", note!!.contains("AddMemory"))
+    }
+
+    @Test
+    fun `웹 검색이 실행되면 SEARCH_USED 가 기록되고 응답에 표시된다`() {
+        // [WHY] 웹 검색은 유일한 네트워크 egress 다. 감사 타입과 포맷터가 있는데 호출하는 곳이
+        // 없어, 프라이버시상 가장 기록이 필요한 동작이 감사 로그에 남지 않았다. 또한
+        // `searchUsed` 는 항상 false 로 저장돼 사용자가 온디바이스 답변과 구분할 수 없었다.
+        val harness = runAgent(
+            ModelTurn("", listOf(toolCall("SearchWikipedia", mapOf("topic" to "아폴로 11호")))),
+            ModelTurn("1969년입니다."),
+            allowedTools = listOf("SearchWikipedia"),
+            toolRegistry = registryWith("SearchWikipedia", """{"status":"success","data":"..."}""")
+        )
+
+        coVerify { harness.audit.logSearchEvent("s1", "아폴로 11호") }
+        assertTrue((harness.result as AgentResult.Text).searchUsed)
+        val assistant = harness.savedMessages.last { it.role == ChatMessage.Role.ASSISTANT }
+        assertTrue("DB 에 저장된 메시지에도 남아야 한다", assistant.searchUsed)
+    }
+
+    @Test
+    fun `차단된 웹 검색은 검색으로 기록되지 않는다`() {
+        // [WHY] 토글이 꺼져 allowlist 밖이면 실행되지 않았으므로 egress 기록을 남기면 거짓이다.
+        // 실행 여부를 결과 JSON 문자열에서 추측하지 않고 값으로 들고 나오는 이유가 이것이다.
+        val harness = runAgent(
+            ModelTurn("", listOf(toolCall("SearchWikipedia", mapOf("topic" to "아폴로 11호")))),
+            ModelTurn("웹 검색이 꺼져 있습니다."),
+            allowedTools = emptyList()
+        )
+
+        coVerify(exactly = 0) { harness.audit.logSearchEvent(any(), any()) }
+        assertFalse((harness.result as AgentResult.Text).searchUsed)
+    }
+
+    @Test
+    fun `툴을 쓴 턴에서도 감사 로그의 프롬프트가 비어 있지 않다`() {
+        // [WHY] 예전에는 `prompt.currentInput` 을 기록했는데 툴 루프가 그것을 ""로 덮어썼다 —
+        // **툴을 쓴 대화일수록** 감사 로그의 프롬프트가 비어 있었다.
+        val harness = runAgent(
+            ModelTurn("", listOf(toolCall("GetSchedule"))),
+            ModelTurn("두 건 있습니다."),
+            allowedTools = listOf("GetSchedule"),
+            toolRegistry = registryWith("GetSchedule", """{"status":"success"}"""),
+            userMessage = "오늘 일정 알려줘"
+        )
+
+        coVerify { harness.audit.logModelRun("s1", "오늘 일정 알려줘", any()) }
+    }
 
     // --- 턴 경계 ---
 

@@ -269,7 +269,8 @@ class ChatViewModel @Inject constructor(
                             content = agentResult.content,
                             inputType = InputType.TEXT,
                             createdAt = System.currentTimeMillis(),
-                            thinkingProcess = agentResult.thinkingProcess
+                            thinkingProcess = agentResult.thinkingProcess,
+                            searchUsed = agentResult.searchUsed
                         )
                         _uiState.update { it.copy(messages = (it.messages + assistantMessage).toImmutableList()) }
                     }

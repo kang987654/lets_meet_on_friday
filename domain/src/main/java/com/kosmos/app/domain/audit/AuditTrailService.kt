@@ -20,6 +20,30 @@ class AuditTrailService @Inject constructor(
         saveEvent(sessionId, AuditEventType.MODEL_RUN, details)
     }
 
+    /**
+     * 툴이 **실제로 실행된** 사실과 그 결과를 남깁니다.
+     *
+     * [WHY] `AuditEventType.TOOL_CALL` 은 enum 에 있고 감사 화면에 색상까지 지정돼 있었지만
+     * **생산자가 한 곳도 없었다** — 툴 루프로 골격을 바꿀 때 기록 지점이 함께 옮겨오지 않았다.
+     * 그래서 감사 로그에는 승인 여부만 남고 "무엇이 실행됐고 결과가 무엇인지"가 없었다.
+     * 승인이 필요 없는 툴(일정 조회, 웹 검색)은 아무 흔적도 남지 않았다.
+     *
+     * @param note 부수 사실(예: 무시된 추가 호출). 없으면 null.
+     */
+    suspend fun logToolCall(
+        sessionId: String,
+        toolName: String,
+        resultJson: String,
+        note: String? = null
+    ) {
+        val details = buildString {
+            append("Tool: $toolName")
+            append("\nResult: ${redact(resultJson)}")
+            if (note != null) append("\nNote: $note")
+        }
+        saveEvent(sessionId, AuditEventType.TOOL_CALL, details)
+    }
+
     suspend fun logApprovalGranted(sessionId: String, actionDetails: String) {
         saveEvent(sessionId, AuditEventType.APPROVAL_GRANTED, actionDetails)
     }
