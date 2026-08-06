@@ -1,5 +1,5 @@
 # ui_improvement_plan.md — 전체 UI 개선 계획서
-> **문서 버전**: v1.2 | **최종 수정일**: 2026-08-05 | **상태**: Done (Phase A·B·C·D 완료. README 스크린샷 갱신만 잔여)
+> **문서 버전**: v1.3 | **최종 수정일**: 2026-08-06 | **상태**: Done (Phase A·B·C·D 완료. §7 이월 백로그만 잔여)
 > **관련 모듈**: `:app` (feature/*, ui/*), `:core` (mapper)
 > **기준 문서**: PRD.md v1.2 / architecture.md v1.2 (ADR-001~004) / DESIGN.md / CHANGELOG 0.5.12
 
@@ -127,18 +127,20 @@
 ### 완료
 - [x] ToolExecutor `Map<String,Any>` 대체 → `ToolArguments` 래퍼 (v0.7.1). 태그 유실 버그·승인/실행 불일치·깨진 tool_call 침묵도 함께 해소
 - [x] KnowledgeDao LIKE escape → `SqlLike.escape` + `ESCAPE '\'` (v0.7.1). 태그 정확 매칭도 함께
+- [x] MemoryViewModel 콜백→UiState 이벤트 전환 (v0.7.2). `BackupState` 도입으로 Activity 컨텍스트 누수와 완료 통지 유실을 함께 해소하고 `Toast`도 제거. 내보내기/가져오기 UI 진입점을 붙이는 순간 이 결함이 실제로 발현되므로 함께 처리했다
+- [x] 내보내기/가져오기 UI 진입점 신설 (v0.7.2) — `prd.md` F8 미달이었다. 개인정보 경고·덮어쓰기 확인·재시작 확인 3단 다이얼로그와 SAF 저장 위치 선택 포함
+- [x] `AuditRepository.getPagedByType` 제거 (v0.7.2) — 스펙에 없는 선행 구현이었고 호출자가 없었다
 
 ### 잔여
 성능
 - [ ] **MediaPipeTextEmbedder lazy-init** — `init` 블록에서 TFLite 그래프를 로드해 첫 채팅 시 메인 스레드가 수십~수백 ms 블로킹된다. 초기화 실패를 `catch(Throwable)`이 로그만 남기고 넘겨 `textEmbedder`가 영구히 null이 되고, 그 결과 RAG가 LIKE 검색으로 **조용히 강등**된다(재시도 경로 없음). `close()`도 없어 네이티브 메모리가 프로세스 수명 동안 유지된다
 - [ ] **임베딩 BLOB 전환** — `embedding: String`(콤마 구분 실수)이라 `searchByVector`가 1000행을 `split`+`toFloatOrNull`로 파싱해 RAG 질의 한 번에 30만 개 남짓 단기 할당이 발생한다. `toDomain()`이 같은 문자열을 다시 파싱하는 이중 파싱도 있음. 정밀도 손실은 없으나(`Float.toString`은 라운드트립 보장), `mapNotNull`이 파싱 실패 항목을 조용히 버려 길이 비교에서 탈락한 노트가 벡터 검색에서 영구히 안 보이게 되는 실패 모드가 있다. Room 스키마 마이그레이션(v4→v5) 필요
 
-UI 정확성
+UI 정확성 (남은 1건)
 - [ ] **ChatViewModel 스트리밍 파싱 단일화** — 같은 토큰 스트림을 3곳에서 각자 다른 누적 버퍼로 파싱한다. `BaseAgent`의 버퍼는 툴 루프마다 초기화되는데 `ChatViewModel.accumulatedRaw`는 초기화되지 않아 **툴 턴에서 1턴 텍스트가 2턴에 이어붙어 보인다**. 반쯤 열린 `<tool_call>`은 정규식에 걸리지 않아 **프로토콜 문법이 그대로 노출**되고, 닫히지 않은 `<|think|>`는 뒤 내용을 삼켜 버블이 잠깐 빈다. 0.5.10에서 `BaseAgent`에 적용한 "태그 감지 후에만 파싱" 최적화가 `ChatViewModel`의 동일 루프에는 적용되지 않았다. `ChatRequest.onToken` 계약을 3계층에 걸쳐 변경해야 함
-- [ ] **MemoryViewModel 콜백→UiState 이벤트 전환** — 콜백 람다가 Activity `context`를 캡처하고 `viewModelScope` 코루틴이 이를 붙잡는다. DB를 재작성하는 임포트 중 화면을 회전하면 콜백이 파괴된 Activity를 향해 실행된다(`startActivity` 경로). 반대로 컴포지션을 벗어나면 새 람다가 생겨 진행 중 코루틴은 옛 람다를 들고 있어 완료 통지가 유실되고, `UiState`에 읽을 필드가 없다. `Toast`를 쓰므로 0.6.0 라이트/다크 토큰도 무시된다
 
 아키텍처
-- [ ] **domain paging 의존 제거** — `AuditRepository.getPaged()`/`getPagedByType()`, `KnowledgeRepository.getPagedData()`가 `Flow<PagingData<T>>`를 반환해 Pure Kotlin JVM 모듈이 `androidx` 타입을 공개 계약에 노출한다. 소비자가 ViewModel 2곳이고 둘 다 곧바로 `cachedIn`하므로 `Pager` 생성만 올리면 됨
+- [ ] **domain paging 의존 제거** — `AuditRepository.getPaged()`, `KnowledgeRepository.getPagedData()`가 `Flow<PagingData<T>>`를 반환해 Pure Kotlin JVM 모듈이 `androidx` 타입을 공개 계약에 노출한다. 소비자가 ViewModel 2곳이고 둘 다 곧바로 `cachedIn`하므로 `Pager` 생성만 올리면 됨. 0.7.2에서 `getPagedByType`을 지워 옮길 계약이 하나 줄었다
 
 세부 항목
 - [ ] per-tool `@Serializable` 타입 스키마 — `ToolArguments`로 런타임 결함은 제거했으나 인자 이름이 여전히 프롬프트 텍스트와 호출부에만 존재한다(컴파일 타임 검증 없음). `ToolExecutor` 제네릭화는 `ToolRegistry`/`BaseAgent`에 star projection이 번져 별건으로 남김
@@ -147,5 +149,13 @@ UI 정확성
 - [ ] 알림용 24dp 모노 벡터 아이콘 + `colors.xml` accent — 현재 `android.R.drawable.stat_sys_download` 계열 임시 사용(OEM이 재스타일링해 기기별 외형 불일치). adaptive icon(`ic_launcher_foreground`)이 없어 파생시킬 브랜드 실루엣도 없음
 
 ### 확인 필요 (임의 판단하지 않음)
-- `MemoryViewModel.exportData`에 호출자가 없다 — 내보내기 기능에 UI 진입점이 아예 없는 것이 의도인지. 0.7.1의 직렬화 플러그인 수정으로 코드는 이제 동작할 상태
-- `AuditRepository.getPagedByType`에 `:app` 호출자가 없다 — 죽은 API인지
+
+**결정이 필요한 것**
+- 알림 아이콘 디자인 — 제네릭 다운로드 화살표 vs KOSMOS 마크 실루엣. 후자를 고르면 파생시킬 브랜드 벡터가 없어 adaptive icon(`ic_launcher_foreground`)도 함께 만들어야 한다
+- 태그에 콤마가 들어올 때 정책 — 저장 시 거부할지, 다른 문자로 치환할지
+- `MediaPipeTextEmbedder` 초기화 실패 시 RAG가 LIKE 검색으로 조용히 강등되는 것을 사용자에게 알릴지 — 품질 저하 표시 여부는 제품 결정. 해당 항목을 고칠 때 함께 결정
+
+**사용자 실기기가 필요한 것**
+- ADR-006 수동 QA 체크리스트 — 전경 승격 / Doze 백오프 / 실제 3.6GB 전송
+- v0.7.2 백업 왕복 QA — 내보내기→저장→가져오기→재시작, 특히 **가져오기 진행 중 화면 회전**(`prd.md` V1-AC4)
+- README 스크린샷 갱신 (라이트/다크)

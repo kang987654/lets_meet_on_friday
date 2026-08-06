@@ -1,3 +1,14 @@
+## [0.7.2] - 2026-08-06
+- **[Added]** 내보내기/가져오기 UI 진입점 — `prd.md` F8이 "메모리 화면에서 export 선택"을 요구하는데 진입점이 아예 없었다. `MemoryViewModel.exportData`/`importData`는 구현돼 있었으나 호출자가 없어 도달 불가 상태였고(`importLauncher`는 만들어졌지만 `launch`가 호출되는 곳이 없었다), 그래서 `V1-AC4`(export→import 왕복)를 사용자가 수행할 방법이 없었다. 메모리 화면 하단에 백업 섹션 추가
+- **[Added]** 내보내기 시 개인정보 포함 경고 다이얼로그 — `prd.md` F8 정책("export 파일에 개인정보가 포함됨을 UI에서 명시") 충족. v1은 암호화를 의도적으로 넣지 않았으므로 이 경고가 유일한 보호막이다. 가져오기에도 기존 데이터를 되돌릴 수 없이 덮어쓴다는 확인 단계 추가
+- **[Added]** 저장 위치 직접 선택 — 생성된 zip은 `cacheDir`에 있어 사용자가 접근할 수 없고 시스템이 언제든 비울 수 있다. SAF `CreateDocument`로 사용자가 고른 위치에 복사하는 `BackupFileWriter` 추가 (사용자 결정). 저장 완료·취소 어느 쪽이든 캐시 사본을 정리한다
+- **[Fix]** `MemoryViewModel`의 콜백 누수 — 콜백 람다가 Activity `context`를 캡처하고 `viewModelScope` 코루틴이 그것을 붙잡았다. DB를 재작성하는 가져오기 도중 화면을 회전하면 파괴된 Activity를 향해 `startActivity`가 실행되고, 반대로 컴포지션을 벗어나면 진행 중 코루틴이 옛 람다를 들고 있어 완료 통지가 유실됐다(`UiState`에 읽을 필드도 없었다). 결과를 `BackupState`로 노출하도록 전환
+- **[Fix]** 가져오기 중복 실행 가드 추가 — DB 파일을 통째로 교체하는 작업이라 재진입이 곧 데이터 파괴다
+- **[Fix]** 복원 후 자동 재시작(Toast + 2초 지연 `exitProcess(0)`)을 확인 다이얼로그로 교체 (사용자 결정) — 타이머가 화면 회전이나 백그라운드 전환과 경합할 수 있었고, `Toast`는 0.6.0의 라이트/다크 토큰을 무시했다. 재시작 다이얼로그는 닫을 수 없다(DB가 이미 교체된 상태로 계속 쓰면 화면의 페이징 캐시와 실제 데이터가 어긋난다)
+- **[Removed]** `AuditRepository.getPagedByType` 3계층 제거 (인터페이스·`AuditRepositoryImpl`·`AuditDao`) — 감사 로그 타입 필터용으로 UI보다 먼저 만들어졌으나 `tasks.md`에 해당 요구사항이 없고 호출자도 없었다. 소비자 없는 계약은 `:domain`의 paging 의존 제거 작업만 무겁게 만든다. DB 스키마 변경이 아니므로 마이그레이션 없음 (사용자 결정)
+- **[QA/Test]** 신규 테스트 12건 — `MemoryBackupStateTest`(내보내기/가져오기 상태 전환, 중복 실행 가드, 재시작 대기 상태의 닫기 차단, 경고 선행 검증). 전체 96건 + lintDebug 통과
+- **[Known Issue]** `ExportImportManager`의 zip 왕복은 여전히 무테스트 — Room DB 파일 교체와 프로세스 재시작이 얽혀 JVM 테스트로 재현하기 어렵다. 실기기 QA 필요(특히 가져오기 진행 중 화면 회전)
+
 ## [0.7.1] - 2026-08-06
 - **[Fix]** `AddMemory` 툴의 태그가 전부 유실되던 버그 — `AddMemoryToolExecutor`가 `tagsRaw is List<*>`로 분기했으나 `org.json`은 JSON 배열을 `List`가 아닌 `JSONArray`로 주므로 이 분기는 절대 참이 되지 않았다. 프롬프트가 지시한 정식 형태(`{"tags":["work","urgent"]}`)로 보낸 태그가 조용히 사라지고 콤마 문자열 폴백만 동작하던 상태(재현 확인: `isList=false`, 결과 `[]`)
 - **[Fix]** `KnowledgeDao` LIKE 와일드카드 미이스케이프 — Room 파라미터 바인딩은 SQL 인젝션을 막지만 `%`/`_`는 바인딩된 값 안쪽에 있어 와일드카드로 해석됐다. `100%` 검색이 `100` 포함 전체를, `%` 한 글자가 테이블 전체를 매칭해 노트 100건이 RAG 프롬프트로 쏟아지고 컨텍스트 예산을 터뜨렸다. `SqlLike.escape` + 두 쿼리에 `ESCAPE '\'` 적용, 빈 검색어 가드 추가
