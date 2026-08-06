@@ -45,10 +45,16 @@ class WikipediaSearchToolImpl @Inject constructor(
                 .addQueryParameter("prop", "extracts")
                 .addQueryParameter("explaintext", "1")
                 .addQueryParameter("exintro", "1")
-                .addQueryParameter("origin", "*")
+                // [WHY] origin=* 를 제거했다 — 브라우저 CORS 용 파라미터라 네이티브 클라이언트에는
+                // 의미가 없고, 요청을 익명 처리해 오히려 레이트리밋에 걸리기 쉽다.
                 .build()
 
-            val searchRequest = Request.Builder().url(searchUrl).build()
+            // [WHY] Wikimedia 는 식별 가능한 User-Agent 를 요구한다. 없으면 403 이나
+            // 레이트리밋으로 간헐 실패한다 (실기기에서 위키 검색이 안 되던 원인 후보).
+            val searchRequest = Request.Builder()
+                .url(searchUrl)
+                .header("User-Agent", USER_AGENT)
+                .build()
             client.newCall(searchRequest).execute().use { searchResponse ->
                 if (!searchResponse.isSuccessful) {
                     return@withContext AppResult.Failure(com.kosmos.app.core.common.AppError.NetworkUnavailable("Wikipedia API HTTP error: ${searchResponse.code}"))
@@ -98,5 +104,9 @@ class WikipediaSearchToolImpl @Inject constructor(
         } catch (e: Exception) {
             AppResult.Failure(com.kosmos.app.core.common.AppError.NetworkUnavailable("Failed to query Wikipedia: ${e.message}"))
         }
+    }
+
+    private companion object {
+        const val USER_AGENT = "KOSMOS/0.8.0 (on-device personal assistant; personal project)"
     }
 }

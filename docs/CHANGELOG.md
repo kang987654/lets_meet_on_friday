@@ -1,3 +1,18 @@
+## [0.8.0] - 2026-08-06
+> 실기기 테스트에서 메모리·일정·위키 기능이 **전부 동작하지 않는 것**이 확인됐다. 감사 로그상 모델이 `<tool_call>` 을 한 번도 생성하지 않고 평문으로 답하며 "저는 이 정보를 영구적으로 저장하지 않고"라고 말했다 — 자기에게 툴이 있다는 걸 몰랐다. 최근 4개 버전과 무관하며, **툴 호출은 실기기에서 처음부터 동작한 적이 없었다.** 기존 테스트는 fake 모델이 툴 호출을 스크립트해 배관만 검증했다.
+- **[Fix]** 툴 호출을 LiteRT 네이티브 함수호출로 전환 (ADR-008) — 시스템 프롬프트로 `<tool_call>{"name":...}</tool_call>` 형식을 가르치던 방식을 버렸다. 그 규약은 Gemma 의 채팅 템플릿에 없어 온디바이스 모델이 따를 사전 지식이 없다. `@Tool`/`@ToolParam` + `ToolSet` 선언을 `ConversationConfig(tools = ...)` 로 넘겨 모델의 정식 함수호출 템플릿을 쓴다 (google-ai-edge/gallery 참조). `kotlin-reflect` 의존 추가 — `ReflectionTool` 이 `KFunction` 으로 스키마를 만들므로 없으면 런타임 실패한다
+- **[Fix]** 일정 등록이 표현에 따라 실패하던 문제 — `IntentClassifier` 가 쓰기 키워드와 캘린더 문맥 키워드를 **둘 다** 요구했는데 "치과 예약"에는 문맥 키워드가 없었다(목록에 `약속` 은 있지만 `예약` 은 없다 — 글자 순서가 반대인 다른 단어다). `DefaultAgent` 로 라우팅돼 `AddSchedule` 이 프롬프트에서 사라지고 실행 단계에서도 차단됐다
+- **[Fix]** 모델이 사용자가 말한 숫자를 왜곡하던 문제 — `temperature 0.8 → 0.3`. "비밀번호 1234"가 342/4213/2143 으로 바뀌었다. 프롬프트에 "숫자·날짜·고유명사를 절대 바꾸지 말라"는 지시도 추가
+- **[Fix]** Wikipedia 요청에 `User-Agent` 추가 및 무의미한 `origin=*` 제거 — Wikimedia 정책상 식별 가능한 UA 가 없으면 403/레이트리밋이 발생한다(위키 검색 실패의 원인 후보)
+- **[Fix]** 시스템 지시의 시각을 초 단위에서 분 단위로 — 매 턴 지시가 달라져 `getOrCreateConversation` 의 재사용 판정이 항상 거짓이 되고 Conversation 이 매번 파괴·재생성(전체 프리필)됐다. 그 판정은 사실상 죽은 코드였다
+- **[Refactoring]** 라우터 폐지 및 에이전트 단일화 — `IntentClassifier`/`TaskRouter`/`CalendarAgent` 제거, `DefaultAgent` → `KosmosAgent` 로 통합해 툴 4개를 모두 선언한다(웹 검색만 토글 게이트). **에이전트별로 툴 목록이 다른 구조 자체가 "라우팅 오류 = 툴 소멸"이라는 실패 모드**였다. 실행 시점 allowlist 재검증은 유지한다 — 프롬프트 주입 방어는 라우팅과 별개다
+- **[Refactoring]** `ModelRunner` 반환형을 `AppResult<String>` → `AppResult<ModelTurn>`(텍스트 + 구조화된 툴 호출)로 확장. `ChatPrompt` 에 `enabledTools`/`toolResponse` 추가. 툴 결과는 `Content.ToolResponse` 로 되돌린다 — 이전에는 `<tool_response>` 텍스트를 사용자 턴으로 위장해 보냈다. `ToolArguments.of(map)` 덕분에 executor 4개와 승인 경로는 무변경
+- **[Refactoring]** `GemmaModelRunner` 의 세 진입점(텍스트/이미지/오디오)에 60여 줄씩 복제돼 있던 추론 흐름을 `runTurn` 하나로 통합 — 툴 호출 수집을 세 곳에 각각 넣으면 어긋날 수밖에 없었다. 이미지 경로에만 남아 있던 죽은 try/catch 도 제거
+- **[Refactoring]** `ToolParser` 의 역할 축소 — 툴 호출 판정은 구조화된 값이 담당하고, 이 파서는 `<|think|>` 처리와 표시 단계 위생 처리(모델이 옛 규약을 흉내내도 화면에 노출되지 않게)만 맡는다. 스트리밍 중 조기 취소도 제거
+- **[QA/Test]** 신규 테스트 6건(`KosmosAgentTest` 3건 — 표현과 무관하게 일정 툴이 항상 노출되는지, `BaseAgentStreamTest` +3건 — 구조화된 툴 호출이 `toolResponse` 로 회신되는지). fake 5곳을 `ModelTurn` 으로 이관하고 `ToolApprovalE2ETest` 의 스크립트를 XML 텍스트에서 구조화된 호출로 교체. 전체 148건 + lintDebug 통과
+- **[Known Issue]** **실기기 확인 필요 —** `automaticToolCalling = false` 에서 `Message.toolCalls` 가 채워지는지는 디컴파일된 API 표면으로만 확인했다. 첫 확인 항목: 메모리 저장 요청 시 승인 카드가 뜨는지. 실패 시 대안은 `automaticToolCalling = true` + `ToolSet` 본문에서 승인 처리(ADR-008 하단)
+- **[Known Issue]** UI 2건 보류 (사용자 결정) — 상단 웹 검색 토글과 설정 버튼 겹침, 일정 탭의 파란 표지 오류. 대화가 동작한 뒤 전면 개선 때 함께 본다
+
 ## [0.7.4] - 2026-08-06
 - **[Performance]** 임베딩 저장을 콤마 구분 문자열에서 little-endian float BLOB 으로 전환 (Room v4→v5) — `searchByVector`가 1000행을 `split`+`toFloatOrNull`로 파싱해 RAG 질의 한 번에 30만 개 남짓 단기 할당이 발생했고, `toDomain()`이 같은 문자열을 다시 파싱하는 이중 파싱도 있었다. `FloatBytes`로 인코딩을 한 곳에 모았고 바이트 순서를 명시적으로 고정했다(`ByteBuffer` 기본값은 big-endian이라 플랫폼 기본값에 맡기면 조용히 깨진다)
 - **[Fix]** 임베딩 파싱 실패가 노트를 영구히 숨기던 실패 모드 — `mapNotNull`이 실패 항목을 조용히 버려 길이 비교에서 탈락한 노트가 벡터 검색에서 안 보였다. BLOB 은 길이가 구조적으로 보존된다
