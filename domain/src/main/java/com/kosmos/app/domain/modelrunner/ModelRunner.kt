@@ -9,20 +9,20 @@ interface ModelRunner {
     suspend fun generate(
         prompt: ChatPrompt,
         onToken: ((String) -> Unit)? = null
-    ): AppResult<String>
+    ): AppResult<ModelTurn>
 
     suspend fun generateWithImage(
         prompt: ChatPrompt,
         imageBytes: ByteArray,
         imageTokenBudget: Int = 280,
         onToken: ((String) -> Unit)? = null
-    ): AppResult<String>
+    ): AppResult<ModelTurn>
 
     suspend fun generateWithAudio(
         prompt: ChatPrompt,
         audioPath: String,
         onToken: ((String) -> Unit)? = null
-    ): AppResult<String>
+    ): AppResult<ModelTurn>
 
     suspend fun cancel()
     suspend fun warmUp()

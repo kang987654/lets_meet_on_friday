@@ -95,6 +95,9 @@ androidx-paging-compose = { module = "androidx.paging:paging-compose", version.r
 
 # LiteRT-LM & MediaPipe
 litertlm-android = { module = "com.google.ai.edge.litertlm:litertlm-android", version.ref = "litertlm" }
+# [WHY] litertlm 의 ReflectionTool 이 KFunction 으로 툴 스키마를 만들므로 kotlin-reflect 가 필요하다.
+# 없으면 컴파일은 되고 툴 선언 시점에 런타임 실패한다 (google-ai-edge/gallery 도 동일하게 선언).
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
 mediapipe-tasks-text = { module = "com.google.mediapipe:tasks-text", version.ref = "mediapipe" }
 
 # OkHttp

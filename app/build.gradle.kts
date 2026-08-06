@@ -106,6 +106,7 @@ dependencies {
 
     // LiteRT-LM & TFLite
     implementation(libs.litertlm.android)
+    implementation(libs.kotlin.reflect)
     implementation(libs.play.services.tflite.java)
     implementation(libs.play.services.tflite.gpu)
     implementation(libs.play.services.tflite.support)

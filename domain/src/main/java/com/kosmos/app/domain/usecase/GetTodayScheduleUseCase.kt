@@ -114,7 +114,7 @@ class GetTodayScheduleUseCase @Inject constructor(
             currentInput = prompt
         )
         val summary = when (val result = modelRunner.generate(chatPrompt)) {
-            is AppResult.Success -> result.data.trim()
+            is AppResult.Success -> result.data.text.trim()
             is AppResult.Failure -> null // [WHY] AI 요약 실패 시 앱 다운을 막기 위해 null 폴백 처리
         }
 
