@@ -83,13 +83,14 @@ class BaseAgentStreamTest {
         toolRegistry: ToolRegistry,
         auditTrailService: AuditTrailService,
         conversationRepository: ConversationRepository,
-        approvalCoordinator: ApprovalCoordinator
+        approvalCoordinator: ApprovalCoordinator,
+        private val allowedTools: List<String> = emptyList()
     ) : BaseAgent(modelRunner, toolRegistry, auditTrailService, conversationRepository, approvalCoordinator) {
 
         override suspend fun execute(request: ChatRequest, context: ContextBuilder.Context): AgentResult =
-            executeToolLoop(request, prompt(), allowedTools = emptyList())
+            executeToolLoop(request, prompt(), allowedTools = allowedTools)
 
-        override fun availableTools(context: ContextBuilder.Context): List<String> = emptyList()
+        override fun availableTools(context: ContextBuilder.Context): List<String> = allowedTools
 
         private fun prompt() = ChatPrompt(
             sessionId = "s1",
@@ -105,7 +106,10 @@ class BaseAgentStreamTest {
         val prompts: List<ChatPrompt>
     )
 
-    private fun runAgent(vararg turns: ModelTurn): Harness {
+    private fun runAgent(
+        vararg turns: ModelTurn,
+        allowedTools: List<String> = emptyList()
+    ): Harness {
         val updates = mutableListOf<StreamUpdate>()
         val runner = ChunkedModelRunner(turns.toList())
         val conversationRepository: ConversationRepository = mockk {
@@ -116,7 +120,8 @@ class BaseAgentStreamTest {
             toolRegistry = mockk(relaxed = true),
             auditTrailService = mockk(relaxed = true),
             conversationRepository = conversationRepository,
-            approvalCoordinator = mockk(relaxed = true)
+            approvalCoordinator = mockk(relaxed = true),
+            allowedTools = allowedTools
         )
         val request = ChatRequest(
             sessionId = "s1",
@@ -179,9 +184,14 @@ class BaseAgentStreamTest {
     @Test
     fun `툴 이름은 프롬프트의 enabledTools 로 전달된다`() {
         // [WHY] 런타임이 이 목록으로 모델에게 툴을 선언한다. 비면 모델은 툴이 없다고 본다.
-        val harness = runAgent(ModelTurn("안녕하세요."))
+        // 빈 리스트끼리 비교하면 BaseAgent 가 enabledTools 를 채우지 않아도 통과하는 공허한
+        // 검증이 되므로, 반드시 비어 있지 않은 목록으로 계약을 고정한다.
+        val harness = runAgent(
+            ModelTurn("안녕하세요."),
+            allowedTools = listOf("AddSchedule", "AddMemory")
+        )
 
-        assertEquals(emptyList<String>(), harness.prompts.first().enabledTools)
+        assertEquals(listOf("AddSchedule", "AddMemory"), harness.prompts.first().enabledTools)
     }
 
     @Test

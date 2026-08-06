@@ -1,3 +1,13 @@
+## [0.8.1] - 2026-08-06
+> 0.8.0 실기기 확인 결과 여전히 `toolCalls=[]` — 모델이 툴 호출을 만들지 않았다. 0.14.0 AAR 바이트코드와 gallery 소스를 대조해 배관은 정상임을 확정했다(툴 JSON 은 `automaticToolCalling` 과 무관하게 네이티브로 전달되고, `toolCalls` 는 우리가 collect 하는 스트리밍 Flow 에 실려 온다). 남은 원인은 두 가지 — constrained decoding 미활성화, 그리고 모델 파일의 템플릿 지원 여부.
+- **[Fix]** `ExperimentalFlags.enableConversationConstrainedDecoding` 활성화 — gallery 는 툴을 쓰는 **모든** 태스크에서 이 전역 플래그를 `createConversation` 직전에 켜고 직후에 끈다. 툴 스키마로부터 FST 문법을 만들어 모델 출력을 호출 구문으로 **강제**하는 장치로, 선언만으로는 4B 온디바이스 모델이 호출 형식을 지키지 못한다. `ConversationConfig` 필드가 아니라 생성 시점에만 읽히는 전역 플래그라서 0.8.0 전환 때 누락됐다
+- **[Added]** 진단 로그 3종 — ① 선택된 모델 파일 이름·크기(`GemmaRuntimeManager`), ② Conversation 생성 시 선언된 툴 목록·프로바이더 수, ③ `renderPrefaceIntoString()` 으로 렌더링된 프롬프트 서두. **툴 호출 지원은 모델 파일에 달렸다** — 네이티브가 모델 메타데이터의 jinja 템플릿을 쓰는데 템플릿에 툴 블록이 없으면 선언이 렌더링에서 통째로 탈락한다(gallery 허용 목록 기준 Gemma 4 = 지원, Gemma 3n = 미지원). preface 로그가 이를 실기기에서 확정하는 유일한 단서다
+- **[Fix]** 모델 파일 스캔의 외부 저장소 분기가 `firstOrNull`(파일시스템 나열 순서, 비결정적)이던 것을 내부 분기와 같은 최신 수정 파일 기준으로 통일 — 옛 모델이 남아 있으면 그게 잡힐 수 있었다
+- **[Fix]** R8 keep 규칙 추가 — litertlm AAR 은 consumer proguard 규칙을 싣지 않고, `tool(ToolSet)` 은 kotlin-reflect 로 `@Tool` 메서드를 찾으므로 R8 이 이름을 바꾸면 **예외 없이 빈 툴 목록**이 되어 release 빌드에서만 툴이 조용히 죽는다. 잠복 버그 선제 수정
+- **[Fix]** `addSchedule` 선언의 `endTime`/`description` 을 nullable 로 — non-null 파라미터는 스키마의 required 에 들어가 4B 모델이 4개 인자를 전부 지어내야 호출할 수 있었다(환각 인자 유도). 실행부는 누락 인자를 이미 처리한다
+- **[QA/Test]** `BaseAgentStreamTest` 의 enabledTools 검증이 빈 리스트끼리 비교하는 공허한 테스트였던 것을 비어 있지 않은 목록으로 교정 — `BaseAgent` 가 enabledTools 를 채우지 않아도 통과하는 상태였다. 전체 148건 + lintDebug 통과
+- **[Known Issue]** 실기기 재확인 필요 — ① 모델 파일이 `gemma-4-*` 인지(`model file:` 로그), ② preface 에 툴 선언이 렌더링되는지, ③ 승인 카드. preface 에 툴 블록이 없으면 코드가 아니라 모델 파일 교체가 답이다
+
 ## [0.8.0] - 2026-08-06
 > 실기기 테스트에서 메모리·일정·위키 기능이 **전부 동작하지 않는 것**이 확인됐다. 감사 로그상 모델이 `<tool_call>` 을 한 번도 생성하지 않고 평문으로 답하며 "저는 이 정보를 영구적으로 저장하지 않고"라고 말했다 — 자기에게 툴이 있다는 걸 몰랐다. 최근 4개 버전과 무관하며, **툴 호출은 실기기에서 처음부터 동작한 적이 없었다.** 기존 테스트는 fake 모델이 툴 호출을 스크립트해 배관만 검증했다.
 - **[Fix]** 툴 호출을 LiteRT 네이티브 함수호출로 전환 (ADR-008) — 시스템 프롬프트로 `<tool_call>{"name":...}</tool_call>` 형식을 가르치던 방식을 버렸다. 그 규약은 Gemma 의 채팅 템플릿에 없어 온디바이스 모델이 따를 사전 지식이 없다. `@Tool`/`@ToolParam` + `ToolSet` 선언을 `ConversationConfig(tools = ...)` 로 넘겨 모델의 정식 함수호출 템플릿을 쓴다 (google-ai-edge/gallery 참조). `kotlin-reflect` 의존 추가 — `ReflectionTool` 이 `KFunction` 으로 스키마를 만들므로 없으면 런타임 실패한다

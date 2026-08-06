@@ -169,7 +169,7 @@
 아래는 사용자 실기기가 필요한 검증이다.
 
 **사용자 실기기가 필요한 것**
-- **v0.8.0 툴 호출 (최우선)** — 메모리 저장 요청 시 승인 카드가 뜨는지. `automaticToolCalling = false` 에서 `Message.toolCalls` 가 채워진다는 가설의 확인이며, ADR-008 전체의 전제다. 실패 시 Plan B(`automaticToolCalling = true`)로 전환
+- **v0.8.1 툴 호출 (최우선)** — 0.8.0 확인은 실패(`toolCalls=[]`). constrained decoding 활성화 후 재확인한다. Logcat `GemmaModelRunner`/`GemmaRuntimeManager` 필터에서 순서대로: ① `model file:` 이 `gemma-4-*` 인지(3n 계열이면 파일 교체가 답), ② `preface:` 에 툴 선언이 렌더링됐는지(없으면 모델 템플릿 미지원 확정), ③ 메모리 저장 요청 시 승인 카드. preface 에 툴 블록이 **있는데도** `toolCalls=[]` 면 Plan B(`automaticToolCalling = true`)로 전환
 - v0.8.0 일정 등록 — "내일 3시에 치과 예약 잡아줘"(라우터가 없으므로 표현 무관), 숫자 왜곡 없는지, 웹 검색 토글 on 후 위키 질문
 - ADR-006 수동 QA 체크리스트 — 전경 승격 / Doze 백오프 / 실제 3.6GB 전송
 - v0.7.2 백업 왕복 QA — 내보내기→저장→가져오기→재시작, 특히 **가져오기 진행 중 화면 회전**(`prd.md` V1-AC4)
