@@ -5,6 +5,7 @@ import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.assistant.context.ToolParser
 import com.kosmos.app.assistant.orchestrator.ChatRequest
 import com.kosmos.app.assistant.orchestrator.StreamUpdate
+import com.kosmos.app.assistant.tool.ToolArguments
 import com.kosmos.app.assistant.tool.ToolRegistry
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
@@ -15,8 +16,9 @@ import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.InputType
 import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.domain.modelrunner.ModelTurn
+import com.kosmos.app.domain.modelrunner.ToolResponseInput
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import java.util.UUID
 
 /**
@@ -49,15 +51,15 @@ abstract class BaseAgent(
         initialPrompt: ChatPrompt,
         allowedTools: List<String>
     ): AgentResult = coroutineScope {
-        var prompt = initialPrompt
-        var rawOutput = ""
+        // [WHY] enabledTools 를 프롬프트에 실어야 런타임이 모델에게 툴을 선언한다 (ADR-008).
+        var prompt = initialPrompt.copy(enabledTools = allowedTools)
+        var lastTurn: ModelTurn? = null
         var parsedResult: ToolParser.ParsedStream? = null
+        var isFirstTurn = true
         var loopCount = 0
         val MAX_TOOL_LOOP_COUNT = 3
-        val TOOL_TAG_WINDOW = 12 // "<tool_call"/"<|think|" 태그가 토큰 경계에 걸려도 감지되는 길이
+        val THINK_TAG_WINDOW = 12 // "<|think|" 태그가 토큰 경계에 걸려도 감지되는 길이
 
-        val scope = this
-        var cancelJob: kotlinx.coroutines.Job? = null
         while (true) {
             if (loopCount >= MAX_TOOL_LOOP_COUNT) {
                 auditTrailService.logError(request.sessionId, "Max tool loop count exceeded")
@@ -66,88 +68,68 @@ abstract class BaseAgent(
             }
             loopCount++
 
-            var toolCallDetected = false
             var tagSeen = false
             var tailWindow = ""
             var accumulatedToken = ""
             // [WHY] 스트리밍 파싱이 여기 한 곳에만 있다. 이 누적기는 루프 안에 선언돼 턴마다
             // 리셋되므로, UI 가 직접 누적하던 시절의 "1턴 문장이 2턴에 이어붙는" 결함이
             // 구조적으로 불가능해진다 (ADR-007).
+            //
+            // [WHY] 툴 호출 감지는 더 이상 텍스트 파싱이 아니다 — 런타임이 구조화된 호출을
+            // 돌려주므로 `<tool_call` 윈도우와 조기 취소가 사라졌다. `<|think|>` 처리는 남긴다
+            // (모델이 생각 텍스트를 낼 수 있고, 방어 비용이 싸다).
             val wrappedOnToken: (String) -> Unit = { token ->
                 accumulatedToken += token
                 // [WHY] 토큰마다 전체 누적 문자열을 정규식 재파싱하면 O(n²) 핫패스가 된다.
-                // 경계 윈도우로 태그 시작을 감지한 뒤에만 파싱을 수행한다. 태그가 하나도
-                // 없는 구간에서는 누적 문자열이 곧 본문이므로 파싱이 아예 필요 없다.
+                // 태그가 하나도 없는 구간에서는 누적 문자열이 곧 본문이므로 파싱이 필요 없다.
                 val probe = tailWindow + token
-                if (!tagSeen && (probe.contains("<tool_call") || probe.contains("<|think|"))) {
+                if (!tagSeen && probe.contains("<|think|")) {
                     tagSeen = true
                 }
-                tailWindow = accumulatedToken.takeLast(TOOL_TAG_WINDOW)
+                tailWindow = accumulatedToken.takeLast(THINK_TAG_WINDOW)
 
                 val update = if (tagSeen) {
                     val p = ToolParser.parseStream(accumulatedToken)
-                    if (!toolCallDetected && p.toolCalls.isNotEmpty()) {
-                        toolCallDetected = true
-                        cancelJob = scope.launch { modelRunner.cancel() }
-                    }
                     StreamUpdate(p.content.ifEmpty { null }, p.thinking)
                 } else {
-                    // [WHY] 태그가 아직 완성되지 않았어도 꼬리에 걸린 조각(`<tool_`)은 잘라야
-                    // 한다. 감지 윈도우는 완전한 태그 문자열만 찾으므로, 그 전 구간을 그대로
-                    // 흘리면 조각이 한 글자씩 자라는 것이 보인다. 정규식 파싱 없이 꼬리만 본다.
+                    // [WHY] 태그가 완성되기 전 꼬리 조각(`<|th`)도 잘라야 한다 — 감지 윈도우는
+                    // 완전한 태그만 찾으므로 그 전 구간을 그대로 흘리면 조각이 보인다.
                     StreamUpdate(ToolParser.stripIncompleteTag(accumulatedToken).ifEmpty { null }, null)
                 }
                 request.onStream?.invoke(update)
             }
 
-            val modelResult = if (request.audioFilePath != null && rawOutput.isEmpty()) {
+            // [WHY] 첫 턴에만 첨부(이미지·오디오)를 보낸다. 이후는 툴 응답 회신 턴이다.
+            val modelResult = if (request.audioFilePath != null && isFirstTurn) {
                 modelRunner.generateWithAudio(prompt, request.audioFilePath, wrappedOnToken)
-            } else if (request.imageBytes != null && rawOutput.isEmpty()) {
+            } else if (request.imageBytes != null && isFirstTurn) {
                 modelRunner.generateWithImage(prompt, request.imageBytes, request.imageTokenBudget, wrappedOnToken)
             } else {
                 modelRunner.generate(prompt, wrappedOnToken)
             }
+            isFirstTurn = false
 
-            // [WHY] 중간 취소(cancelProcess)가 fire-and-forget으로 남아 있으면 다음 루프의
-            // 추론을 죽일 수 있으므로, 이번 생성 종료 후 반드시 완료를 기다린다.
-            cancelJob?.join()
-            cancelJob = null
-
-            rawOutput = when (modelResult) {
+            val turn = when (modelResult) {
                 is AppResult.Success -> modelResult.data
                 is AppResult.Failure -> return@coroutineScope handleErrorAndReturn(request.sessionId, "Model inference failed: ${modelResult.error.toString()}")
             }
+            lastTurn = turn
+            parsedResult = ToolParser.parseStream(turn.text)
 
-            val parsed = ToolParser.parseStream(rawOutput)
-            parsedResult = parsed
-
-            if (parsed.toolCalls.isNotEmpty()) {
-                val call = parsed.toolCalls.first() // 병렬 처리 방지
-                val toolJson = executeToolInner(call, request.sessionId, allowedTools)
-                // [WHY] Conversation은 stateful이라 직전 입력/출력이 이미 컨텍스트에 있다.
-                // currentInput+rawOutput을 재전송하면 매 반복마다 내용이 중복 누적되므로 tool_response만 보낸다.
-                val newInput = "<tool_response>\n$toolJson\n</tool_response>"
-                prompt = prompt.copy(currentInput = newInput)
-                continue
-            }
-
-            // [WHY] JSON이 깨진 tool_call은 이전에 조용히 버려져, 모델은 오류를 받지 못하고
-            // 그 턴이 평문 답변으로 처리됐다 — 사용자에게는 요청이 무시된 것처럼 보인다.
-            // 형식 오류를 되돌려 모델이 스스로 고쳐 다시 호출할 기회를 준다.
-            if (parsed.malformedToolCalls.isNotEmpty()) {
-                auditTrailService.logError(
+            if (turn.toolCalls.isNotEmpty()) {
+                val call = turn.toolCalls.first() // 병렬 처리 방지
+                val toolJson = executeToolInner(
+                    ToolParser.ToolCallData(call.name, ToolArguments.of(call.args)),
                     request.sessionId,
-                    "Malformed tool_call JSON: ${parsed.malformedToolCalls.first().take(200)}"
+                    allowedTools
                 )
-                val errorJson = org.json.JSONObject()
-                    .put("status", "error")
-                    .put(
-                        "message",
-                        "tool_call 의 JSON 형식이 올바르지 않습니다. " +
-                            "{\"name\": \"툴이름\", \"args\": { ... }} 형태로 다시 작성하세요."
-                    )
-                    .toString()
-                prompt = prompt.copy(currentInput = "<tool_response>\n$errorJson\n</tool_response>")
+                // [WHY] Conversation은 stateful이라 직전 입력/출력이 이미 컨텍스트에 있다.
+                // 툴 결과만 전용 응답 타입으로 되돌린다 — 이전에는 `<tool_response>` 텍스트를
+                // 사용자 턴으로 위장해 보냈다.
+                prompt = prompt.copy(
+                    currentInput = "",
+                    toolResponse = ToolResponseInput(call.name, toolJson)
+                )
                 continue
             }
             break
@@ -156,7 +138,7 @@ abstract class BaseAgent(
         val finalParsed = parsedResult
             ?: return@coroutineScope handleErrorAndReturn(request.sessionId, "Model execution failed")
 
-        auditTrailService.logModelRun(request.sessionId, prompt.currentInput, rawOutput)
+        auditTrailService.logModelRun(request.sessionId, prompt.currentInput, lastTurn?.text.orEmpty())
 
         // [WHY] 일정 초안 등 액션성 흐름은 모두 툴 콜 + 승인 경로로 일원화되었으므로(2026-07-31 절충안),
         // 최종 응답은 텍스트로 저장·반환한다. (구 ResponseParser/PreExecutionGuard 경로 제거)

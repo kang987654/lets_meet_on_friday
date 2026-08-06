@@ -12,13 +12,11 @@ import javax.inject.Inject
 
 /**
  * [AssistantOrchestrator]
- * LLM 응답 처리 및 에이전트 라우팅을 담당하는 핵심 오케스트레이터 클래스입니다.
- *
- * 유저 입력을 받아 컨텍스트를 구성하고 모델을 실행한 뒤, 정책에 따라 적절한 액션(Agent)으로 분기합니다.
+ * 유저 입력을 저장하고 컨텍스트를 구성해 에이전트에 위임하는 핵심 오케스트레이터입니다.
  *
  * ### Architecture Context
  * - **Layer**: Assistant (Orchestration)
- * - **Dependencies**: [ContextBuilder], [TaskRouter], [AuditTrailService], [ConversationRepository]
+ * - **Dependencies**: [ContextBuilder], [AuditTrailService], [ConversationRepository]
  *
  * ### Key Flow
  * 1. 유저 메시지 DB 저장
@@ -31,7 +29,7 @@ class AssistantOrchestrator @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val contextBuilder: ContextBuilder,
     private val auditTrailService: AuditTrailService,
-    private val taskRouter: TaskRouter
+    private val agent: com.kosmos.app.assistant.agent.KosmosAgent
 ) {
 
     suspend fun processRequest(request: ChatRequest): AgentResult {
@@ -61,8 +59,9 @@ class AssistantOrchestrator @Inject constructor(
             is AppResult.Failure -> return handleErrorAndReturn(request.sessionId, "대화 문맥을 구성하지 못했습니다: ${contextResult.error}")
         }
 
-        // 4. 라우팅 및 에이전트 위임
-        val agent = taskRouter.route(request.message)
+        // 4. 에이전트 위임
+        // [WHY] 사전 라우팅을 폐지했다 — 툴 선택은 모델이 런타임 함수호출로 직접 한다.
+        // 키워드 기반 라우팅은 분류가 틀리면 툴이 사라지는 실패 모드를 만들었다 (ADR-008).
         return agent.execute(request, context)
     }
 

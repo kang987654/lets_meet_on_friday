@@ -89,6 +89,14 @@ class ToolArguments(private val json: JSONObject) {
                 .map { it.toString().trim() }
                 .filter { it.isNotEmpty() }
 
+            // [WHY] 런타임의 네이티브 함수호출 경로에서는 배열이 Kotlin List 로 도착한다
+            // (JSONObject.wrap 이 감싸주지 않는 경우가 있어 원본 타입이 남는다).
+            is Collection<*> -> value
+                .filterNotNull()
+                .filter { it != JSONObject.NULL }
+                .map { it.toString().trim() }
+                .filter { it.isNotEmpty() }
+
             is String -> value.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
             is Number, is Boolean -> listOf(value.toString())
@@ -102,5 +110,16 @@ class ToolArguments(private val json: JSONObject) {
 
     companion object {
         fun empty(): ToolArguments = ToolArguments(JSONObject())
+
+        /**
+         * 런타임이 돌려준 구조화된 인자 맵을 감쌉니다.
+         *
+         * [WHY] 네이티브 함수호출 경로의 인자는 `Map<String, Any?>` 로 도착한다. executor 4개와
+         * 승인 경로가 이미 [ToolArguments] 를 쓰므로, 여기서 형태만 맞춰 주면 그 아래는
+         * 변경이 없다. `JSONObject(Map)` 은 값 타입을 그대로 보존하므로 [stringList] 의
+         * `Collection` 분기가 필요하다.
+         */
+        fun of(args: Map<String, Any?>): ToolArguments =
+            ToolArguments(JSONObject(args.filterValues { it != null }))
     }
 }

@@ -88,52 +88,41 @@ class PromptAssembler @Inject constructor() {
         }.trimEnd()
     }
 
+    /**
+     * [WHY] 초 단위였던 것을 분 단위로 내렸다. 시스템 지시가 매 턴 달라지면
+     * `GemmaModelRunner.getOrCreateConversation` 의 재사용 조건이 항상 거짓이 되어
+     * Conversation 을 매번 파괴·재생성(전체 프리필)했다 — 그 판정이 사실상 죽은 코드였다.
+     */
     private fun buildTimeBlock(): String {
         val now = java.time.LocalDateTime.now(java.time.ZoneId.systemDefault())
-        val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
         return "[System Data] Current Time: ${now.format(formatter)}"
     }
 
+    /**
+     * 툴 사용 **태도**만 지시합니다. 툴 목록과 호출 형식은 여기 없습니다.
+     *
+     * [WHY] 이전에는 `<tool_call>{"name":...}</tool_call>` 형식과 툴 스키마를 이 블록에 글로
+     * 적었다. 그 규약은 Gemma 의 채팅 템플릿에 없어서 실기기에서 모델이 **한 번도** 따르지
+     * 않았다 — 평문으로 "저는 영구적으로 저장하지 않습니다"라고 답했다. 이제 선언은
+     * `ConversationConfig.tools` 가 모델의 정식 함수호출 템플릿으로 전달한다 (ADR-008).
+     *
+     * [WHY] 부수 효과로 `$'$'toolsDesc` 가 열 0 에 있어 `trimIndent()` 가 블록 전체의 들여쓰기를
+     * 못 벗기던 포맷 버그도 사라졌다.
+     */
     private fun buildFormatBlock(availableTools: List<String>? = null): String {
-        val toolsDesc = buildString {
-            if (availableTools == null || availableTools.contains("AddSchedule")) {
-                appendLine("""
-                    - "AddSchedule": Adds an event to the calendar.
-                      Args: {"title": "string", "startTime": "ISO 8601", "endTime": "ISO 8601 (Optional)", "description": "string (Optional)"}
-                """.trimIndent())
-            }
-            if (availableTools == null || availableTools.contains("GetSchedule")) {
-                appendLine("""
-                    - "GetSchedule": Retrieves today's or this week's schedule.
-                      Args: {"date": "string ('today' or 'week')"}
-                """.trimIndent())
-            }
-            if (availableTools == null || availableTools.contains("AddMemory")) {
-                appendLine("""
-                    - "AddMemory": Saves permanent knowledge, facts, or preferences about the user.
-                      Args: {"content": "string (the fact to remember)", "tags": "string array (e.g. ['food', 'preference'])"}
-                """.trimIndent())
-            }
-            if (availableTools == null || availableTools.contains("SearchWikipedia")) {
-                appendLine("""
-                    - "SearchWikipedia": Query summary and infobox from Wikipedia for a given topic.
-                      Args: {"topic": "string (search keyword)", "lang": "string (e.g. 'ko' or 'en')"}
-                """.trimIndent())
-            }
-        }.trimEnd()
+        val toolNote = if (availableTools.isNullOrEmpty()) {
+            "You have no tools available in this turn."
+        } else {
+            "You have tools available. Use them whenever the user asks you to remember something, " +
+                "to schedule something, or to look something up — do not merely promise to do it."
+        }
 
         return """
             [Tool Usage Guidelines]
-            You have access to several tools. When you need to perform an action, output a tool call using the following XML format:
-            
-            <tool_call>
-            {"name": "ToolName", "args": {"key": "value"}}
-            </tool_call>
-            
-            Available Tools:
-$toolsDesc
-            
+            $toolNote
             If you lack mandatory information to use a tool, DO NOT guess. Ask the user for clarification first.
+            Never alter numbers, dates, or proper nouns the user gave you — copy them exactly.
             If you do not need a tool, simply provide your final response in plain text.
         """.trimIndent()
     }

@@ -7,23 +7,29 @@ import com.kosmos.app.assistant.tool.ToolRegistry
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.domain.memory.ConversationRepository
-import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import javax.inject.Inject
 
 /**
- * [DefaultAgent]
- * 일상적인 대화 및 웹 검색 등 일반적인 목적의 작업을 처리하는 에이전트입니다.
+ * [KosmosAgent]
+ * 모든 대화를 처리하는 단일 에이전트입니다.
  *
  * ### Architecture Context
  * - **Layer**: Assistant Agent
  * - **Dependencies**: [BaseAgent], [PromptAssembler]
  *
  * ### Key Flow
- * 1. 일반 어시스턴트 역할(General Assistant)을 주입받아 Prompt를 구성합니다.
- * 2. `SearchWeb` 등의 일반 도구를 허용하여 대화를 수행합니다.
+ * 1. 사용 가능한 툴 전부를 선언하고 프롬프트를 조립합니다.
+ * 2. 툴 선택은 모델이 런타임의 함수호출 기능으로 직접 수행합니다.
+ *
+ * [WHY] 이전에는 `IntentClassifier` 가 한국어 키워드로 의도를 분류해 `CalendarAgent` 와
+ * `DefaultAgent` 중 하나로 보냈고, **에이전트마다 툴 목록이 달랐다.** 그래서 분류가 틀리면
+ * 해당 툴이 프롬프트에서 사라지고 실행 단계에서도 차단됐다 — "내일 3시에 치과 예약 잡아줘"가
+ * 캘린더로 가지 못한 실기기 버그가 그것이다(문맥 키워드 목록에 `약속`은 있지만 `예약`은
+ * 없었다). 한국어 표현을 키워드로 다 덮는 것은 불가능하고, 네이티브 함수호출에서는 모델이
+ * 선언된 툴 중에서 스스로 고르므로 사전 라우팅 자체가 불필요하다 (ADR-008).
  */
-class DefaultAgent @Inject constructor(
+class KosmosAgent @Inject constructor(
     modelRunner: ModelRunner,
     toolRegistry: ToolRegistry,
     auditTrailService: AuditTrailService,
@@ -40,13 +46,23 @@ class DefaultAgent @Inject constructor(
 
     override suspend fun execute(request: ChatRequest, context: ContextBuilder.Context): AgentResult {
         val tools = availableTools(context)
-        val initialPrompt = promptAssembler.assembleWithTools(context, request.message, tools, systemRole = "General Assistant")
+        val initialPrompt = promptAssembler.assembleWithTools(
+            context = context,
+            userInput = request.message,
+            availableTools = tools,
+            systemRole = "personal assistant named Kosmos"
+        )
         return executeToolLoop(request, initialPrompt, tools)
     }
 
-    // [WHY] 웹 검색은 프라이버시 우선 원칙에 따라 전역 토글이 켜진 경우에만 노출/허용된다.
-    // AddMemory는 승인(MEMORY_WRITE) 기반으로 상시 제공한다.
-    override fun availableTools(context: ContextBuilder.Context): List<String> = buildList {
+    // [WHY] 웹 검색만 토글로 게이트한다 — 프라이버시 우선 원칙에 따라 사용자가 켠 경우에만
+    // 외부 요청이 가능해야 한다. 나머지는 로컬 동작이므로 상시 노출한다(승인은 별개 관문).
+    //
+    // [WHY] 가시성을 public 으로 넓혔다 — 부수효과 없는 조회이고, "표현과 무관하게 일정·메모리
+    // 툴이 항상 있다"가 라우터 폐지의 핵심 계약이라 테스트로 고정해야 한다.
+    public override fun availableTools(context: ContextBuilder.Context): List<String> = buildList {
+        add("AddSchedule")
+        add("GetSchedule")
         add("AddMemory")
         if (context.webSearchEnabled) {
             add("SearchWikipedia")

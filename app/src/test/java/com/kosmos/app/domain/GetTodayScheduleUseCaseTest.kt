@@ -8,6 +8,7 @@ import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelInfo
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.domain.modelrunner.ModelTurn
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,14 +39,14 @@ class GetTodayScheduleUseCaseTest {
         override val loadState: StateFlow<ModelLoadState> =
             MutableStateFlow(ModelLoadState.Ready(ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
         override suspend fun warmUp() {}
-        override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<String> =
-            AppResult.Success("요약")
+        override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<ModelTurn> =
+            AppResult.Success(ModelTurn("요약"))
         override suspend fun generateWithImage(
             prompt: ChatPrompt, imageBytes: ByteArray, imageTokenBudget: Int, onToken: ((String) -> Unit)?
-        ): AppResult<String> = AppResult.Success("요약")
+        ): AppResult<ModelTurn> = AppResult.Success(ModelTurn("요약"))
         override suspend fun generateWithAudio(
             prompt: ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?
-        ): AppResult<String> = AppResult.Success("요약")
+        ): AppResult<ModelTurn> = AppResult.Success(ModelTurn("요약"))
         override suspend fun cancel() {}
         override fun close() {}
     }

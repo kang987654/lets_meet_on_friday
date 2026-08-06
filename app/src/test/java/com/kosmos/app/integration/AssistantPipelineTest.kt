@@ -3,6 +3,7 @@ package com.kosmos.app.integration
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.assistant.orchestrator.AssistantOrchestrator
 import com.kosmos.app.assistant.orchestrator.ChatRequest
+import com.kosmos.app.domain.modelrunner.ModelTurn
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.modelrunner.ChatPrompt
@@ -26,7 +27,7 @@ class MockModelRunner : ModelRunner {
         ModelLoadState.Ready(com.kosmos.app.domain.modelrunner.ModelInfo("mock", "mock", "1.0", "int8", 0L))
     )
     
-    override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<String> {
+    override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
         val mockJsonResponse = """
             ```json
             {
@@ -37,7 +38,7 @@ class MockModelRunner : ModelRunner {
         """.trimIndent()
         
         onToken?.invoke(mockJsonResponse)
-        return AppResult.Success(mockJsonResponse)
+        return AppResult.Success(ModelTurn(mockJsonResponse))
     }
 
     override suspend fun generateWithImage(
@@ -45,20 +46,20 @@ class MockModelRunner : ModelRunner {
         imageBytes: ByteArray,
         imageTokenBudget: Int,
         onToken: ((String) -> Unit)?
-    ): AppResult<String> {
+    ): AppResult<ModelTurn> {
         delay(100)
         onToken?.invoke("Image processed.")
-        return AppResult.Success("Image processed.")
+        return AppResult.Success(ModelTurn("Image processed."))
     }
 
     override suspend fun generateWithAudio(
         prompt: ChatPrompt,
         audioPath: String,
         onToken: ((String) -> Unit)?
-    ): AppResult<String> {
+    ): AppResult<ModelTurn> {
         delay(100)
         onToken?.invoke("Audio processed.")
-        return AppResult.Success("Audio processed.")
+        return AppResult.Success(ModelTurn("Audio processed."))
     }
 
     override suspend fun cancel() {}

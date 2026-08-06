@@ -89,25 +89,40 @@ class ToolApprovalE2ETest {
         override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(ModelLoadState.Ready(ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
         override suspend fun warmUp() {}
         
+        // [WHY] 툴 호출을 `<tool_call>` XML 텍스트가 아니라 구조화된 ModelToolCall 로 준다 —
+        // 실제 런타임이 그렇게 돌려주기 때문이다 (ADR-008). 턴 구분도 `<tool_response>` 문자열
+        // 검사 대신 prompt.toolResponse 존재 여부로 한다.
         override suspend fun generate(
             prompt: com.kosmos.app.domain.modelrunner.ChatPrompt,
             onToken: ((String) -> Unit)?
-        ): com.kosmos.app.core.common.AppResult<String> {
-            println("mockModelRunner: generate called with input = ${prompt.currentInput}")
-            val response = if (prompt.currentInput.contains("<tool_response>")) {
-                if (prompt.currentInput.contains("취소했습니다")) {
+        ): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
+            val toolResponse = prompt.toolResponse
+            val turn = if (toolResponse != null) {
+                val text = if (toolResponse.resultJson.contains("취소")) {
                     "알겠습니다. 일정 추가를 취소했습니다."
                 } else {
                     "일정 처리가 완료되었습니다."
                 }
-            } else if (prompt.currentInput.contains("취소")) {
-                "<tool_call>\n{\"name\":\"AddSchedule\",\"args\":{\"title\":\"약속\",\"startTime\":\"12:00\",\"endTime\":\"13:00\",\"description\":\"점심 약속\"}}\n</tool_call>"
+                com.kosmos.app.domain.modelrunner.ModelTurn(text)
             } else {
-                "<tool_call>\n{\"name\":\"AddSchedule\",\"args\":{\"title\":\"회의\",\"startTime\":\"15:00\",\"endTime\":\"16:00\",\"description\":\"프로젝트 회의\"}}\n</tool_call>"
+                val isCancelScenario = prompt.currentInput.contains("취소")
+                com.kosmos.app.domain.modelrunner.ModelTurn(
+                    text = "",
+                    toolCalls = listOf(
+                        com.kosmos.app.domain.modelrunner.ModelToolCall(
+                            name = "AddSchedule",
+                            args = mapOf(
+                                "title" to if (isCancelScenario) "약속" else "회의",
+                                "startTime" to if (isCancelScenario) "12:00" else "15:00",
+                                "endTime" to if (isCancelScenario) "13:00" else "16:00",
+                                "description" to if (isCancelScenario) "점심 약속" else "프로젝트 회의"
+                            )
+                        )
+                    )
+                )
             }
-            println("mockModelRunner: sending response = $response")
-            onToken?.invoke(response)
-            return com.kosmos.app.core.common.AppResult.Success(response)
+            turn.text.takeIf { it.isNotEmpty() }?.let { onToken?.invoke(it) }
+            return com.kosmos.app.core.common.AppResult.Success(turn)
         }
 
         override suspend fun generateWithImage(
@@ -115,13 +130,13 @@ class ToolApprovalE2ETest {
             imageBytes: ByteArray,
             imageTokenBudget: Int,
             onToken: ((String) -> Unit)?
-        ): com.kosmos.app.core.common.AppResult<String> = generate(prompt, onToken)
+        ): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> = generate(prompt, onToken)
 
         override suspend fun generateWithAudio(
             prompt: com.kosmos.app.domain.modelrunner.ChatPrompt,
             audioPath: String,
             onToken: ((String) -> Unit)?
-        ): com.kosmos.app.core.common.AppResult<String> = generate(prompt, onToken)
+        ): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> = generate(prompt, onToken)
 
         override suspend fun cancel() {}
         override fun close() {}

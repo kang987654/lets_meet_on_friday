@@ -45,16 +45,16 @@ class VoiceChatIntegrationTest {
     val modelRunner: ModelRunner = object : com.kosmos.app.domain.modelrunner.ModelRunner {
         override val loadState = kotlinx.coroutines.flow.MutableStateFlow<com.kosmos.app.domain.modelrunner.ModelLoadState>(com.kosmos.app.domain.modelrunner.ModelLoadState.Ready(com.kosmos.app.domain.modelrunner.ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
         override suspend fun warmUp() {}
-        override suspend fun generate(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<String> {
+        override suspend fun generate(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
             onToken?.invoke("Audio processed.")
-            return com.kosmos.app.core.common.AppResult.Success("Audio processed.")
+            return com.kosmos.app.core.common.AppResult.Success(com.kosmos.app.domain.modelrunner.ModelTurn("Audio processed."))
         }
-        override suspend fun generateWithImage(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, imageBytes: ByteArray, imageTokenBudget: Int, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<String> {
-            return com.kosmos.app.core.common.AppResult.Success("Audio processed.")
+        override suspend fun generateWithImage(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, imageBytes: ByteArray, imageTokenBudget: Int, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
+            return com.kosmos.app.core.common.AppResult.Success(com.kosmos.app.domain.modelrunner.ModelTurn("Audio processed."))
         }
-        override suspend fun generateWithAudio(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<String> {
+        override suspend fun generateWithAudio(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
             onToken?.invoke("Audio processed.")
-            return com.kosmos.app.core.common.AppResult.Success("Audio processed.")
+            return com.kosmos.app.core.common.AppResult.Success(com.kosmos.app.domain.modelrunner.ModelTurn("Audio processed."))
         }
         override suspend fun cancel() {}
         override fun close() {}

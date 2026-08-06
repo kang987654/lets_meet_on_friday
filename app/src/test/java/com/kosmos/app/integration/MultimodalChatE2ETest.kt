@@ -41,6 +41,7 @@ import org.junit.Assert.assertNotNull
 
 import com.kosmos.app.feature.chat.ChatScreen
 import com.kosmos.app.feature.chat.ChatViewModel
+import com.kosmos.app.domain.modelrunner.ModelTurn
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ChatPrompt
@@ -68,27 +69,27 @@ class FakeE2EModelRunner : ModelRunner {
 
     override suspend fun warmUp() {}
     
-    override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<String> {
+    override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
         lastPrompt = prompt
         generateCallCount++
         onToken?.invoke("This is a response summary of the document.")
-        return AppResult.Success("This is a response summary of the document.")
+        return AppResult.Success(ModelTurn("This is a response summary of the document."))
     }
     
-    override suspend fun generateWithImage(prompt: ChatPrompt, imageBytes: ByteArray, imageTokenBudget: Int, onToken: ((String) -> Unit)?): AppResult<String> {
+    override suspend fun generateWithImage(prompt: ChatPrompt, imageBytes: ByteArray, imageTokenBudget: Int, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
         lastPrompt = prompt
         lastImageBytes = imageBytes
         generateCallCount++
         onToken?.invoke("Image parsed.")
-        return AppResult.Success("Image parsed.")
+        return AppResult.Success(ModelTurn("Image parsed."))
     }
     
-    override suspend fun generateWithAudio(prompt: ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?): AppResult<String> {
+    override suspend fun generateWithAudio(prompt: ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
         lastPrompt = prompt
         lastAudioPath = audioPath
         generateCallCount++
         onToken?.invoke("Audio parsed.")
-        return AppResult.Success("Audio parsed.")
+        return AppResult.Success(ModelTurn("Audio parsed."))
     }
 
     override suspend fun cancel() {}
