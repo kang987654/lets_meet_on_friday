@@ -27,7 +27,9 @@ class SendChatMessageUseCase @Inject constructor(
     private val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor
 ) {
     companion object {
-        const val MAX_INPUT_CHARS = 8192
+        // [WHY] 같은 값이 `Constants.MAX_INPUT_CHARS` 에도 있었고 이쪽이 그것을 가려(shadow)
+        // 두 곳이 갈릴 수 있었다. core 상수를 정본으로 삼고 여기서는 참조만 한다.
+        const val MAX_INPUT_CHARS = com.kosmos.app.core.common.Constants.MAX_INPUT_CHARS
     }
 
     suspend operator fun invoke(
@@ -36,7 +38,6 @@ class SendChatMessageUseCase @Inject constructor(
         imageBytes: ByteArray? = null,
         documentText: String? = null,
         audioFilePath: String? = null,
-        imageTokenBudget: Int = 280,
         onStream: ((com.kosmos.app.assistant.orchestrator.StreamUpdate) -> Unit)? = null
     ): AppResult<AgentResult> {
         val trimmedMessage = message.trim()
@@ -65,7 +66,6 @@ class SendChatMessageUseCase @Inject constructor(
             imageBytes = processedImageBytes,
             documentText = documentText,
             audioFilePath = audioFilePath,
-            imageTokenBudget = imageTokenBudget,
             onStream = onStream
         )
         

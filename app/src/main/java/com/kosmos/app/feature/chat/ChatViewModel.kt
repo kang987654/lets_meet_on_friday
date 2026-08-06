@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.assistant.approval.ApprovalCoordinator
 import com.kosmos.app.assistant.approval.ApprovalRequest
@@ -136,7 +137,12 @@ class ChatViewModel @Inject constructor(
 
     private fun loadMessages() {
         viewModelScope.launch {
-            val result = conversationRepository.getRecentBySession(sessionId)
+            // [WHY] 이전에는 limit 인자 없이 호출해 계약 기본값(5)이 적용됐고, 채팅을 열면
+            // 마지막 5개 메시지만 보였다 — 그 이상은 DB 에 있는데도 화면에서 사라졌다.
+            val result = conversationRepository.getRecentBySession(
+                sessionId,
+                Constants.MAX_RECENT_CONVERSATIONS
+            )
             if (result is AppResult.Success) {
                 _uiState.update { state -> 
                     state.copy(messages = result.data.toImmutableList()) 

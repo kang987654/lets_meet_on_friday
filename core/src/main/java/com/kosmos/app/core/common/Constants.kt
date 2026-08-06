@@ -12,8 +12,28 @@ package com.kosmos.app.core.common
  * 1. 맥락 윈도우, 열 관리, 파일 크기 제약, 기본 모델 정보 등 공통 제어 상수를 제공합니다.
  */
 object Constants {
-    const val MAX_CONTEXT_TOKENS = 4096
-    const val MAX_CONVERSATION_TURNS = 5
+    // [WHY] 프리필 전체 예산이다. 4096 이었으나 (a) 설정 슬라이더의 눈금(1000 단위)에 없는
+    // 값이어서 사용자가 슬라이더를 만지는 순간 값이 튀었고, (b) 아래 오버헤드 예약을 도입하면
+    // 히스토리에 남는 예산이 과도하게 줄어든다. 슬라이더 눈금과 맞는 6000 으로 올린다 —
+    // gemma-4 컨텍스트는 32K 이고 `EngineConfig.maxNumTokens` 를 설정하지 않으므로 상한이 아니다.
+    const val MAX_CONTEXT_TOKENS = 6000
+
+    // [WHY] 시스템 지시 + 툴 선언 + few-shot 시범이 차지하는 프리필 오버헤드 추정치다.
+    // 이전에는 대화 슬라이딩 윈도우가 `ChatMessage.content` 만 세고 이 오버헤드를 세지 않아,
+    // "컨텍스트 윈도우 4096" 설정에도 실제 프리필이 6천 토큰을 넘었다 — 설정이 뜻대로 동작하지
+    // 않았다. 툴 선언만 실측 ~2천 토큰이고(GemmaModelRunner 주석), 시스템 지시·few-shot 이
+    // 더해진다. 보수적으로 잡아 예약한다.
+    const val PREFILL_OVERHEAD_TOKENS = 2600
+
+    // [WHY] 오버헤드 예약 후에도 히스토리에 최소한 남겨야 하는 예산. 사용자가 슬라이더를
+    // 최소(1000)로 내려도 직전 대화 몇 턴은 유지되어야 대화가 성립한다.
+    const val MIN_HISTORY_TOKENS = 500
+
+    // [WHY] 슬라이딩 윈도우에 넣을 후보를 넉넉히 가져오는 수. 화면 히스토리 로드에도 같은 수를
+    // 쓴다 — 이전에는 화면이 `getRecentBySession(sessionId)` 를 인자 없이 호출해 계약 기본값
+    // (당시 5)이 적용됐고, **채팅을 열면 마지막 5개 메시지만 보였다.** 그 기본값은 제거했다.
+    const val MAX_RECENT_CONVERSATIONS = 150
+
     const val MAX_KNOWLEDGE_CONTEXT_ITEMS = 3
     const val MAX_INPUT_CHARS = 8192
     const val MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024

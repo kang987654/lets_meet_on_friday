@@ -49,7 +49,7 @@ class VoiceChatIntegrationTest {
             onToken?.invoke("Audio processed.")
             return com.kosmos.app.core.common.AppResult.Success(com.kosmos.app.domain.modelrunner.ModelTurn("Audio processed."))
         }
-        override suspend fun generateWithImage(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, imageBytes: ByteArray, imageTokenBudget: Int, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
+        override suspend fun generateWithImage(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, imageBytes: ByteArray, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
             return com.kosmos.app.core.common.AppResult.Success(com.kosmos.app.domain.modelrunner.ModelTurn("Audio processed."))
         }
         override suspend fun generateWithAudio(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
@@ -145,7 +145,7 @@ class VoiceChatIntegrationTest {
         var dbMessages: List<com.kosmos.app.domain.model.ChatMessage> = emptyList()
         val dbStartTime = System.currentTimeMillis()
         while (System.currentTimeMillis() - dbStartTime < 3000) {
-            val res = conversationRepository.getRecentBySession(finalState.sessionId)
+            val res = conversationRepository.getRecentBySession(finalState.sessionId, limit = 50)
             dbMessages = if (res is com.kosmos.app.core.common.AppResult.Success) res.data else emptyList()
             if (dbMessages.any { it.role == com.kosmos.app.domain.model.ChatMessage.Role.USER }) break
             Thread.sleep(100)

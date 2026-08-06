@@ -23,7 +23,8 @@ import java.util.UUID
  * 1. 세션 ID를 기반으로 최근 대화 기록 조회
  * 2. 가장 최근 유저 메시지 추출 후 RAG 메모리 검색(SearchKnowledgeUseCase) 수행
  * 3. 검색된 메모리를 System 메시지로 변환하여 컨텍스트에 삽입
- * 4. 모델의 Context Window 한도(예: 3000 토큰)를 넘지 않도록 Token Sliding Window 적용
+ * 4. 프리필 예산([Constants.MAX_CONTEXT_TOKENS] 기본, 설정에서 조절)에서 시스템 지시·툴 선언
+ *    오버헤드를 예약한 뒤, 남은 예산만큼 Token Sliding Window 적용
  * 5. 최적화된 [ChatMessage] 목록을 포함하는 [Context] 반환
  */
 class ContextBuilder @Inject constructor(
@@ -40,10 +41,10 @@ class ContextBuilder @Inject constructor(
     )
 
     suspend fun build(sessionId: String): AppResult<Context> {
-        // Fetch up to 150 recent conversations to apply sliding window
+        // 슬라이딩 윈도우에 넣을 후보를 넉넉히 가져온다.
         val conversationsResult = conversationRepository.getRecentBySession(
             sessionId,
-            150
+            Constants.MAX_RECENT_CONVERSATIONS
         )
 
         val responseStyle = try {
@@ -72,7 +73,10 @@ class ContextBuilder @Inject constructor(
                 // RAG: 가장 마지막 사용자 입력 메시지를 추출하여 벡터 검색 수행
                 val lastUserMessage = messages.lastOrNull { it.role == ChatMessage.Role.USER }?.content
                 if (!lastUserMessage.isNullOrBlank()) {
-                    val searchResult = searchKnowledgeUseCase(query = lastUserMessage, limit = 3)
+                    val searchResult = searchKnowledgeUseCase(
+                        query = lastUserMessage,
+                        limit = Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS
+                    )
                     if (searchResult is AppResult.Success && searchResult.data.isNotEmpty()) {
                         val memoryText = searchResult.data.joinToString("\n\n") { note ->
                             "- ${note.content}"
@@ -108,20 +112,34 @@ class ContextBuilder @Inject constructor(
         }
     }
 
+    /**
+     * 대화 기록을 최신부터 담다가 예산을 넘으면 멈춥니다.
+     *
+     * [WHY] `maxTokens` 는 **프리필 전체 예산**인데 이 윈도우는 `ChatMessage.content` 만 센다.
+     * 시스템 지시, 툴 선언(실측 ~2천 토큰), few-shot 시범은 여기서 세지지 않으므로 예산을 그대로
+     * 히스토리에 쓰면 실제 프리필이 설정값을 크게 넘는다 — 설정이 뜻대로 동작하지 않았다.
+     * 오버헤드를 먼저 예약하고 남은 것만 히스토리에 배분한다.
+     *
+     * [WHY] 예약 후 예산이 바닥나도 [Constants.MIN_HISTORY_TOKENS] 는 남긴다. 사용자가 슬라이더를
+     * 최소로 내렸을 때 히스토리가 0이 되면 대화가 아예 성립하지 않는다.
+     */
     private fun applyTokenSlidingWindow(messages: List<ChatMessage>, maxTokens: Int): List<ChatMessage> {
+        val historyBudget = (maxTokens - Constants.PREFILL_OVERHEAD_TOKENS)
+            .coerceAtLeast(Constants.MIN_HISTORY_TOKENS)
+
         var currentTokens = 0
         val selectedMessages = mutableListOf<ChatMessage>()
-        
+
         // messages is chronological (oldest first). We iterate from newest (end) to oldest.
         for (message in messages.reversed()) {
             val msgTokens = tokenizer.sizeInTokens(message.content) + 10 // overhead for tags
-            if (currentTokens + msgTokens > maxTokens) {
+            if (currentTokens + msgTokens > historyBudget) {
                 break
             }
             currentTokens += msgTokens
             selectedMessages.add(message)
         }
-        
+
         // Restore chronological order
         return selectedMessages.reversed()
     }
