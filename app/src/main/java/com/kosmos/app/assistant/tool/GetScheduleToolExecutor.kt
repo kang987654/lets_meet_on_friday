@@ -26,10 +26,16 @@ class GetScheduleToolExecutor @Inject constructor(
     override suspend fun execute(args: ToolArguments, sessionId: String): String {
         // [WHY] date 는 없어도 오늘로 수렴하는 선택 인자다. optString 이 숫자·불린도 문자열로
         // 강제하므로, 모델이 따옴표를 빠뜨려도 조회 범위 판정이 조용히 틀어지지 않는다.
-        val range = if (args.optString("date")?.lowercase()?.contains("week") == true) {
-            ScheduleData.RangeType.WEEK
-        } else {
-            ScheduleData.RangeType.TODAY
+        //
+        // [WHY] 이전에는 "week" 포함 여부만 보고 나머지를 전부 TODAY 로 떨어뜨렸다. PC 실험에서
+        // "내일 스케줄 알려줘" 에 모델이 `date='tomorrow'` 를 보내는 것이 확인됐고, 그러면
+        // **오늘 일정이 조용히 반환**됐다 — 틀린 답을 성공처럼 돌려주는 결함이다. 도메인이
+        // TODAY/WEEK 두 범위만 지원하므로, 오늘이 아닌 값은 내일이 포함된 주간으로 넓힌다.
+        val raw = args.optString("date")?.lowercase()?.trim()
+        val range = when {
+            raw.isNullOrEmpty() -> ScheduleData.RangeType.TODAY
+            raw.contains("today") || raw.contains("오늘") -> ScheduleData.RangeType.TODAY
+            else -> ScheduleData.RangeType.WEEK
         }
         val res = getTodayScheduleUseCase(range)
         return if (res is AppResult.Success) {

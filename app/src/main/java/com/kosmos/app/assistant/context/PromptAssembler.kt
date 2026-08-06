@@ -92,11 +92,29 @@ class PromptAssembler @Inject constructor() {
      * [WHY] 초 단위였던 것을 분 단위로 내렸다. 시스템 지시가 매 턴 달라지면
      * `GemmaModelRunner.getOrCreateConversation` 의 재사용 조건이 항상 거짓이 되어
      * Conversation 을 매번 파괴·재생성(전체 프리필)했다 — 그 판정이 사실상 죽은 코드였다.
+     *
+     * [WHY] 요일과 파생 날짜(내일·모레·다음주 월요일)를 함께 준다. PC 실험에서 모델이 시각만
+     * 주면 "다음주 월요일"을 **한 주 틀리게**(8/10 → 8/17) 계산했고, 요일과 파생 날짜를 풀어
+     * 주면 정확해졌다. 상대 날짜 해석은 일정 등록의 필수 전제라 계산을 모델에게 맡기지 않는다.
      */
     private fun buildTimeBlock(): String {
         val now = java.time.LocalDateTime.now(java.time.ZoneId.systemDefault())
-        val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-        return "[System Data] Current Time: ${now.format(formatter)}"
+        val dateTime = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        val date = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val weekday = now.dayOfWeek.getDisplayName(
+            java.time.format.TextStyle.FULL,
+            java.util.Locale.ENGLISH
+        )
+        // [WHY] 한국어에서 주는 월요일에 시작하므로 `next(MONDAY)` 가 곧 "다음주 월요일"이다
+        // (오늘이 월요일이면 7일 뒤, 토·일요일이면 이틀·하루 뒤 — 모두 의도와 맞는다).
+        val nextMonday = now.with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY))
+        return buildString {
+            appendLine("[System Data] Current Time: ${now.format(dateTime)} ($weekday)")
+            append(
+                "[System Data] 오늘=${now.format(date)}, 내일=${now.plusDays(1).format(date)}, " +
+                    "모레=${now.plusDays(2).format(date)}, 다음주 월요일=${nextMonday.format(date)}"
+            )
+        }
     }
 
     /**
@@ -142,7 +160,21 @@ class PromptAssembler @Inject constructor() {
                 appendLine("- The user asks a factual question you are not sure about — Korean triggers: \"검색해줘\", \"찾아봐\", \"~가 뭐야?\": call `search_wikipedia`.")
             }
         }
-        appendLine("If you lack mandatory information to use a tool, DO NOT guess. Ask the user for clarification first.")
+        // [WHY] 이전 문구는 "If you lack mandatory information … DO NOT guess. Ask the user
+        // first." 였다. PC 실험에서 이 한 줄이 **일정 등록을 막는 주범**이었다 — 모델이 상대
+        // 날짜("내일", "모레", "다음주 월요일")를 '없는 필수 정보'로 판단해 호출 대신 되물었고
+        // (자기가 날짜를 계산해 놓고도 되물었다), 선택 파라미터인 end_time 까지 필수로
+        // 착각했다. 일정 4케이스 중 3케이스 실패 → 아래 두 줄로 교체하니 4/4 성공.
+        appendLine(
+            "Resolve relative dates and times yourself from the [System Data] values above — " +
+                "\"내일\", \"모레\", \"다음주 월요일\", \"오후 3시\" are NOT missing information. " +
+                "Compute the absolute ISO 8601 value and call the tool. " +
+                "Never ask the user to restate a date you can compute."
+        )
+        appendLine(
+            "Optional parameters are never a reason to ask. Only ask the user when a REQUIRED " +
+                "parameter is genuinely absent."
+        )
         appendLine("Never alter numbers, dates, or proper nouns the user gave you — copy them exactly.")
         append("If you do not need a tool, simply provide your final response in plain text.")
     }

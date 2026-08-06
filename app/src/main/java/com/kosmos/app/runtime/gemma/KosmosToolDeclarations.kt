@@ -92,9 +92,16 @@ object KosmosToolDeclarations {
     }
 
     private class GetScheduleDeclaration : ToolSet {
+        // [WHY] "조회 범위. 'today' 또는 'week'." 만으로는 모델이 'tomorrow' 나 '2026-08-09' 를
+        // 보냈다(PC 실험). 실행부는 "week" 포함 여부만 보므로 그런 값은 조용히 **오늘** 일정을
+        // 반환했다 — 내일을 물으면 오늘이 나오는 버그. 설명으로 값을 좁히고, 실행부에서도
+        // today 가 아니면 주간으로 넓히도록 함께 고쳤다(GetScheduleToolExecutor).
         @Tool(description = "사용자의 캘린더 일정을 조회한다.")
         fun getSchedule(
-            @ToolParam(description = "조회 범위. 'today' 또는 'week'.") date: String
+            @ToolParam(
+                description = "조회 범위. 반드시 'today' 또는 'week' 중 하나만 쓴다. " +
+                    "내일·모레·이번주·다음주처럼 오늘이 아닌 날을 물으면 'week' 를 쓴다. 다른 값은 쓰지 않는다."
+            ) date: String
         ): Map<String, Any> = notExecutedHere()
     }
 
