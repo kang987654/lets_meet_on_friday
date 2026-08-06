@@ -25,7 +25,9 @@ class KnowledgeRepositoryImpl @Inject constructor(
                 id = note.id,
                 content = note.content,
                 sourceSessionId = null, // 임시: 현재 KnowledgeNote에는 sourceSessionId가 없으므로 필요시 추가 확장
-                tags = note.tags.joinToString(","),
+                // [WHY] 태그에 콤마가 들어오면 이 칼럼 형식이 표현할 수 없다. CSV 인코딩을
+                // 소유한 계층이 그 불변식도 지킨다 (Tags KDoc 참조).
+                tags = com.kosmos.app.core.common.Tags.normalizeAll(note.tags).joinToString(","),
                 embedding = embeddingStr,
                 createdAt = note.createdAt,
                 updatedAt = note.updatedAt
@@ -67,7 +69,9 @@ class KnowledgeRepositoryImpl @Inject constructor(
         // SQLite의 LIKE 검색을 위해 각 태그별로 검색 결과를 모은 후 중복을 제거 (간이 구현)
         val results = mutableSetOf<KnowledgeEntity>()
         for (tag in tags) {
-            val normalized = tag.trim()
+            // [WHY] 저장 시와 같은 정규화를 적용해야 저장된 값과 형태가 맞는다. 콤마가 든
+            // 검색어는 정규화 없이는 어떤 태그에도 매칭될 수 없다.
+            val normalized = com.kosmos.app.core.common.Tags.normalize(tag)
             // 공백만인 태그는 구분자 사이의 빈 토큰에 매칭되므로 건너뛴다.
             if (normalized.isEmpty()) continue
             results.addAll(dao.searchByTags(com.kosmos.app.core.common.SqlLike.escape(normalized), limit))
