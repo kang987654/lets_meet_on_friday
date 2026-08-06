@@ -126,17 +126,20 @@ class PromptAssembler @Inject constructor() {
                     "If it does, you MUST call the tool. Do NOT merely promise or pretend — " +
                     "promising without calling is a failure."
             )
+            // [WHY] 0.8.5 실기기에서 "add_memory 툴을 사용해서 저장해줘"(툴 이름 직접 지목)는
+            // 호출됐지만 "기억해줘"는 호출되지 않았다 — 영어 규칙과 한국어 표현 사이에 다리가
+            // 없었다. 실제 한국어 트리거 표현을 규칙 안에 예시로 박아 그 간극을 메운다.
             if (availableTools.contains("AddMemory")) {
-                appendLine("- The user asks you to remember something, or shares a fact/preference/password to keep: you MUST call `add_memory`.")
+                appendLine("- The user asks you to remember something, or shares a fact/preference/password to keep — Korean triggers: \"기억해\", \"기억해줘\", \"저장해줘\", \"메모해줘\", \"잊지 마\": you MUST call `add_memory`.")
             }
             if (availableTools.contains("AddSchedule")) {
-                appendLine("- The user asks to add an appointment, reservation, or event: you MUST call `add_schedule`.")
+                appendLine("- The user asks to add an appointment, reservation, or event — Korean triggers: \"예약\", \"약속\", \"일정 잡아줘\", \"일정 추가\", \"~하기로 했어\": you MUST call `add_schedule`.")
             }
             if (availableTools.contains("GetSchedule")) {
-                appendLine("- The user asks what is on their calendar: you MUST call `get_schedule`.")
+                appendLine("- The user asks what is on their calendar — Korean triggers: \"오늘 일정\", \"내일 일정\", \"스케줄 뭐 있어\": you MUST call `get_schedule`.")
             }
             if (availableTools.contains("SearchWikipedia")) {
-                appendLine("- The user asks a factual question you are not sure about: call `search_wikipedia`.")
+                appendLine("- The user asks a factual question you are not sure about — Korean triggers: \"검색해줘\", \"찾아봐\", \"~가 뭐야?\": call `search_wikipedia`.")
             }
         }
         appendLine("If you lack mandatory information to use a tool, DO NOT guess. Ask the user for clarification first.")

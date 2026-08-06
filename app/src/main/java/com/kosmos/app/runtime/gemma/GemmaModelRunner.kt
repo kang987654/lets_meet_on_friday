@@ -346,7 +346,19 @@ class GemmaModelRunner @Inject constructor(
         val isSameSystemInstruction = currentSystemInstruction == prompt.systemInstruction
         // [WHY] 선언된 툴이 달라지면(웹 검색 토글 등) 대화를 재생성해야 모델이 새 툴 목록을 본다.
         val isSameTools = currentEnabledTools == prompt.enabledTools
-        val isTokenExceeded = existing != null && existing.getTokenCount() > 3000
+
+        // [WHY] 툴 응답 턴은 **반드시** 직전 턴의 호출 문맥이 있는 대화로 돌아가야 한다. 0.8.5
+        // 실기기에서 토큰 초과 판정이 승인 대기 사이에 대화를 재생성해, 모델이 "자기가 호출한
+        // 적 없는 툴"의 응답을 받고 뜬금없는 답을 만들었다. 이 턴만큼은 어떤 재생성 조건보다
+        // 재사용이 우선한다.
+        if (prompt.toolResponse != null && existing != null && isSameSession && isSameTools) {
+            return existing
+        }
+
+        // [WHY] 3000 은 자체 XML 규약 시절의 값이다. 네이티브 선언 경로에서는 툴 선언만
+        // ~2천 토큰이라 거의 매 턴 재생성(전체 프리필)됐다. gemma-4 의 컨텍스트는 32K —
+        // 기기 메모리를 감안해 8000 으로 올린다.
+        val isTokenExceeded = existing != null && existing.getTokenCount() > 8000
 
         if (existing != null && isSameSession && isSameSystemInstruction && isSameTools && !isTokenExceeded) {
             return existing
