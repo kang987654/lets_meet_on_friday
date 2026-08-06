@@ -302,6 +302,10 @@ class GemmaModelRunner @Inject constructor(
 
     private fun ensureInferenceInitialized(modelPath: String) {
         if (engine == null) {
+            // [WHY] 네이티브(liblitertlm_jni)의 로그는 기본적으로 억제되어 있어 constrained
+            // decoding 문법 생성 실패, 데이터 프로세서 선택 같은 결정적 진단이 logcat 에 전혀
+            // 남지 않았다. 툴 호출 디버깅 동안 INFO 이상을 노출한다.
+            runCatching { Engine.setNativeMinLogSeverity(com.google.ai.edge.litertlm.LogSeverity.INFO) }
             try {
                 val engineConfig = EngineConfig(
                     modelPath = modelPath,
@@ -350,8 +354,11 @@ class GemmaModelRunner @Inject constructor(
 
         existing?.close()
 
-        val initialMessages = prompt.history.map {
-            if (it.role.name == "USER") Message.user(it.content) else Message.model(it.content)
+        val initialMessages = buildList {
+            addAll(fewShotToolExample(prompt.enabledTools))
+            prompt.history.forEach {
+                add(if (it.role.name == "USER") Message.user(it.content) else Message.model(it.content))
+            }
         }
 
         val config = ConversationConfig(
@@ -390,6 +397,44 @@ class GemmaModelRunner @Inject constructor(
         currentSystemInstruction = prompt.systemInstruction
         currentEnabledTools = prompt.enabledTools
         return newConversation
+    }
+
+    /**
+     * 툴 호출의 few-shot 시범입니다. 대화 서두에 "사용자 요청 → 모델의 실제 툴 호출 →
+     * 툴 응답 → 확인 답변" 왕복 한 번을 심어 둡니다.
+     *
+     * [WHY] 0.8.1~0.8.4 실기기에서 선언·constrained decoding·greedy·지목 프롬프트를 모두
+     * 갖춰도 모델이 호출 대신 말로만 약속했다("기억해 두겠습니다" — 호출 0회). 지시만으로
+     * 성향이 안 바뀌는 4B 모델에게 남은 가장 강한 지렛대는 **정확한 네이티브 형식의 시범**이다.
+     * 예시는 LLM 대화에만 존재하고 DB 나 화면 기록에는 남지 않는다.
+     */
+    private fun fewShotToolExample(enabledTools: List<String>): List<Message> {
+        if (!enabledTools.contains("AddMemory")) return emptyList()
+        return listOf(
+            Message.user("내 자물쇠 비밀번호는 8282야, 기억해줘"),
+            Message.model(
+                Contents.of(com.google.ai.edge.litertlm.Content.Text("")),
+                listOf(
+                    com.google.ai.edge.litertlm.ToolCall(
+                        "add_memory",
+                        mapOf(
+                            "content" to "자물쇠 비밀번호는 8282",
+                            "tags" to listOf("비밀번호", "자물쇠")
+                        )
+                    )
+                ),
+                emptyMap()
+            ),
+            Message.tool(
+                Contents.of(
+                    com.google.ai.edge.litertlm.Content.ToolResponse(
+                        "add_memory",
+                        """{"status":"success"}"""
+                    )
+                )
+            ),
+            Message.model("자물쇠 비밀번호 8282를 기억해 두었습니다.")
+        )
     }
 
     // [WHY] toolCalls=[] 만으로는 "선언이 템플릿에 안 들어감"과 "모델이 호출을 거부"를 구분할 수

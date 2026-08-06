@@ -1,3 +1,10 @@
+## [0.8.5] - 2026-08-07
+> 0.8.4 에서 숫자 왜곡은 잡혔으나(greedy 효과 — "1234" 정확) 호출 성향은 여전히 0. gallery 와의 구성 차이는 소진됐으므로, 성향 자체를 겨냥한 few-shot 시범과 네이티브 진단 2종을 추가했다.
+- **[Added]** 툴 호출 few-shot 시범 — `initialMessages` 서두에 "사용자 요청 → 모델의 실제 `ToolCall` → `Message.tool` 응답 → 확인 답변" 왕복 한 번을 심는다. 지시("you MUST call")만으로 성향이 안 바뀌는 4B 모델에게 남은 가장 강한 지렛대는 정확한 네이티브 형식의 시범이다. 예시는 LLM 대화에만 존재하고 DB·화면 기록에는 남지 않는다
+- **[Added]** 네이티브 로그 활성화 — `Engine.setNativeMinLogSeverity(INFO)`. 네이티브(liblitertlm_jni) 로그는 기본 억제되어 있어 constrained decoding 문법 생성 실패, 데이터 프로세서 선택(Gemma4DataProcessor 여부) 같은 결정적 진단이 logcat 에 전혀 없었다 — 지금까지 "네이티브 로그가 안 보인다"의 원인
+- **[Removed]** 사용자 턴의 "[Current Input]" 라벨 — 자체 XML 규약 시절의 잔재. 네이티브 경로에서 역할 표시는 템플릿의 몫이므로 원문 그대로 보낸다 (gallery 와 동일)
+- **[QA/Test]** 전체 152건 + lintDebug 통과
+
 ## [0.8.4] - 2026-08-06
 > 0.8.3 에서도 미해결(모델이 "비밀번호는 12라고 기억해 두겠습니다" — 거짓 약속 + 숫자 왜곡). gallery 와의 구성 차이를 마저 대조해 마지막 2건을 맞췄다. 이로써 gallery agent chat 구성(툴 선언 + constrained decoding + greedy + thinking off + 툴 이름 지목 프롬프트)과 완전히 동일하다.
 - **[Fix]** 샘플러를 greedy(topK=1)로 — gallery 는 agent chat 진입 시 **topK=1 을 강제**한다(`AgentChatSamplingParamsManager`, "specifically enforcing greedy decoding"). 샘플링이 남아 있으면 호출 시작 토큰이 최빈이 아닐 때 툴 호출이 확률적으로 뭉개진다. greedy 는 숫자 왜곡("1234"→"12")도 함께 막는다 — 0.8.0 의 temperature 하향(0.8→0.3)보다 근본적인 해법

@@ -144,10 +144,7 @@ class PromptAssembler @Inject constructor() {
         append("If you do not need a tool, simply provide your final response in plain text.")
     }
 
-    private fun buildInputBlock(userInput: String): String {
-        return """
-            [Current Input]
-            $userInput
-        """.trimIndent()
-    }
+    // [WHY] "[Current Input]" 라벨은 자체 XML 규약 시절의 잔재다. 네이티브 함수호출 경로에서
+    // 사용자 턴은 템플릿이 역할을 표시하므로 원문 그대로 보낸다 — gallery 도 raw 입력을 보낸다.
+    private fun buildInputBlock(userInput: String): String = userInput
 }
