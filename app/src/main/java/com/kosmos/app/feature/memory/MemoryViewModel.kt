@@ -23,6 +23,8 @@ import com.kosmos.app.domain.usecase.ImportMemoryUseCase
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.mapper.ErrorMessages
 import com.kosmos.app.platform.file.BackupFileWriter
+import com.kosmos.app.ui.paging.DefaultPagingSource
+import com.kosmos.app.ui.paging.unwrapForPaging
 
 /**
  * [MemoryViewModel]
@@ -52,16 +54,20 @@ class MemoryViewModel @Inject constructor(
     val uiState: StateFlow<MemoryUiState> = _uiState.asStateFlow()
 
     // Paging Data Flows
+    // [WHY] Pager 생성이 여기 있는 이유 — 리포지토리가 Flow<PagingData>를 반환하면
+    // Pure Kotlin JVM 모듈인 :domain 이 androidx 타입을 공개 계약에 노출한다. 페이징은
+    // UI 관심사이므로 offset/limit 계약만 받아 여기서 조립한다.
     val knowledgePagingData: Flow<PagingData<KnowledgeNote>> =
-        knowledgeRepository.getPagedData().cachedIn(viewModelScope)
+        androidx.paging.Pager(androidx.paging.PagingConfig(pageSize = 20)) {
+            DefaultPagingSource { offset, limit ->
+                knowledgeRepository.getNotes(offset, limit).unwrapForPaging()
+            }
+        }.flow.cachedIn(viewModelScope)
 
     val taskPagingData: Flow<PagingData<TaskItem>> =
         androidx.paging.Pager(androidx.paging.PagingConfig(pageSize = 20)) {
             DefaultPagingSource { offset, limit ->
-                when (val result = taskRepository.getPendingTasksData(offset, limit)) {
-                    is AppResult.Success -> result.data
-                    is AppResult.Failure -> throw Exception(result.error.toString())
-                }
+                taskRepository.getPendingTasksData(offset, limit).unwrapForPaging()
             }
         }.flow.cachedIn(viewModelScope)
 

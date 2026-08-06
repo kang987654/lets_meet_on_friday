@@ -1,8 +1,16 @@
-package com.kosmos.app.feature.memory
+package com.kosmos.app.ui.paging
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
+import com.kosmos.app.core.common.AppResult
 
+/**
+ * offset/limit 리포지토리 메서드를 Paging3 소스로 감쌉니다.
+ *
+ * [WHY] `feature/memory` 에 있던 것을 여기로 옮겼다 — 0.7.4 에서 `:domain` 의 `androidx.paging`
+ * 의존을 제거하면서 `Pager` 생성이 ViewModel 로 올라왔고, 소비자가 `feature.memory` 와
+ * `feature.settings` 두 곳이 됐다.
+ */
 class DefaultPagingSource<T : Any>(
     private val fetch: suspend (offset: Int, limit: Int) -> List<T>
 ) : PagingSource<Int, T>() {
@@ -31,4 +39,15 @@ class DefaultPagingSource<T : Any>(
             LoadResult.Error(e)
         }
     }
+}
+
+/**
+ * [AppResult] 를 반환하는 리포지토리 메서드를 [DefaultPagingSource] 의 `fetch` 계약에 맞춥니다.
+ *
+ * [WHY] Paging3 의 `load` 는 예외로 실패를 표현하므로 `AppResult.Failure` 를 던져야 한다.
+ * 세 ViewModel 이 같은 `when` 을 인라인으로 복제하고 있었기에 한 곳으로 모았다.
+ */
+fun <T> AppResult<T>.unwrapForPaging(): T = when (this) {
+    is AppResult.Success -> data
+    is AppResult.Failure -> throw IllegalStateException(error.toString())
 }

@@ -1,7 +1,6 @@
 package com.kosmos.app.feature.memory
 
 import android.net.Uri
-import androidx.paging.PagingData
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.mapper.ErrorMessages
@@ -12,10 +11,8 @@ import com.kosmos.app.domain.usecase.ImportMemoryUseCase
 import com.kosmos.app.platform.file.BackupFileWriter
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -54,7 +51,7 @@ class MemoryBackupStateTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
 
         val knowledgeRepository: KnowledgeRepository = mockk {
-            every { getPagedData() } returns flowOf(PagingData.empty())
+            coEvery { getNotes(any(), any()) } returns AppResult.Success(emptyList())
         }
         val taskRepository: TaskRepository = mockk()
 

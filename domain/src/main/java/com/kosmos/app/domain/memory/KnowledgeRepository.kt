@@ -2,8 +2,6 @@ package com.kosmos.app.domain.memory
 
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.KnowledgeNote
-import kotlinx.coroutines.flow.Flow
-import androidx.paging.PagingData
 
 /**
  * [v1] 확장: 장기 메모리(지식) 관리 저장소
@@ -16,5 +14,6 @@ interface KnowledgeRepository {
     suspend fun searchRecent(limit: Int = 10): AppResult<List<KnowledgeNote>>
     suspend fun searchByTags(tags: List<String>, limit: Int = 10): AppResult<List<KnowledgeNote>>
     suspend fun searchByVector(queryEmbedding: FloatArray, limit: Int = 3): AppResult<List<KnowledgeNote>>
-    fun getPagedData(): Flow<PagingData<KnowledgeNote>>
+    /** [WHY] `AuditRepository.getEvents` 와 같은 이유로 offset/limit 계약이다. */
+    suspend fun getNotes(offset: Int, limit: Int): AppResult<List<KnowledgeNote>>
 }

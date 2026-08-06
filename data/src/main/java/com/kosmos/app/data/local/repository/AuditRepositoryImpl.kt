@@ -1,9 +1,5 @@
 package com.kosmos.app.data.local.repository
 
-import androidx.paging.Pager
-import androidx.paging.PagingConfig
-import androidx.paging.PagingData
-import androidx.paging.map
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.data.local.db.dao.AuditDao
@@ -11,8 +7,6 @@ import com.kosmos.app.data.local.db.entity.AuditEntity
 import com.kosmos.app.domain.memory.AuditRepository
 import com.kosmos.app.domain.model.AuditEvent
 import com.kosmos.app.domain.model.AuditEventType
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class AuditRepositoryImpl @Inject constructor(
@@ -37,13 +31,13 @@ class AuditRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getPaged(): Flow<PagingData<AuditEvent>> {
-        return Pager(
-            config = PagingConfig(pageSize = 20, enablePlaceholders = false)
-        ) {
-            auditDao.getPaged()
-        }.flow.map { pagingData ->
-            pagingData.map { it.toDomain() }
+    override suspend fun getEvents(offset: Int, limit: Int): AppResult<List<AuditEvent>> {
+        return try {
+            AppResult.Success(auditDao.getEvents(offset, limit).map { it.toDomain() })
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppResult.Failure(AppError.DbReadError("audit_log"))
         }
     }
 }

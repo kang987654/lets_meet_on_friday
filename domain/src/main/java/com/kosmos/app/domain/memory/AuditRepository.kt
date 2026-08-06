@@ -2,8 +2,6 @@ package com.kosmos.app.domain.memory
 
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.AuditEvent
-import kotlinx.coroutines.flow.Flow
-import androidx.paging.PagingData
 
 /**
  * [v0] 감사 로그 저장소
@@ -11,5 +9,10 @@ import androidx.paging.PagingData
  */
 interface AuditRepository {
     suspend fun save(event: AuditEvent): AppResult<Unit>
-    fun getPaged(): Flow<PagingData<AuditEvent>>
+    /**
+     * [WHY] 이전에는 `Flow<PagingData<AuditEvent>>` 를 반환했다. Pure Kotlin JVM 모듈이
+     * `androidx` 타입을 공개 계약에 노출하는 문제였고, `Pager` 생성은 UI 관심사이므로
+     * ViewModel 로 올렸다. `TaskRepository.getPendingTasksData` 와 같은 형태다.
+     */
+    suspend fun getEvents(offset: Int, limit: Int): AppResult<List<AuditEvent>>
 }

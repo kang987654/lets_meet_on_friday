@@ -4,7 +4,6 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.paging.PagingSource
 import com.kosmos.app.data.local.db.entity.KnowledgeEntity
 
 @Dao
@@ -34,6 +33,6 @@ interface KnowledgeDao {
     @Query("SELECT * FROM knowledge_note WHERE ',' || tags || ',' LIKE '%,' || :tag || ',%' ESCAPE '\\' ORDER BY createdAt DESC LIMIT :limit")
     suspend fun searchByTags(tag: String, limit: Int): List<KnowledgeEntity>
 
-    @Query("SELECT * FROM knowledge_note ORDER BY createdAt DESC")
-    fun getPaged(): PagingSource<Int, KnowledgeEntity>
+    @Query("SELECT * FROM knowledge_note ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
+    suspend fun getNotes(offset: Int, limit: Int): List<KnowledgeEntity>
 }

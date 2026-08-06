@@ -91,6 +91,7 @@ Unresolved reference 'sessionId'.
 - **증상**: Compose에서 `PagingData`를 표시하기 위한 `collectAsLazyPagingItems()`가 동작하지 않음.
 - **원인**: `androidx.paging:paging-compose` 의존성이 없었음.
 - **해결 방안**: `build.gradle.kts`에 의존성을 추가하고, Windows `v2`(KMP) 확장에 대비해 Repository의 `PagingSource` 반환을 `Flow<PagingData<T>>` 래핑 구조로 선제적으로 개편함.
+- **후속(v0.7.4)**: 이 `Flow<PagingData<T>>` 구조는 **철회했다.** Pure Kotlin JVM 모듈인 `:domain`이 `androidx` 타입을 공개 계약에 노출하는 결과가 됐기 때문이다(KMP 확장에는 오히려 걸림돌이다). 리포지토리는 offset/limit만 제공하고 `Pager` 생성은 ViewModel로 올렸다 — `ui/paging/DefaultPagingSource` 참조.
 
 ## 10. Settings UI (TASK-054)
 - **증상**: `SettingsScreen`에서 `ModelLoadState.Error` 분기가 없어 `when` 문 컴파일 에러가 나고, `NotFound`에서 `message` 변수를 찾지 못함.
