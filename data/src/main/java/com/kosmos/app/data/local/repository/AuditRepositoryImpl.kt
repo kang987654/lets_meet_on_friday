@@ -46,16 +46,6 @@ class AuditRepositoryImpl @Inject constructor(
             pagingData.map { it.toDomain() }
         }
     }
-
-    override fun getPagedByType(type: AuditEventType): Flow<PagingData<AuditEvent>> {
-        return Pager(
-            config = PagingConfig(pageSize = 20, enablePlaceholders = false)
-        ) {
-            auditDao.getPagedByType(type.name)
-        }.flow.map { pagingData ->
-            pagingData.map { it.toDomain() }
-        }
-    }
 }
 
 fun AuditEntity.toDomain(): AuditEvent {

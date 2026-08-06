@@ -2,7 +2,6 @@ package com.kosmos.app.domain.memory
 
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.AuditEvent
-import com.kosmos.app.domain.model.AuditEventType
 import kotlinx.coroutines.flow.Flow
 import androidx.paging.PagingData
 
@@ -13,5 +12,4 @@ import androidx.paging.PagingData
 interface AuditRepository {
     suspend fun save(event: AuditEvent): AppResult<Unit>
     fun getPaged(): Flow<PagingData<AuditEvent>>
-    fun getPagedByType(type: AuditEventType): Flow<PagingData<AuditEvent>>
 }

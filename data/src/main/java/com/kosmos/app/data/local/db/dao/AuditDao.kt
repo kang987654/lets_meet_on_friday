@@ -14,7 +14,4 @@ interface AuditDao {
 
     @Query("SELECT * FROM audit_log ORDER BY timestamp DESC")
     fun getPaged(): PagingSource<Int, AuditEntity>
-
-    @Query("SELECT * FROM audit_log WHERE eventType = :eventType ORDER BY timestamp DESC")
-    fun getPagedByType(eventType: String): PagingSource<Int, AuditEntity>
 }
