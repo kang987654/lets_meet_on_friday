@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.kosmos.app.MainActivity
+import com.kosmos.app.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -60,9 +61,8 @@ class AndroidDownloadNotifier @Inject constructor(
     ): Notification {
         val indeterminate = percent < 0
         val builder = NotificationCompat.Builder(context, NotificationChannels.MODEL_DOWNLOAD)
-            // [WHY] res/ 에 다운로드용 24dp 모노 벡터가 없다. ic_launcher 는 상태바에서 흰
-            // 사각형으로 렌더되므로 플랫폼 기본 아이콘을 임시로 쓴다 (디자인 부채).
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(R.drawable.ic_stat_download)
+            .setColor(accentColor())
             .setContentTitle("AI 모델 다운로드 중")
             .setContentText(progressText(downloadedBytes, totalBytes))
             .setProgress(100, percent.coerceAtLeast(0), indeterminate)
@@ -71,13 +71,16 @@ class AndroidDownloadNotifier @Inject constructor(
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setContentIntent(contentIntent())
+        // [WHY] 액션 아이콘은 플랫폼 X 를 그대로 쓴다 — API 24+ 대부분의 알림 UI 는 액션
+        // 아이콘을 표시하지 않고 라벨만 보여주므로 전용 벡터를 만들 이득이 없다.
         cancelIntent?.let { builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "취소", it) }
         return builder.build()
     }
 
     override fun notifySuccess() = notify(
         NotificationCompat.Builder(context, NotificationChannels.MODEL_DOWNLOAD)
-            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setSmallIcon(R.drawable.ic_stat_download_done)
+            .setColor(accentColor())
             .setContentTitle("모델 다운로드 완료")
             .setContentText("이제 대화를 시작할 수 있어요.")
             .setAutoCancel(true)
@@ -87,7 +90,8 @@ class AndroidDownloadNotifier @Inject constructor(
 
     override fun notifyFailure(userMessage: String) = notify(
         NotificationCompat.Builder(context, NotificationChannels.MODEL_DOWNLOAD)
-            .setSmallIcon(android.R.drawable.stat_notify_error)
+            .setSmallIcon(R.drawable.ic_stat_error)
+            .setColor(accentColor())
             .setContentTitle("모델 다운로드 실패")
             .setContentText(userMessage)
             .setStyle(NotificationCompat.BigTextStyle().bigText(userMessage))
@@ -117,6 +121,13 @@ class AndroidDownloadNotifier @Inject constructor(
             manager.notify(NotificationChannels.NOTIF_ID_DOWNLOAD_RESULT, notification)
         }
     }
+
+    /**
+     * [WHY] 알림 아이콘 틴트 색은 프레임워크가 그리므로 Compose 토큰을 쓸 수 없다.
+     * `res/values/colors.xml` 의 복제본을 참조한다(그 파일 주석 참조).
+     */
+    private fun accentColor(): Int =
+        ContextCompat.getColor(context, R.color.notification_accent)
 
     private fun contentIntent(): PendingIntent =
         PendingIntent.getActivity(

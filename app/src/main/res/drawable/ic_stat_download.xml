@@ -1,0 +1,19 @@
+<!--
+  모델 다운로드 진행 알림용 상태바 아이콘.
+
+  [WHY] 상태바는 아이콘을 알파 마스크로만 쓴다 — fillColor 는 무시되고 불투명한 영역만
+  실루엣으로 남는다. 그래서 리터럴 검정 단색으로 두고 형태만 단순하게 유지한다.
+  그라디언트·다중 색·얇은 선은 24dp 에서 뭉개진다.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path
+      android:fillColor="#FF000000"
+      android:pathData="M11,3h2v7h4l-5,6 -5,-6h4z"/>
+  <path
+      android:fillColor="#FF000000"
+      android:pathData="M4,19h16v2H4z"/>
+</vector>

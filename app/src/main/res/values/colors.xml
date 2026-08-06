@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      [WHY] 이 프로젝트의 색은 Compose 토큰(KosmosTheme.colors)이 정본이고 XML 리소스는
+      쓰지 않는다. 다만 알림은 프레임워크가 그리므로 색을 int 로 넘겨야 해서 여기에만
+      복제한다. 다크 테마 accent(Color.kt 의 0xFF22D3EE)를 브랜드 값으로 쓴다 —
+      알림 그림자는 시스템 테마를 따르고 라이트/다크 분기가 불가능하므로 한 값을 정해야 한다.
+    -->
+    <color name="notification_accent">#FF22D3EE</color>
+</resources>
