@@ -54,6 +54,14 @@ class GemmaModelRunner @Inject constructor(
     @LLMDispatcher private val llmDispatcher: CoroutineDispatcher
 ) : ModelRunner {
 
+    companion object {
+        // [WHY] Gemma 4 는 thinking 모델이라 템플릿 기본값으로 생각 모드가 켜진다. gallery 는
+        // **모든** 추론 호출에서 extraContext 로 enable_thinking=false 를 넘기고, 허용 목록에서도
+        // thinking 과 agent chat(툴 호출)을 조합하지 않는다 — 생각 모드에서는 함수호출 동작이
+        // 달라진다. 툴 호출이 핵심 기능이므로 gallery 와 같은 기본값을 따른다.
+        private val EXTRA_CONTEXT: Map<String, Any> = mapOf("enable_thinking" to false)
+    }
+
     override val loadState: StateFlow<ModelLoadState> = runtimeManager.loadState
 
     private var engine: Engine? = null
@@ -136,7 +144,7 @@ class GemmaModelRunner @Inject constructor(
                 val startTime = System.currentTimeMillis()
 
                 val currentConversation = getOrCreateConversation(prompt)
-                val contents = buildContents(prompt, extraContents())
+                val outgoing = buildMessage(prompt, extraContents())
 
                 if (onToken != null) {
                     var finalResponse = ""
@@ -144,7 +152,7 @@ class GemmaModelRunner @Inject constructor(
                     var error: Throwable? = null
 
                     try {
-                        currentConversation.sendMessageAsync(contents).collect { message ->
+                        currentConversation.sendMessageAsync(outgoing, EXTRA_CONTEXT).collect { message ->
                             yield() // CPU 점유율 양보 (UI 스레드 기아 방지)
                             collectToolCalls(message, toolCalls)
                             val token = message.contents.contents
@@ -175,13 +183,12 @@ class GemmaModelRunner @Inject constructor(
                         AppResult.Success(ModelTurn(finalResponse, toolCalls))
                     }
                 } else {
-                    val message = currentConversation.sendMessage(contents)
+                    val message = currentConversation.sendMessage(outgoing, EXTRA_CONTEXT)
                     val toolCalls = mutableListOf<ModelToolCall>()
-                    if (message != null) collectToolCalls(message, toolCalls)
-                    val messageText = message?.contents?.contents
-                        ?.filterIsInstance<com.google.ai.edge.litertlm.Content.Text>()
-                        ?.joinToString("") { it.text }
-                        .orEmpty()
+                    collectToolCalls(message, toolCalls)
+                    val messageText = message.contents.contents
+                        .filterIsInstance<com.google.ai.edge.litertlm.Content.Text>()
+                        .joinToString("") { it.text }
 
                     metricsCollector.recordEnd(System.currentTimeMillis() - startTime)
 
@@ -200,22 +207,25 @@ class GemmaModelRunner @Inject constructor(
         }
     }
 
-    private fun buildContents(
+    private fun buildMessage(
         prompt: ChatPrompt,
         extras: List<com.google.ai.edge.litertlm.Content>
-    ): com.google.ai.edge.litertlm.Contents {
-        // [WHY] 툴 실행 결과는 사용자 발화가 아니라 전용 응답 타입으로 보내야 모델 템플릿의
-        // 역할과 맞는다. 이전에는 `<tool_response>` 텍스트를 사용자 턴으로 위장해 보냈다.
+    ): Message {
+        // [WHY] 툴 실행 결과는 사용자 발화가 아니라 **TOOL 역할 메시지**로 보내야 모델 템플릿의
+        // 역할과 맞는다. Contents 오버로드는 무조건 Message.user 로 감싸므로(바이트코드 확인)
+        // 여기서 직접 Message.tool 로 감싼다 — 공식 문서의 수동 툴 호출 예제와 같은 형태다.
         prompt.toolResponse?.let { response ->
-            return com.google.ai.edge.litertlm.Contents.of(
-                com.google.ai.edge.litertlm.Content.ToolResponse(response.name, response.resultJson)
+            return Message.tool(
+                Contents.of(
+                    com.google.ai.edge.litertlm.Content.ToolResponse(response.name, response.resultJson)
+                )
             )
         }
         if (extras.isNotEmpty()) {
-            return com.google.ai.edge.litertlm.Contents.of(*extras.toTypedArray())
+            return Message.user(Contents.of(*extras.toTypedArray()))
         }
-        return com.google.ai.edge.litertlm.Contents.of(
-            com.google.ai.edge.litertlm.Content.Text(prompt.currentInput)
+        return Message.user(
+            Contents.of(com.google.ai.edge.litertlm.Content.Text(prompt.currentInput))
         )
     }
 

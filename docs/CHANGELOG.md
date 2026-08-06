@@ -1,3 +1,10 @@
+## [0.8.3] - 2026-08-06
+> 0.8.2 에서도 `toolCalls=[]`. 이번에는 0.14.0 바이트코드로 constrained decoding 플래그가 네이티브까지 전달되는 것을 확인해 그 가설을 닫았고, gallery 와의 남은 차이를 전수 대조해 2건을 찾았다.
+- **[Fix]** `enable_thinking=false` 를 extraContext 로 전달 — Gemma 4 는 thinking 모델이라 템플릿 기본값으로 생각 모드가 켜지는데, gallery 는 **모든** 추론 호출에서 이 변수를 false 로 넘기고 허용 목록에서도 thinking 과 agent chat(툴 호출)을 조합하지 않는다(`capabilityToTaskTypes.llm_thinking` 에 `llm_agent_chat` 없음 — 의도적 분리). 우리는 이 변수를 아예 안 넘겨서 생각 모드로 돌았고, 생각 모드 템플릿에서는 함수호출 동작이 달라진다 — `toolCalls=[]` 의 유력 원인
+- **[Fix]** 툴 응답이 USER 역할로 위장되던 문제 — `sendMessageAsync(Contents)` 오버로드는 무조건 `Message.user(...)` 로 감싼다(바이트코드 확인). `Content.ToolResponse` 를 실어도 역할이 사용자면 템플릿이 툴 응답으로 렌더링하지 않는다. 공식 문서의 수동 툴 호출 예제와 같이 `Message.tool(...)` 로 감싸고, 일반 발화는 `Message.user(...)` 로 명시
+- **[Removed]** 조사 과정에서 배제된 가설 기록 — `ExperimentalFlags.enableConversationConstrainedDecoding` 은 `createConversation` 이 읽어 `nativeCreateConversation` 의 boolean 인자로 정상 전달된다(0.8.1 의 수정은 유효). LiteRT-LM 공식 문서(docs/api/kotlin/getting_started.md)도 `automaticToolCalling = false` + `Message.toolCalls` 수동 처리를 정식 지원 경로로 명시한다
+- **[QA/Test]** 전체 152건 + lintDebug 통과. 부작용: thinking 표시 기능은 생각 모드 비활성화로 휴면 상태가 된다 — 툴 호출이 핵심 기능(PRD F2/F3/F4)이고 thinking 표시는 보조 기능이므로 gallery 와 같은 선택을 따른다
+
 ## [0.8.2] - 2026-08-06
 > 0.8.1 실기기 로그가 원인 범위를 크게 좁혔다 — 모델은 gemma-4-E4B(올바름)이고 preface 에 툴 선언이 **렌더링된다**(모델 파일 문제 아님). 대신 렌더링된 스키마에서 우리 쪽 결함 2건이 드러났다.
 - **[Fix]** `add_schedule` 의 파라미터 이름 `description` 이 스키마의 툴 설명 키와 충돌 — 렌더링된 선언의 properties 에서 **사라지고 required 에만 남아**, 존재하지 않는 필드를 필수로 요구하는 깨진 스키마가 됐다. constrained decoding 은 이 스키마로 문법(FST)을 만들므로 생성 실패 시 강제가 통째로 죽을 수 있다 — `toolCalls=[]` 지속의 유력 원인. `memo` 로 개명 (executor 는 두 키를 모두 읽어 기존 테스트 호환 유지)
