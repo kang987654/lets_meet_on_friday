@@ -1,5 +1,5 @@
 # ui_improvement_plan.md — 전체 UI 개선 계획서
-> **문서 버전**: v1.3 | **최종 수정일**: 2026-08-06 | **상태**: Done (Phase A·B·C·D 완료. §7 이월 백로그만 잔여)
+> **문서 버전**: v1.4 | **최종 수정일**: 2026-08-06 | **상태**: Done (Phase A·B·C·D 완료. §7 이월 백로그 4건 + 실기기 QA만 잔여)
 > **관련 모듈**: `:app` (feature/*, ui/*), `:core` (mapper)
 > **기준 문서**: PRD.md v1.2 / architecture.md v1.2 (ADR-001~004) / DESIGN.md / CHANGELOG 0.5.12
 
@@ -130,10 +130,15 @@
 - [x] MemoryViewModel 콜백→UiState 이벤트 전환 (v0.7.2). `BackupState` 도입으로 Activity 컨텍스트 누수와 완료 통지 유실을 함께 해소하고 `Toast`도 제거. 내보내기/가져오기 UI 진입점을 붙이는 순간 이 결함이 실제로 발현되므로 함께 처리했다
 - [x] 내보내기/가져오기 UI 진입점 신설 (v0.7.2) — `prd.md` F8 미달이었다. 개인정보 경고·덮어쓰기 확인·재시작 확인 3단 다이얼로그와 SAF 저장 위치 선택 포함
 - [x] `AuditRepository.getPagedByType` 제거 (v0.7.2) — 스펙에 없는 선행 구현이었고 호출자가 없었다
+- [x] 알림용 24dp 모노 벡터 3종 + `colors.xml` accent (v0.7.3). 제네릭 다운로드 화살표로 결정 — 브랜드 마크는 파생시킬 벡터가 없어 앱 아이덴티티 작업까지 번지므로 제외 (사용자 결정)
+- [x] 태그에 콤마가 포함된 경우 (v0.7.3). 공백 치환으로 결정 (사용자 결정). 구분자 자체를 바꾸는 근본 해결은 마이그레이션이 필요해 제외
+- [x] **MediaPipeTextEmbedder lazy-init** (v0.7.3). `init` 블록 제거 + `Mutex` 지연 초기화로 실패를 기억하지 않게 했고, `TextEmbedder.embed`를 `suspend`로 바꿔 로드·추론을 `Dispatchers.Default`로 옮겼다
+  - 조사 중 정정된 사실: "조용한 강등"은 **읽기에만** 해당한다. `SaveKnowledgeUseCase`는 폴백 없이 실패하므로 임베더가 죽으면 메모리 저장이 통째로 막혔다. 이 폴백 부재는 **의도된 동작으로 남긴다** — 임베딩 없이 저장하면 그 노트가 벡터 검색에 영구히 안 잡혀 폴백이 오히려 조용한 데이터 손실이 된다
+  - RAG 품질 저하 배너는 만들지 않았다 — 실패가 일시적이면 필요한 것은 재시도이고, 영구적이면 이미 저장 실패로 드러난다
+  - `close()`도 추가하지 않았다 — `@Singleton`은 프로세스 수명과 같아 호출 지점이 없다. 소비자 없는 API를 남기지 않는다는 0.7.2의 `getPagedByType` 제거와 같은 기준
 
 ### 잔여
-성능
-- [ ] **MediaPipeTextEmbedder lazy-init** — `init` 블록에서 TFLite 그래프를 로드해 첫 채팅 시 메인 스레드가 수십~수백 ms 블로킹된다. 초기화 실패를 `catch(Throwable)`이 로그만 남기고 넘겨 `textEmbedder`가 영구히 null이 되고, 그 결과 RAG가 LIKE 검색으로 **조용히 강등**된다(재시도 경로 없음). `close()`도 없어 네이티브 메모리가 프로세스 수명 동안 유지된다
+성능 (남은 1건)
 - [ ] **임베딩 BLOB 전환** — `embedding: String`(콤마 구분 실수)이라 `searchByVector`가 1000행을 `split`+`toFloatOrNull`로 파싱해 RAG 질의 한 번에 30만 개 남짓 단기 할당이 발생한다. `toDomain()`이 같은 문자열을 다시 파싱하는 이중 파싱도 있음. 정밀도 손실은 없으나(`Float.toString`은 라운드트립 보장), `mapNotNull`이 파싱 실패 항목을 조용히 버려 길이 비교에서 탈락한 노트가 벡터 검색에서 영구히 안 보이게 되는 실패 모드가 있다. Room 스키마 마이그레이션(v4→v5) 필요
 
 UI 정확성 (남은 1건)
@@ -144,18 +149,15 @@ UI 정확성 (남은 1건)
 
 세부 항목
 - [ ] per-tool `@Serializable` 타입 스키마 — `ToolArguments`로 런타임 결함은 제거했으나 인자 이름이 여전히 프롬프트 텍스트와 호출부에만 존재한다(컴파일 타임 검증 없음). `ToolExecutor` 제네릭화는 `ToolRegistry`/`BaseAgent`에 star projection이 번져 별건으로 남김
-- [ ] 태그에 콤마가 포함된 경우 — `tags` 칼럼이 콤마 조인 문자열이라 원래부터 표현할 수 없다. 저장 시 거부하거나 치환하는 처리 필요
 - [ ] `content` 검색 FTS4/5 전환 — 와일드카드 접두사 패턴(`'%' || ...`)이라 인덱스를 쓰지 못하는 문제는 이스케이프로 해결되지 않는다
-- [ ] 알림용 24dp 모노 벡터 아이콘 + `colors.xml` accent — 현재 `android.R.drawable.stat_sys_download` 계열 임시 사용(OEM이 재스타일링해 기기별 외형 불일치). adaptive icon(`ic_launcher_foreground`)이 없어 파생시킬 브랜드 실루엣도 없음
+- [ ] adaptive icon(`ic_launcher_foreground`) 및 KOSMOS 브랜드 마크 — 앱 아이콘 디자인 시 착수. 알림 아이콘(v0.7.3)은 제네릭 화살표로 처리했으므로 급하지 않다
 
 ### 확인 필요 (임의 판단하지 않음)
 
-**결정이 필요한 것**
-- 알림 아이콘 디자인 — 제네릭 다운로드 화살표 vs KOSMOS 마크 실루엣. 후자를 고르면 파생시킬 브랜드 벡터가 없어 adaptive icon(`ic_launcher_foreground`)도 함께 만들어야 한다
-- 태그에 콤마가 들어올 때 정책 — 저장 시 거부할지, 다른 문자로 치환할지
-- `MediaPipeTextEmbedder` 초기화 실패 시 RAG가 LIKE 검색으로 조용히 강등되는 것을 사용자에게 알릴지 — 품질 저하 표시 여부는 제품 결정. 해당 항목을 고칠 때 함께 결정
+결정이 필요한 항목은 현재 없다. 아래는 사용자 실기기가 필요한 검증이다.
 
 **사용자 실기기가 필요한 것**
 - ADR-006 수동 QA 체크리스트 — 전경 승격 / Doze 백오프 / 실제 3.6GB 전송
 - v0.7.2 백업 왕복 QA — 내보내기→저장→가져오기→재시작, 특히 **가져오기 진행 중 화면 회전**(`prd.md` V1-AC4)
+- v0.7.3 알림 아이콘 시각 확인 — 상태바 알파 마스크 결과(실루엣이 뭉개지지 않는지)와 알림 그림자의 accent 틴트. 라이트/다크 양쪽
 - README 스크린샷 갱신 (라이트/다크)
