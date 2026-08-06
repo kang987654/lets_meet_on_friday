@@ -363,12 +363,15 @@ class GemmaModelRunner @Inject constructor(
             // [WHY] false 여야 런타임이 툴을 스스로 실행하지 않고 우리에게 호출을 넘긴다 —
             // 승인 다이얼로그(PRD F4)를 거쳐야 하므로 자동 실행을 쓸 수 없다.
             automaticToolCalling = false,
-            // [WHY] temperature 0.8 은 사실 회상에 너무 높았다 — "비밀번호 1234"를 342/4213 으로
-            // 왜곡했다. 툴 인자의 숫자·고유명사 정확성도 같은 이유로 낮은 값이 필요하다.
+            // [WHY] gallery 는 agent chat(툴 호출) 진입 시 topK=1(greedy)을 **강제**한다
+            // (AgentChatSamplingParamsManager — "specifically enforcing greedy decoding").
+            // 샘플링이 남아 있으면 호출 시작 토큰이 최빈이 아닐 때 툴 호출이 확률적으로
+            // 뭉개진다. greedy 는 숫자 왜곡("1234"→"12", 0.8.3 실기기)도 함께 막는다.
+            // topK=1 에서 temperature/topP 는 효력이 없으나 gallery 기본값을 그대로 둔다.
             samplerConfig = SamplerConfig(
-                temperature = 0.3,
-                topK = 40,
-                topP = 0.9
+                temperature = 1.0,
+                topK = 1,
+                topP = 0.95
             )
         )
         // [WHY] gallery 는 툴을 쓰는 모든 태스크에서 이 전역 플래그를 createConversation 직전에

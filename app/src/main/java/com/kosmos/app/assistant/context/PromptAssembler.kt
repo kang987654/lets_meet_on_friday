@@ -110,21 +110,38 @@ class PromptAssembler @Inject constructor() {
      * [WHY] 부수 효과로 `$'$'toolsDesc` 가 열 0 에 있어 `trimIndent()` 가 블록 전체의 들여쓰기를
      * 못 벗기던 포맷 버그도 사라졌다.
      */
-    private fun buildFormatBlock(availableTools: List<String>? = null): String {
-        val toolNote = if (availableTools.isNullOrEmpty()) {
-            "You have no tools available in this turn."
+    // [WHY] trimIndent 템플릿에 여러 줄 변수를 보간하면 보간된 줄만 들여쓰기가 어긋난다
+    // (예전 $toolsDesc 포맷 버그와 동일 패턴). 조건부 여러 줄 블록이므로 buildString 으로 만든다.
+    private fun buildFormatBlock(availableTools: List<String>? = null): String = buildString {
+        appendLine("[Tool Usage Guidelines]")
+        if (availableTools.isNullOrEmpty()) {
+            appendLine("You have no tools available in this turn.")
         } else {
-            "You have tools available. Use them whenever the user asks you to remember something, " +
-                "to schedule something, or to look something up — do not merely promise to do it."
+            // [WHY] 런타임이 모델에게 알리는 이름은 snake_case 다 — 지시도 그 이름으로 해야
+            // 선언과 이어진다. gallery 의 agent chat 프롬프트도 백틱으로 툴 이름을 직접
+            // 지목하며 "MUST call" 수준으로 강제한다 — 일반적 권고("tools available")만으로는
+            // 4B 모델이 실기기에서 호출 대신 말로만 약속했다 (0.8.3 확인).
+            appendLine(
+                "For EVERY user request, first decide if one of your tools applies. " +
+                    "If it does, you MUST call the tool. Do NOT merely promise or pretend — " +
+                    "promising without calling is a failure."
+            )
+            if (availableTools.contains("AddMemory")) {
+                appendLine("- The user asks you to remember something, or shares a fact/preference/password to keep: you MUST call `add_memory`.")
+            }
+            if (availableTools.contains("AddSchedule")) {
+                appendLine("- The user asks to add an appointment, reservation, or event: you MUST call `add_schedule`.")
+            }
+            if (availableTools.contains("GetSchedule")) {
+                appendLine("- The user asks what is on their calendar: you MUST call `get_schedule`.")
+            }
+            if (availableTools.contains("SearchWikipedia")) {
+                appendLine("- The user asks a factual question you are not sure about: call `search_wikipedia`.")
+            }
         }
-
-        return """
-            [Tool Usage Guidelines]
-            $toolNote
-            If you lack mandatory information to use a tool, DO NOT guess. Ask the user for clarification first.
-            Never alter numbers, dates, or proper nouns the user gave you — copy them exactly.
-            If you do not need a tool, simply provide your final response in plain text.
-        """.trimIndent()
+        appendLine("If you lack mandatory information to use a tool, DO NOT guess. Ask the user for clarification first.")
+        appendLine("Never alter numbers, dates, or proper nouns the user gave you — copy them exactly.")
+        append("If you do not need a tool, simply provide your final response in plain text.")
     }
 
     private fun buildInputBlock(userInput: String): String {

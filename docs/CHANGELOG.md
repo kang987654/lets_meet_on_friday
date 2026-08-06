@@ -1,3 +1,10 @@
+## [0.8.4] - 2026-08-06
+> 0.8.3 에서도 미해결(모델이 "비밀번호는 12라고 기억해 두겠습니다" — 거짓 약속 + 숫자 왜곡). gallery 와의 구성 차이를 마저 대조해 마지막 2건을 맞췄다. 이로써 gallery agent chat 구성(툴 선언 + constrained decoding + greedy + thinking off + 툴 이름 지목 프롬프트)과 완전히 동일하다.
+- **[Fix]** 샘플러를 greedy(topK=1)로 — gallery 는 agent chat 진입 시 **topK=1 을 강제**한다(`AgentChatSamplingParamsManager`, "specifically enforcing greedy decoding"). 샘플링이 남아 있으면 호출 시작 토큰이 최빈이 아닐 때 툴 호출이 확률적으로 뭉개진다. greedy 는 숫자 왜곡("1234"→"12")도 함께 막는다 — 0.8.0 의 temperature 하향(0.8→0.3)보다 근본적인 해법
+- **[Fix]** 시스템 지시가 툴 이름을 직접 지목하도록 강화 — "You have tools available" 수준의 일반 권고로는 4B 모델이 호출 대신 말로만 약속했다. gallery 프롬프트처럼 백틱으로 런타임 이름(`add_memory` 등 snake_case — 선언과 같은 이름이어야 이어진다)을 지목하고 "you MUST call" 로 강제. 활성 툴 목록에 따라 조건부로 생성
+- **[Fix]** trimIndent 템플릿에 여러 줄 변수를 보간하면 보간 줄만 들여쓰기가 어긋나는 포맷 버그 재발 방지 — buildFormatBlock 을 buildString 으로 전환 (0.8.0 에서 지운 `$toolsDesc` 버그와 동일 패턴)
+- **[QA/Test]** 전체 152건 + lintDebug 통과
+
 ## [0.8.3] - 2026-08-06
 > 0.8.2 에서도 `toolCalls=[]`. 이번에는 0.14.0 바이트코드로 constrained decoding 플래그가 네이티브까지 전달되는 것을 확인해 그 가설을 닫았고, gallery 와의 남은 차이를 전수 대조해 2건을 찾았다.
 - **[Fix]** `enable_thinking=false` 를 extraContext 로 전달 — Gemma 4 는 thinking 모델이라 템플릿 기본값으로 생각 모드가 켜지는데, gallery 는 **모든** 추론 호출에서 이 변수를 false 로 넘기고 허용 목록에서도 thinking 과 agent chat(툴 호출)을 조합하지 않는다(`capabilityToTaskTypes.llm_thinking` 에 `llm_agent_chat` 없음 — 의도적 분리). 우리는 이 변수를 아예 안 넘겨서 생각 모드로 돌았고, 생각 모드 템플릿에서는 함수호출 동작이 달라진다 — `toolCalls=[]` 의 유력 원인
