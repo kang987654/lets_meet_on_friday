@@ -1,3 +1,10 @@
+## [0.8.2] - 2026-08-06
+> 0.8.1 실기기 로그가 원인 범위를 크게 좁혔다 — 모델은 gemma-4-E4B(올바름)이고 preface 에 툴 선언이 **렌더링된다**(모델 파일 문제 아님). 대신 렌더링된 스키마에서 우리 쪽 결함 2건이 드러났다.
+- **[Fix]** `add_schedule` 의 파라미터 이름 `description` 이 스키마의 툴 설명 키와 충돌 — 렌더링된 선언의 properties 에서 **사라지고 required 에만 남아**, 존재하지 않는 필드를 필수로 요구하는 깨진 스키마가 됐다. constrained decoding 은 이 스키마로 문법(FST)을 만들므로 생성 실패 시 강제가 통째로 죽을 수 있다 — `toolCalls=[]` 지속의 유력 원인. `memo` 로 개명 (executor 는 두 키를 모두 읽어 기존 테스트 호환 유지)
+- **[Fix]** 인자 키 snake_case 미변환 — 런타임은 함수 이름뿐 아니라 **파라미터 이름도** snake_case 로 선언하고(preface 에서 `start_time`/`end_time` 확인), 모델이 보내는 인자 키도 그 이름이다. executor 는 camelCase 를 읽으므로(`requireString("startTime")`) 호출이 도착해도 인자가 통째로 유실될 상태였다. `camelArgName` 매핑을 `collectToolCalls` 에 추가 — 툴 호출이 한 번도 도착하지 않아 아직 밟지 않은 지뢰를 선제 제거
+- **[Fix]** "nullable 파라미터는 required 에서 빠진다"는 0.8.1 의 가정이 실기기에서 반증됨 — `nullable:true` 로 렌더링되지만 required 에는 남는다. 주석을 사실로 교정하고, endTime 설명을 "모르면 생략"(불가능한 지시)에서 "모르면 시작 1시간 뒤"로 변경
+- **[QA/Test]** `KosmosToolDeclarationsTest` 신설 4건 — snake_case↔camelCase 인자 키 왕복, 함수 이름 매핑, 미지 이름 통과. 전체 152건 + lintDebug 통과
+
 ## [0.8.1] - 2026-08-06
 > 0.8.0 실기기 확인 결과 여전히 `toolCalls=[]` — 모델이 툴 호출을 만들지 않았다. 0.14.0 AAR 바이트코드와 gallery 소스를 대조해 배관은 정상임을 확정했다(툴 JSON 은 `automaticToolCalling` 과 무관하게 네이티브로 전달되고, `toolCalls` 는 우리가 collect 하는 스트리밍 Flow 에 실려 온다). 남은 원인은 두 가지 — constrained decoding 미활성화, 그리고 모델 파일의 템플릿 지원 여부.
 - **[Fix]** `ExperimentalFlags.enableConversationConstrainedDecoding` 활성화 — gallery 는 툴을 쓰는 **모든** 태스크에서 이 전역 플래그를 `createConversation` 직전에 켜고 직후에 끈다. 툴 스키마로부터 FST 문법을 만들어 모델 출력을 호출 구문으로 **강제**하는 장치로, 선언만으로는 4B 온디바이스 모델이 호출 형식을 지키지 못한다. `ConversationConfig` 필드가 아니라 생성 시점에만 읽히는 전역 플래그라서 0.8.0 전환 때 누락됐다

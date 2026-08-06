@@ -54,22 +54,40 @@ object KosmosToolDeclarations {
     fun canonicalName(runtimeName: String): String =
         CANONICAL_NAMES[runtimeName] ?: runtimeName
 
+    // [WHY] 런타임은 함수 이름뿐 아니라 **파라미터 이름도** snake_case 로 선언한다
+    // (0.8.1 실기기 preface 에서 start_time/end_time 확인). 모델이 보내는 인자 키도 그
+    // 이름이므로, camelCase 를 읽는 executor(예: requireString("startTime"))에 닿기 전에
+    // 되돌려야 한다.
+    fun camelArgName(runtimeName: String): String {
+        if (!runtimeName.contains('_')) return runtimeName
+        return runtimeName.split('_')
+            .filter { it.isNotEmpty() }
+            .mapIndexed { index, part ->
+                if (index == 0) part else part.replaceFirstChar { it.uppercaseChar() }
+            }
+            .joinToString("")
+    }
+
     // [WHY] 본문이 실행될 일이 없지만 시그니처는 필요하다(스키마의 출처). 만약 언젠가
     // automaticToolCalling 을 켜면 여기가 호출되므로, 조용히 성공하지 않도록 예외를 던진다.
     private fun notExecutedHere(): Nothing =
         throw IllegalStateException("툴 실행은 ToolExecutor 가 담당합니다 (automaticToolCalling=false)")
 
     private class AddScheduleDeclaration : ToolSet {
-        // [WHY] endTime/description 을 non-null 로 두면 스키마의 required 가 4개가 되어 4B 모델이
-        // 전부 지어내야 호출을 낼 수 있다 — 문턱이 높고 환각 인자를 유도한다. nullable 파라미터는
-        // required 에서 빠진다(ReflectionTool). 실행부는 누락 인자를 이미 처리한다
-        // (AddScheduleToolExecutor.optString).
+        // [WHY] 파라미터 이름 `description` 은 금지 — 스키마의 툴 설명 키와 충돌해 렌더링된
+        // 선언의 properties 에서 **사라지고 required 에만 남는다**(0.8.1 실기기 preface 로 확인).
+        // 존재하지 않는 필드를 필수로 요구하는 깨진 스키마가 되어 constrained decoding 의 문법
+        // 생성까지 위협한다. `memo` 로 우회한다.
+        //
+        // [WHY] nullable(`String?`) 은 스키마에 `nullable:true` 로 렌더링되지만 required 에서
+        // 빠지지는 않는다(같은 preface 로 확인). 그래도 문법상 null 허용의 여지가 있어 유지한다.
+        // 실행부는 누락·null 인자를 이미 처리한다 (AddScheduleToolExecutor.optString).
         @Tool(description = "사용자의 캘린더에 일정을 추가한다. 약속·예약·미팅·병원·시험 등 앞으로 일어날 일을 등록할 때 쓴다.")
         fun addSchedule(
             @ToolParam(description = "일정 제목. 예: '치과 예약'") title: String,
             @ToolParam(description = "시작 시각. ISO 8601 형식. 예: '2026-08-07T15:00:00'") startTime: String,
-            @ToolParam(description = "종료 시각. ISO 8601 형식. 모르면 생략.") endTime: String?,
-            @ToolParam(description = "메모. 없으면 생략.") description: String?
+            @ToolParam(description = "종료 시각. ISO 8601 형식. 모르면 시작 1시간 뒤.") endTime: String?,
+            @ToolParam(description = "메모. 없으면 빈 문자열.") memo: String?
         ): Map<String, Any> = notExecutedHere()
     }
 

@@ -71,7 +71,10 @@ class AddScheduleToolExecutor @Inject constructor(
         title = args.requireString("title"),
         startTime = args.requireString("startTime"),
         endTime = args.optString("endTime") ?: "",
-        description = args.optString("description")
+        // [WHY] 네이티브 함수호출 선언에서는 파라미터 이름 `description` 이 스키마의 툴 설명
+        // 키와 충돌해 `memo` 로 선언한다 (KosmosToolDeclarations). 기존 키도 함께 읽어
+        // 테스트·과거 경로와의 호환을 유지한다.
+        description = args.optString("memo") ?: args.optString("description")
     )
 
     private data class ScheduleDraft(

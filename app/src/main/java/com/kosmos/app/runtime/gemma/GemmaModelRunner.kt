@@ -230,7 +230,9 @@ class GemmaModelRunner @Inject constructor(
         message.toolCalls.forEach { call ->
             val mapped = ModelToolCall(
                 name = KosmosToolDeclarations.canonicalName(call.name),
-                args = call.arguments
+                // [WHY] 인자 키도 선언과 같은 snake_case 로 도착한다(start_time 등). executor 는
+                // camelCase 를 읽으므로 여기서 되돌리지 않으면 인자가 통째로 유실된다.
+                args = call.arguments.mapKeys { (key, _) -> KosmosToolDeclarations.camelArgName(key) }
             )
             if (into.none { it.name == mapped.name && it.args == mapped.args }) {
                 into += mapped
