@@ -52,9 +52,10 @@ class VoiceChatIntegrationTest {
         override suspend fun generateWithImage(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, imageBytes: ByteArray, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
             return com.kosmos.app.core.common.AppResult.Success(com.kosmos.app.domain.modelrunner.ModelTurn("Audio processed."))
         }
+        // [WHY] 오디오 경로는 이제 **전사 전용**이다. 답변은 전사문을 텍스트 턴으로 다시 보내
+        // `generate` 가 만든다 (ADR-014). 그래서 여기서는 전사문만 돌려준다.
         override suspend fun generateWithAudio(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
-            onToken?.invoke("Audio processed.")
-            return com.kosmos.app.core.common.AppResult.Success(com.kosmos.app.domain.modelrunner.ModelTurn("Audio processed."))
+            return com.kosmos.app.core.common.AppResult.Success(com.kosmos.app.domain.modelrunner.ModelTurn(TRANSCRIPT))
         }
         override suspend fun cancel() {}
         override fun close() {}
@@ -154,7 +155,20 @@ class VoiceChatIntegrationTest {
         val assistantMessages = finalState.messages.filter { it.role == com.kosmos.app.domain.model.ChatMessage.Role.ASSISTANT }
         val userMessages = dbMessages.filter { it.role == com.kosmos.app.domain.model.ChatMessage.Role.USER }
 
-        assertTrue("User audio message should be saved. Current msgs: ${dbMessages.map { "Role:${it.role}, Content:${it.content}, Type:${it.inputType}" }}", userMessages.any { it.content == "(음성 메시지)" })
+        // [WHY] 예전 기대값은 `"(음성 메시지)"` 였다. 그러면 대화를 다시 열었을 때 사용자가
+        // 무슨 말을 했는지 기록에 남지 않는다. 이제 전사문이 그대로 사용자 메시지가 된다.
+        assertTrue(
+            "전사문이 사용자 메시지로 저장돼야 한다. 현재: ${dbMessages.map { "${it.role}:${it.content}" }}",
+            userMessages.any { it.content == TRANSCRIPT }
+        )
+        assertTrue(
+            "음성 입력 타입이 유지돼야 한다",
+            userMessages.any { it.inputType == com.kosmos.app.domain.model.InputType.VOICE }
+        )
         assertTrue("Assistant response should be saved. Error: ${finalState.error}", assistantMessages.any { it.content.contains("Audio processed") })
+    }
+
+    private companion object {
+        const val TRANSCRIPT = "내일 세 시에 치과 예약 잡아줘"
     }
 }
