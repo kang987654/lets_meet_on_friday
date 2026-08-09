@@ -83,6 +83,30 @@ class ChatViewModel @Inject constructor(
         observeSharedInput()
         observeThermalWarning()
         observeEngineState()
+        observeDeviceStatus()
+    }
+
+    /**
+     * 상단 상태 표시용 값을 주기적으로 갱신합니다.
+     *
+     * [WHY] 추론 중에는 2초, 유휴에는 5초다. `Debug.getMemoryInfo` 가 수십 ms 이므로 항상 2초로
+     * 돌 이유가 없고, 반대로 생성 중에는 tok/s 와 발열이 실제로 움직이므로 촘촘해야 의미가 있다.
+     * `viewModelScope` 라 화면이 사라지면 함께 멈춘다.
+     */
+    private fun observeDeviceStatus() {
+        viewModelScope.launch {
+            runtimeMetricsCollector.deviceStatus.collectLatest { status ->
+                _uiState.update { it.copy(deviceStatus = status) }
+            }
+        }
+        viewModelScope.launch {
+            while (true) {
+                runtimeMetricsCollector.refreshDeviceStatus()
+                kotlinx.coroutines.delay(
+                    if (_uiState.value.isInFlight) STATUS_REFRESH_BUSY_MS else STATUS_REFRESH_IDLE_MS
+                )
+            }
+        }
     }
 
     private fun observeEngineState() {
@@ -252,6 +276,10 @@ class ChatViewModel @Inject constructor(
         _uiState.update { it.copy(error = null) }
     }
 
+    fun dismissSearchFailedNotice() {
+        _uiState.update { it.copy(searchFailedNotice = false) }
+    }
+
     fun approvePendingRequest() {
         approvalCoordinator.consumePending() ?: return
         approvalCoordinator.approve()
@@ -272,7 +300,14 @@ class ChatViewModel @Inject constructor(
                             thinkingProcess = agentResult.thinkingProcess,
                             searchUsed = agentResult.searchUsed
                         )
-                        _uiState.update { it.copy(messages = (it.messages + assistantMessage).toImmutableList()) }
+                        _uiState.update {
+                            it.copy(
+                                messages = (it.messages + assistantMessage).toImmutableList(),
+                                // [WHY] 검색이 허용됐는데 실패한 턴이다. 알리지 않으면 사용자가
+                                // 온디바이스 답변을 검색 결과로 오해한다 (PRD V1-AC3·EC5).
+                                searchFailedNotice = agentResult.searchFailed
+                            )
+                        }
                     }
                     is AgentResult.Error -> {
                         _uiState.update { it.copy(error = agentResult.error) }
@@ -316,5 +351,7 @@ class ChatViewModel @Inject constructor(
 
     companion object {
         private const val KEY_SESSION_ID = "chat_session_id"
+        private const val STATUS_REFRESH_BUSY_MS = 2_000L
+        private const val STATUS_REFRESH_IDLE_MS = 5_000L
     }
 }

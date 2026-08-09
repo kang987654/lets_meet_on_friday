@@ -60,6 +60,9 @@ abstract class BaseAgent(
         // [WHY] 웹 검색이 실제로 실행됐는지는 이 루프만 안다. 예전에는 최종 메시지를 항상
         // `searchUsed = false` 로 저장해, DB 컬럼과 화면 표시가 통째로 죽어 있었다.
         var searchUsed = false
+        // [WHY] 검색을 시도했는데 실패한 경우다. 사용자에게 "이 답은 기기 안에서만 만든 것"임을
+        // 알려야 검색 결과로 오해하지 않는다 (PRD V1-AC3·EC5).
+        var searchFailed = false
         val MAX_TOOL_LOOP_COUNT = 3
         val THINK_TAG_WINDOW = 12 // "<|think|" 태그가 토큰 경계에 걸려도 감지되는 길이
 
@@ -102,10 +105,11 @@ abstract class BaseAgent(
                 request.onStream?.invoke(update)
             }
 
-            // [WHY] 첫 턴에만 첨부(이미지·오디오)를 보낸다. 이후는 툴 응답 회신 턴이다.
-            val modelResult = if (request.audioFilePath != null && isFirstTurn) {
-                modelRunner.generateWithAudio(prompt, request.audioFilePath, wrappedOnToken)
-            } else if (request.imageBytes != null && isFirstTurn) {
+            // [WHY] 첫 턴에만 첨부(이미지)를 보낸다. 이후는 툴 응답 회신 턴이다.
+            //
+            // [WHY] 오디오 분기는 없다 — 음성은 `AssistantOrchestrator` 가 먼저 전사해
+            // 텍스트로 바꿔 보내므로 에이전트까지 오디오가 오지 않는다 (ADR-014).
+            val modelResult = if (request.imageBytes != null && isFirstTurn) {
                 modelRunner.generateWithImage(prompt, request.imageBytes, wrappedOnToken)
             } else {
                 modelRunner.generate(prompt, wrappedOnToken)
@@ -114,7 +118,12 @@ abstract class BaseAgent(
 
             val turn = when (modelResult) {
                 is AppResult.Success -> modelResult.data
-                is AppResult.Failure -> return@coroutineScope handleErrorAndReturn(request.sessionId, "Model inference failed: ${modelResult.error.toString()}")
+                is AppResult.Failure -> return@coroutineScope handleErrorAndReturn(
+                    request.sessionId,
+                    "Model inference failed: ${modelResult.error}",
+                    // [WHY] 원인을 그대로 넘겨야 발열·모델 미준비 같은 구체적 안내가 나온다.
+                    modelResult.error
+                )
             }
             lastTurn = turn
             parsedResult = ToolParser.parseStream(turn.text)
@@ -145,12 +154,19 @@ abstract class BaseAgent(
                 // [WHY] 웹 검색은 유일한 네트워크 egress 다. `SEARCH_USED` 감사 타입과
                 // 포맷터가 이미 있었지만 호출하는 곳이 없어, 프라이버시상 가장 기록이 필요한
                 // 동작이 감사 로그에 남지 않았다.
-                if (call.name == "SearchWikipedia" && outcome.executed) {
-                    searchUsed = true
-                    auditTrailService.logSearchEvent(
-                        request.sessionId,
-                        args.optString("topic") ?: ""
-                    )
+                if (call.name == "SearchWikipedia") {
+                    if (outcome.executed) {
+                        searchUsed = true
+                        auditTrailService.logSearchEvent(
+                            request.sessionId,
+                            args.optString("topic") ?: ""
+                        )
+                    } else if (call.name in allowedTools) {
+                        // [WHY] allowlist 밖(토글 OFF)이면 '실패'가 아니라 '허용하지 않음'이다.
+                        // 그 경우까지 "웹 검색 보강 실패"를 띄우면 사용자가 스스로 끈 것을
+                        // 오류로 오해한다. 허용됐는데 실패한 경우만 알린다.
+                        searchFailed = true
+                    }
                 }
                 // [WHY] Conversation은 stateful이라 직전 입력/출력이 이미 컨텍스트에 있다.
                 // 툴 결과만 전용 응답 타입으로 되돌린다 — 이전에는 `<tool_response>` 텍스트를
@@ -184,7 +200,8 @@ abstract class BaseAgent(
         return@coroutineScope AgentResult.Text(
             text,
             thinkingProcess = finalParsed.thinking,
-            searchUsed = searchUsed
+            searchUsed = searchUsed,
+            searchFailed = searchFailed
         )
     }
 
@@ -270,10 +287,27 @@ abstract class BaseAgent(
             .toString()
     }
 
-    private suspend fun handleErrorAndReturn(sessionId: String, errorMsg: String): AgentResult.Error {
+    /**
+     * @param error 사용자에게 보여줄 오류. null 이면 일반 추론 오류로 취급합니다.
+     *
+     * [WHY] 말풍선에 저장되는 문구를 `ErrorMessages` 로 인간화한다. 예전에는
+     * `"Model inference failed: TemperatureCritical(48.3)"` 같은 내부 문자열이 그대로 대화
+     * 기록에 남았다(스낵바만 인간화돼 있었다). 감사 로그에는 원문을 남겨 진단은 유지한다.
+     */
+    private suspend fun handleErrorAndReturn(
+        sessionId: String,
+        errorMsg: String,
+        error: AppError? = null
+    ): AgentResult.Error {
         auditTrailService.logError(sessionId, errorMsg)
-        createAndSaveMessage(sessionId, ChatMessage.Role.ASSISTANT, errorMsg, InputType.TEXT)
-        return AgentResult.Error(AppError.ModelInferenceError(errorMsg))
+        val shown = error ?: AppError.ModelInferenceError(errorMsg)
+        createAndSaveMessage(
+            sessionId,
+            ChatMessage.Role.ASSISTANT,
+            com.kosmos.app.core.mapper.ErrorMessages.userMessage(shown),
+            InputType.TEXT
+        )
+        return AgentResult.Error(shown)
     }
 
     private suspend fun createAndSaveMessage(

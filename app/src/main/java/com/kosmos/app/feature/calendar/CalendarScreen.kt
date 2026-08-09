@@ -109,6 +109,24 @@ fun CalendarScreen(
             }
         }
 
+        // [WHY] 기기 캘린더를 못 읽었을 때 **조용히 넘어가지 않는다.** 예전에는 앱 안의 일정만
+        // 보여 주고 아무 말도 하지 않아, 사용자는 기기 일정이 없다고 믿었다. 권한 거부와
+        // Provider 오류가 모두 여기로 온다 (PRD EC2·EC4).
+        val deviceCalendarFailed = (uiState as? CalendarUiState.Success)?.scheduleData?.deviceCalendarFailed == true
+        if (deviceCalendarFailed) {
+            DeviceCalendarNotice(
+                onRetry = { viewModel.loadSchedule() },
+                onOpenSettings = {
+                    context.startActivity(
+                        android.content.Intent(
+                            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            android.net.Uri.fromParts("package", context.packageName, null)
+                        )
+                    )
+                }
+            )
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         Box(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
@@ -137,6 +155,64 @@ fun CalendarScreen(
                     }
                     ScheduleContent(state.scheduleData, sectionLabel)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * 기기 캘린더를 읽지 못했을 때의 안내 카드입니다.
+ *
+ * [WHY] 재시도와 설정 이동을 함께 준다 — 원인이 일시적 Provider 오류일 수도(재시도),
+ * 권한 영구 거부일 수도(설정 이동) 있는데 화면에서는 구분되지 않기 때문이다 (PRD EC2 "권한
+ * 영구 거부 → 시스템 설정 화면으로 직접 이동 유도", EC4 "Provider 읽기 실패 → 재시도 버튼").
+ */
+@Composable
+private fun DeviceCalendarNotice(
+    onRetry: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 20.dp)
+            .fillMaxWidth()
+            .glassEffect(
+                backgroundColor = KosmosTheme.colors.warning.copy(alpha = 0.15f),
+                borderColor = KosmosTheme.colors.warning.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "기기 캘린더를 읽지 못했어요. 아래 목록에는 이 앱에 저장한 일정만 있습니다.",
+            color = KosmosTheme.colors.textPrimary,
+            style = MaterialTheme.typography.bodySmall
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .glassEffect(shape = RoundedCornerShape(12.dp))
+                    .clickable { onRetry() }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("다시 시도", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.labelLarge)
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .glassEffect(
+                        backgroundColor = KosmosTheme.colors.accent.copy(alpha = 0.2f),
+                        borderColor = KosmosTheme.colors.accent.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .clickable { onOpenSettings() }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("권한 설정 열기", color = KosmosTheme.colors.accent, style = MaterialTheme.typography.labelLarge)
             }
         }
     }

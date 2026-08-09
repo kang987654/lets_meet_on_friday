@@ -18,5 +18,9 @@ data class ChatUiState(
     val streamingThinking: String? = null,
     val warningMessage: String? = null,
     val engineState: ModelLoadState = ModelLoadState.Loading,
-    val isRecording: Boolean = false
+    val isRecording: Boolean = false,
+    /** 웹 검색이 허용됐으나 실패한 턴이면 true — 화면이 한 번 안내한 뒤 소비한다. */
+    val searchFailedNotice: Boolean = false,
+    val deviceStatus: com.kosmos.app.runtime.metrics.DeviceStatus =
+        com.kosmos.app.runtime.metrics.DeviceStatus()
 )

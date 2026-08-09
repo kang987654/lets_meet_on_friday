@@ -182,11 +182,29 @@ fun ChatScreen(
         }
     }
 
+    // [WHY] 오류와 토글 피드백을 스낵바 한 곳으로 모으고, 문구는 ErrorMessages로 인간화한다.
+    // 아래 권한 런처들이 이 두 값을 쓰므로 먼저 선언한다.
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    val snackbarScope = androidx.compose.runtime.rememberCoroutineScope()
+
+    // [WHY] 예전에는 거부 분기가 아예 없어 마이크를 거부하면 **아무 일도 일어나지 않았다** —
+    // 사용자는 버튼이 고장 난 것으로 본다. PRD EC2 는 "음성 입력 비활성 + 텍스트 입력 안내"를
+    // 요구한다. 문구는 `ErrorMessages` 의 것을 그대로 쓴다(화면마다 다른 말을 하지 않도록).
     val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
             viewModel.toggleRecording()
+        } else {
+            snackbarScope.launch {
+                snackbarHostState.showSnackbar(
+                    com.kosmos.app.core.mapper.ErrorMessages.userMessage(
+                        com.kosmos.app.core.common.AppError.PermissionDenied(
+                            com.kosmos.app.core.security.PermissionPolicy.MICROPHONE
+                        )
+                    )
+                )
+            }
         }
     }
 
@@ -208,14 +226,16 @@ fun ChatScreen(
     }
 
     // [WHY] 기존에는 uiState.error가 화면에 전혀 표시되지 않아 실패가 무음으로 사라졌다.
-    // 오류와 토글 피드백을 스낵바 한 곳으로 모으고, 문구는 ErrorMessages로 인간화한다.
-    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
-    val snackbarScope = androidx.compose.runtime.rememberCoroutineScope()
-
     LaunchedEffect(uiState.error) {
         val error = uiState.error ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(com.kosmos.app.core.mapper.ErrorMessages.userMessage(error))
         viewModel.dismissError()
+    }
+
+    LaunchedEffect(uiState.searchFailedNotice) {
+        if (!uiState.searchFailedNotice) return@LaunchedEffect
+        snackbarHostState.showSnackbar("웹 검색 보강에 실패해 기기 안의 정보만으로 답했어요.")
+        viewModel.dismissSearchFailedNotice()
     }
 
     Scaffold(
@@ -267,23 +287,10 @@ fun ChatScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                val warningMessage = uiState.warningMessage
-                if (warningMessage != null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            // 발열 경고 배너 — 테마 warning 토큰 기반(라이트/다크 모두 대비 확보)
-                            .background(KosmosTheme.colors.warning.copy(alpha = 0.15f))
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = warningMessage,
-                            color = KosmosTheme.colors.warning,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
-                        )
-                    }
-                }
+                DeviceStatusStrip(
+                    status = uiState.deviceStatus,
+                    warningMessage = uiState.warningMessage
+                )
 
                 LazyColumn(
                     state = listState,
@@ -589,6 +596,78 @@ fun ChatBubbleUser(
         }
     }
 }
+
+/**
+ * 채팅 상단에 상시 표시되는 기기 상태 줄입니다.
+ *
+ * [WHY] 발열 경고 배너를 따로 두지 않고 여기에 합쳤다. 평소에는 수치만 옅게 보이고, 경고·임계
+ * 온도에서는 같은 줄이 `warning` 색으로 승격되며 안내 문구가 붙는다. 배너와 상태 줄이 따로
+ * 있으면 발열 상황에서 화면 위쪽이 두 겹으로 밀린다.
+ *
+ * [WHY] GPU 사용률은 넣지 않는다 — 안드로이드에 공개 API 가 없고 벤더 sysfs 는 SELinux 로
+ * 막혀 있다. 그 자리를 토큰 생성 속도가 대신한다 (ADR-015).
+ */
+@Composable
+fun DeviceStatusStrip(
+    status: com.kosmos.app.runtime.metrics.DeviceStatus,
+    warningMessage: String?
+) {
+    // 온도가 아직 0 이면(첫 갱신 전) 자리만 차지하지 않도록 접어 둔다.
+    if (status.temperatureCelsius <= 0f && warningMessage == null) return
+
+    val isWarning = warningMessage != null
+    val tint = if (isWarning) KosmosTheme.colors.warning else KosmosTheme.colors.textMuted
+    val background =
+        if (isWarning) KosmosTheme.colors.warning.copy(alpha = 0.15f)
+        else androidx.compose.ui.graphics.Color.Transparent
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(background)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+    ) {
+        Text(
+            text = formatDeviceStatus(status),
+            color = tint,
+            style = MaterialTheme.typography.labelSmall
+        )
+        if (warningMessage != null) {
+            Text(
+                text = warningMessage,
+                color = KosmosTheme.colors.warning,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+    }
+}
+
+/** `🌡 41.2°C · RAM 3.4/8.0GB(앱 4.1GB) · 12.4 tok/s` */
+internal fun formatDeviceStatus(status: com.kosmos.app.runtime.metrics.DeviceStatus): String {
+    val parts = mutableListOf<String>()
+    if (status.temperatureCelsius > 0f) {
+        parts += "🌡 %.1f°C".format(status.temperatureCelsius)
+    }
+    if (status.memoryTotalBytes > 0L) {
+        val ram = "RAM %.1f/%.1fGB".format(
+            status.memoryUsedBytes.toGigabytes(),
+            status.memoryTotalBytes.toGigabytes()
+        )
+        // [WHY] 앱 PSS 를 함께 보여준다 — 3.7GB 모델이 차지하는 몫이 이 숫자다. 시스템 전체
+        // 사용량만 보면 다른 앱과 구분이 안 된다.
+        parts += if (status.appMemoryBytes > 0L) {
+            "$ram(앱 %.1fGB)".format(status.appMemoryBytes.toGigabytes())
+        } else {
+            ram
+        }
+    }
+    status.tokensPerSecond?.let { parts += "%.1f tok/s".format(it) }
+    return parts.joinToString("  ·  ")
+}
+
+private fun Long.toGigabytes(): Double = this / 1024.0 / 1024.0 / 1024.0
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
