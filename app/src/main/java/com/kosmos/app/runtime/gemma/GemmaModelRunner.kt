@@ -21,6 +21,7 @@ import com.kosmos.app.domain.modelrunner.ModelToolCall
 import com.kosmos.app.domain.modelrunner.ModelTurn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.Dispatchers
@@ -152,27 +153,28 @@ class GemmaModelRunner @Inject constructor(
                     var error: Throwable? = null
 
                     try {
-                        currentConversation.sendMessageAsync(outgoing, EXTRA_CONTEXT).collect { message ->
-                            yield() // CPU 점유율 양보 (UI 스레드 기아 방지)
-                            collectToolCalls(message, toolCalls)
-                            val token = message.contents.contents
-                                .filterIsInstance<com.google.ai.edge.litertlm.Content.Text>()
-                                .joinToString("") { it.text }
-                            if (token.isNotEmpty()) {
-                                onToken.invoke(token)
-                                finalResponse += token
-
-                                // [WHY] 임계 온도 48·경고 온도 43 은 `Constants` 에 이미 있었으나
-                                // 여기와 `RuntimeMetricsCollector` 가 각각 리터럴을 복제하고 있었다.
-                                // 정책을 한 곳에서 바꿀 수 없는 상태였다.
-                                val currentTemp = metricsCollector.getCurrentTemp()
-                                if (currentTemp >= Constants.THERMAL_SHUTDOWN_CELSIUS) {
-                                    kotlinx.coroutines.delay(50)
-                                } else if (currentTemp >= Constants.THERMAL_WARNING_CELSIUS) {
-                                    kotlinx.coroutines.delay(15)
+                        // [WHY] **토큰 유실 방지.** 0.14.0 의 `sendMessageAsync` 는 callbackFlow 이고,
+                        // 네이티브 콜백(`Conversation$sendMessageAsync$1$1.onMessage`)이
+                        // `ProducerScope.trySend(message)` 를 호출한 뒤 **반환값을 버린다**(바이트코드
+                        // 확인). callbackFlow 의 기본 용량은 64 이고, 가득 차면 `trySend` 는 예외도
+                        // 로그도 없이 실패한다 — 그 토큰은 사라진다. 수집이 조금이라도 느리면
+                        // 답변 중간중간의 글자가 조용히 빠진다("2015년 10월" → "205년 10").
+                        //
+                        // 무한 버퍼를 끼우면 이 Flow 의 소비자는 버퍼 연산자가 되어 즉시 비워 가고,
+                        // 우리 본문이 얼마나 느리든 네이티브 채널이 넘치지 않는다.
+                        currentConversation.sendMessageAsync(outgoing, EXTRA_CONTEXT)
+                            .buffer(kotlinx.coroutines.channels.Channel.UNLIMITED)
+                            .collect { message ->
+                                yield() // CPU 점유율 양보 (UI 스레드 기아 방지)
+                                collectToolCalls(message, toolCalls)
+                                val token = message.contents.contents
+                                    .filterIsInstance<com.google.ai.edge.litertlm.Content.Text>()
+                                    .joinToString("") { it.text }
+                                if (token.isNotEmpty()) {
+                                    onToken.invoke(token)
+                                    finalResponse += token
                                 }
                             }
-                        }
                     } catch (e: Exception) {
                         error = e
                     }
