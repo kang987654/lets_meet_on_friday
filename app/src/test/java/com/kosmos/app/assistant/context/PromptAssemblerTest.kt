@@ -44,10 +44,18 @@ class PromptAssemblerTest {
         systemRole = "personal assistant named Kosmos"
     )
 
-    private fun memoryMessage(content: String) = ChatMessage(
+    private fun promptWith(availableTools: List<String>): ChatPrompt =
+        promptAssembler.assembleWithTools(
+            context = context(),
+            userInput = "내 자전거 비밀번호 뭐였지?",
+            availableTools = availableTools,
+            systemRole = "personal assistant named Kosmos"
+        )
+
+    private fun message(content: String, role: ChatMessage.Role = ChatMessage.Role.USER) = ChatMessage(
         id = "m1",
         sessionId = "s1",
-        role = ChatMessage.Role.SYSTEM,
+        role = role,
         content = content,
         inputType = InputType.TEXT,
         searchUsed = false,
@@ -61,47 +69,39 @@ class PromptAssemblerTest {
         // [WHY] 이 테스트가 프리필 성능의 회귀 방지다. 분 단위 시각이나 검색된 기억이 시스템
         // 지시로 새어 들어가면 런타임의 재사용 판정이 매 턴 거짓이 되고, 툴 선언(~2천 토큰)까지
         // 전부 다시 프리필된다 — PC 실측으로 2번째 턴이 0.5초에서 3.8초로 늘었다.
-        val instruction = prompt(conversations = listOf(memoryMessage("자물쇠 비밀번호는 8282"))).systemInstruction
+        val instruction = prompt(conversations = listOf(message("자물쇠 비밀번호는 8282"))).systemInstruction
 
         assertFalse("분 단위 시계가 시스템 지시에 있다", instruction.contains("Current Time"))
-        assertFalse("검색된 기억이 시스템 지시에 있다", instruction.contains("8282"))
+        assertFalse("대화 내용이 시스템 지시로 새면 안 된다", instruction.contains("8282"))
     }
 
     @Test
     fun `같은 날 같은 설정이면 시스템 지시가 두 번 조립해도 동일하다`() {
         // [WHY] 문자열 동일성이 런타임의 대화 재사용 조건 그 자체다
-        // (GemmaModelRunner.getOrCreateConversation 의 isSameSystemInstruction). 검색된 기억이
+        // (GemmaModelRunner.getOrCreateConversation 의 isSameSystemInstruction). 대화 내용이
         // 달라져도 시스템 지시는 같아야 한다.
-        val first = prompt(conversations = listOf(memoryMessage("첫 기억"))).systemInstruction
-        val second = prompt(conversations = listOf(memoryMessage("다른 기억"))).systemInstruction
+        val first = prompt(conversations = listOf(message("첫 기억"))).systemInstruction
+        val second = prompt(conversations = listOf(message("다른 기억"))).systemInstruction
 
         assertEquals(first, second)
     }
 
     @Test
-    fun `검색된 기억은 턴 문맥으로 전달된다`() {
-        // [WHY] 시스템 지시에 넣으면 저장된 메모의 문장이 시스템 권한으로 승격된다 —
-        // 첨부 문서를 USER 블록으로 저장하는 기존 결정(ADR-003)과 같은 이유로 사용자 턴에 싣는다.
-        val chatPrompt = prompt(conversations = listOf(memoryMessage("자물쇠 비밀번호는 8282")))
+    fun `기억 조회 툴이 있으면 저장과 방향을 구분하는 규칙이 붙는다`() {
+        // [WHY] 회상("뭐였지?")과 저장("기억해줘")은 트리거 표현이 비슷해서 모델이
+        // `add_memory` 를 잘못 부르는 것이 실측됐다. 규칙에서 방향을 못 박아야 한다.
+        val instruction = promptWith(listOf("AddMemory", "SearchMemory")).systemInstruction
 
-        assertNotNull(chatPrompt.turnContext)
-        assertTrue(chatPrompt.turnContext!!.contains("[Context / Knowledge]"))
-        assertTrue(chatPrompt.turnContext!!.contains("8282"))
+        assertTrue(instruction.contains("`search_memory`"))
+        assertTrue(instruction.contains("never call `add_memory` for it"))
     }
 
     @Test
-    fun `기억이 없으면 턴 문맥이 없다`() {
-        // [WHY] 날짜 블록을 여기 담으면 안 된다 — `[System Data]` 목록이 사용자 발화 앞에
-        // 붙으면 조회 질문이 툴 호출로 샜다(PC 실측: 조회 3케이스 중 1/3 만 정상).
-        assertNull(prompt().turnContext)
-    }
+    fun `선언되지 않은 툴의 규칙은 나오지 않는다`() {
+        val instruction = promptWith(listOf("AddMemory")).systemInstruction
 
-    @Test
-    fun `턴 문맥에는 날짜 블록이 들어가지 않는다`() {
-        val turnContext = prompt(conversations = listOf(memoryMessage("아무 기억"))).turnContext
-
-        assertNotNull(turnContext)
-        assertFalse("날짜 블록이 사용자 턴으로 새면 조회 질문이 툴 호출로 샌다", turnContext!!.contains("[System Data]"))
+        assertTrue(instruction.contains("`add_memory`"))
+        assertFalse(instruction.contains("`search_memory`"))
     }
 
     @Test

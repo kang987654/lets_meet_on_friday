@@ -35,17 +35,22 @@ class KosmosAgentTest {
     )
 
     @Test
-    fun `웹 검색이 꺼져 있으면 로컬 툴 3개만 노출된다`() {
+    fun `웹 검색이 꺼져 있으면 로컬 툴 4개만 노출된다`() {
+        // [WHY] SearchMemory 는 로컬 조회이므로 토글과 무관하게 항상 있다. 매 턴 자동 RAG
+        // 주입을 없애고 기억 조회를 툴로 옮긴 결과다 (ADR-013).
         val tools = agent().availableTools(context(webSearchEnabled = false))
 
-        assertEquals(listOf("AddSchedule", "GetSchedule", "AddMemory"), tools)
+        assertEquals(listOf("AddSchedule", "GetSchedule", "AddMemory", "SearchMemory"), tools)
     }
 
     @Test
     fun `웹 검색을 켜면 위키 툴이 더해진다`() {
         val tools = agent().availableTools(context(webSearchEnabled = true))
 
-        assertEquals(listOf("AddSchedule", "GetSchedule", "AddMemory", "SearchWikipedia"), tools)
+        assertEquals(
+            listOf("AddSchedule", "GetSchedule", "AddMemory", "SearchMemory", "SearchWikipedia"),
+            tools
+        )
     }
 
     @Test

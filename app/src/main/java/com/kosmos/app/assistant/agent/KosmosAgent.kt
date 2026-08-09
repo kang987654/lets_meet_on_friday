@@ -64,6 +64,10 @@ class KosmosAgent @Inject constructor(
         add("AddSchedule")
         add("GetSchedule")
         add("AddMemory")
+        // [WHY] 기억 조회는 예전에 매 턴 자동 주입(RAG)이었다. 임베더가 영어 전용이라
+        // 한국어 검색이 무작위였고(ADR-013), 무관한 메모 3건이 매 턴 붙어 프리필만 축내고
+        // 환각의 재료가 됐다. 모델이 필요할 때 키워드로 찾는 툴로 바꿨다.
+        add("SearchMemory")
         if (context.webSearchEnabled) {
             add("SearchWikipedia")
         }

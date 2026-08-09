@@ -42,11 +42,13 @@ class PromptAssembler @Inject constructor() {
         availableTools: List<String>,
         systemRole: String
     ): ChatPrompt {
-        val systemMessages = context.recentConversations.filter { it.role == ChatMessage.Role.SYSTEM }
         // [WHY] 현재 턴의 사용자 메시지는 이미 DB에 저장된 뒤 컨텍스트로 로드되므로,
         // history 마지막과 currentInput이 중복되지 않도록 마지막 동일 USER 메시지를 제외한다.
+        //
+        // [WHY] SYSTEM 역할 메시지는 더 이상 생기지 않는다 — 유일한 생산자였던 RAG 자동 주입을
+        // 없앴다(ADR-013). 방어적으로 걸러 두면 "언젠가 올지도 모르는" 경로를 흉내내는 죽은
+        // 분기가 되므로 필터도 함께 걷어낸다.
         val dialogHistory = context.recentConversations
-            .filter { it.role != ChatMessage.Role.SYSTEM }
             .let { history ->
                 val last = history.lastOrNull()
                 if (last?.role == ChatMessage.Role.USER && last.content == userInput) {
@@ -67,7 +69,6 @@ class PromptAssembler @Inject constructor() {
             systemInstruction = systemInstruction,
             history = dialogHistory,
             currentInput = userInput,
-            turnContext = buildTurnContext(systemMessages),
             contextBudgetTokens = context.maxTokens
         )
     }
@@ -95,26 +96,6 @@ class PromptAssembler @Inject constructor() {
         responseStyle == "DETAILED" ->
             "Answer thoroughly: give the reasoning and the relevant context, not just the conclusion."
         else -> "[Style: $responseStyle]"
-    }
-
-    /**
-     * 이 턴에만 유효한 문맥입니다 — RAG 로 검색된 기억. 기억이 없으면 null 입니다.
-     *
-     * [WHY] 검색 결과는 질의(마지막 사용자 발화)마다 달라지므로, 시스템 지시에 두면 지시가 매 턴
-     * 달라져 대화가 재생성된다. 또 시스템 지시에 두면 **저장된 메모의 문장이 시스템 권한으로
-     * 승격된다** — 메모는 웹·문서·대화에서 온 텍스트일 수 있으므로 실재하는 주입 경로다.
-     * ADR-003 이 첨부 문서에 대해 내린 결정과 같은 근거다.
-     *
-     * [WHY] 날짜 블록은 **여기 오지 않는다** — 클래스 주석의 프라이밍 실측 참고.
-     */
-    private fun buildTurnContext(systemMessages: List<ChatMessage>): String? {
-        if (systemMessages.isEmpty()) return null
-        return buildString {
-            appendLine("[Context / Knowledge]")
-            systemMessages.forEach { msg ->
-                appendLine(msg.content)
-            }
-        }.trimEnd()
     }
 
     /**
@@ -179,6 +160,12 @@ class PromptAssembler @Inject constructor() {
             // 없었다. 실제 한국어 트리거 표현을 규칙 안에 예시로 박아 그 간극을 메운다.
             if (availableTools.contains("AddMemory")) {
                 appendLine("- The user asks you to remember something, or shares a fact/preference/password to keep — Korean triggers: \"기억해\", \"기억해줘\", \"저장해줘\", \"메모해줘\", \"잊지 마\": you MUST call `add_memory`.")
+            }
+            // [WHY] 회상은 저장과 반대 방향인데 트리거 표현이 비슷해서 모델이 `add_memory` 를
+            // 잘못 부르는 것이 실측됐다("내 자전거 비밀번호 뭐였지?" → add_memory). 조회 전용
+            // 툴을 주고 규칙에서 방향을 못 박는다.
+            if (availableTools.contains("SearchMemory")) {
+                appendLine("- The user asks about something they told you earlier — Korean triggers: \"뭐였지\", \"뭐라고 했지\", \"내가 알려준\", \"기억나\", \"저장한 거\": you MUST call `search_memory` with a short noun keyword. This is a LOOKUP, never call `add_memory` for it.")
             }
             if (availableTools.contains("AddSchedule")) {
                 appendLine("- The user asks to add an appointment, reservation, or event — Korean triggers: \"예약\", \"약속\", \"일정 잡아줘\", \"일정 추가\", \"~하기로 했어\": you MUST call `add_schedule`.")

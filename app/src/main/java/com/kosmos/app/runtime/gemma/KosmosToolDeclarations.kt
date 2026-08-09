@@ -36,6 +36,7 @@ object KosmosToolDeclarations {
         "add_schedule" to "AddSchedule",
         "get_schedule" to "GetSchedule",
         "add_memory" to "AddMemory",
+        "search_memory" to "SearchMemory",
         "search_wikipedia" to "SearchWikipedia"
     )
 
@@ -43,6 +44,7 @@ object KosmosToolDeclarations {
         "AddSchedule" to { tool(AddScheduleDeclaration()) },
         "GetSchedule" to { tool(GetScheduleDeclaration()) },
         "AddMemory" to { tool(AddMemoryDeclaration()) },
+        "SearchMemory" to { tool(SearchMemoryDeclaration()) },
         "SearchWikipedia" to { tool(SearchWikipediaDeclaration()) }
     )
 
@@ -110,6 +112,20 @@ object KosmosToolDeclarations {
         fun addMemory(
             @ToolParam(description = "기억할 내용. 사용자가 말한 숫자와 고유명사는 절대 바꾸지 말고 그대로 적는다.") content: String,
             @ToolParam(description = "분류 태그 목록. 예: ['비밀번호', '자전거']") tags: List<String>
+        ): Map<String, Any> = notExecutedHere()
+    }
+
+    private class SearchMemoryDeclaration : ToolSet {
+        // [WHY] "핵심 키워드"를 명시적으로 요구한다. 실행부는 SQLite LIKE 부분 일치이므로
+        // 문장을 통째로 받으면 아무것도 못 맞힌다("내 자전거 비밀번호 뭐였지?" → 0건).
+        // 반대로 모델이 "자전거 비밀번호"만 뽑아 주면 정확히 맞는다 — 한국어 이해는 이미
+        // 모델이 하고 있으므로 질의어 추출을 그쪽에 맡기는 설계다 (ADR-013).
+        @Tool(description = "사용자가 이전에 저장해 둔 기억(메모)에서 찾는다. 사용자가 예전에 알려준 사실·비밀번호·선호를 다시 물으면 반드시 쓴다. 추측해서 답하지 말고 이 도구로 확인한다.")
+        fun searchMemory(
+            @ToolParam(
+                description = "찾을 핵심 키워드. 문장이 아니라 명사 위주의 짧은 단어로 쓴다. " +
+                    "예: '자전거 비밀번호', '와이파이', '알레르기'"
+            ) keyword: String
         ): Map<String, Any> = notExecutedHere()
     }
 
