@@ -14,6 +14,16 @@ data class ChatPrompt(
      * 함수호출 템플릿으로 선언을 주입해야 모델이 호출을 생성한다 (ADR-008).
      */
     val enabledTools: List<String> = emptyList(),
+    /**
+     * 사용자 대화가 아니라 **부수 계산**(음성 전사, 일정 요약 등)이면 true 입니다.
+     *
+     * [WHY] 런타임은 채팅 Conversation 하나를 캐시해 재사용한다(ADR-010 — 재사용이 깨지면
+     * 시스템 지시 + 툴 선언 ~2천 토큰 + 히스토리를 매 턴 다시 프리필한다). 그런데 부수 계산은
+     * 시스템 지시와 sessionId 가 다르므로, 그냥 보내면 **채팅 대화를 파괴한다.** 실제로
+     * `GetTodayScheduleUseCase` 의 요약 호출 때문에 캘린더 화면을 열 때마다 채팅 대화가
+     * 날아가고 있었다. 이 플래그가 붙은 턴은 임시 Conversation 을 만들어 쓰고 즉시 닫는다.
+     */
+    val oneShot: Boolean = false,
     /** 툴 실행 결과를 되돌리는 턴이면 채워진다. 이때 [currentInput] 은 무시된다. */
     val toolResponse: ToolResponseInput? = null,
     /**

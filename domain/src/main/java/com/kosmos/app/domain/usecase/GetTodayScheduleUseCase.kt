@@ -71,12 +71,20 @@ class GetTodayScheduleUseCase @Inject constructor(
         }
 
         // 2. 기기 시스템 캘린더 이벤트 병합 (권한 미보유 등 실패 시 로컬 일정만 사용 — ADR-004)
+        //
+        // [WHY] 실패를 **삼키지 않고 플래그로 올린다.** 예전에는 `emptyList()` 로 조용히 넘겨
+        // 화면에 앱 일정만 나왔고, 사용자는 기기 일정이 없다고 믿었다 — 틀린 답을 성공처럼
+        // 보여 주는 결함이다 (PRD EC4).
+        var deviceCalendarFailed = false
         val deviceEvents = when (val deviceResult = calendarTool.readEvents(startMs, endMs)) {
             is AppResult.Success -> deviceResult.data.mapNotNull { event ->
                 val ms = parseIsoToMs(event.startIso, zoneId) ?: return@mapNotNull null
                 event to ms
             }
-            is AppResult.Failure -> emptyList()
+            is AppResult.Failure -> {
+                deviceCalendarFailed = true
+                emptyList()
+            }
         }
 
         // [WHY] AddSchedule로 로컬 저장 + 기기 동기화된 일정이 두 번 표시되지 않도록
@@ -90,7 +98,12 @@ class GetTodayScheduleUseCase @Inject constructor(
 
         if (sortedEvents.isEmpty()) {
             return@withContext AppResult.Success(
-                ScheduleData(events = persistentListOf(), summary = null, rangeType = range)
+                ScheduleData(
+                    events = persistentListOf(),
+                    summary = null,
+                    rangeType = range,
+                    deviceCalendarFailed = deviceCalendarFailed
+                )
             )
         }
 
@@ -107,11 +120,15 @@ class GetTodayScheduleUseCase @Inject constructor(
             $eventListText
         """.trimIndent()
 
+        // [WHY] `oneShot = true` — 이 요약은 사용자 대화가 아니라 부수 계산이다. 붙이지 않으면
+        // 시스템 지시와 sessionId 가 채팅과 달라 런타임이 **캐시된 채팅 대화를 파괴**하고,
+        // 캘린더 화면을 열 때마다 채팅이 다음 턴에 전체 프리필을 다시 낸다(ADR-010).
         val chatPrompt = com.kosmos.app.domain.modelrunner.ChatPrompt(
             sessionId = "schedule-summary",
             systemInstruction = "[System]\nYou are an assistant summarizing today's schedule.",
             history = emptyList(),
-            currentInput = prompt
+            currentInput = prompt,
+            oneShot = true
         )
         val summary = when (val result = modelRunner.generate(chatPrompt)) {
             is AppResult.Success -> result.data.text.trim()
@@ -122,7 +139,8 @@ class GetTodayScheduleUseCase @Inject constructor(
             ScheduleData(
                 events = sortedEvents.toImmutableList(),
                 summary = summary,
-                rangeType = range
+                rangeType = range,
+                deviceCalendarFailed = deviceCalendarFailed
             )
         )
     }

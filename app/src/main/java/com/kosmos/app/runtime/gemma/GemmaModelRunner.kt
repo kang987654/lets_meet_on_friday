@@ -147,10 +147,16 @@ class GemmaModelRunner @Inject constructor(
                 val currentConversation = getOrCreateConversation(prompt)
                 val outgoing = buildMessage(prompt, extraContents())
 
+                // [WHY] 부수 계산용 임시 대화는 여기서 반드시 닫는다. 캐시하지 않으므로 이
+                // 시점을 놓치면 네이티브 자원이 그대로 샌다.
+                try {
                 if (onToken != null) {
                     var finalResponse = ""
                     val toolCalls = mutableListOf<ModelToolCall>()
                     var error: Throwable? = null
+                    // [WHY] 네이티브가 토큰 하나당 메시지 하나를 보내므로, 이 수가 곧 생성 토큰
+                    // 수다. 상단 상태 표시의 tok/s 가 여기서 나온다 (ADR-015).
+                    var tokenCount = 0
 
                     try {
                         // [WHY] **토큰 유실 방지.** 0.14.0 의 `sendMessageAsync` 는 callbackFlow 이고,
@@ -173,13 +179,14 @@ class GemmaModelRunner @Inject constructor(
                                 if (token.isNotEmpty()) {
                                     onToken.invoke(token)
                                     finalResponse += token
+                                    tokenCount++
                                 }
                             }
                     } catch (e: Exception) {
                         error = e
                     }
 
-                    metricsCollector.recordEnd(System.currentTimeMillis() - startTime)
+                    metricsCollector.recordEnd(System.currentTimeMillis() - startTime, tokenCount)
 
                     if (error != null) {
                         AppResult.Failure(AppError.ModelInferenceError(error.message ?: "스트리밍 중 에러 발생"))
@@ -205,6 +212,9 @@ class GemmaModelRunner @Inject constructor(
                     } else {
                         AppResult.Failure(AppError.ModelInferenceError("응답 생성 결과가 null입니다."))
                     }
+                }
+                } finally {
+                    if (prompt.oneShot) runCatching { currentConversation.close() }
                 }
             }
         } catch (e: Exception) {
@@ -351,6 +361,12 @@ class GemmaModelRunner @Inject constructor(
     @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
     private fun getOrCreateConversation(prompt: ChatPrompt): Conversation {
         val currentEngine = engine ?: throw IllegalStateException("Engine is not initialized")
+
+        // [WHY] 부수 계산(음성 전사, 일정 요약)은 시스템 지시와 sessionId 가 채팅과 다르므로,
+        // 캐시된 대화에 섞으면 재사용 판정이 깨져 채팅 전체가 다시 프리필된다(ADR-010).
+        // 캐시를 **건드리지 않고** 임시 대화를 만들어 돌려준다 — 호출자가 닫는다.
+        if (prompt.oneShot) return createOneShotConversation(currentEngine, prompt)
+
         val existing = conversation
         val isSameSession = currentSessionId == prompt.sessionId
         // [WHY] 응답 스타일 설정 등으로 시스템 지시가 달라지면 동일 세션이라도 대화를 재생성해야
@@ -427,6 +443,22 @@ class GemmaModelRunner @Inject constructor(
         currentEnabledTools = prompt.enabledTools
         return newConversation
     }
+
+    /**
+     * 부수 계산 전용 임시 대화입니다. **호출자가 닫아야 합니다.**
+     *
+     * [WHY] 툴도 few-shot 도 히스토리도 싣지 않는다. 그래서 채팅 대화보다 훨씬 싸다 —
+     * 툴 선언만 실측 ~2천 토큰이므로 그것이 빠지면 프리필이 짧은 시스템 지시 한 줄뿐이다.
+     * 부수 계산에 툴을 줄 이유도 없다(전사·요약은 도구를 쓰지 않는다).
+     */
+    private fun createOneShotConversation(currentEngine: Engine, prompt: ChatPrompt): Conversation =
+        currentEngine.createConversation(
+            ConversationConfig(
+                systemInstruction = Contents.of(prompt.systemInstruction),
+                automaticToolCalling = false,
+                samplerConfig = SamplerConfig(temperature = 1.0, topK = 1, topP = 0.95)
+            )
+        )
 
     /**
      * 툴 호출의 few-shot 시범입니다. 대화 서두에 "사용자 요청 → 모델의 실제 툴 호출 →
