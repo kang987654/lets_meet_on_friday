@@ -4,6 +4,8 @@ import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.audit.AuditTrailService
+import com.kosmos.app.platform.device.DeviceResourceProvider
+import com.kosmos.app.platform.device.MemorySnapshot
 import com.kosmos.app.platform.device.TemperatureProvider
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -29,8 +31,28 @@ class RuntimeMetricsCollectorTest {
         }
     }
 
-    private fun collector(temp: FakeTemperature): RuntimeMetricsCollector =
-        RuntimeMetricsCollector(temp, mockk<AuditTrailService>(relaxed = true))
+    private class FakeResources(var snapshot: MemorySnapshot) : DeviceResourceProvider {
+        var calls = 0
+        override suspend fun memorySnapshot(): MemorySnapshot {
+            calls++
+            return snapshot
+        }
+    }
+
+    private fun resources() = FakeResources(
+        MemorySnapshot(
+            usedBytes = 3L * 1024 * 1024 * 1024,
+            totalBytes = 8L * 1024 * 1024 * 1024,
+            appBytes = 4L * 1024 * 1024 * 1024,
+            lowMemory = false
+        )
+    )
+
+    private fun collector(
+        temp: FakeTemperature,
+        deviceResources: DeviceResourceProvider = resources()
+    ): RuntimeMetricsCollector =
+        RuntimeMetricsCollector(temp, deviceResources, mockk<AuditTrailService>(relaxed = true))
 
     // --- 임계값 ---
 
@@ -107,6 +129,46 @@ class RuntimeMetricsCollectorTest {
         sut.handleCooldownIfNecessary()
 
         assertEquals(0, temp.reads)
+    }
+
+    // --- 상단 표시용 상태 ---
+
+    @Test
+    fun `토큰 수와 소요 시간에서 초당 생성 속도를 계산한다`() {
+        // [WHY] GPU 사용률을 쓸 수 없어(공개 API 없음, 벤더 sysfs 는 SELinux 차단) 그 자리를
+        // 대신하는 값이다. 네이티브가 토큰당 메시지 하나를 보내므로 정확히 셀 수 있다.
+        val sut = collector(FakeTemperature(30f))
+
+        sut.recordEnd(durationMs = 2_000, tokenCount = 25)
+
+        assertEquals(12.5, sut.deviceStatus.value.tokensPerSecond!!, 0.001)
+    }
+
+    @Test
+    fun `토큰 수를 모르는 턴은 직전 속도를 지운다기보다 유지한다`() {
+        // [WHY] 비스트리밍 경로(요약·전사)는 토큰을 셀 방법이 없다. 0 을 그대로 반영하면
+        // 부수 계산 한 번에 화면 숫자가 0 으로 떨어져 오해를 준다.
+        val sut = collector(FakeTemperature(30f))
+        sut.recordEnd(durationMs = 1_000, tokenCount = 10)
+
+        sut.recordEnd(durationMs = 500, tokenCount = 0)
+
+        assertEquals(10.0, sut.deviceStatus.value.tokensPerSecond!!, 0.001)
+    }
+
+    @Test
+    fun `상태 갱신은 온도와 메모리를 함께 싣는다`() = runTest {
+        val temp = FakeTemperature(38.5f)
+        val resources = resources()
+        val sut = collector(temp, resources)
+
+        sut.refreshDeviceStatus()
+
+        val status = sut.deviceStatus.value
+        assertEquals(38.5f, status.temperatureCelsius, 0.001f)
+        assertEquals(8L * 1024 * 1024 * 1024, status.memoryTotalBytes)
+        assertEquals(4L * 1024 * 1024 * 1024, status.appMemoryBytes)
+        assertEquals(1, resources.calls)
     }
 
     @Test

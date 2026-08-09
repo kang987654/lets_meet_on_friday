@@ -41,4 +41,9 @@ abstract class PlatformModule {
     abstract fun bindTemperatureProvider(
         impl: com.kosmos.app.platform.device.BatteryTemperatureProvider
     ): com.kosmos.app.platform.device.TemperatureProvider
+
+    @Binds
+    abstract fun bindDeviceResourceProvider(
+        impl: com.kosmos.app.platform.device.AndroidDeviceResourceProvider
+    ): com.kosmos.app.platform.device.DeviceResourceProvider
 }

@@ -18,10 +18,27 @@ data class InferenceMetrics(
     val inferenceCount: Int
 )
 
+/**
+ * 채팅 상단에 상시 표시되는 기기 상태입니다.
+ *
+ * @property tokensPerSecond 마지막 추론의 생성 속도. 아직 추론한 적이 없으면 null.
+ *   [WHY] GPU 사용률 자리를 대신한다 — 안드로이드에 GPU 사용률 공개 API 가 없고 벤더 sysfs 는
+ *   SELinux 로 막혀 있다. 반면 tok/s 는 스트리밍 루프가 토큰당 메시지 하나를 받으므로 정확히
+ *   셀 수 있고, 발열로 스로틀링되면 즉시 떨어진다 (ADR-015).
+ */
+data class DeviceStatus(
+    val temperatureCelsius: Float = 0f,
+    val memoryUsedBytes: Long = 0L,
+    val memoryTotalBytes: Long = 0L,
+    val appMemoryBytes: Long = 0L,
+    val tokensPerSecond: Double? = null
+)
+
 
 @Singleton
 class RuntimeMetricsCollector @Inject constructor(
     private val temperatureProvider: TemperatureProvider,
+    private val deviceResourceProvider: com.kosmos.app.platform.device.DeviceResourceProvider,
     private val auditTrailService: AuditTrailService
 ) {
     // [WHY] LLM 디스패처와 UI 스레드에서 함께 증감되므로 원자적 카운터를 사용한다.
@@ -35,6 +52,26 @@ class RuntimeMetricsCollector @Inject constructor(
 
     private val _thermalWarning = MutableStateFlow<AppError?>(null)
     val thermalWarning: StateFlow<AppError?> = _thermalWarning.asStateFlow()
+
+    private val _deviceStatus = MutableStateFlow(DeviceStatus())
+    val deviceStatus: StateFlow<DeviceStatus> = _deviceStatus.asStateFlow()
+
+    /**
+     * 상단 표시용 상태를 한 번 갱신합니다. 화면이 보이는 동안 주기적으로 호출됩니다.
+     *
+     * [WHY] 스스로 타이머를 돌지 않는다. 채팅 화면이 보이지 않는 동안에도 `Debug.getMemoryInfo`
+     * (수십 ms)를 계속 부르면 아무도 안 보는 숫자를 위해 배터리를 쓴다. 주기 결정은 화면
+     * 생명주기를 아는 쪽(ViewModel)에 맡긴다.
+     */
+    suspend fun refreshDeviceStatus() {
+        val memory = deviceResourceProvider.memorySnapshot()
+        _deviceStatus.value = _deviceStatus.value.copy(
+            temperatureCelsius = temperatureProvider.getCurrentTemperatureCelsius(),
+            memoryUsedBytes = memory.usedBytes,
+            memoryTotalBytes = memory.totalBytes,
+            appMemoryBytes = memory.appBytes
+        )
+    }
 
     private companion object {
         const val COOLDOWN_MS = 1_000L
@@ -85,9 +122,20 @@ class RuntimeMetricsCollector @Inject constructor(
         continuousInferenceCount.incrementAndGet()
     }
 
-    fun recordEnd(durationMs: Long): AppResult<InferenceMetrics> {
+    /**
+     * @param tokenCount 이번 턴에 생성된 토큰 수. 0 이면 속도를 갱신하지 않습니다.
+     *   [WHY] 스트리밍 경로는 네이티브 메시지 1건 = 토큰 1개이므로 정확히 셀 수 있다.
+     *   비스트리밍 경로는 셀 방법이 없으므로 0 을 넘기고 직전 값을 유지한다.
+     */
+    fun recordEnd(durationMs: Long, tokenCount: Int = 0): AppResult<InferenceMetrics> {
         val temp = temperatureProvider.getCurrentTemperatureCelsius()
         val metrics = InferenceMetrics(durationMs, temp, continuousInferenceCount.get())
+
+        if (tokenCount > 0 && durationMs > 0) {
+            _deviceStatus.value = _deviceStatus.value.copy(
+                tokensPerSecond = tokenCount * 1000.0 / durationMs
+            )
+        }
 
         return when {
             temp >= Constants.THERMAL_SHUTDOWN_CELSIUS -> {
