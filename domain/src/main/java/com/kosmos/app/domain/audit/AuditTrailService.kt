@@ -15,8 +15,24 @@ class AuditTrailService @Inject constructor(
         const val TAG = "AuditTrailService"
     }
 
-    suspend fun logModelRun(sessionId: String, prompt: String, output: String) {
-        val details = "Prompt: ${redact(prompt)}\nOutput: ${redact(output)}"
+    /**
+     * @param declaredTools 이 턴에 모델에게 **선언된** 툴 이름들. 비면 기록하지 않습니다.
+     *
+     * [WHY] "툴을 부르지 않았다"는 관찰만으로는 원인을 못 가른다 — 선언이 안 된 것인지(토글·
+     * allowlist 문제), 선언은 됐는데 모델이 거부한 것인지, 호출이 전달 도중 유실된 것인지가
+     * 모두 같아 보인다. 실기기에서 logcat 없이 앱 안에서 그 구분이 되도록 감사에 남긴다.
+     */
+    suspend fun logModelRun(
+        sessionId: String,
+        prompt: String,
+        output: String,
+        declaredTools: List<String> = emptyList()
+    ) {
+        val details = buildString {
+            append("Prompt: ${redact(prompt)}")
+            append("\nOutput: ${redact(output)}")
+            if (declaredTools.isNotEmpty()) append("\nTools declared: $declaredTools")
+        }
         saveEvent(sessionId, AuditEventType.MODEL_RUN, details)
     }
 

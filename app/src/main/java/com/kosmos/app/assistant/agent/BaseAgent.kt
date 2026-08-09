@@ -170,7 +170,12 @@ abstract class BaseAgent(
         // [WHY] `prompt.currentInput` 이 아니라 원문 요청을 기록한다. 툴을 쓴 턴에서는 루프가
         // `currentInput = ""` 로 덮어쓰므로, 예전에는 **툴을 쓴 대화일수록** 감사 로그의
         // 프롬프트가 빈 문자열이었다 — 정작 기록이 가장 필요한 턴이 비어 있었다.
-        auditTrailService.logModelRun(request.sessionId, request.message, lastTurn?.text.orEmpty())
+        auditTrailService.logModelRun(
+            request.sessionId,
+            request.message,
+            lastTurn?.text.orEmpty(),
+            declaredTools = allowedTools
+        )
 
         // [WHY] 일정 초안 등 액션성 흐름은 모두 툴 콜 + 승인 경로로 일원화되었으므로(2026-07-31 절충안),
         // 최종 응답은 텍스트로 저장·반환한다. (구 ResponseParser/PreExecutionGuard 경로 제거)

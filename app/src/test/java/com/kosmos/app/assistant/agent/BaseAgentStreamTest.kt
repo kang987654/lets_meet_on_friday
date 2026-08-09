@@ -246,7 +246,11 @@ class BaseAgentStreamTest {
             userMessage = "오늘 일정 알려줘"
         )
 
-        coVerify { harness.audit.logModelRun("s1", "오늘 일정 알려줘", any()) }
+        // [WHY] 선언된 툴 목록도 함께 남긴다 — "툴을 부르지 않았다"가 선언 누락인지 모델의
+        // 거부인지 실기기에서 logcat 없이 구분하기 위한 유일한 단서다.
+        coVerify {
+            harness.audit.logModelRun("s1", "오늘 일정 알려줘", any(), listOf("GetSchedule"))
+        }
     }
 
     // --- 턴 경계 ---
