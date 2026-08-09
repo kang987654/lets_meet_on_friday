@@ -24,14 +24,20 @@ class SaveKnowledgeUseCase @Inject constructor(
     private val repository: KnowledgeRepository,
     private val textEmbedder: TextEmbedder
 ) {
+    /**
+     * [WHY] 임베딩 실패가 더 이상 **저장 자체를 막지 않는다.** 예전에는 실패 시 곧바로
+     * Failure 를 반환했다("For RAG, embedding is crucial"). 그런데 지금 임베딩은 어떤 조회
+     * 경로에서도 읽히지 않는다 — 임베더가 영어 전용이라 한국어 의미 검색이 무작위여서
+     * 벡터 검색을 프로덕션에서 뺐기 때문이다(ADR-013). 읽히지 않는 값을 만들지 못했다는
+     * 이유로 사용자의 "기억해줘"를 통째로 실패시키는 것은 명백히 잘못이다.
+     *
+     * [WHY] 그래도 계산은 계속한다. 한국어를 다루는 임베더로 자산만 갈아 끼우면 의미 검색이
+     * 되살아나야 하는데, 여기서 배선을 끊어 두면 그때 조용히 썩어 있을 것이다.
+     */
     suspend operator fun invoke(content: String, tags: List<String>): AppResult<KnowledgeNote> {
-        // Generate embedding
-        val embeddingResult = textEmbedder.embed(content)
-        val embedding = if (embeddingResult is AppResult.Success) {
-            embeddingResult.data
-        } else {
-            // Depending on policy, we might fail or proceed without embedding. For RAG, embedding is crucial.
-            return AppResult.Failure((embeddingResult as AppResult.Failure).error)
+        val embedding = when (val embeddingResult = textEmbedder.embed(content)) {
+            is AppResult.Success -> embeddingResult.data
+            is AppResult.Failure -> null
         }
 
         val currentTime = System.currentTimeMillis()

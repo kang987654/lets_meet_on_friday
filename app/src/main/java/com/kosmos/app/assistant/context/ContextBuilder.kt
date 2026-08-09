@@ -6,10 +6,8 @@ import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.tool.Tokenizer
 import com.kosmos.app.data.local.prefs.SettingsDataStore
-import com.kosmos.app.domain.usecase.SearchKnowledgeUseCase
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
-import java.util.UUID
 
 /**
  * [ContextBuilder]
@@ -17,19 +15,20 @@ import java.util.UUID
  *
  * ### Architecture Context
  * - **Layer**: Assistant (Context Management)
- * - **Dependencies**: [ConversationRepository], [Tokenizer], [SettingsDataStore], [SearchKnowledgeUseCase]
+ * - **Dependencies**: [ConversationRepository], [Tokenizer], [SettingsDataStore]
  *
  * ### Key Flow
  * 1. 세션 ID를 기반으로 최근 대화 기록 조회
- * 2. 가장 최근 유저 메시지 추출 후 RAG 메모리 검색(SearchKnowledgeUseCase) 수행
- * 3. 검색된 메모리를 System 메시지로 변환하여 컨텍스트에 삽입
- * 4. 프리필 예산([Constants.MAX_CONTEXT_TOKENS] 기본, 설정에서 조절)에서 시스템 지시·툴 선언
+ * 2. 프리필 예산([Constants.MAX_CONTEXT_TOKENS] 기본, 설정에서 조절)에서 시스템 지시·툴 선언
  *    오버헤드를 예약한 뒤, 남은 예산만큼 Token Sliding Window 적용
- * 5. 최적화된 [ChatMessage] 목록을 포함하는 [Context] 반환
+ * 3. 최적화된 [ChatMessage] 목록을 포함하는 [Context] 반환
+ *
+ * [WHY] 예전에는 여기서 매 턴 RAG 검색을 수행해 결과를 SYSTEM 메시지로 끼워 넣었다.
+ * 임베더가 영어 전용이라 한국어 검색이 무작위였으므로 제거했고, 기억 조회는 `SearchMemory`
+ * 툴로 옮겼다 (ADR-013).
  */
 class ContextBuilder @Inject constructor(
     private val conversationRepository: ConversationRepository,
-    private val searchKnowledgeUseCase: SearchKnowledgeUseCase,
     private val tokenizer: Tokenizer,
     private val settingsDataStore: SettingsDataStore
 ) {
@@ -77,37 +76,14 @@ class ContextBuilder @Inject constructor(
 
         return when (conversationsResult) {
             is AppResult.Success -> {
-                val messages = conversationsResult.data.toMutableList()
-                
-                // RAG: 가장 마지막 사용자 입력 메시지를 추출하여 벡터 검색 수행
-                val lastUserMessage = messages.lastOrNull { it.role == ChatMessage.Role.USER }?.content
-                if (!lastUserMessage.isNullOrBlank()) {
-                    val searchResult = searchKnowledgeUseCase(
-                        query = lastUserMessage,
-                        limit = Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS
-                    )
-                    if (searchResult is AppResult.Success && searchResult.data.isNotEmpty()) {
-                        val memoryText = searchResult.data.joinToString("\n\n") { note ->
-                            "- ${note.content}"
-                        }
-                        
-                        val ragMessage = ChatMessage(
-                            id = UUID.randomUUID().toString(),
-                            sessionId = sessionId,
-                            role = ChatMessage.Role.SYSTEM,
-                            content = "다음은 사용자에 대한 과거 기억(Memory)입니다. 답변에 필요하다면 적극 활용하세요:\n$memoryText",
-                            inputType = com.kosmos.app.domain.model.InputType.TEXT,
-                            searchUsed = false,
-                            createdAt = System.currentTimeMillis()
-                        )
-                        // 시스템 메시지이므로 과거 대화 기록 최상단 근처에 배치 (원하는 위치에 추가)
-                        // 여기서는 프롬프트 어셈블러가 System 메시지를 별도로 파싱하므로 단순히 목록 끝이나 처음에 넣어도 됨
-                        // PromptAssembler는 `filter { it.role == SYSTEM }` 으로 추출하므로 순서 무관
-                        messages.add(ragMessage)
-                    }
-                }
-
-                val slidingWindow = applyTokenSlidingWindow(messages, maxTokens)
+                // [WHY] **매 턴 자동 RAG 주입을 제거했다** (ADR-013). 예전에는 마지막 사용자
+                // 발화를 임베딩해 상위 3건을 SYSTEM 메시지로 끼워 넣었는데, 앱이 싣고 있는
+                // 임베더가 영어 전용이라 한국어에서는 검색이 **무작위**였다(PC 실측: 서로
+                // 무관한 한국어 문장들의 쌍별 코사인 0.93~1.00, 관련/무관 분리도 0.000,
+                // top-1 정확도 1/7 = 무작위 1/8 수준). 그래서 실제로 하던 일은 "무관한 메모
+                // 3건을 매 턴 질문 앞에 붙이는 것"이었다 — 프리필을 축내고 환각의 재료가 됐다.
+                // 기억 조회는 이제 모델이 필요할 때 부르는 `SearchMemory` 툴이 맡는다.
+                val slidingWindow = applyTokenSlidingWindow(conversationsResult.data, maxTokens)
                 AppResult.Success(
                     Context(
                         recentConversations = slidingWindow,

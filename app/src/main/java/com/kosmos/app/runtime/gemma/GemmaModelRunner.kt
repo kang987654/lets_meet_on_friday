@@ -95,7 +95,7 @@ class GemmaModelRunner @Inject constructor(
         // [WHY] 이미지를 텍스트보다 앞에 넣는다 — 마지막 토큰이 텍스트여야 응답 품질이 안정적이다.
         listOf(
             com.google.ai.edge.litertlm.Content.ImageBytes(imageBytes),
-            com.google.ai.edge.litertlm.Content.Text(userText(prompt))
+            com.google.ai.edge.litertlm.Content.Text(prompt.currentInput)
         )
     }
 
@@ -106,7 +106,7 @@ class GemmaModelRunner @Inject constructor(
     ): AppResult<ModelTurn> = runTurn(prompt, onToken, "음성 추론 중 오류 발생") {
         listOf(
             com.google.ai.edge.litertlm.Content.AudioFile(audioPath),
-            com.google.ai.edge.litertlm.Content.Text(userText(prompt))
+            com.google.ai.edge.litertlm.Content.Text(prompt.currentInput)
         )
     }
 
@@ -219,9 +219,6 @@ class GemmaModelRunner @Inject constructor(
         // [WHY] 툴 실행 결과는 사용자 발화가 아니라 **TOOL 역할 메시지**로 보내야 모델 템플릿의
         // 역할과 맞는다. Contents 오버로드는 무조건 Message.user 로 감싸므로(바이트코드 확인)
         // 여기서 직접 Message.tool 로 감싼다 — 공식 문서의 수동 툴 호출 예제와 같은 형태다.
-        //
-        // [WHY] 이 턴에는 turnContext 를 싣지 않는다. 같은 왕복의 첫 턴에서 이미 보냈고,
-        // 툴 응답 턴은 사용자 발화가 아니다.
         prompt.toolResponse?.let { response ->
             return Message.tool(
                 Contents.of(
@@ -233,21 +230,8 @@ class GemmaModelRunner @Inject constructor(
             return Message.user(Contents.of(*extras.toTypedArray()))
         }
         return Message.user(
-            Contents.of(com.google.ai.edge.litertlm.Content.Text(userText(prompt)))
+            Contents.of(com.google.ai.edge.litertlm.Content.Text(prompt.currentInput))
         )
-    }
-
-    /**
-     * 사용자 턴 본문입니다. 휘발성 문맥([ChatPrompt.turnContext] — 현재 시각, 검색된 기억)이
-     * 앞머리에 붙습니다.
-     *
-     * [WHY] 그 내용이 시스템 지시에 있으면 지시가 턴마다 달라져 Conversation 이 파괴되고
-     * 툴 선언까지 전부 다시 프리필된다 (실측치는 [ChatPrompt.turnContext] 주석).
-     */
-    private fun userText(prompt: ChatPrompt): String {
-        val context = prompt.turnContext
-        return if (context.isNullOrBlank()) prompt.currentInput
-        else "$context\n\n${prompt.currentInput}"
     }
 
     /**
