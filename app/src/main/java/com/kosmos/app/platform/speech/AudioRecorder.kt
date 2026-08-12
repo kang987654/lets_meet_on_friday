@@ -8,6 +8,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
 import androidx.core.app.ActivityCompat
+import com.kosmos.app.core.common.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +49,9 @@ open class AudioRecorder @Inject constructor(
         private const val SAMPLE_RATE = 16000
         private const val CHANNELS = AudioFormat.CHANNEL_IN_MONO
         private const val ENCODING = AudioFormat.ENCODING_PCM_16BIT
+
+        // [WHY] 16비트 PCM 이라 샘플당 2바이트다. 상한 계산이 ENCODING 과 어긋나지 않게 상수로 둔다.
+        private const val BYTES_PER_SAMPLE = 2
     }
 
     open fun startRecording(): com.kosmos.app.core.common.AppResult<Unit> {
@@ -123,10 +127,23 @@ open class AudioRecorder @Inject constructor(
         }
     }
 
+    /**
+     * PCM 데이터를 파일에 쓰되 **모델 상한을 넘기지 않습니다.**
+     *
+     * [WHY] Gemma 4 공식 문서는 오디오를 최대 30초로 제한한다. 예전에는 상한이 없어 마이크를
+     * 다시 누를 때까지 무한히 녹음됐고, 1분짜리 오디오가 그대로 모델에 들어갔다 — 그때의 동작이
+     * 정의되지 않았다. 화면 쪽 타이머(`ChatViewModel`)가 30초에 자동 종료하지만, 그 타이머가
+     * 프로세스 일시정지 등으로 늦어도 **파일 자체가 상한을 넘지 않도록** 여기서 한 번 더 막는다.
+     *
+     * [WHY] 초과분을 버릴 때 버퍼 전체를 버리지 않고 남은 만큼만 쓴다 — 버퍼 크기가 상한과 딱
+     * 맞아떨어지지 않으면 마지막 조각이 통째로 사라져 30초보다 눈에 띄게 짧아진다.
+     */
     private fun writeAudioDataToFile(bufferSize: Int) {
         val data = ByteArray(bufferSize)
         val file = outputFile ?: return
         var os: FileOutputStream? = null
+        val maxBytes = SAMPLE_RATE.toLong() * BYTES_PER_SAMPLE * Constants.MAX_AUDIO_SECONDS
+        var written = 0L
 
         try {
             os = FileOutputStream(file)
@@ -137,7 +154,15 @@ open class AudioRecorder @Inject constructor(
             while (isRecording && audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                 val read = audioRecord?.read(data, 0, bufferSize) ?: 0
                 if (read > 0) {
-                    os.write(data, 0, read)
+                    val allowed = minOf(read.toLong(), maxBytes - written).toInt()
+                    if (allowed > 0) {
+                        os.write(data, 0, allowed)
+                        written += allowed
+                    }
+                    if (written >= maxBytes) {
+                        Log.i(TAG, "녹음 상한 ${Constants.MAX_AUDIO_SECONDS}초 도달 — 쓰기를 멈춘다")
+                        isRecording = false
+                    }
                 }
             }
         } catch (e: IOException) {

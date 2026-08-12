@@ -58,6 +58,10 @@ class ChatViewModel @Inject constructor(
     private val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder
 ) : ViewModel() {
 
+    // [WHY] 녹음 자동 종료 타이머. 사용자가 먼저 멈추면 취소해야 한다 — 남겨 두면 다음 녹음
+    // 도중에 깨어나 남의 녹음을 끊는다.
+    private var recordingTimeoutJob: kotlinx.coroutines.Job? = null
+
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
@@ -325,24 +329,47 @@ class ChatViewModel @Inject constructor(
         approvalCoordinator.reject()
     }
 
+    /**
+     * 마이크 버튼. 녹음을 시작하거나, 멈추고 전사 턴을 보냅니다.
+     *
+     * [WHY] 시작할 때 **자동 종료 타이머**를 함께 건다. Gemma 4 공식 문서가 오디오를 최대 30초로
+     * 제한하는데 예전에는 상한이 없어 버튼을 다시 누를 때까지 무한히 녹음됐다 — 사용자가 1분을
+     * 말하면 한계를 넘긴 오디오가 그대로 모델에 들어가고 그때의 동작은 정의되지 않았다.
+     *
+     * [WHY] 상한에 닿으면 **버린 채로 멈추지 않고 그때까지의 녹음을 그대로 보낸다.** 30초를 말한
+     * 사용자에게 아무 응답도 주지 않는 것이 더 나쁜 실패다. `AudioRecorder` 가 파일 자체를
+     * 30초에서 끊으므로 모델이 받는 것은 항상 상한 이내다.
+     */
     fun toggleRecording() {
         if (_uiState.value.isRecording) {
-            _uiState.update { it.copy(isRecording = false) }
-            viewModelScope.launch {
-                val result = audioRecorder.stopRecording()
-                if (result is com.kosmos.app.core.common.AppResult.Success) {
-                    val file = result.data
-                    if (file.exists()) {
-                        sendMessage("", file.absolutePath)
-                    }
-                } else if (result is com.kosmos.app.core.common.AppResult.Failure) {
-                    _uiState.update { it.copy(error = result.error) }
-                }
-            }
+            stopRecordingAndSend()
         } else {
             val result = audioRecorder.startRecording()
             if (result is com.kosmos.app.core.common.AppResult.Success) {
                 _uiState.update { it.copy(isRecording = true) }
+                recordingTimeoutJob = viewModelScope.launch {
+                    kotlinx.coroutines.delay(Constants.MAX_AUDIO_SECONDS * 1000L)
+                    if (_uiState.value.isRecording) stopRecordingAndSend()
+                }
+            } else if (result is com.kosmos.app.core.common.AppResult.Failure) {
+                _uiState.update { it.copy(error = result.error) }
+            }
+        }
+    }
+
+    private fun stopRecordingAndSend() {
+        // [WHY] 사용자가 먼저 멈추면 타이머를 취소한다 — 남겨 두면 다음 녹음 도중에 깨어나
+        // **남의 녹음을 끊는다.**
+        recordingTimeoutJob?.cancel()
+        recordingTimeoutJob = null
+        _uiState.update { it.copy(isRecording = false) }
+        viewModelScope.launch {
+            val result = audioRecorder.stopRecording()
+            if (result is com.kosmos.app.core.common.AppResult.Success) {
+                val file = result.data
+                if (file.exists()) {
+                    sendMessage("", file.absolutePath)
+                }
             } else if (result is com.kosmos.app.core.common.AppResult.Failure) {
                 _uiState.update { it.copy(error = result.error) }
             }
