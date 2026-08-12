@@ -53,8 +53,12 @@ abstract class BaseAgent(
     ): AgentResult = coroutineScope {
         // [WHY] enabledTools 를 프롬프트에 실어야 런타임이 모델에게 툴을 선언한다 (ADR-008).
         var prompt = initialPrompt.copy(enabledTools = allowedTools)
-        var lastTurn: ModelTurn? = null
-        var parsedResult: ToolParser.ParsedStream? = null
+        // [WHY] 자리표 `null` 을 두지 않는다. 루프를 빠져나오는 유일한 경로(`break`)는 두 값을
+        // 대입한 뒤에만 나오므로 초기값이 필요 없다. 예전에는 `null` 로 시작한 탓에 루프 뒤에
+        // 절대 발동하지 않는 방어 코드가 붙어 있었고, 조기 탈출이 새로 생겨도 그 죽은 분기가
+        // 삼켜 사용자에게 엉뚱한 오류를 띄웠을 것이다. 지금은 같은 상황이 컴파일 에러로 드러난다.
+        var lastTurn: ModelTurn
+        var parsedResult: ToolParser.ParsedStream
         var isFirstTurn = true
         var loopCount = 0
         // [WHY] 웹 검색이 실제로 실행됐는지는 이 루프만 안다. 예전에는 최종 메시지를 항상
@@ -181,7 +185,6 @@ abstract class BaseAgent(
         }
 
         val finalParsed = parsedResult
-            ?: return@coroutineScope handleErrorAndReturn(request.sessionId, "Model execution failed")
 
         // [WHY] `prompt.currentInput` 이 아니라 원문 요청을 기록한다. 툴을 쓴 턴에서는 루프가
         // `currentInput = ""` 로 덮어쓰므로, 예전에는 **툴을 쓴 대화일수록** 감사 로그의
@@ -189,7 +192,7 @@ abstract class BaseAgent(
         auditTrailService.logModelRun(
             request.sessionId,
             request.message,
-            lastTurn?.text.orEmpty(),
+            lastTurn.text,
             declaredTools = allowedTools
         )
 

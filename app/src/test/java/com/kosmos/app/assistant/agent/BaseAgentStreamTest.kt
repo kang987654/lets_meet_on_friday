@@ -6,6 +6,7 @@ import com.kosmos.app.assistant.orchestrator.ChatRequest
 import com.kosmos.app.assistant.orchestrator.StreamUpdate
 import com.kosmos.app.assistant.tool.ToolExecutor
 import com.kosmos.app.assistant.tool.ToolRegistry
+import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.domain.audit.AuditTrailService
@@ -330,6 +331,37 @@ class BaseAgentStreamTest {
 
         assertEquals(1, harness.prompts.size)
         assertEquals("안녕하세요. 무엇을 도와드릴까요?", (harness.result as AgentResult.Text).content)
+    }
+
+    @Test
+    fun `툴 호출이 상한을 넘으면 오류로 끝난다`() {
+        // [WHY] 모델이 같은 툴을 계속 부르면 루프가 스스로 멈추지 않는다. 상한이 그 브레이크인데
+        // 이 경로만 검증이 없어, 루프 탈출 구조를 건드리는 변경이 무엇을 깨뜨렸는지 알 수 없었다.
+        //
+        // 턴 3개 = MAX_TOOL_LOOP_COUNT. 세 턴 모두 툴을 부르므로 네 번째 진입에서 걸린다.
+        // 하나라도 줄이면 정상 종료로 빠져 이 경로를 못 탄다.
+        val harness = runAgent(
+            ModelTurn("", listOf(toolCall("GetSchedule"))),
+            ModelTurn("", listOf(toolCall("GetSchedule"))),
+            ModelTurn("", listOf(toolCall("GetSchedule"))),
+            allowedTools = listOf("GetSchedule"),
+            toolRegistry = registryWith("GetSchedule", """{"status":"success"}""")
+        )
+
+        assertEquals(3, harness.prompts.size)
+        val error = (harness.result as AgentResult.Error).error
+        assertTrue("ModelInferenceError 가 아니다: $error", error is AppError.ModelInferenceError)
+        assertTrue(
+            "상한 초과 문구가 없다: $error",
+            (error as AppError.ModelInferenceError).reason.contains("툴 호출 반복 상한")
+        )
+        coVerify { harness.audit.logError("s1", "Max tool loop count exceeded") }
+        // [WHY] 이 경로는 handleErrorAndReturn 을 거치지 않아 말풍선을 남기지 않는다. 다른 오류
+        // 경로(추론 실패)와 갈리는 지점이므로 현재 동작을 고정해 둔다.
+        assertTrue(
+            "말풍선이 저장되면 안 된다: ${harness.savedMessages}",
+            harness.savedMessages.none { it.role == ChatMessage.Role.ASSISTANT }
+        )
     }
 
     // --- 스트리밍 표시 ---
