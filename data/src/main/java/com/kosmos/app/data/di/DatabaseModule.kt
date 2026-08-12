@@ -34,7 +34,10 @@ object DatabaseModule {
         // [WHY] 마이그레이션 정의는 KosmosMigrations 로 분리했다 — 인라인 익명 객체로는
         // MigrationTestHelper 검증이 불가능했다.
         .addMigrations(*KosmosMigrations.ALL)
-        .fallbackToDestructiveMigrationOnDowngrade() // [WHY] 업그레이드 경로는 항상 명시적 Migration을 요구한다
+        // [WHY] 업그레이드 경로는 항상 명시적 Migration을 요구한다. 다운그레이드에서만 파괴적
+        // 재생성을 허용하며, 이 DB 는 전부 Room 이 관리하므로 dropAllTables = true 로 잔여
+        // 테이블 없이 지운다.
+        .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
         .build()
     }
 
