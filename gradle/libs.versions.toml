@@ -66,7 +66,10 @@ androidx-navigation-compose = { module = "androidx.navigation:navigation-compose
 # Hilt
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
-androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "androidx-hilt" }
+# [WHY] hiltViewModel 이 androidx.hilt.navigation.compose 에서 이 아티팩트로 옮겨졌다.
+# hilt-navigation-compose 는 이제 deprecated 위임만 남아 사용처가 0이므로 제거했다 —
+# 새 아티팩트는 그 전이 의존으로만 들어오던 상태라, core-ktx 와 같은 이유로 명시한다.
+androidx-hilt-lifecycle-viewmodel-compose = { module = "androidx.hilt:hilt-lifecycle-viewmodel-compose", version.ref = "androidx-hilt" }
 # [WHY] androidx.hilt:hilt-compiler 는 dagger hilt-compiler 를 대체하지 않는다 —
 # @HiltWorker 팩토리 생성물이 달라 둘 다 KSP 에 등록해야 한다.
 androidx-hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "androidx-hilt" }

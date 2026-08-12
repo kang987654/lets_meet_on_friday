@@ -33,7 +33,7 @@ fun AppNavHost(
         
         composable(route = AppDestination.Chat.route) {
             val webSearchViewModel: com.kosmos.app.feature.chat.WebSearchViewModel =
-                androidx.hilt.navigation.compose.hiltViewModel()
+                androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
             val webSearchEnabled by webSearchViewModel.webSearchEnabled.collectAsStateWithLifecycle()
             ChatScreen(
                 onSettingsClick = {
