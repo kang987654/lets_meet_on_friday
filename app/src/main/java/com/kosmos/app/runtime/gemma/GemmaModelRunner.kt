@@ -127,15 +127,27 @@ class GemmaModelRunner @Inject constructor(
         )
     }
 
+    /**
+     * [WHY] `currentInput` 이 비어 있으면 **텍스트 파트를 아예 붙이지 않는다.** 전사에서 지시
+     * 문장을 함께 보내면, 무음 오디오일 때 모델이 **그 지시문을 그대로 되읊는다** — PC 실험
+     * (exp16)에서 무음 2초에 `"이 오디오를 들리는 그대로 받아써 주세요."` 가 전사문으로 나왔다.
+     * 빈 문자열이 아니므로 `TranscribeAudioUseCase` 의 공백 검사를 통과해, 앱이 그 문장을
+     * **사용자 메시지로 저장하고 그것에 답한다**(PRD EC3 위반).
+     *
+     * 되읊음을 문자열로 걸러내는 대신 되읊을 대상을 없앤다. 오디오만 보내도 전사는 정상이고
+     * 무음에서는 빈 결과가 온다(exp16 실측).
+     */
     override suspend fun generateWithAudio(
         prompt: ChatPrompt,
         audioPath: String,
         onToken: ((String) -> Unit)?
     ): AppResult<ModelTurn> = runTurn(prompt, onToken, "음성 추론 중 오류 발생") {
-        listOf(
-            com.google.ai.edge.litertlm.Content.AudioFile(audioPath),
-            com.google.ai.edge.litertlm.Content.Text(prompt.currentInput)
-        )
+        buildList {
+            add(com.google.ai.edge.litertlm.Content.AudioFile(audioPath))
+            if (prompt.currentInput.isNotBlank()) {
+                add(com.google.ai.edge.litertlm.Content.Text(prompt.currentInput))
+            }
+        }
     }
 
     /**

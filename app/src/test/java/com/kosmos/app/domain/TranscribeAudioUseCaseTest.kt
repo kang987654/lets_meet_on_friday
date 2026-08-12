@@ -106,4 +106,22 @@ class TranscribeAudioUseCaseTest {
         assertTrue("툴을 선언하면 안 된다", prompt.captured.enabledTools.isEmpty())
         assertTrue("히스토리를 실으면 안 된다", prompt.captured.history.isEmpty())
     }
+
+    @Test
+    fun `사용자 턴에 지시 문장을 싣지 않는다`() = runBlocking {
+        // [WHY] 지시 문장을 실어 보내면 무음 오디오에서 모델이 그것을 그대로 되읊는다 — PC
+        // 실험(exp16)에서 무음 2초에 `"이 오디오를 들리는 그대로 받아써 주세요."` 가 전사문으로
+        // 나왔다. 공백이 아니므로 빈 검사를 통과해, 앱이 그 문장을 사용자 메시지로 저장하고
+        // 답까지 한다(PRD EC3 위반). 오디오만 보내면 무음에서 빈 결과가 온다.
+        val prompt = slot<ChatPrompt>()
+        coEvery { modelRunner.generateWithAudio(capture(prompt), any(), any()) } returns
+            AppResult.Success(ModelTurn("안녕"))
+
+        useCase()("/tmp/a.wav")
+
+        assertTrue(
+            "currentInput 이 비어 있어야 런타임이 텍스트 파트를 붙이지 않는다. 현재: '${prompt.captured.currentInput}'",
+            prompt.captured.currentInput.isBlank()
+        )
+    }
 }

@@ -26,11 +26,18 @@ class TranscribeAudioUseCase @Inject constructor(
     private val modelRunner: ModelRunner
 ) {
     suspend operator fun invoke(audioFilePath: String): AppResult<String> {
+        // [WHY] `currentInput` 을 **비운다.** 지시 문장을 사용자 턴에 실어 보내면 무음 오디오에서
+        // 모델이 그 문장을 그대로 되읊는다 — PC 실험(exp16)에서 무음 2초에
+        // `"이 오디오를 들리는 그대로 받아써 주세요."` 가 전사문으로 돌아왔다. 공백이 아니므로
+        // 아래 빈 검사를 통과해, 앱이 그 문장을 사용자 메시지로 저장하고 답까지 한다(PRD EC3 위반).
+        //
+        // 오디오만 보내도 전사는 정상이고 무음에서는 빈 결과가 온다(exp16 실측). 무엇을 할지는
+        // 시스템 지시가 이미 말하므로 사용자 턴에 문장이 필요하지 않다.
         val prompt = ChatPrompt(
             sessionId = SESSION_ID,
             systemInstruction = SYSTEM_INSTRUCTION,
             history = emptyList(),
-            currentInput = USER_INSTRUCTION,
+            currentInput = "",
             oneShot = true
         )
 
@@ -90,7 +97,9 @@ class TranscribeAudioUseCase @Inject constructor(
                 "add any commentary, labels, or quotation marks. If there is no intelligible " +
                 "speech, output nothing at all."
 
-        const val USER_INSTRUCTION = "이 오디오를 들리는 그대로 받아써 주세요."
+        // [WHY] 사용자 턴 지시 문장을 없앴다 — 무음일 때 모델이 그것을 되읊어 전사문으로
+        // 내보내는 것이 실측됐다(exp16). 상수도 함께 지운다. 되살리려면 그 되읊음을 다시
+        // 걸러낼 방법이 필요하다.
 
         val PREFIXES = listOf("사용자:", "사용자 :", "User:", "Transcript:", "전사:", "받아쓰기:")
 
