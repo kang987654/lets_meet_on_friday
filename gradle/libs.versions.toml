@@ -10,7 +10,16 @@ room = "2.8.4"
 datastore = "1.2.1"
 paging = "3.4.2"
 coroutines = "1.11.0"
-litertlm = "0.14.0"
+# [WHY] 0.14.0 → 0.16.0. 글자 유실("2026-08-17T10:00" → "…T01:000")의 남은 유일한 후보가
+# 이 런타임이었다 — 파이썬 패키지 0.15.0·0.16.0 양쪽에서 자릿수가 36/36 온전했으므로(exp22)
+# 앱과 하네스의 차이가 버전뿐이었다. ADR-016 은 "버전이 달라 가를 수 없다" 고 적었으나
+# Google Maven 에 0.15.0·0.16.0 AAR 이 모두 있었다(확인하지 않은 추정이었다).
+#
+# [WHY] 상향 위험을 미리 쟀다 — classes.jar 비교로 0.14.0 → 0.16.0 은 클래스 8개 추가·
+# **제거 0개**이고 우리가 쓰는 심볼(ExperimentalFlags·renderPrefaceIntoString·Capabilities·
+# EngineConfig 필드·SamplerConfig·ToolSet)이 전부 남아 있다. 추가분에 `ThinkingConfig` 가 있어
+# 맵 키로 끄던 생각 모드를 타입 API 로 옮길 수 있게 됐다.
+litertlm = "0.16.0"
 okhttp = "4.12.0"
 playServicesTfliteJava = "16.4.0"
 playServicesTfliteGpu = "16.4.0"
