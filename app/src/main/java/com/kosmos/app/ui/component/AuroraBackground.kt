@@ -18,7 +18,7 @@ fun AuroraBackground(
 ) {
     // [WHY] 백그라운드/정지 상태에서도 무한 애니메이션이 매 프레임 전체 화면 Canvas를 다시 그리면
     // 온디바이스 LLM 앱에 상시 GPU/배터리 비용이 얹힌다. RESUMED 상태에서만 transition을 구성한다.
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val animateState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->

@@ -114,7 +114,7 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
-    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboard.current
 
     // 날짜 구분선을 포함한 표시용 행 목록 (C-1)
     val chatRows = remember(uiState.messages) { buildChatRows(uiState.messages) }
@@ -308,8 +308,17 @@ fun ChatScreen(
                             is ChatRow.Message -> {
                                 val message = row.message
                                 val copyMessage = {
-                                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(message.content))
-                                    snackbarScope.launch { snackbarHostState.showSnackbar("메시지를 복사했어요.") }
+                                    // [WHY] LocalClipboard 의 setClipEntry 는 suspend 다. 스낵바용 스코프가
+                                    // 이미 있으므로 복사와 안내를 같은 코루틴에서 순서대로 처리한다 —
+                                    // onLongPress 의 `() -> Unit` 콜백 계약은 그대로 유지된다.
+                                    snackbarScope.launch {
+                                        clipboard.setClipEntry(
+                                            androidx.compose.ui.platform.ClipEntry(
+                                                android.content.ClipData.newPlainText("채팅 메시지", message.content)
+                                            )
+                                        )
+                                        snackbarHostState.showSnackbar("메시지를 복사했어요.")
+                                    }
                                     Unit
                                 }
                                 if (message.role == ChatMessage.Role.USER) {
