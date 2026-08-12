@@ -21,6 +21,9 @@ import org.junit.Test
  * 지나는 경로이고, 리터럴(`43.0f`/`48.0f`/`5`)이 `Constants` 의 같은 이름 상수와 **중복**되어
  * 있었다 — 정책을 한 곳에서 바꿀 수 없는 상태였다. 상수로 통일하면서 계약을 고정한다.
  */
+// [WHY] 쿨다운 지연은 실제로 재우지 않고 `testScheduler` 의 가상 시간으로 검증한다. 그 API 가
+// 실험적이라 opt-in 서명이 필요하다 (MemoryBackupStateTest 와 동일한 방식).
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class RuntimeMetricsCollectorTest {
 
     private class FakeTemperature(var celsius: Float) : TemperatureProvider {

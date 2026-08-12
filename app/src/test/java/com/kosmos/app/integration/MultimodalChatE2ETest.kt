@@ -183,9 +183,20 @@ class MultimodalChatE2ETest {
                 input: I,
                 options: ActivityOptionsCompat?
             ) {
+                // [WHY] `testUri as O` 는 제네릭 소거 때문에 검사 불가 캐스트였다. contract 자신에게
+                // 결과를 파싱시키면 반환 타입이 정의상 O 라 캐스트가 사라지고, 덤으로 실제 계약의
+                // 파싱 로직까지 검증된다. 별칭을 두는 이유는 아래 `is` 검사가 contract 를
+                // GetContent 로 스마트캐스트해 반환 타입을 Uri? 로 좁히는 것을 막기 위해서다.
+                val typedContract: ActivityResultContract<I, O> = contract
                 if (contract is androidx.activity.result.contract.ActivityResultContracts.GetContent) {
                     // Simulate picking a file
-                    dispatchResult(requestCode, testUri as O)
+                    dispatchResult(
+                        requestCode,
+                        typedContract.parseResult(
+                            android.app.Activity.RESULT_OK,
+                            android.content.Intent().setData(testUri)
+                        )
+                    )
                 }
             }
         }
