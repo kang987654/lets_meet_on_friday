@@ -94,20 +94,25 @@ class GemmaModelRunner @Inject constructor(
 ) : ModelRunner {
 
     companion object {
-        // [WHY] 생각 모드를 끈다. 근거는 **우리 실측**이다 — 같은 조건에서 생각 모드만 켜면
-        // 툴 호출이 4/4 → 2/4 로 떨어졌고(exp24), 떨어지는 쪽은 일정 등록이었다(위키는 살아남는다).
-        // 툴 호출이 핵심 기능이므로 끈 상태를 기본으로 둔다.
-        //
-        // [WHY] **응답 텍스트로는 생각 모드가 켜졌는지 알 수 없다.** exp24 에서 `enable_thinking`
-        // 을 켠 조건에서도 `<|think|>` 마커가 출력에 한 번도 나오지 않았다. 즉 이 설정이 조용히
-        // 실패하면 우리는 눈치채지 못하고 툴 호출만 나빠진다 — AAR 0.16.0 의 타입 있는
-        // `ThinkingConfig` 로 올릴 이유가 여기 있다(0.14.0 에는 그 클래스가 없어 맵으로 넘긴다).
-        //
-        // [WHY] 공식 문서(capabilities/thinking)는 E2B·E4B 의 생각 모드가 시스템 턴의 `<|think|>`
-        // 로 켜진다고 적는다. 실기기 렌더 프리페이스에 그 마커가 없어 템플릿 차원에서는 꺼져
-        // 있는 것으로 보이지만, 그 관측은 `extraContext` 가 듣는다는 증거는 아니다 —
-        // 프리페이스는 대화 생성 시점에 렌더되고 이 맵은 메시지 시점에 전달된다.
-        private val EXTRA_CONTEXT: Map<String, Any> = mapOf("enable_thinking" to false)
+        /**
+         * 생각 모드를 끕니다.
+         *
+         * [WHY] 근거는 **우리 실측**이다 — 같은 조건에서 생각 모드만 켜면 툴 호출이 4/4 → 2/4 로
+         * 떨어졌고(exp24), 떨어지는 쪽은 일정 등록이었다(위키는 살아남는다). 툴 호출이 핵심
+         * 기능이므로 끈 상태를 기본으로 둔다.
+         *
+         * [WHY] 예전에는 `extraContext = mapOf("enable_thinking" to false)` 맵으로 껐다. AAR
+         * 0.14.0 에 `ThinkingConfig` 가 없어서 그것이 유일한 방법이었지만, **맵의 키 이름 하나에
+         * 의존하는 상태**였다 — 키가 틀리거나 런타임이 무시하면 조용히 켜진 채로 돌고 우리는
+         * 눈치채지 못한다. `enable_thinking=true` 조건에서도 `<|think|>` 마커가 출력에 한 번도
+         * 나오지 않았기 때문에(exp24) **응답을 봐서는 켜졌는지 알 수 없다.** 0.16.0 이 타입 있는
+         * `ThinkingConfig` 를 추가했으므로 컴파일러가 검증하는 형태로 옮긴다.
+         *
+         * [WHY] 공식 문서(capabilities/thinking)는 E2B·E4B 의 생각 모드가 시스템 턴의 `<|think|>`
+         * 로 켜진다고 적는다. 실기기 렌더 프리페이스에 그 마커가 없었으므로 템플릿 기본값도 꺼져
+         * 있는 것으로 보이지만, 명시로 두어 기본값에 기대지 않는다.
+         */
+        private val THINKING_OFF = com.google.ai.edge.litertlm.ThinkingConfig(enableThinking = false)
     }
 
     override val loadState: StateFlow<ModelLoadState> = runtimeManager.loadState
@@ -226,7 +231,7 @@ class GemmaModelRunner @Inject constructor(
                         //
                         // 무한 버퍼를 끼우면 이 Flow 의 소비자는 버퍼 연산자가 되어 즉시 비워 가고,
                         // 우리 본문이 얼마나 느리든 네이티브 채널이 넘치지 않는다.
-                        currentConversation.sendMessageAsync(outgoing, EXTRA_CONTEXT)
+                        currentConversation.sendMessageAsync(outgoing, thinkingConfig = THINKING_OFF)
                             .buffer(kotlinx.coroutines.channels.Channel.UNLIMITED)
                             .collect { message ->
                                 yield() // CPU 점유율 양보 (UI 스레드 기아 방지)
@@ -253,7 +258,7 @@ class GemmaModelRunner @Inject constructor(
                         AppResult.Success(ModelTurn(finalResponse, toolCalls))
                     }
                 } else {
-                    val message = currentConversation.sendMessage(outgoing, EXTRA_CONTEXT)
+                    val message = currentConversation.sendMessage(outgoing, thinkingConfig = THINKING_OFF)
                     val toolCalls = mutableListOf<ModelToolCall>()
                     collectToolCalls(message, toolCalls)
                     val messageText = message.contents.contents
