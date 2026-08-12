@@ -18,20 +18,24 @@ import javax.inject.Inject
 
 /**
  * [GetTodayScheduleUseCase]
- * 지정된 기간(오늘 또는 이번 주)의 일정을 DB에서 조회하고, Gemma LLM을 통해 간결한 1~2문장의 요약(Summary)을 생성하는 유즈케이스입니다.
+ * 지정된 기간(오늘 또는 이번 주)의 일정을 앱 DB와 기기 캘린더에서 조회해 병합하는 유즈케이스입니다.
  *
  * ### Architecture Context
  * - **Layer**: Domain (UseCase)
- * - **Dependencies**: [TaskRepository], [ModelRunner]
+ * - **Dependencies**: [TaskRepository], [CalendarTool]
  *
  * ### Key Flow
  * 1. 시스템 현재 시각 기준 범위(오늘/주간) 밀리초 타임스탬프 계산.
  * 2. [TaskRepository]에서 작업 목록 조회 후 해당 범위 내 일정을 [CalendarEvent]로 필터링.
- * 3. 일정이 존재할 경우 [ModelRunner]에 요약 프롬프트를 전달하여 친절한 간결 요약문 생성 (실패 시 null 폴백).
+ * 3. 기기 캘린더 이벤트를 병합하고, 읽기 실패는 `deviceCalendarFailed` 로 올린다 (ADR-004).
+ *
+ * [WHY] **요약은 여기서 만들지 않는다.** 예전에는 이 유스케이스가 `ModelRunner` 를 들고 요약
+ * 추론까지 했는데, 그 때문에 (a) 캘린더 화면이 추론이 끝날 때까지 목록조차 못 보여 줬고,
+ * (b) `GetScheduleToolExecutor` 를 통해 **툴 실행 도중에 추론이 한 번 더** 돌았다. 조회는 수십
+ * 밀리초, 요약은 10초짜리 작업이라 한 반환값에 묶을 이유가 없다 → [SummarizeScheduleUseCase].
  */
 class GetTodayScheduleUseCase @Inject constructor(
     private val taskRepository: TaskRepository,
-    private val modelRunner: ModelRunner,
     private val calendarTool: com.kosmos.app.domain.tool.CalendarTool
 ) {
     suspend operator fun invoke(range: ScheduleData.RangeType): AppResult<ScheduleData> = withContext(Dispatchers.IO) {
@@ -96,49 +100,14 @@ class GetTodayScheduleUseCase @Inject constructor(
         // 파싱된 epoch ms 기준으로 정렬한다.
         val sortedEvents = mergedEvents.sortedBy { it.second }.map { it.first }
 
-        if (sortedEvents.isEmpty()) {
-            return@withContext AppResult.Success(
-                ScheduleData(
-                    events = persistentListOf(),
-                    summary = null,
-                    rangeType = range,
-                    deviceCalendarFailed = deviceCalendarFailed
-                )
-            )
-        }
-
-        // 3. AI 요약 (프롬프트 구성)
-        val eventListText = sortedEvents.joinToString("\n") {
-            "- ${it.title} (시간: ${it.startIso})"
-        }
-        
-        val rangeStr = if (range == ScheduleData.RangeType.TODAY) "오늘" else "이번 주"
-        val prompt = """
-            다음은 사용자의 $rangeStr 일정입니다. 친절한 비서처럼 간결하게 1~2문장으로 요약해주세요.
-            
-            일정:
-            $eventListText
-        """.trimIndent()
-
-        // [WHY] `oneShot = true` — 이 요약은 사용자 대화가 아니라 부수 계산이다. 붙이지 않으면
-        // 시스템 지시와 sessionId 가 채팅과 달라 런타임이 **캐시된 채팅 대화를 파괴**하고,
-        // 캘린더 화면을 열 때마다 채팅이 다음 턴에 전체 프리필을 다시 낸다(ADR-010).
-        val chatPrompt = com.kosmos.app.domain.modelrunner.ChatPrompt(
-            sessionId = "schedule-summary",
-            systemInstruction = "[System]\nYou are an assistant summarizing today's schedule.",
-            history = emptyList(),
-            currentInput = prompt,
-            oneShot = true
-        )
-        val summary = when (val result = modelRunner.generate(chatPrompt)) {
-            is AppResult.Success -> result.data.text.trim()
-            is AppResult.Failure -> null // [WHY] AI 요약 실패 시 앱 다운을 막기 위해 null 폴백 처리
-        }
-
+        // [WHY] 요약은 이 유스케이스가 만들지 않는다 — `SummarizeScheduleUseCase` 로 분리했다.
+        // 예전에는 여기서 요약 추론(~10초)을 **기다린 뒤** 결과를 냈고, 그동안 캘린더 화면은
+        // 스피너만 돌았다. 조회와 요약은 수명이 다른 작업이라 한 반환값에 묶으면 느린 쪽이
+        // 빠른 쪽을 인질로 잡는다.
         AppResult.Success(
             ScheduleData(
                 events = sortedEvents.toImmutableList(),
-                summary = summary,
+                summary = null,
                 rangeType = range,
                 deviceCalendarFailed = deviceCalendarFailed
             )

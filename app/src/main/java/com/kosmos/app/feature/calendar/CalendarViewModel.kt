@@ -33,7 +33,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
-    private val getTodayScheduleUseCase: GetTodayScheduleUseCase
+    private val getTodayScheduleUseCase: GetTodayScheduleUseCase,
+    private val summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase
 ) : ViewModel() {
 
     private val _loadedState = MutableStateFlow<CalendarUiState>(CalendarUiState.Idle)
@@ -54,16 +55,42 @@ class CalendarViewModel @Inject constructor(
         initialValue = CalendarUiState.Idle
     )
 
+    /**
+     * 일정을 조회해 **먼저 목록을 내보내고**, AI 요약은 뒤이어 도착하면 덧붙입니다.
+     *
+     * [WHY] 예전에는 요약 추론(~10초)이 끝날 때까지 목록을 내보내지 않아 캘린더 화면이 그 시간
+     * 내내 스피너였다. 게다가 그 요약을 화면이 **읽지도 않았다** — 매번 결과를 버릴 추론을
+     * 기다린 셈이다(2026-08-12 실기기). 조회와 요약을 두 단계로 나누면 목록은 즉시 뜨고 요약은
+     * 준비되는 대로 채워진다 (PRD F4).
+     *
+     * [WHY] 요약 실패는 화면에 알리지 않는다. 요약은 목록의 보조 정보이고, 실패했다고 일정
+     * 자체를 못 보게 만들 이유가 없다 — 자리를 비워 두는 것이 정확한 표현이다.
+     */
     fun loadSchedule(rangeType: ScheduleData.RangeType = _selectedRange.value) {
         viewModelScope.launch {
             _selectedRange.value = rangeType
             _loadedState.value = CalendarUiState.Loading
 
-            _loadedState.value = when (val result = getTodayScheduleUseCase(rangeType)) {
-                is AppResult.Success ->
-                    if (result.data.events.isEmpty()) CalendarUiState.Empty
-                    else CalendarUiState.Success(result.data)
+            // [WHY] 일정이 0건이어도 `Success` 를 낸다. 예전에는 `Empty` 를 내면서 `ScheduleData`
+            // 를 버려 `deviceCalendarFailed` 가 사라졌다 — 기기 캘린더를 못 읽는데 앱 일정마저
+            // 없을 때, 즉 안내가 가장 필요한 순간에만 안내가 없어졌다.
+            val loaded = when (val result = getTodayScheduleUseCase(rangeType)) {
+                is AppResult.Success -> CalendarUiState.Success(result.data)
                 is AppResult.Failure -> CalendarUiState.Error(result.error)
+            }
+            _loadedState.value = loaded
+
+            if (loaded is CalendarUiState.Success && loaded.scheduleData.events.isNotEmpty()) {
+                val summary = summarizeScheduleUseCase(loaded.scheduleData.events, rangeType)
+                if (summary is AppResult.Success && summary.data.isNotBlank()) {
+                    // [WHY] 요약이 도착하는 동안 사용자가 범위를 바꿨을 수 있다. 그때 낡은 요약을
+                    // 덮어쓰면 다른 범위의 요약이 붙으므로, 현재 상태가 그대로일 때만 갱신한다.
+                    val current = _loadedState.value
+                    if (current === loaded) {
+                        _loadedState.value =
+                            CalendarUiState.Success(loaded.scheduleData.copy(summary = summary.data))
+                    }
+                }
             }
         }
     }
@@ -97,10 +124,9 @@ class CalendarViewModel @Inject constructor(
         val filtered = state.scheduleData.events.filter { event ->
             IsoDateTimeParser.toLocalDate(event.startIso) == date
         }
-        return if (filtered.isEmpty()) {
-            CalendarUiState.Empty
-        } else {
-            CalendarUiState.Success(state.scheduleData.copy(events = filtered.toImmutableList()))
-        }
+        // [WHY] 결과가 비어도 `scheduleData` 를 유지한다. 예전에는 `Empty` 로 떨어뜨려
+        // `deviceCalendarFailed` 를 버렸으므로, **일정 없는 날짜를 눌러 본 것만으로** 기기 캘린더
+        // 안내가 사라졌다.
+        return CalendarUiState.Success(state.scheduleData.copy(events = filtered.toImmutableList()))
     }
 }

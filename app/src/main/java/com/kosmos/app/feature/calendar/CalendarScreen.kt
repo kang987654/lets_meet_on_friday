@@ -134,9 +134,6 @@ fun CalendarScreen(
                 is CalendarUiState.Idle, is CalendarUiState.Loading -> {
                     CircularProgressIndicator(color = KosmosTheme.colors.accent, modifier = Modifier.align(Alignment.Center))
                 }
-                is CalendarUiState.Empty -> {
-                    Text("일정이 없습니다.", color = KosmosTheme.colors.textMuted, modifier = Modifier.align(Alignment.Center))
-                }
                 is CalendarUiState.Error -> {
                     Text(
                         com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error),
@@ -144,7 +141,15 @@ fun CalendarScreen(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
-                is CalendarUiState.Success -> {
+                // [WHY] "비었다"는 판단을 여기서 한다 — 별도 상태로 두었더니 그 상태가
+                // `ScheduleData` 를 버려 기기 캘린더 안내가 사라졌다.
+                is CalendarUiState.Success -> if (state.scheduleData.events.isEmpty()) {
+                    Text(
+                        "일정이 없습니다.",
+                        color = KosmosTheme.colors.textMuted,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                } else {
                     val sectionLabel = when {
                         selectedDate != null && selectedDate == today -> "TODAY"
                         selectedDate != null -> selectedDate?.format(
@@ -301,13 +306,31 @@ fun ScheduleContent(data: ScheduleData, sectionLabel: String = "TODAY") {
             )
         }
 
+        // [WHY] PRD F4 는 "일정 목록 + 요약 텍스트"를 요구하는데 이 화면은 `summary` 를 읽는
+        // 코드가 한 줄도 없었다 — 유스케이스가 10초짜리 추론으로 만든 값을 매번 버리고 있었다
+        // (2026-08-12 실기기).
+        //
+        // [WHY] 요약이 없으면 자리를 만들지 않는다. 요약은 목록 뒤에 도착하므로, 빈 카드를 먼저
+        // 그리면 목록이 아래로 밀려 내려가는 레이아웃 점프가 생긴다.
+        data.summary?.takeIf { it.isNotBlank() }?.let { summary ->
+            item {
+                Text(
+                    text = summary,
+                    color = KosmosTheme.colors.textSecondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glassEffect(shape = RoundedCornerShape(16.dp))
+                        .padding(16.dp)
+                )
+            }
+        }
+
         items(data.events.size) { index ->
             val event = data.events[index]
             val color = eventAccents[index % eventAccents.size]
             TodayEventCard(event, color)
         }
-
-
 
         item { Spacer(modifier = Modifier.height(80.dp)) } // padding for bottom nav
     }

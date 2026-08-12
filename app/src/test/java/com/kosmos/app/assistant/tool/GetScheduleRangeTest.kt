@@ -37,7 +37,11 @@ class GetScheduleRangeTest {
                 )
             )
         }
-        val executor = GetScheduleToolExecutor(useCase)
+        // 이 테스트는 범위 해석만 본다 — 요약은 관심사가 아니므로 빈 문자열로 둔다.
+        val summarize: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase = mockk {
+            coEvery { this@mockk.invoke(any(), any()) } returns AppResult.Success("")
+        }
+        val executor = GetScheduleToolExecutor(useCase, summarize)
         val json = if (dateArg == null) JSONObject() else JSONObject().put("date", dateArg)
 
         runBlocking { executor.execute(ToolArguments(json), "s1") }

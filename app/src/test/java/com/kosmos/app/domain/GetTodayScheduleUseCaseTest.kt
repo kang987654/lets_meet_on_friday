@@ -4,14 +4,7 @@ import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.memory.TaskRepository
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.model.TaskItem
-import com.kosmos.app.domain.modelrunner.ChatPrompt
-import com.kosmos.app.domain.modelrunner.ModelInfo
-import com.kosmos.app.domain.modelrunner.ModelLoadState
-import com.kosmos.app.domain.modelrunner.ModelRunner
-import com.kosmos.app.domain.modelrunner.ModelTurn
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -35,22 +28,6 @@ class GetTodayScheduleUseCaseTest {
             AppResult.Success(tasks)
     }
 
-    private val fakeModelRunner = object : ModelRunner {
-        override val loadState: StateFlow<ModelLoadState> =
-            MutableStateFlow(ModelLoadState.Ready(ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
-        override suspend fun warmUp() {}
-        override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<ModelTurn> =
-            AppResult.Success(ModelTurn("요약"))
-        override suspend fun generateWithImage(
-            prompt: ChatPrompt, imageBytes: ByteArray, onToken: ((String) -> Unit)?
-        ): AppResult<ModelTurn> = AppResult.Success(ModelTurn("요약"))
-        override suspend fun generateWithAudio(
-            prompt: ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?
-        ): AppResult<ModelTurn> = AppResult.Success(ModelTurn("요약"))
-        override suspend fun cancel() {}
-        override fun close() {}
-    }
-
     private val fakeCalendarTool = object : com.kosmos.app.domain.tool.CalendarTool {
         override suspend fun readEvents(startMs: Long, endMs: Long): AppResult<List<com.kosmos.app.domain.model.CalendarEvent>> =
             AppResult.Success(emptyList())
@@ -69,7 +46,7 @@ class GetTodayScheduleUseCaseTest {
     fun `offset datetime is parsed and included in today's schedule`() = runBlocking {
         val zone = ZoneId.systemDefault()
         val offsetIso = todayAt(15).atZone(zone).toOffsetDateTime().toString() // 예: 2026-07-31T15:00+09:00
-        val useCase = GetTodayScheduleUseCase(FakeTaskRepository(listOf(task("offset", offsetIso))), fakeModelRunner, fakeCalendarTool)
+        val useCase = GetTodayScheduleUseCase(FakeTaskRepository(listOf(task("offset", offsetIso))), fakeCalendarTool)
 
         val result = useCase(ScheduleData.RangeType.TODAY)
 
@@ -84,7 +61,7 @@ class GetTodayScheduleUseCaseTest {
         val offsetIso = todayAt(9).atZone(zone).toOffsetDateTime().toString()        // 오프셋 포함
         val utcIso = todayAt(12).atZone(zone).toInstant().toString()                 // UTC(Z)
         val tasks = listOf(task("local18", localIso), task("offset09", offsetIso), task("utc12", utcIso))
-        val useCase = GetTodayScheduleUseCase(FakeTaskRepository(tasks), fakeModelRunner, fakeCalendarTool)
+        val useCase = GetTodayScheduleUseCase(FakeTaskRepository(tasks), fakeCalendarTool)
 
         val result = useCase(ScheduleData.RangeType.TODAY)
 
@@ -99,7 +76,7 @@ class GetTodayScheduleUseCaseTest {
         val dateOnly = task("d0", today.toString())
         val day6 = task("d6", today.plusDays(6).toString())
         val day7 = task("d7", today.plusDays(7).toString()) // 8일째 — WEEK 범위 밖
-        val useCase = GetTodayScheduleUseCase(FakeTaskRepository(listOf(day7, day6, dateOnly)), fakeModelRunner, fakeCalendarTool)
+        val useCase = GetTodayScheduleUseCase(FakeTaskRepository(listOf(day7, day6, dateOnly)), fakeCalendarTool)
 
         val result = useCase(ScheduleData.RangeType.WEEK)
 
@@ -111,7 +88,6 @@ class GetTodayScheduleUseCaseTest {
     fun `unparseable due date is skipped without error`() = runBlocking {
         val useCase = GetTodayScheduleUseCase(
             FakeTaskRepository(listOf(task("bad", "내일 오후"), task("ok", todayAt(10).toString()))),
-            fakeModelRunner,
             fakeCalendarTool
         )
 

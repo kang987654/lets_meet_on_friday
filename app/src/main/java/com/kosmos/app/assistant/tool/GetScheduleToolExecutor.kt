@@ -19,7 +19,8 @@ import javax.inject.Inject
  * 2. 조회 결과를 JSON(JSONObject 이스케이프 적용) 문자열로 반환합니다.
  */
 class GetScheduleToolExecutor @Inject constructor(
-    private val getTodayScheduleUseCase: GetTodayScheduleUseCase
+    private val getTodayScheduleUseCase: GetTodayScheduleUseCase,
+    private val summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase
 ) : ToolExecutor {
     override val name: String = "GetSchedule"
 
@@ -40,8 +41,12 @@ class GetScheduleToolExecutor @Inject constructor(
         val res = getTodayScheduleUseCase(range)
         return if (res is AppResult.Success) {
             val data = res.data
+            // [WHY] 요약을 유스케이스에서 떼어낸 뒤에도 **툴 결과의 모양은 그대로 유지한다.**
+            // 모델에게 주는 관측값을 바꾸면 툴 호출 실패(2026-08-12 실기기, 미해결) 조사에
+            // 변수가 하나 더 늘어난다 — 그 조사가 끝난 뒤에 다룬다.
+            val summary = (summarizeScheduleUseCase(data.events, range) as? AppResult.Success)?.data
             val text = buildString {
-                append(data.summary ?: "일정 요약이 없습니다.")
+                append(summary?.takeIf { it.isNotBlank() } ?: "일정 요약이 없습니다.")
                 append("\n\n")
                 data.events.forEach { event ->
                     append("- ${event.title} (${event.startIso})\n")
