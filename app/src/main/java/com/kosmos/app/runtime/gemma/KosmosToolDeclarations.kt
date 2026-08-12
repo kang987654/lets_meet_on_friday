@@ -16,8 +16,12 @@ import com.google.ai.edge.litertlm.tool
  *
  * [WHY] 이전에는 시스템 프롬프트에 `<tool_call>{"name":...}</tool_call>` 형식을 글로 설명했다.
  * 그 규약은 Gemma 의 채팅 템플릿에 없어서 온디바이스 모델이 따르지 못했고, 실기기에서 툴이
- * 한 번도 호출되지 않았다. google-ai-edge/gallery 가 쓰는 방식(`@Tool` + `ToolSet`)으로
- * 바꾼다 (ADR-008).
+ * 한 번도 호출되지 않았다. `@Tool` + `ToolSet` 선언으로 바꾼다 (ADR-008).
+ *
+ * [WHY] 이 방식이 옳다는 근거는 **공식 문서**다 — Gemma 4 프롬프트 형식 문서가 툴 선언을
+ * 시스템 턴의 `<|tool>declaration:...<tool|>` 로, 호출을 `<|tool_call>call:...` 로 규정한다.
+ * 실기기 렌더 프리페이스에서 그 형태가 그대로 나오는 것을 확인했다(2026-08-12).
+ * 런타임이 이 변환을 해 주므로 우리가 형식을 직접 쓸 일이 없다.
  *
  * [WHY] **메서드 본문은 실행되지 않는다.** `automaticToolCalling = false` 로 두었기 때문에
  * 런타임은 호출을 우리에게 넘기고 실행하지 않는다 — 실행은 기존 `ToolExecutor` 와 승인

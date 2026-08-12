@@ -13,14 +13,18 @@ import javax.inject.Inject
  * - **Dependencies**: [ContextBuilder.Context], [ChatPrompt]
  *
  * ### Key Flow
- * 1. 컨텍스트에서 System 메시지(RAG 기억)와 일반 사용자/AI History 분리
+ * 1. 히스토리에서 직전 동일 사용자 발화를 제외(현재 턴과 중복 방지)
  * 2. **하루 동안 고정되는** 시스템 지시(역할·스타일·날짜 블록·툴 사용 태도)를 조립
- * 3. **턴마다 달라지는** 검색된 기억은 [ChatPrompt.turnContext] 로 분리
+ * 3. 사용자 턴 앞에 툴 지침 한 줄을 덧붙임 ([withTurnToolReminder])
  * 4. [ChatPrompt] 객체로 래핑하여 반환
  *
- * [WHY] 2·3 의 분리가 이 클래스의 핵심 계약이다. 예전에는 **분 단위 시각**과 RAG 기억이 함께
- * 시스템 지시 안에 있어서 지시가 턴마다 달라졌고, 런타임이 그때마다 Conversation 을 파괴하고
- * 툴 선언(~2천 토큰)까지 전부 다시 프리필했다(PC 실측: 2번째 턴 0.5초 → 3.8초).
+ * [WHY] 시스템 지시를 **하루 동안 고정**되게 만드는 것이 이 클래스의 핵심 계약이다. 예전에는
+ * **분 단위 시각**과 RAG 기억이 함께 시스템 지시 안에 있어서 지시가 턴마다 달라졌고, 런타임이
+ * 그때마다 Conversation 을 파괴하고 툴 선언까지 전부 다시 프리필했다(PC 실측: 2번째 턴
+ * 0.5초 → 3.8초). 실측 오버헤드는 1,329 토큰이다(measure_overhead.py).
+ *
+ * [WHY] 예전 KDoc 은 3번을 *"검색된 기억은 `ChatPrompt.turnContext` 로 분리"* 라고 적었는데,
+ * 그 필드는 0.10.0 에서 제거됐고(RAG 자동 주입 폐지, ADR-013) 참조가 끊긴 채 남아 있었다.
  *
  * [WHY] 그렇다고 날짜 블록까지 사용자 턴으로 옮기면 **안 된다.** PC 실험에서 `[System Data]`
  * 블록이 사용자 발화 앞에 붙으면 조회 질문이 툴 호출로 샜다 — "내 자전거 비밀번호 뭐였지?"에
@@ -184,9 +188,9 @@ class PromptAssembler @Inject constructor() {
             appendLine("You have no tools available in this turn.")
         } else {
             // [WHY] 런타임이 모델에게 알리는 이름은 snake_case 다 — 지시도 그 이름으로 해야
-            // 선언과 이어진다. gallery 의 agent chat 프롬프트도 백틱으로 툴 이름을 직접
-            // 지목하며 "MUST call" 수준으로 강제한다 — 일반적 권고("tools available")만으로는
-            // 4B 모델이 실기기에서 호출 대신 말로만 약속했다 (0.8.3 확인).
+            // 선언과 이어진다. 근거는 우리 실측이다: 일반적 권고("tools available")만으로는
+            // 4B 모델이 실기기에서 호출 대신 말로만 약속했다(0.8.3). 백틱으로 툴 이름을 직접
+            // 지목하고 "MUST call" 로 강제해야 호출됐다.
             appendLine(
                 "For EVERY user request, first decide if one of your tools applies. " +
                     "If it does, you MUST call the tool. Do NOT merely promise or pretend — " +

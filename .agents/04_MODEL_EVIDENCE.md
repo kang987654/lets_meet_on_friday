@@ -1,0 +1,45 @@
+# Model & Runtime Evidence Rules
+
+이 프로젝트는 온디바이스 Gemma 4 (E4B, LiteRT-LM) 하나에 맞춰 만든다. 모델·런타임 동작에 대한
+주장은 아래 등급을 따르고, **주석과 ADR 에 근거의 등급을 함께 적는다.**
+
+## 근거 등급
+
+1. **Gemma 4 공식 문서** — `ai.google.dev/gemma/docs` 의 Gemma 4 문서(model card, prompt
+   formatting, capabilities: text/vision/audio/thinking/function-calling). 우리 모델을 직접
+   다루는 유일한 1차 자료다.
+2. **우리 실측** — `scratch/lab/` 실험 또는 실기기 관측. 실험 번호나 관측 날짜를 함께 적는다
+   (예: "exp24 실측 4/4 → 2/4", "2026-08-12 실기기 DB").
+3. **litertlm API 계약** — AAR/파이썬 패키지의 시그니처·기본값. 컴파일이나 런타임이 검증해 준다.
+
+## gallery 는 근거가 아니다
+
+`google-ai-edge/gallery` 는 **Gemma 3n·DiffusionGemma 등 여러 모델을 함께 다루는 데모 앱**이다.
+그 안의 제약 주석이 우리 모델에 적용된다는 보장이 없다.
+
+CRITICAL: gallery 코드는 **가설의 출처**로만 쓴다. 근거로 인용하지 말 것. 참고했다면
+"gallery 가 X 하므로 우리도 X 한다" 가 아니라 "gallery 에서 X 를 보고 재 봤더니 우리 모델에서도
+Y 였다(실험 번호)" 로 적는다.
+
+실제로 이것 때문에 두 번 틀렸다:
+
+- `EngineConfig.maxNumTokens` 를 넘기지 않은 근거가 *"gallery 기본값이 1024 라 우리가 임의로
+  정하면 더 작게 잡을 위험이 있다"* 였다. gallery 가 1024 를 쓰는 것은 gallery 의 사정이었고,
+  우리는 그 때문에 아무것도 설정하지 않아 **예산이 엔진 용량(4096)을 넘는 상태**를 만들었다.
+- `audioBackend` / `visionBackend` 의 근거가 gallery 의 `must be CPU/GPU for **Gemma 3n**`
+  주석이었다. 우리 모델은 Gemma 4 다.
+
+## 새 주장을 세울 때
+
+- 공식 문서에 있으면 그 문장을 인용한다. 문서와 코드가 다르면 **코드를 고치거나 왜 벗어나는지
+  적는다** — 조용히 다른 상태로 두지 않는다.
+- 문서에 없으면 `scratch/lab/` 에서 재고 실험 번호를 남긴다. 실험실 사용법은
+  `scratch/lab/README.md`.
+- 둘 다 불가능하면 **모른다고 적는다.** "아마 …일 것이다" 를 주석에 남기면 다음 사람이 그것을
+  근거로 쓴다.
+
+## 버전 차이를 추정으로 닫지 말 것
+
+ADR-016 은 *"AAR 0.14.0 과 파이썬 0.15.0 은 버전이 달라 이 하네스로는 가를 수 없다"* 고 적었는데,
+Google Maven 을 확인해 보니 **0.15.0·0.16.0 AAR 이 모두 존재**했다. 우리가 0.14.0 에 머문 것은
+선택이 아니라 확인하지 않은 결과였다. 버전이 막혀 있다고 쓰기 전에 저장소를 확인한다.

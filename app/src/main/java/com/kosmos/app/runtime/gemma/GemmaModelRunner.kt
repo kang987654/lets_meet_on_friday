@@ -43,9 +43,12 @@ import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
  * 통과하는 테스트가 동작할 수 없는 경로를 검증하고 있었다. 순수 함수로 꺼내면 네이티브도 목도
  * 거치지 않고 설정 자체를 단언할 수 있다.
  *
- * [WHY] 오디오를 CPU 로 고정하는 근거는 gallery 다 —
- * `LlmChatModelHelper.kt:129` 가 `audioBackend = … Backend.CPU()` 에
- * `must be CPU for Gemma 3n` 주석을 달아 두었다. 비전은 GPU 로 두어도 동작한다.
+ * [WHY] 오디오는 **CPU 여야 한다** — GPU 로 주면 엔진 생성 자체가 실패한다(exp23 실측).
+ * 비전은 CPU·GPU 양쪽에서 이미지를 정상 인식하므로 넘겨받은 백엔드를 그대로 쓴다(같은 실험).
+ *
+ * [WHY] 처음에는 gallery 의 `must be CPU for Gemma 3n` 주석을 근거로 댔는데, 그것은 **Gemma 3n**
+ * 에 대한 말이고 우리 모델은 Gemma 4 다. 결과적으로 선택은 같았지만 근거를 실측으로 바꿨다
+ * (`.agents/04_MODEL_EVIDENCE.md`).
  *
  * [WHY] `cacheDir` 을 CPU 폴백에도 넘긴다. 예전에는 GPU 경로만 받아서, 폴백으로 떨어진 기기는
  * 매 실행마다 커널 캐시를 다시 만들었다.
@@ -91,10 +94,19 @@ class GemmaModelRunner @Inject constructor(
 ) : ModelRunner {
 
     companion object {
-        // [WHY] Gemma 4 는 thinking 모델이라 템플릿 기본값으로 생각 모드가 켜진다. gallery 는
-        // **모든** 추론 호출에서 extraContext 로 enable_thinking=false 를 넘기고, 허용 목록에서도
-        // thinking 과 agent chat(툴 호출)을 조합하지 않는다 — 생각 모드에서는 함수호출 동작이
-        // 달라진다. 툴 호출이 핵심 기능이므로 gallery 와 같은 기본값을 따른다.
+        // [WHY] 생각 모드를 끈다. 근거는 **우리 실측**이다 — 같은 조건에서 생각 모드만 켜면
+        // 툴 호출이 4/4 → 2/4 로 떨어졌고(exp24), 떨어지는 쪽은 일정 등록이었다(위키는 살아남는다).
+        // 툴 호출이 핵심 기능이므로 끈 상태를 기본으로 둔다.
+        //
+        // [WHY] **응답 텍스트로는 생각 모드가 켜졌는지 알 수 없다.** exp24 에서 `enable_thinking`
+        // 을 켠 조건에서도 `<|think|>` 마커가 출력에 한 번도 나오지 않았다. 즉 이 설정이 조용히
+        // 실패하면 우리는 눈치채지 못하고 툴 호출만 나빠진다 — AAR 0.16.0 의 타입 있는
+        // `ThinkingConfig` 로 올릴 이유가 여기 있다(0.14.0 에는 그 클래스가 없어 맵으로 넘긴다).
+        //
+        // [WHY] 공식 문서(capabilities/thinking)는 E2B·E4B 의 생각 모드가 시스템 턴의 `<|think|>`
+        // 로 켜진다고 적는다. 실기기 렌더 프리페이스에 그 마커가 없어 템플릿 차원에서는 꺼져
+        // 있는 것으로 보이지만, 그 관측은 `extraContext` 가 듣는다는 증거는 아니다 —
+        // 프리페이스는 대화 생성 시점에 렌더되고 이 맵은 메시지 시점에 전달된다.
         private val EXTRA_CONTEXT: Map<String, Any> = mapOf("enable_thinking" to false)
     }
 
@@ -468,21 +480,25 @@ class GemmaModelRunner @Inject constructor(
             // [WHY] false 여야 런타임이 툴을 스스로 실행하지 않고 우리에게 호출을 넘긴다 —
             // 승인 다이얼로그(PRD F4)를 거쳐야 하므로 자동 실행을 쓸 수 없다.
             automaticToolCalling = false,
-            // [WHY] gallery 는 agent chat(툴 호출) 진입 시 topK=1(greedy)을 **강제**한다
-            // (AgentChatSamplingParamsManager — "specifically enforcing greedy decoding").
-            // 샘플링이 남아 있으면 호출 시작 토큰이 최빈이 아닐 때 툴 호출이 확률적으로
-            // 뭉개진다. greedy 는 숫자 왜곡("1234"→"12", 0.8.3 실기기)도 함께 막는다.
-            // topK=1 에서 temperature/topP 는 효력이 없으나 gallery 기본값을 그대로 둔다.
+            // [WHY] greedy(topK=1) 로 둔다. 샘플링이 남아 있으면 호출 시작 토큰이 최빈이 아닐 때
+            // 툴 호출이 확률적으로 뭉개지고, 숫자 왜곡("1234"→"12", 0.8.3 실기기)도 난다.
+            // topK=1 에서 temperature/topP 는 효력이 없다. 지우지 않는 이유는 나중에 샘플링을
+            // 열 때 어떤 값에서 출발했는지가 남아 있어야 하기 때문이다.
+            //
+            // [WHY] 공식 문서에는 **함수 호출용 샘플링 지침이 없다.** 이 선택의 근거는 우리
+            // 실측이다 — 반복 2회가 완전히 동일했고 자릿수도 36/36 온전했다(exp15·exp22).
+            // gallery 도 agent chat 에서 greedy 를 강제하지만 그것은 가설의 출처일 뿐이다
+            // (`.agents/04_MODEL_EVIDENCE.md`).
             samplerConfig = SamplerConfig(
                 temperature = 1.0,
                 topK = 1,
                 topP = 0.95
             )
         )
-        // [WHY] gallery 는 툴을 쓰는 모든 태스크에서 이 전역 플래그를 createConversation 직전에
-        // 켜고 직후에 끈다. 이 플래그가 툴 스키마로부터 FST 문법을 만들어 모델 출력을 호출
-        // 구문으로 강제한다 — 선언만으로는 4B 모델이 호출 형식을 지키지 못해 toolCalls 가
-        // 비었다(0.8.0 실기기). ConversationConfig 필드가 아니라 생성 시점에만 읽히는 전역이다.
+        // [WHY] 이 플래그가 툴 스키마로부터 FST 문법을 만들어 모델 출력을 호출 구문으로 강제한다.
+        // 근거는 **우리 실측**이다 — 선언만으로는 4B 모델이 호출 형식을 지키지 못해 `toolCalls` 가
+        // 비었다(0.8.0 실기기). 켠 상태에서 자릿수가 깨지지 않는 것도 확인했다(exp15·exp22 36/36).
+        // `ConversationConfig` 필드가 아니라 생성 시점에만 읽히는 전역이다.
         ExperimentalFlags.enableConversationConstrainedDecoding = prompt.enabledTools.isNotEmpty()
         val newConversation = try {
             currentEngine.createConversation(config)
