@@ -68,9 +68,46 @@ class PromptAssembler @Inject constructor() {
             sessionId = context.sessionId,
             systemInstruction = systemInstruction,
             history = dialogHistory,
-            currentInput = userInput,
+            currentInput = withTurnToolReminder(userInput, availableTools),
             contextBudgetTokens = context.maxTokens
         )
+    }
+
+    /**
+     * 툴 사용 지침을 **사용자 턴 앞에 한 줄 더** 붙입니다.
+     *
+     * [WHY] 히스토리가 쌓이면 툴 호출이 멈춘다. 실기기에서 위키가 필요한 발화 4연속 모두
+     * `TOOL_CALL` 0건이었고, 모델은 검색하지 않고 "검색하여 가져왔습니다" 로 시작하는 거짓
+     * 답변을 냈다(2026-08-12). 지침은 시스템 턴에 한 번만 있고, 히스토리가 길어지면 지침과
+     * 사용자 발화 사이에 어시스턴트 산문 수천 토큰이 끼어 **지침이 멀어진다.**
+     *
+     * [WHY] 원인을 실험으로 좁혔다 (`scratch/lab/`):
+     *  - exp18: 문서 형식대로 툴 호출 구조를 히스토리에 복원해도 일정 툴은 **0/3** — 구조 누락이
+     *    원인이 아니다
+     *  - exp19: 같은 답변을 60자로 자르면 3/3, 120자면 실패 — 어시스턴트 산문의 양이 문제다.
+     *    다만 60자로 자르면 대화 기억이 남지 않아 제품 해법이 못 된다
+     *  - exp20: 지침을 사용자 턴에 다시 붙이면 **원본 히스토리 그대로** depth 20·40 에서 일정·위키
+     *    둘 다 호출된다. 전체 재게시(1,519자)와 이 한 줄(166자)의 결과가 같아 싼 쪽을 쓴다
+     *
+     * ADR-010 과 같은 종류의 발견이다 — 그때도 `[System Data]` 블록의 **문구가 아니라 위치**가
+     * 툴 선택을 갈랐다. 이 모델에게 프롬프트의 거리는 내용만큼 중요하다.
+     *
+     * [WHY] 시스템 지시의 지침을 옮기지 않고 **더한다.** 위 실험이 검증한 것이 "시스템 지시에
+     * 지침이 있는 상태에서 한 줄을 더 붙인 조건" 이므로, 옮기면 검증하지 않은 배치가 된다.
+     *
+     * [WHY] 히스토리 중복 제거 비교는 원문 `userInput` 으로 한다 — 이 함수의 결과로 비교하면
+     * 접두사 때문에 절대 일치하지 않아 마지막 사용자 메시지가 두 번 실린다.
+     */
+    private fun withTurnToolReminder(userInput: String, availableTools: List<String>): String {
+        if (availableTools.isEmpty()) return userInput
+        return "$TURN_TOOL_REMINDER\n\n$userInput"
+    }
+
+    private companion object {
+        // [WHY] 실험(exp20)에서 검증한 문구 그대로다. 문구를 바꾸면 그 검증이 무효가 된다.
+        const val TURN_TOOL_REMINDER =
+            "[Tool Usage Guidelines] For THIS request, first decide if one of your tools applies. " +
+                "If it does, you MUST call the tool — do not answer from memory or merely promise."
     }
 
     private fun buildSystemBlock(responseStyle: String, systemRole: String): String {

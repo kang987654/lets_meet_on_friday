@@ -36,7 +36,7 @@ class PromptFixtureExportTest {
                 responseStyle = "DEFAULT",
                 webSearchEnabled = true
             ),
-            userInput = "(사용자 발화는 실험에서 주입한다)",
+            userInput = USER_INPUT,
             availableTools = ALL_TOOLS,
             systemRole = SYSTEM_ROLE
         )
@@ -53,10 +53,21 @@ class PromptFixtureExportTest {
             KosmosToolDeclarations.CANONICAL_NAMES.values.toSet() == ALL_TOOLS.toSet()
         )
 
+        // [WHY] 턴 지침은 `currentInput` 에 붙으므로 시스템 지시만 내보내면 실험실이 앱과 다른
+        // 프롬프트를 쓰게 된다 — 이 파일이 막으려는 표류가 바로 그것이다. 사용자 발화를 뺀
+        // 접두사만 떼어 함께 내보낸다.
+        val turnReminder = prompt.currentInput.removeSuffix(USER_INPUT).trim()
+        assertTrue(
+            "턴 지침이 사용자 발화 앞에 붙어야 한다 (exp20)",
+            turnReminder.contains("For THIS request")
+        )
+        assertTrue("사용자 발화는 맨 뒤에 와야 한다", prompt.currentInput.endsWith(USER_INPUT))
+
         val dir = File(FIXTURE_DIR)
         if (!dir.isDirectory) return
 
         File(dir, "system_instruction.txt").writeText(prompt.systemInstruction)
+        File(dir, "turn_reminder.txt").writeText(turnReminder)
         File(dir, "tools.txt").writeText(
             ALL_SNAKE_NAMES.joinToString("\n", postfix = "\n")
         )
@@ -107,6 +118,8 @@ class PromptFixtureExportTest {
 
         // KosmosAgent 가 넘기는 역할 문구와 같아야 한다.
         const val SYSTEM_ROLE = "personal assistant named Kosmos"
+
+        const val USER_INPUT = "(사용자 발화는 실험에서 주입한다)"
 
         const val FIXTURE_DIR = "../scratch/lab/fixtures"
     }

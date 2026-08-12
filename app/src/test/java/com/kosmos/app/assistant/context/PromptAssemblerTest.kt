@@ -199,4 +199,52 @@ class PromptAssemblerTest {
 
         assertTrue(instruction.contains("[Style: $testStyle]"))
     }
+
+    // --- 턴 단위 툴 지침 (히스토리가 쌓여도 툴을 부르게 하는 장치) ---
+
+    @Test
+    fun `툴이 있으면 사용자 턴 앞에 지침을 한 줄 더 붙인다`() {
+        // [WHY] 지침이 시스템 턴에만 있으면 히스토리가 쌓일수록 사용자 발화에서 멀어지고, 그
+        // 거리가 툴 호출을 죽인다 — PC 실험에서 원본 히스토리 20·40 깊이 모두 미호출이었고
+        // 이 한 줄을 붙이자 둘 다 호출됐다(exp20). 지침 자체는 시스템 지시에도 그대로 남는다.
+        val input = "다음주 월요일 10시 팀 회의"
+        val currentInput = prompt(userInput = input).currentInput
+
+        assertTrue("턴 지침이 붙어야 한다", currentInput.contains("For THIS request"))
+        assertTrue("MUST call 강제가 유지돼야 한다", currentInput.contains("MUST call the tool"))
+    }
+
+    @Test
+    fun `사용자 발화가 맨 뒤에 온다`() {
+        // [WHY] 지침을 뒤에 붙이면 모델이 마지막으로 읽는 것이 사용자 질문이 아니게 된다.
+        // 이 모델은 프롬프트의 위치에 민감하므로(ADR-010) 질문을 마지막에 둔다.
+        val input = "다음주 월요일 10시 팀 회의"
+
+        assertTrue(prompt(userInput = input).currentInput.trimEnd().endsWith(input))
+    }
+
+    @Test
+    fun `툴이 없으면 지침을 붙이지 않는다`() {
+        // [WHY] 부를 툴이 없는 턴에 "툴을 반드시 불러라" 를 넣으면 모순된 지시가 되고 프리필만
+        // 낭비한다.
+        val currentInput = promptWith(emptyList()).currentInput
+
+        assertFalse(currentInput.contains("For THIS request"))
+        assertEquals("내 자전거 비밀번호 뭐였지?", currentInput)
+    }
+
+    @Test
+    fun `히스토리 중복 제거는 원문 발화로 비교한다`() {
+        // [WHY] 접두사가 붙은 문자열로 비교하면 절대 일치하지 않아 **마지막 사용자 메시지가 두 번**
+        // 실린다. 같은 질문이 연달아 보이면 모델이 재확인 요청으로 읽는다.
+        val input = "내일 3시에 치과 예약 잡아줘"
+        val history = listOf(message(input, ChatMessage.Role.USER))
+
+        val result = prompt(conversations = history, userInput = input)
+
+        assertTrue(
+            "직전 동일 발화는 히스토리에서 빠져야 한다. 남은 것: ${result.history.map { it.content }}",
+            result.history.isEmpty()
+        )
+    }
 }
