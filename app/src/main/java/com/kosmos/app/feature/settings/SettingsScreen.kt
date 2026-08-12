@@ -217,9 +217,14 @@ fun SettingsScreen(
         
         // 3. Prefill Budget Section
         // [WHY] 예전 제목은 "CONTEXT WINDOW / Token Limit" 이었다. 이 값은 모델의 컨텍스트
-        // 윈도우가 아니다 — `EngineConfig.maxNumTokens` 로 전달되지 않으며, 우리가 매 턴
-        // 모델에게 실어 보내는 양(히스토리 예산)과 대화를 언제 재설정할지를 정한다.
-        // 이름이 실제 동작과 다르면 사용자는 만져도 아무 효과가 없다고 느끼게 된다.
+        // 윈도우가 아니다 — 우리가 매 턴 모델에게 실어 보내는 양(히스토리 예산)과 대화를 언제
+        // 재설정할지를 정한다. 이름이 실제 동작과 다르면 사용자는 만져도 아무 효과가 없다고
+        // 느끼게 된다.
+        //
+        // [WHY] 상한이 8000 이었다. 그런데 엔진 KV 는 4096 이므로 **슬라이더를 올릴 수 있는
+        // 범위의 절반 이상이 애초에 담기지 않는 값**이었다 — 사용자가 8000 으로 올리면 조용히
+        // 초과되어 품질이 떨어졌다. 실제로 담을 수 있는 천장까지만 노출한다
+        // (근거: `Constants.ENGINE_MAX_TOKENS`).
         SectionBox(title = "대화 기억 범위") {
             Column {
                 var sliderValue by remember(uiState.maxTokens) { mutableStateOf(uiState.maxTokens.toFloat()) }
@@ -236,8 +241,8 @@ fun SettingsScreen(
                     value = sliderValue,
                     onValueChange = { sliderValue = it },
                     onValueChangeFinished = { viewModel.onMaxTokensChanged(sliderValue.toInt()) },
-                    valueRange = 1000f..8000f,
-                    steps = 6, // 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000 -> 7 intervals, 6 steps
+                    valueRange = 1000f..3000f,
+                    steps = 1, // 1000, 2000, 3000 -> 2 intervals, 1 step
                     colors = SliderDefaults.colors(
                         thumbColor = KosmosTheme.colors.accent,
                         activeTrackColor = KosmosTheme.colors.accent,

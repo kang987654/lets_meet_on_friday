@@ -67,10 +67,13 @@ class ContextBuilderTest {
 
     @Test
     fun `히스토리 예산에서 시스템 지시·툴 선언 오버헤드가 예약된다`() = runTest {
-        // [WHY] 이전에는 설정값 전체를 히스토리에 썼고 시스템 지시·툴 선언(~2천 토큰)·few-shot 을
-        // 세지 않아, "컨텍스트 윈도우 4096" 설정에도 실제 프리필이 그것을 크게 넘었다.
-        // 예산 6000 - 오버헤드 2600 = 3400 이므로 1010 토큰짜리 메시지는 3개만 들어가야 한다.
-        stubMessages(count = 10, tokensEach = 1000, maxTokens = 6000)
+        // [WHY] 이전에는 설정값 전체를 히스토리에 썼고 시스템 지시·툴 선언·few-shot 을 세지 않아
+        // 실제 프리필이 설정값을 넘었다.
+        //
+        // [WHY] 값이 6000/2600 이었다. 6000 은 엔진 KV 천장(3328)을 넘어 **도달할 수 없는 설정**이
+        // 됐고, 오버헤드 실측이 1,329 로 드러나 예약도 1400 으로 내려갔다. 실제로 쓰이는 범위로
+        // 옮긴다 — 예산 3000 - 오버헤드 1400 = 1600 이므로 510 토큰짜리 메시지는 3개만 들어간다.
+        stubMessages(count = 10, tokensEach = 500, maxTokens = 3000)
 
         val result = contextBuilder.build("s1")
 
@@ -92,7 +95,7 @@ class ContextBuilderTest {
 
     @Test
     fun `가장 최근 메시지부터 담고 시간순으로 되돌린다`() = runTest {
-        stubMessages(count = 5, tokensEach = 1000, maxTokens = 6000)
+        stubMessages(count = 5, tokensEach = 500, maxTokens = 3000)
 
         val result = contextBuilder.build("s1")
 
@@ -105,7 +108,7 @@ class ContextBuilderTest {
     fun `대화 조회는 화면과 같은 후보 수를 요청한다`() = runTest {
         // [WHY] 이전에는 150 이 하드코딩돼 있었고 화면은 계약 기본값(5)을 썼다 — 같은 데이터를
         // 두 곳이 다른 수로 읽었다. 상수 하나로 묶었는지 고정한다.
-        stubMessages(count = 1, tokensEach = 10, maxTokens = 6000)
+        stubMessages(count = 1, tokensEach = 10, maxTokens = 3000)
 
         contextBuilder.build("s1")
 

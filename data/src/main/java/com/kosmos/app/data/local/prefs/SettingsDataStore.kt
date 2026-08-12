@@ -51,8 +51,20 @@ class SettingsDataStore @Inject constructor(
         it[RESPONSE_STYLE_KEY] ?: "DEFAULT"
     }
 
+    /**
+     * 프리필 예산. 저장된 값이 엔진 KV 천장을 넘으면 잘라서 내보냅니다.
+     *
+     * [WHY] 슬라이더 상한이 8000 이던 시절에 저장된 값이 기존 설치에 남아 있다. 그 값을 그대로
+     * 되살리면 이번에 고친 초과 문제가 **업그레이드한 사용자에게만** 되살아난다 — 새 설치는
+     * 정상인데 기존 사용자만 겪는, 재현이 가장 어려운 형태의 결함이 된다.
+     *
+     * [WHY] 저장값을 덮어쓰지 않고 읽을 때만 자른다. 사용자가 슬라이더를 만지지도 않았는데
+     * 저장값이 바뀌는 것은 설정을 임의로 조작하는 것이고, 나중에 천장이 올라가면 원래 의도한
+     * 값으로 자연히 복구된다.
+     */
     val maxTokensFlow: Flow<Int> = dataStore.data.map {
-        it[MAX_TOKENS_KEY] ?: Constants.MAX_CONTEXT_TOKENS
+        (it[MAX_TOKENS_KEY] ?: Constants.MAX_CONTEXT_TOKENS)
+            .coerceAtMost(Constants.PREFILL_CEILING_TOKENS)
     }
 
     suspend fun saveResponseStyle(style: String) {

@@ -49,6 +49,11 @@ import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
  *
  * [WHY] `cacheDir` 을 CPU 폴백에도 넘긴다. 예전에는 GPU 경로만 받아서, 폴백으로 떨어진 기기는
  * 매 실행마다 커널 캐시를 다시 만들었다.
+ *
+ * [WHY] `maxNumTokens` 를 **명시 전달한다.** 예전에는 넘기지 않았고 그러면 런타임 기본값(4096)이
+ * 되는데, 앱은 프리필 예산을 6000(슬라이더 최대 8000)으로 잡아 **용량을 넘는 프롬프트를 만들고
+ * 있었다.** 넘기지 않으면 그 값을 Kotlin 쪽에서 볼 수 없어 예산과의 어긋남이 드러나지도 않는다
+ * (자세한 근거는 [Constants.ENGINE_MAX_TOKENS]).
  */
 internal fun buildEngineConfig(
     modelPath: String,
@@ -59,6 +64,7 @@ internal fun buildEngineConfig(
     backend = backend,
     visionBackend = backend,
     audioBackend = Backend.CPU(),
+    maxNumTokens = Constants.ENGINE_MAX_TOKENS,
     cacheDir = cacheDir
 )
 
@@ -418,9 +424,27 @@ class GemmaModelRunner @Inject constructor(
         //
         // [WHY] 하한이 필요하다. 예산 최소값(1000)을 그대로 쓰면 시스템 지시 + 툴 선언만으로
         // 이미 임계값을 넘어 **매 턴 재생성**되고, 재생성이야말로 우리가 없애려는 비용이다.
+        //
+        // [WHY] 임계값을 엔진 KV 천장으로도 묶는다. 예전에는 하한이 4000 이라 천장(3328)보다 컸고,
+        // 그러면 예산을 낮춰도 임계값이 밀려 올라가 **대화가 용량을 넘도록 자라는 것을 허용**했다 —
+        // 재생성을 막으려는 하한이 오히려 초과를 보장했다 (Constants.ENGINE_MAX_TOKENS 참조).
         val resetThreshold = prompt.contextBudgetTokens
             .coerceAtLeast(Constants.MIN_CONVERSATION_RESET_TOKENS)
-        val isTokenExceeded = existing != null && existing.getTokenCount() > resetThreshold
+            .coerceAtMost(Constants.PREFILL_CEILING_TOKENS)
+        val existingTokens = existing?.getTokenCount() ?: 0
+        val isTokenExceeded = existing != null && existingTokens > resetThreshold
+
+        // [WHY] 초과를 조용히 넘기지 않는다. AAR 0.14.0 은 KV 용량을 넘겨도 오류를 내지 않고
+        // 초과분을 처리해 버리는 것이 확인됐다(파이썬 0.15.0 은 `5857 >= 4096` 으로 거부한다).
+        // 그래서 이 경계는 크래시가 아니라 **품질 저하**로만 드러나고, 그 형태로는 원인을 찾기
+        // 어렵다. 디버그 빌드에서 경계에 닿는 것을 눈에 보이게 남긴다.
+        if (com.kosmos.app.BuildConfig.DEBUG && existingTokens > Constants.PREFILL_CEILING_TOKENS) {
+            Log.w(
+                "GemmaModelRunner",
+                "KV 천장 초과: tokens=$existingTokens > ceiling=${Constants.PREFILL_CEILING_TOKENS} " +
+                    "(engine=${Constants.ENGINE_MAX_TOKENS}). 예산·오버헤드 상수를 다시 볼 것."
+            )
+        }
 
         if (existing != null && isSameSession && isSameSystemInstruction && isSameTools && !isTokenExceeded) {
             return existing
