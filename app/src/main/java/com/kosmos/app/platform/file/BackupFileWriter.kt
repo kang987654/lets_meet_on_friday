@@ -27,7 +27,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class BackupFileWriter @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
 
     suspend fun copyTo(source: File, destination: Uri): AppResult<Unit> = withContext(Dispatchers.IO) {

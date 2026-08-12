@@ -22,7 +22,7 @@ import javax.inject.Singleton
 
 @Singleton
 class AndroidCalendarTool @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : CalendarTool {
 
     private val contentResolver: ContentResolver

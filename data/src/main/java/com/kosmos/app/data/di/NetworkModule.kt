@@ -15,8 +15,12 @@ import javax.inject.Singleton
 /**
  * 대용량 모델 다운로드 전용 OkHttpClient를 구분하는 한정자입니다.
  */
+// [WHY] @Target 을 생략하면 기본 타깃 집합에 PROPERTY 가 포함되어, 생성자 `val` 파라미터에
+// 붙일 때 "파라미터에만 적용되지만 앞으로는 프로퍼티에도 적용된다"는 경고가 난다. Hilt 가
+// 읽는 것은 @Provides 함수와 생성자 파라미터뿐이므로 그 둘로 좁혀 모호성을 없앤다.
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
+@Target(AnnotationTarget.FUNCTION, AnnotationTarget.VALUE_PARAMETER)
 annotation class DownloadClient
 
 @Module

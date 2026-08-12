@@ -79,7 +79,7 @@ internal data class PartMeta(
  */
 @Singleton
 class ModelDownloadService @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     @DownloadClient private val okHttpClient: OkHttpClient
 ) : ModelDownloader {
 

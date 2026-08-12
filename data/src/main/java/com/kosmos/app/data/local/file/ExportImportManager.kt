@@ -38,7 +38,7 @@ import com.kosmos.app.domain.memory.MemoryBackupManager
  */
 @Singleton
 class ExportImportManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val database: KosmosDatabase
 ) : MemoryBackupManager {
 

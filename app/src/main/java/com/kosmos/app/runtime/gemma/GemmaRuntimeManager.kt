@@ -28,7 +28,7 @@ import com.kosmos.app.domain.modelrunner.ModelLoadManager
 
 @Singleton
 class GemmaRuntimeManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : ModelLoadManager {
     private val _loadState = MutableStateFlow<ModelLoadState>(ModelLoadState.Loading)
     override val loadState: StateFlow<ModelLoadState> = _loadState.asStateFlow()

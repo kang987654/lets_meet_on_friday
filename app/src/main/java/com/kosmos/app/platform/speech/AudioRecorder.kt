@@ -31,7 +31,7 @@ import javax.inject.Singleton
  */
 @Singleton
 open class AudioRecorder @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     private var audioRecord: AudioRecord? = null
     private var outputFile: File? = null

@@ -46,7 +46,7 @@ import com.kosmos.app.domain.modelrunner.ModelRunner
  */
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val savedStateHandle: SavedStateHandle,
     private val sessionStore: SessionStore,
     private val conversationRepository: ConversationRepository,

@@ -38,7 +38,7 @@ interface DeviceResourceProvider {
  * 스레드에서 부르고, 호출 간격도 초 단위로 유지해야 한다 — 그래서 `suspend` 계약이다.
  */
 class AndroidDeviceResourceProvider @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : DeviceResourceProvider {
 
     private val activityManager by lazy {

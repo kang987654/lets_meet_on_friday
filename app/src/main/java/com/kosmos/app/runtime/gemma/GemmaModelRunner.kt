@@ -50,7 +50,7 @@ import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
  */
 @Singleton
 class GemmaModelRunner @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val runtimeManager: GemmaRuntimeManager,
     private val metricsCollector: RuntimeMetricsCollector,
     @LLMDispatcher private val llmDispatcher: CoroutineDispatcher
