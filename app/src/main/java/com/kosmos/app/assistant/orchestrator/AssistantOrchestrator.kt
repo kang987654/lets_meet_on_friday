@@ -42,18 +42,28 @@ class AssistantOrchestrator @Inject constructor(
         // 전사해서 **텍스트 턴**으로 돌리면 저장·검색·히스토리가 전부 정상이 되고, PRD F2 의
         // 원래 의도("음성을 텍스트로 변환 후 채팅과 동일한 흐름")에도 부합한다 (ADR-014).
         val transcript = if (request.audioFilePath != null) {
-            when (val result = transcribeAudioUseCase(request.audioFilePath)) {
-                is AppResult.Success -> result.data
-                // [WHY] 전사에 실패하면 **사용자 메시지를 저장하지 않는다.** 내용 없는 말풍선을
-                // 남기는 대신 재시도 안내만 띄운다 (PRD EC3).
-                is AppResult.Failure -> return AgentResult.Error(result.error)
+            try {
+                when (val result = transcribeAudioUseCase(request.audioFilePath)) {
+                    is AppResult.Success -> result.data
+                    // [WHY] 전사에 실패하면 **사용자 메시지를 저장하지 않는다.** 내용 없는 말풍선을
+                    // 남기는 대신 재시도 안내만 띄운다 (PRD EC3).
+                    //
+                    // [WHY] 그래서 감사에 직접 남긴다. 이 경로는 `BaseAgent` 까지 가지 않으므로
+                    // 기록을 담당하는 `handleErrorAndReturn` 을 우회한다 — 2026-08-12 실기기에서
+                    // 음성이 계속 실패했는데 감사 로그에 **한 줄도 남지 않아** 원인을 로그가 아닌
+                    // 소스 대조로 찾아야 했다.
+                    is AppResult.Failure -> {
+                        auditTrailService.logError(request.sessionId, "음성 전사 실패: ${result.error}")
+                        return AgentResult.Error(result.error)
+                    }
+                }
+            } finally {
+                // [WHY] 성공·실패를 가리지 않고 지운다. 예전에는 실패 시 `return` 이 삭제를 건너뛰어
+                // 마지막 녹음이 캐시에 남았다(실측: `kosmos_audio_input.wav` 138KB 잔존).
+                runCatching { java.io.File(request.audioFilePath).delete() }
             }
         } else {
             null
-        }
-        // 전사가 끝났으면 임시 파일은 남길 이유가 없다(캐시에 그대로 두면 마지막 녹음이 계속 남는다).
-        if (request.audioFilePath != null) {
-            runCatching { java.io.File(request.audioFilePath).delete() }
         }
 
         // 2. 유저 메시지 저장
@@ -96,10 +106,19 @@ class AssistantOrchestrator @Inject constructor(
         return agent.execute(agentRequest, context)
     }
 
+    // [WHY] 감사에는 진단용 원문을, 말풍선에는 사용자 문구를 남긴다. 0.11.0 에서 `BaseAgent` 쪽은
+    // 이렇게 고쳤는데 여기가 빠져 있었다 — 문맥 구성이 실패하면 말풍선에
+    // `"대화 문맥을 구성하지 못했습니다: DbReadError(...)"` 가 그대로 저장됐다.
     private suspend fun handleErrorAndReturn(sessionId: String, errorMsg: String): AgentResult.Error {
         auditTrailService.logError(sessionId, errorMsg)
-        createAndSaveMessage(sessionId, ChatMessage.Role.ASSISTANT, errorMsg, InputType.TEXT)
-        return AgentResult.Error(com.kosmos.app.core.common.AppError.ModelInferenceError(errorMsg))
+        val error = com.kosmos.app.core.common.AppError.ModelInferenceError(errorMsg)
+        createAndSaveMessage(
+            sessionId,
+            ChatMessage.Role.ASSISTANT,
+            com.kosmos.app.core.mapper.ErrorMessages.userMessage(error),
+            InputType.TEXT
+        )
+        return AgentResult.Error(error)
     }
 
     private suspend fun createAndSaveMessage(

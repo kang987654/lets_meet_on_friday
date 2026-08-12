@@ -35,6 +35,34 @@ import com.kosmos.app.di.LLMDispatcher
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 
 /**
+ * 엔진 설정을 조립합니다. 챗·비전은 넘겨받은 백엔드를 쓰고 **오디오는 CPU 고정**입니다.
+ *
+ * [WHY] 이 조립을 `ensureInferenceInitialized` 안에 인라인으로 두었을 때 `audioBackend` 가
+ * 빠진 것을 **어떤 테스트도 잡지 못했다.** 음성 경로 테스트(`TranscribeAudioUseCaseTest` 7건)는
+ * `ModelRunner` 를 목으로 대체했는데, 잘못 설정된 것이 정확히 그 목이 가린 컴포넌트였다 —
+ * 통과하는 테스트가 동작할 수 없는 경로를 검증하고 있었다. 순수 함수로 꺼내면 네이티브도 목도
+ * 거치지 않고 설정 자체를 단언할 수 있다.
+ *
+ * [WHY] 오디오를 CPU 로 고정하는 근거는 gallery 다 —
+ * `LlmChatModelHelper.kt:129` 가 `audioBackend = … Backend.CPU()` 에
+ * `must be CPU for Gemma 3n` 주석을 달아 두었다. 비전은 GPU 로 두어도 동작한다.
+ *
+ * [WHY] `cacheDir` 을 CPU 폴백에도 넘긴다. 예전에는 GPU 경로만 받아서, 폴백으로 떨어진 기기는
+ * 매 실행마다 커널 캐시를 다시 만들었다.
+ */
+internal fun buildEngineConfig(
+    modelPath: String,
+    backend: Backend,
+    cacheDir: String
+): EngineConfig = EngineConfig(
+    modelPath = modelPath,
+    backend = backend,
+    visionBackend = backend,
+    audioBackend = Backend.CPU(),
+    cacheDir = cacheDir
+)
+
+/**
  * [GemmaModelRunner]
  * Google Edge LiteRT-LM을 사용하여 온디바이스 Gemma 모델(LLM)을 실행하는 런타임 클래스입니다.
  *
@@ -328,27 +356,16 @@ class GemmaModelRunner @Inject constructor(
                 com.google.ai.edge.litertlm.LogSeverity.ERROR
             }
             runCatching { Engine.setNativeMinLogSeverity(severity) }
+            val cacheDir = context.cacheDir.absolutePath
             try {
-                val engineConfig = EngineConfig(
-                    modelPath = modelPath,
-                    backend = Backend.GPU(), // S25 Ultra 등 GPU Delegate 활성화로 최적화
-                    visionBackend = Backend.GPU(),
-                    cacheDir = context.cacheDir.absolutePath
-                    // enableSpeculativeDecoding = true (Not supported in litertlm 0.13.1, MTP might be implicitly enabled by the model)
-                )
-                val newEngine = Engine(engineConfig)
+                // S25 Ultra 등 GPU Delegate 활성화로 최적화
+                val newEngine = Engine(buildEngineConfig(modelPath, Backend.GPU(), cacheDir))
                 newEngine.initialize()
                 engine = newEngine
                 Log.d("GemmaModelRunner", "Engine initialized with GPU backend")
             } catch (e: Exception) {
                 Log.e("GemmaModelRunner", "Failed to initialize GPU backend, falling back to CPU", e)
-                val cpuConfig = EngineConfig(
-                    modelPath = modelPath,
-                    backend = Backend.CPU(),
-                    visionBackend = Backend.CPU()
-                    // enableSpeculativeDecoding = true
-                )
-                val fallbackEngine = Engine(cpuConfig)
+                val fallbackEngine = Engine(buildEngineConfig(modelPath, Backend.CPU(), cacheDir))
                 fallbackEngine.initialize()
                 engine = fallbackEngine
                 Log.d("GemmaModelRunner", "Engine initialized with CPU backend")
