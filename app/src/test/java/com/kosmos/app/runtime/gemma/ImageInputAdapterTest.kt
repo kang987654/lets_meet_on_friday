@@ -37,7 +37,9 @@ class ImageInputAdapterTest {
 
     @Test
     fun `상한 이하 이미지는 손대지 않는다`() {
-        // [WHY] "리사이징 금지(Gemma 4 네이티브 패칭 활용)" 원칙과 충돌하지 않아야 한다.
+        // [WHY] 이 축소는 **OOM 방어**이므로 방어가 필요 없는 크기는 건드리지 않아야 한다.
+        // (예전 주석은 "리사이징 금지 원칙" 이라고 적었지만 상한을 넘는 이미지는 실제로 축소된다 —
+        // 해상도 정책은 `visualTokenBudget` 쪽이고 우리는 아직 그것을 설정하지 않는다.)
         assertEquals(1, ImageInputAdapter.computeSampleSize(800, 600))
         assertEquals(1, ImageInputAdapter.computeSampleSize(Constants.MAX_IMAGE_DIMENSION_PX, 500))
     }

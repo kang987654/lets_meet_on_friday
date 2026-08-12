@@ -57,6 +57,12 @@ import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
  * 되는데, 앱은 프리필 예산을 6000(슬라이더 최대 8000)으로 잡아 **용량을 넘는 프롬프트를 만들고
  * 있었다.** 넘기지 않으면 그 값을 Kotlin 쪽에서 볼 수 없어 예산과의 어긋남이 드러나지도 않는다
  * (자세한 근거는 [Constants.ENGINE_MAX_TOKENS]).
+ *
+ * [WHY] `maxNumImages` 도 명시한다. 우리는 한 턴에 이미지를 **정확히 한 장** 붙이므로(입력바의
+ * 첨부 칩이 하나다) 1 이 사실이다. API 는 null 을 "모델/엔진 기본값 사용" 으로 문서화하지만,
+ * 우리가 그 값을 볼 수 없다는 점은 `maxNumTokens` 와 같다 — 이미지 한 장이 시각 토큰 예산만큼
+ * KV 를 먹으므로, 기본값이 우리 사용량보다 크면 4096 안에서 쓸 수 있는 히스토리가 조용히 줄어든다.
+ * 올릴 때는 [Constants.ENGINE_MAX_TOKENS] 예산 계산을 함께 다시 해야 한다.
  */
 internal fun buildEngineConfig(
     modelPath: String,
@@ -68,6 +74,7 @@ internal fun buildEngineConfig(
     visionBackend = backend,
     audioBackend = Backend.CPU(),
     maxNumTokens = Constants.ENGINE_MAX_TOKENS,
+    maxNumImages = Constants.MAX_IMAGES_PER_TURN,
     cacheDir = cacheDir
 )
 
@@ -113,6 +120,10 @@ class GemmaModelRunner @Inject constructor(
          * 있는 것으로 보이지만, 명시로 두어 기본값에 기대지 않는다.
          */
         private val THINKING_OFF = com.google.ai.edge.litertlm.ThinkingConfig(enableThinking = false)
+
+        // [WHY] logcat 한 줄의 실용 한계보다 넉넉히 아래로 잡는다. 프리페이스 전체(툴 선언 포함)를
+        // 남기려면 자르지 않고 **나눠서** 찍어야 한다.
+        private const val PREFACE_CHUNK = 1500
     }
 
     override val loadState: StateFlow<ModelLoadState> = runtimeManager.loadState
@@ -588,8 +599,17 @@ class GemmaModelRunner @Inject constructor(
             "conversation created: tools=${prompt.enabledTools}, " +
                 "providers=${KosmosToolDeclarations.providersFor(prompt.enabledTools).size}"
         )
+        // [WHY] 조각으로 나눠 찍는다. 예전에는 `take(2000)` 이라 **툴 선언 블록 중간에서 잘렸다** —
+        // "툴이 선언됐나" 를 답하려고 넣은 로그인데 정작 그 답이 안 보였다(2026-08-13 로그 분석).
+        // logcat 한 줄에는 길이 제한이 있으므로 자르는 것 자체는 필요하지만, 잘라 버리는 대신
+        // 여러 줄로 나눠 전체를 남긴다.
         runCatching { created.renderPrefaceIntoString() }
-            .onSuccess { preface -> Log.d("GemmaModelRunner", "preface: ${preface.take(2000)}") }
+            .onSuccess { preface ->
+                Log.d("GemmaModelRunner", "preface: ${preface.length}자, ${PREFACE_CHUNK}자씩")
+                preface.chunked(PREFACE_CHUNK).forEachIndexed { index, chunk ->
+                    Log.d("GemmaModelRunner", "preface[$index] $chunk")
+                }
+            }
             .onFailure { e -> Log.d("GemmaModelRunner", "preface render failed: ${e.message}") }
     }
 }

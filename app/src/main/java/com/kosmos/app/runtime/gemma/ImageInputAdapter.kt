@@ -41,8 +41,19 @@ class ImageInputAdapter @Inject constructor() : ImageProcessor {
          * 지원하므로 상한을 넘지 않는 가장 작은 배수를 고릅니다.
          *
          * [WHY] 디코딩 **후** 리사이즈가 아니라 디코딩 **시점** 축소다. 후자는 큰 비트맵을 일단
-         * 메모리에 올려야 하므로 OOM 을 막지 못한다. 상한 이하 이미지는 배수 1 이라 손대지 않고
-         * 지나가므로 "리사이징 금지(Gemma 4 네이티브 패칭 활용)" 원칙과 충돌하지 않는다.
+         * 메모리에 올려야 하므로 OOM 을 막지 못한다. 3.7GB 모델과 메모리를 다투는 상황에서
+         * 12MP 사진을 그대로 올리면 앱이 죽는다.
+         *
+         * [WHY] **이것은 OOM 방어이고 해상도 정책이 아니다.** 예전 주석은 이 함수가
+         * *"리사이징 금지(Gemma 4 네이티브 패칭 활용)" 원칙과 충돌하지 않는다* 고 적었는데
+         * 사실과 달랐다 — 4000px 사진은 1000px 로 **실제로 축소된다.** 코드는 줄이고 주석은
+         * 안 줄인다고 말하는 상태였다.
+         *
+         * [WHY] 해상도를 정하는 정식 레버는 `ExperimentalFlags.visualTokenBudget` 이다(공식 문서
+         * capabilities/vision: 70·140·280·560·1120 중 선택, 예산×9 패치). 우리는 그것을 **아직
+         * 설정하지 않는다** — 파이썬 하네스가 그 플래그를 노출하지 않아 값을 고를 근거를 로컬에서
+         * 만들 수 없다. 근거 없이 고르면 문서 스크린샷 읽기(PRD F3)를 조용히 깎을 위험이 있어,
+         * 실기기에서 예산별 비교가 가능해질 때까지 런타임 기본값에 맡긴다.
          */
         internal fun computeSampleSize(width: Int, height: Int): Int {
             var sampleSize = 1
@@ -59,7 +70,8 @@ class ImageInputAdapter @Inject constructor() : ImageProcessor {
     suspend fun processImage(bitmap: Bitmap): AppResult<ByteArray> = withContext(Dispatchers.Default) {
         try {
             val outputStream = ByteArrayOutputStream()
-            // JPEG 포맷으로 압축하여 품질 유지 (리사이징 금지: Gemma 4 네이티브 패칭 활용)
+            // [WHY] 런타임에 넘길 바이트로 만들기 위한 압축이다. 해상도는 이미 디코딩 시점에
+            // 정해졌고([computeSampleSize]) 여기서는 바꾸지 않는다.
             bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, outputStream)
             val byteArray = outputStream.toByteArray()
             AppResult.Success(byteArray)
