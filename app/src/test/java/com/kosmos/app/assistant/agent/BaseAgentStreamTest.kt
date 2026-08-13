@@ -356,11 +356,15 @@ class BaseAgentStreamTest {
             (error as AppError.ModelInferenceError).reason.contains("툴 호출 반복 상한")
         )
         coVerify { harness.audit.logError("s1", "Max tool loop count exceeded") }
-        // [WHY] 이 경로는 handleErrorAndReturn 을 거치지 않아 말풍선을 남기지 않는다. 다른 오류
-        // 경로(추론 실패)와 갈리는 지점이므로 현재 동작을 고정해 둔다.
+        // [WHY] 이 경로도 handleErrorAndReturn 을 거쳐 인간화된 말풍선을 남긴다(0.15.0 계약 변경).
+        // 예전에는 Error 만 직반환해 화면에 아무 흔적이 없었는데, 시각 인자 형식 검증(BAD_FORMAT)이
+        // 생기면서 모델이 같은 깨진 값으로 상한까지 재시도하는 경로가 현실이 됐다 — 그 끝이
+        // 무반응이면 사용자는 앱이 죽었다고 오해한다.
+        val bubbles = harness.savedMessages.filter { it.role == ChatMessage.Role.ASSISTANT }
+        assertEquals("말풍선이 정확히 하나 남아야 한다: ${harness.savedMessages}", 1, bubbles.size)
         assertTrue(
-            "말풍선이 저장되면 안 된다: ${harness.savedMessages}",
-            harness.savedMessages.none { it.role == ChatMessage.Role.ASSISTANT }
+            "내부 문자열이 아니라 인간화된 문구여야 한다: ${bubbles.first().content}",
+            bubbles.first().content.isNotBlank() && !bubbles.first().content.contains("Max tool loop")
         )
     }
 

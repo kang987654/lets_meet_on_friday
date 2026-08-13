@@ -111,10 +111,13 @@ class ToolApprovalE2ETest {
                     toolCalls = listOf(
                         com.kosmos.app.domain.modelrunner.ModelToolCall(
                             name = "AddSchedule",
+                            // [WHY] 시각 값은 유효한 ISO 8601 이어야 한다 — 0.15.0 부터 인자
+                            // 형식 검증이 승인 카드 전에 걸러서, 예전 픽스처("15:00")로는
+                            // 승인 흐름 자체에 도달하지 못한다.
                             args = mapOf(
                                 "title" to if (isCancelScenario) "약속" else "회의",
-                                "startTime" to if (isCancelScenario) "12:00" else "15:00",
-                                "endTime" to if (isCancelScenario) "13:00" else "16:00",
+                                "startTime" to if (isCancelScenario) "2026-08-18T12:00:00" else "2026-08-17T15:00:00",
+                                "endTime" to if (isCancelScenario) "2026-08-18T13:00:00" else "2026-08-17T16:00:00",
                                 "description" to if (isCancelScenario) "점심 약속" else "프로젝트 회의"
                             )
                         )

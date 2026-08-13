@@ -66,11 +66,16 @@ class AddScheduleToolExecutor @Inject constructor(
      * 그래서 사용자가 애초에 실행될 수 없는 초안을 승인하는 경우가 있었다. 검증을 하나로 모아
      * 필수 인자가 없으면 승인 단계에서 이미 실패하게 만든다 — 누락은 ToolArgumentException 이
      * 되어 BaseAgent 가 모델에게 되돌린다.
+     *
+     * [WHY] 시각 인자는 형식까지 검증한다. 실기기에서 모델이 `202026-081717T010000` 같은
+     * 깨진 타임스탬프를 생성했고(2026-08-13), 형식 검증이 없으면 그 값이 승인 카드에 그대로
+     * 노출되고 승인 시 Room·기기 캘린더까지 오염된다. 여기서 걸리면 승인 카드가 뜨기 전에
+     * BAD_FORMAT 으로 모델에게 되돌아간다.
      */
     private fun parse(args: ToolArguments) = ScheduleDraft(
         title = args.requireString("title"),
-        startTime = args.requireString("startTime"),
-        endTime = args.optString("endTime") ?: "",
+        startTime = args.requireIsoDateTime("startTime"),
+        endTime = args.optIsoDateTime("endTime") ?: "",
         // [WHY] 네이티브 함수호출 선언에서는 파라미터 이름 `description` 이 스키마의 툴 설명
         // 키와 충돌해 `memo` 로 선언한다 (KosmosToolDeclarations). 기존 키도 함께 읽어
         // 테스트·과거 경로와의 호환을 유지한다.

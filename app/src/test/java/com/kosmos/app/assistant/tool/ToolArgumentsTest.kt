@@ -95,6 +95,63 @@ class ToolArgumentsTest {
         assertEquals(ToolArgumentException.Reason.MISSING, e.reason)
     }
 
+    // --- requireIsoDateTime / optIsoDateTime ---
+
+    @Test
+    fun `유효한 ISO 변형들은 원문 그대로 통과한다`() {
+        // 오프셋 포함 / UTC / 로컬(툴 선언 예시 형식) / 날짜만 — IsoDateTimeParser 의 4단 폴백.
+        listOf(
+            "2026-08-17T10:00:00+09:00",
+            "2026-08-17T01:00:00Z",
+            "2026-08-07T15:00:00",
+            "2026-08-17"
+        ).forEach { iso ->
+            assertEquals(iso, args("""{"startTime":"$iso"}""").requireIsoDateTime("startTime"))
+        }
+    }
+
+    @Test
+    fun `공백 구분 일시는 T 로 치환되어 반환된다`() {
+        // [WHY] 원문을 돌려주면 받아준 값이 하류 파서(기기 캘린더 동기화)에서 다시 실패한다.
+        assertEquals(
+            "2026-08-17T15:00",
+            args("""{"startTime":"2026-08-17 15:00"}""").requireIsoDateTime("startTime")
+        )
+    }
+
+    @Test
+    fun `깨진 타임스탬프는 형식 오류다 - 실기기 관측값`() {
+        // 2026-08-13 실기기에서 모델이 생성한 깨진 인자 원문 그대로다.
+        val e = runCatching {
+            args("""{"startTime":"202026-081717T010000"}""").requireIsoDateTime("startTime")
+        }.exceptionOrNull() as ToolArgumentException
+        assertEquals("startTime", e.field)
+        assertEquals(ToolArgumentException.Reason.BAD_FORMAT, e.reason)
+    }
+
+    @Test
+    fun `시각만 있는 값은 형식 오류다`() {
+        val e = runCatching { args("""{"startTime":"15:00"}""").requireIsoDateTime("startTime") }
+            .exceptionOrNull() as ToolArgumentException
+        assertEquals(ToolArgumentException.Reason.BAD_FORMAT, e.reason)
+    }
+
+    @Test
+    fun `시각 인자 누락은 형식 오류가 아니라 누락이다`() {
+        // 누락(MISSING)과 형식 오류(BAD_FORMAT)의 안내가 갈리므로 구분이 유지되어야 한다.
+        val e = runCatching { args("""{}""").requireIsoDateTime("startTime") }
+            .exceptionOrNull() as ToolArgumentException
+        assertEquals(ToolArgumentException.Reason.MISSING, e.reason)
+    }
+
+    @Test
+    fun `optIsoDateTime 은 없으면 null 이고 있는데 깨졌으면 형식 오류다`() {
+        assertNull(args("""{}""").optIsoDateTime("endTime"))
+        val e = runCatching { args("""{"endTime":"가나다"}""").optIsoDateTime("endTime") }
+            .exceptionOrNull() as ToolArgumentException
+        assertEquals(ToolArgumentException.Reason.BAD_FORMAT, e.reason)
+    }
+
     // --- JSON null 정규화 ---
 
     @Test

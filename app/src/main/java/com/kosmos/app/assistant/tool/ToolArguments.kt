@@ -1,5 +1,6 @@
 package com.kosmos.app.assistant.tool
 
+import com.kosmos.app.domain.util.IsoDateTimeParser
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -11,13 +12,17 @@ import org.json.JSONObject
  * "잘못된 모양으로 보냈다" 중 무엇을 고쳐야 하는지 알 수 있다. 기존 구현은
  * `as? String ?: return "...가 필요합니다"`로 둘을 하나로 뭉개서, 모델이 이미 보낸 값을
  * 다시 요구받고 같은 응답을 반복하는 루프에 빠졌다.
+ *
+ * [WHY] BAD_FORMAT 은 "문자열이긴 한데 요구된 형식이 아니다"이다. WRONG_TYPE 과 구분해야
+ * 안내가 갈린다 — WRONG_TYPE 의 처방은 "문자열로 보내라"인데, 깨진 타임스탬프는 이미
+ * 문자열이므로 그 안내로는 모델이 고칠 수 없다.
  */
 class ToolArgumentException(
     val field: String,
     val reason: Reason
 ) : Exception("Tool argument '$field' is ${reason.name.lowercase()}") {
 
-    enum class Reason { MISSING, WRONG_TYPE }
+    enum class Reason { MISSING, WRONG_TYPE, BAD_FORMAT }
 }
 
 /**
@@ -71,6 +76,38 @@ class ToolArguments(private val json: JSONObject) {
     fun requireString(key: String): String {
         val value = optString(key)?.takeIf { it.isNotBlank() }
         return value ?: throw ToolArgumentException(key, ToolArgumentException.Reason.MISSING)
+    }
+
+    /**
+     * ISO 8601 일시 인자를 요구합니다. 검증만 하고 파싱 가능한 문자열을 반환합니다.
+     *
+     * [WHY] 실기기에서 모델이 `202026-081717T010000` 같은 깨진 타임스탬프를 생성했고, 앱은
+     * 인자 값을 어디서도 변형하지 않으므로 그 원문이 승인 카드·Room·기기 캘린더까지 그대로
+     * 흘러갔다(2026-08-13 관측). 형식 검증이 여기(승인 카드 이전) 있으면 깨진 값은
+     * BAD_FORMAT 으로 모델 자가수정 루프에 되돌아가고, 하류는 파싱 가능한 값만 받는다.
+     *
+     * [WHY] epoch 로 바꾸지 않고 문자열을 돌려준다 — `CalendarDraft.startIso` 이하의 표시·저장
+     * 경로가 전부 ISO 문자열 계약이다. 판정은 [IsoDateTimeParser] 로 하는데, 하류(기기 캘린더
+     * 동기화)가 쓰는 파서와 같아야 "여기서 통과한 값이 하류에서 실패"하는 틈이 없다.
+     */
+    fun requireIsoDateTime(key: String): String =
+        validIsoOrThrow(key, requireString(key))
+
+    /** ISO 8601 일시 인자를 읽습니다. 없거나 공백이면 null, 있는데 형식이 틀리면 BAD_FORMAT 입니다. */
+    fun optIsoDateTime(key: String): String? {
+        val value = optString(key)?.takeIf { it.isNotBlank() } ?: return null
+        return validIsoOrThrow(key, value)
+    }
+
+    // [WHY] 공백 구분("2026-08-17 15:00")만 'T' 치환으로 관용 수용한다 — optString 의 숫자
+    // 강제변환과 같은 철학이다(모호하지 않은 변형은 받아준다). 이때 반환도 치환된 값이다.
+    // 원문을 돌려주면 받아준 값이 하류 파서에서 다시 실패한다. 깨진 값은 치환으로 살아나지
+    // 않으므로 검증이 느슨해지지는 않는다.
+    private fun validIsoOrThrow(key: String, value: String): String {
+        if (IsoDateTimeParser.toEpochMillis(value) != null) return value
+        val normalized = value.replace(' ', 'T')
+        if (IsoDateTimeParser.toEpochMillis(normalized) != null) return normalized
+        throw ToolArgumentException(key, ToolArgumentException.Reason.BAD_FORMAT)
     }
 
     /**

@@ -72,9 +72,17 @@ abstract class BaseAgent(
 
         while (true) {
             if (loopCount >= MAX_TOOL_LOOP_COUNT) {
-                auditTrailService.logError(request.sessionId, "Max tool loop count exceeded")
                 // [WHY] 루프 상한 초과는 타임아웃이 아니므로 오해를 부르는 Timeout 대신 추론 오류로 보고한다.
-                return@coroutineScope AgentResult.Error(AppError.ModelInferenceError("툴 호출 반복 상한(${MAX_TOOL_LOOP_COUNT}회)을 초과했습니다."))
+                //
+                // [WHY] handleErrorAndReturn 을 경유해 말풍선도 남긴다. 예전에는 Error 만 직반환해
+                // 화면에 아무 흔적이 없었다. 시각 인자 형식 검증(BAD_FORMAT)이 생기면서 모델이
+                // 같은 깨진 값으로 상한까지 재시도하는 경로가 현실이 됐고(greedy 는 재시도가
+                // 동일할 수 있다), 그 끝이 무반응이면 사용자는 앱이 죽었다고 오해한다.
+                return@coroutineScope handleErrorAndReturn(
+                    request.sessionId,
+                    "Max tool loop count exceeded",
+                    AppError.ModelInferenceError("툴 호출 반복 상한(${MAX_TOOL_LOOP_COUNT}회)을 초과했습니다.")
+                )
             }
             loopCount++
 
@@ -280,6 +288,11 @@ abstract class BaseAgent(
                 "'${e.field}' 인자가 없습니다. 사용자에게 값을 확인한 뒤 다시 호출하세요."
             com.kosmos.app.assistant.tool.ToolArgumentException.Reason.WRONG_TYPE ->
                 "'${e.field}' 인자의 형식이 올바르지 않습니다. 문자열로 다시 보내세요."
+            // [WHY] 깨진 원문 값은 안내에 에코하지 않는다 — 깨짐이 생성/디코딩 계층에서 온다는
+            // 것이 실기기 관측이므로(2026-08-13), 깨진 토큰열을 문맥에 다시 넣으면 모델이 그
+            // 형태를 따라 쓸 재료만 는다. 올바른 예시 형식만 제시한다.
+            com.kosmos.app.assistant.tool.ToolArgumentException.Reason.BAD_FORMAT ->
+                "'${e.field}' 인자가 ISO 8601 일시 형식이 아닙니다. '2026-08-17T15:00:00' 형식으로 다시 보내세요."
         }
         return org.json.JSONObject()
             .put("status", "error")
