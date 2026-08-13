@@ -78,6 +78,26 @@ class TokenBudgetInvariantTest {
         )
     }
 
+    @Test
+    fun `툴 결과 예산이 생성 여유를 넘지 않는다`() {
+        // [WHY] 툴 결과는 턴 중간에 KV 로 들어가 어떤 예산 검사도 거치지 않는다 — 툴 회신 턴은
+        // 재생성 금지 턴이라(0.8.5 가드) 완전한 보장이 구조적으로 불가능하다(ADR-020). 이 관계는
+        // "초과 폭이 생성 여유와 같은 자릿수를 넘지 않게" 묶는 것이고, 툴 루프 상한(3회)이 이
+        // 값을 곱한다는 것도 함께 기억할 것. 예전 캡은 ko 5,000자 ≈ 2,500토큰이었다.
+        assertTrue(
+            "툴 결과 예산 ${Constants.TOOL_RESULT_MAX_TOKENS} 이 생성 여유 ${Constants.GENERATION_HEADROOM_TOKENS} 를 넘는다",
+            Constants.TOOL_RESULT_MAX_TOKENS <= Constants.GENERATION_HEADROOM_TOKENS
+        )
+    }
+
+    @Test
+    fun `툴 결과 예산에서 래퍼 예약을 빼도 본문이 남는다`() {
+        // [WHY] 래퍼 예약(JSON 골격 + 근거 고정 지침)이 예산을 다 먹으면 위키 본문이 표식만
+        // 남는 수준으로 잘려 검색이 사실상 무력화된다.
+        val body = Constants.TOOL_RESULT_MAX_TOKENS - Constants.TOOL_RESULT_ENVELOPE_RESERVE_TOKENS
+        assertTrue("본문 예산이 $body 토큰뿐이다", body >= 300)
+    }
+
     private companion object {
         /** `Conversation.token_count` 실측 — 시스템 지시 573 + 툴 5종 652 + few-shot 104. */
         const val MEASURED_OVERHEAD = 1329

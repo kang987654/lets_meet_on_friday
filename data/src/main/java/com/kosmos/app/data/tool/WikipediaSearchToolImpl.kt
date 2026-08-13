@@ -1,7 +1,10 @@
 package com.kosmos.app.data.tool
 
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.Constants
+import com.kosmos.app.domain.tool.Tokenizer
 import com.kosmos.app.domain.tool.WikipediaSearchTool
+import com.kosmos.app.domain.util.SentenceTruncator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
@@ -16,15 +19,16 @@ import javax.inject.Inject
  *
  * ### Architecture Context
  * - **Layer**: Data (Tool)
- * - **Dependencies**: [OkHttpClient]
+ * - **Dependencies**: [OkHttpClient], [Tokenizer]
  *
  * ### Key Flow
  * 1. 지정된 언어(lang)와 토픽(topic)으로 Wikipedia API 엔드포인트를 구성합니다 (쿼리 인코딩 적용).
  * 2. OkHttp를 통해 네트워크 요청을 수행하고 JSON 결과를 파싱합니다.
- * 3. 검색된 페이지의 요약(extract)을 추출하고 언어별 최대 캡을 적용하여 반환합니다.
+ * 3. 검색된 페이지의 요약(extract)을 **토큰 예산** 이내로 문장 경계에서 잘라 반환합니다.
  */
 class WikipediaSearchToolImpl @Inject constructor(
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    private val tokenizer: Tokenizer
 ) : WikipediaSearchTool {
 
     override suspend fun search(topic: String, lang: String): AppResult<String> = withContext(Dispatchers.IO) {
@@ -85,19 +89,21 @@ class WikipediaSearchToolImpl @Inject constructor(
                     return@withContext AppResult.Failure(com.kosmos.app.core.common.AppError.NetworkUnavailable("Found page '$title' but no text was available."))
                 }
 
-                // Language-based safety caps
-                val maxChars = when (safeLang) {
-                    "zh" -> 1500
-                    "fr" -> 4300
-                    "es" -> 4500
-                    else -> 5000
-                }
+                // [WHY] 캡을 자수가 아니라 **토큰 예산에서 파생**한다. 예전의 언어별 자수 캡
+                // (zh 1500 / fr 4300 / es 4500 / 기타 5000)은 프리필 예산이 6000~8000 이던 최초
+                // 커밋 시절 값이라, 0.13.0 에서 예산을 엔진 용량(4096)에서 파생시킨 뒤에도 ko
+                // 5000자(실측 약 2,500토큰)가 턴 중간에 무예산으로 KV 에 들어갔다 — 툴 회신
+                // 턴은 재생성 금지 턴이라 이 캡이 유일한 방어선이다 (ADR-020). 언어 분기가
+                // 사라지는 이유는 토큰 추정기가 문자 클래스로 언어 밀도를 이미 반영하기
+                // 때문이다(exp26 — 중국어도 비ASCII 클래스가 덮는다).
+                val budgetedResult = SentenceTruncator.truncate(
+                    text = "Title: $title\n$finalResult",
+                    maxTokens = Constants.TOOL_RESULT_MAX_TOKENS - Constants.TOOL_RESULT_ENVELOPE_RESERVE_TOKENS,
+                    tokenizer = tokenizer,
+                    marker = "\n\n... [TRUNCATED TO SAVE CONTEXT]"
+                )
 
-                if (finalResult.length > maxChars) {
-                    finalResult = finalResult.substring(0, maxChars) + "\n\n... [TRUNCATED TO SAVE CONTEXT]"
-                }
-
-                AppResult.Success("Title: $title\n$finalResult")
+                AppResult.Success(budgetedResult)
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
