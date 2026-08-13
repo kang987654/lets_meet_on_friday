@@ -221,6 +221,11 @@ class GemmaModelRunner @Inject constructor(
                 val currentConversation = getOrCreateConversation(prompt)
                 val outgoing = buildMessage(prompt, extraContents())
 
+                // [WHY] 툴 회신 턴은 재생성이 금지된 턴이라(0.8.5 가드) 어떤 예산 검사도 거치지
+                // 않고 KV 에 얹힌다 — 초과가 일어난다면 바로 이 지점이다. 직전 값을 남겨야
+                // 턴 종료 값과의 델타로 "툴 응답 + 생성이 실제로 몇 토큰을 먹었는지"가 나온다.
+                if (prompt.toolResponse != null) logKvUsage("툴 회신 직전", currentConversation)
+
                 // [WHY] 부수 계산용 임시 대화는 여기서 반드시 닫는다. 캐시하지 않으므로 이
                 // 시점을 놓치면 네이티브 자원이 그대로 샌다.
                 try {
@@ -261,6 +266,7 @@ class GemmaModelRunner @Inject constructor(
                     }
 
                     metricsCollector.recordEnd(System.currentTimeMillis() - startTime, tokenCount)
+                    if (!prompt.oneShot) logKvUsage("턴 종료", currentConversation)
 
                     if (error != null) {
                         AppResult.Failure(AppError.ModelInferenceError(error.message ?: "스트리밍 중 에러 발생"))
@@ -277,6 +283,7 @@ class GemmaModelRunner @Inject constructor(
                         .joinToString("") { it.text }
 
                     metricsCollector.recordEnd(System.currentTimeMillis() - startTime)
+                    if (!prompt.oneShot) logKvUsage("턴 종료", currentConversation)
 
                     // [WHY] 텍스트가 비어도 툴 호출만 온 턴은 정상이다 — 모델이 말 없이 곧바로
                     // 툴을 부르는 경우가 흔하다. 둘 다 비었을 때만 실패로 본다.
@@ -581,6 +588,30 @@ class GemmaModelRunner @Inject constructor(
             ),
             Message.model("자물쇠 비밀번호 8282를 기억해 두었습니다.")
         )
+    }
+
+    /**
+     * KV 실사용량을 send 경계에서 남깁니다. 디버그 빌드 전용입니다.
+     *
+     * [WHY] KV 사용량은 다음 턴 시작(재설정 판정, [getOrCreateConversation])에서야 보였다 —
+     * 툴 회신이 턴 중간에 몇 토큰을 먹는지, 턴이 끝난 시점에 용량 대비 어디까지 왔는지가
+     * 로그에 없어서 조용한 초과를 실기기에서 판정할 수 없었다. AAR 은 용량을 넘겨도 오류를
+     * 내지 않으므로(파이썬 0.15.0+ 은 거부, exp17) 이 로그가 초과와 글자 깨짐의 시간적 상관을
+     * 확정할 유일한 증거다 (ADR-020 실기기 재검증 프로토콜).
+     *
+     * [WHY] send 경계에서만 읽는다 — 스트리밍 중 네이티브 getTokenCount 호출은 생성과 경합한다.
+     */
+    private fun logKvUsage(stage: String, conversation: Conversation) {
+        if (!com.kosmos.app.BuildConfig.DEBUG) return
+        val tokens = runCatching { conversation.getTokenCount() }.getOrNull() ?: return
+        if (tokens > Constants.ENGINE_MAX_TOKENS) {
+            Log.w(
+                "GemmaModelRunner",
+                "KV 용량 초과 상태로 계속 진행: $stage tokens=$tokens > engine=${Constants.ENGINE_MAX_TOKENS}"
+            )
+        } else {
+            Log.d("GemmaModelRunner", "KV usage: $stage tokens=$tokens / ${Constants.ENGINE_MAX_TOKENS}")
+        }
     }
 
     // [WHY] toolCalls=[] 만으로는 "선언이 템플릿에 안 들어감"과 "모델이 호출을 거부"를 구분할 수
