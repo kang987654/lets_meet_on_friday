@@ -9,9 +9,11 @@ import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.domain.model.CalendarDraft
 import com.kosmos.app.domain.model.CalendarEvent
 import com.kosmos.app.domain.tool.CalendarTool
+import com.kosmos.app.domain.util.IsoDateTimeParser
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -90,19 +92,27 @@ class AndroidCalendarTool @Inject constructor(
 
         try {
             // 중복/겹침 감지는 상위 레이어에서 처리하여 경고를 띄우도록 정책 설정 (하드-페일 금지)
-            val startMs = try {
-                isoToMs(draft.startIso)
-            } catch (e: Exception) {
-                System.currentTimeMillis()
-            }
-            
+            //
+            // [WHY] 시작 시각 파싱 실패를 예전처럼 '지금'으로 무음 대체하지 않는다. 이전 구현은
+            // 오프셋 없는 로컬 일시(`2026-08-07T15:00:00` — 툴 선언이 모델에게 지시하는 바로 그
+            // 형식)를 파싱하지 못해 **정상 일정까지 전부 현재 시각으로** 기기 캘린더에 들어갔다.
+            // 틀린 시각이 사용자 실캘린더에 기록되는 것은 "동기화 안 됨"보다 나쁜 무음 데이터
+            // 오염이고, 호출자(AddScheduleUseCase.syncToDeviceCalendar)는 실패를 경고로 남기고
+            // 로컬 저장을 유지한다(ADR-004) — 실패 반환이 곧 그 계약이다.
+            val startMs = IsoDateTimeParser.toEpochMillis(draft.startIso)
+                ?: return@withContext AppResult.Failure(
+                    AppError.CalendarWriteError("시작 시각이 ISO 8601 형식이 아니라 기기 캘린더 동기화를 건너뜁니다")
+                )
+
             val endIso = draft.endIso
+            // [WHY] 종료 시각의 폴백은 툴 선언 문구("모르면 시작 1시간 뒤")와 같은 규칙이다.
+            // 파싱 실패도 같은 폴백을 쓰되 경고를 남긴다 — 툴 경로는 실행 전 인자 검증이
+            // 거르므로 여기 도달하는 실패는 다른 호출자나 회귀의 신호다.
             val endMs = if (endIso.isNullOrBlank()) {
                 startMs + 3600000L // 1 hour fallback
             } else {
-                try {
-                    isoToMs(endIso)
-                } catch (e: Exception) {
+                IsoDateTimeParser.toEpochMillis(endIso) ?: run {
+                    AppLogger.w(TAG, "endIso 파싱 실패, 시작 1시간 뒤로 폴백")
                     startMs + 3600000L
                 }
             }
@@ -147,11 +157,6 @@ class AndroidCalendarTool @Inject constructor(
             .toString()
     }
 
-    private fun isoToMs(iso: String): Long {
-        return runCatching { java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli() }
-            .getOrElse { Instant.parse(iso).toEpochMilli() }
-    }
-    
     private fun getDefaultCalendarId(): Long {
         var calId = 1L
         if (!hasPermission(Manifest.permission.READ_CALENDAR)) return calId
@@ -171,5 +176,9 @@ class AndroidCalendarTool @Inject constructor(
             // fallback
         }
         return calId
+    }
+
+    private companion object {
+        const val TAG = "AndroidCalendarTool"
     }
 }
