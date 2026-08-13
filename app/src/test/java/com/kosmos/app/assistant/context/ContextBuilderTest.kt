@@ -84,8 +84,9 @@ class ContextBuilderTest {
     @Test
     fun `설정을 최소로 내려도 최소 히스토리 예산은 보장된다`() = runTest {
         // [WHY] 오버헤드가 설정값보다 크면 예산이 음수가 되어 히스토리가 통째로 사라진다 —
-        // 직전 대화를 못 보면 대화가 성립하지 않으므로 하한을 둔다(500 / 210 = 2개).
-        stubMessages(count = 10, tokensEach = 200, maxTokens = 1000)
+        // 직전 대화를 못 보면 대화가 성립하지 않으므로 하한을 둔다(300 / 110 = 2개).
+        // 하한은 500 이었으나 예산이 GPU 발병점 아래(1700)로 내려오며 300 이 됐다 (ADR-021).
+        stubMessages(count = 10, tokensEach = 100, maxTokens = 1000)
 
         val result = contextBuilder.build("s1")
 

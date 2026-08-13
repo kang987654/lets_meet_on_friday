@@ -79,6 +79,37 @@ class TokenBudgetInvariantTest {
     }
 
     @Test
+    fun `예산과 재설정 임계값이 GPU 숫자 깨짐 발병점 아래다`() {
+        // [WHY] GPU 백엔드는 문맥이 발병점을 넘으면 숫자 토큰을 깨뜨린다(exp30 실측:
+        // 1854 온전 / 2122 깨짐, PC GPU). AAR 은 정밀도 레버(activationDataType)를 노출하지
+        // 않고 GPU 전용 모델 변형은 오디오·비전이 없어(exp32) 예산으로 피하는 것이 유일한
+        // 완화다 (ADR-021). 이 관계가 깨지면 긴 대화에서 일정 시각·비밀번호가 깨진다.
+        assertTrue(
+            "기본 예산 ${Constants.MAX_CONTEXT_TOKENS} 이 발병 안전선 ${Constants.GPU_DIGIT_ONSET_SAFE_TOKENS} 을 넘는다",
+            Constants.MAX_CONTEXT_TOKENS <= Constants.GPU_DIGIT_ONSET_SAFE_TOKENS
+        )
+        assertTrue(
+            "재설정 하한 ${Constants.MIN_CONVERSATION_RESET_TOKENS} 이 발병 안전선을 넘는다",
+            Constants.MIN_CONVERSATION_RESET_TOKENS <= Constants.GPU_DIGIT_ONSET_SAFE_TOKENS
+        )
+        assertTrue(
+            "발병 경계 실측값의 순서가 뒤집혔다",
+            Constants.GPU_DIGIT_ONSET_SAFE_TOKENS < Constants.GPU_DIGIT_ONSET_BROKEN_TOKENS
+        )
+    }
+
+    @Test
+    fun `재설정 하한이 재생성 루프를 만들지 않는다`() {
+        // [WHY] 갓 재생성한 대화의 프리필 ≈ 오버헤드 + 최소 히스토리다. 하한이 그보다 작으면
+        // 재생성 직후 이미 임계값을 넘어 **매 턴 재생성** 루프가 된다 — 예산을 발병점 아래로
+        // 내리면서(1700) 이 바닥에 정확히 닿았으므로 관계로 고정한다.
+        assertTrue(
+            "하한 ${Constants.MIN_CONVERSATION_RESET_TOKENS} < 오버헤드+최소히스토리 ${Constants.PREFILL_OVERHEAD_TOKENS + Constants.MIN_HISTORY_TOKENS}",
+            Constants.MIN_CONVERSATION_RESET_TOKENS >= Constants.PREFILL_OVERHEAD_TOKENS + Constants.MIN_HISTORY_TOKENS
+        )
+    }
+
+    @Test
     fun `툴 결과 예산이 생성 여유를 넘지 않는다`() {
         // [WHY] 툴 결과는 턴 중간에 KV 로 들어가 어떤 예산 검사도 거치지 않는다 — 툴 회신 턴은
         // 재생성 금지 턴이라(0.8.5 가드) 완전한 보장이 구조적으로 불가능하다(ADR-020). 이 관계는
