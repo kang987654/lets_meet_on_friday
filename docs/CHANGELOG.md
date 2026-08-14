@@ -1,3 +1,13 @@
+## [0.16.0] - 2026-08-14
+> 예약해 둔 **런타임 의존성 최신화 회차**(사용자 결정). 그룹별 커밋 + 그룹별 테스트 게이트로 올려, 문제가 생기면 그룹 단위로 원인이 갈리게 했다. 모델 런타임 인접(litertlm·tflite)과 메이저(okhttp 5·mediapipe 1.0)는 동결하고 그 이유를 카탈로그 [WHY] 로 남겼다. **릴리스 게이트는 실기기 스모크 1회가 남아 있다.**
+- **[Changed]** **툴체인** — Gradle 9.4.1→9.5.0(AGP 요구), AGP 9.2.0→9.3.1, kotlin 2.3.21→2.4.10, KSP 2.3.7→2.3.11(2.3.10 부터 kotlin 2.4 지원). **kotlin 2.4 는 hilt 2.60 과 한 몸이다** — hilt 2.59 는 kotlin 2.4 메타데이터를 못 읽어 KSP 가 죽는다("maximum supported version is 2.3.0"). 되돌릴 일이 생기면 함께 되돌려야 한다
+- **[Changed]** **compileSdk 35→37** — androidx-hilt 1.4·lifecycle 2.11 의 AAR 메타데이터 요구. **targetSdk 는 35 유지** — compileSdk 는 컴파일 시점 API 노출만 바꾸고 런타임 동작 전환은 targetSdk 가 정하므로, 실기기 검증(0.15.1)의 동작 조건이 유지된다
+- **[Changed]** hilt 2.59→2.60.1, androidx-hilt 1.3.0→1.4.0, compose BOM 2026.04.01→2026.08.00, navigation 2.9.8, paging 3.5.1, work 2.11.2, core-ktx 1.19.0, lifecycle-process 2.11.0, kotlinx-serialization 1.11.0, kotlinx-collections-immutable 0.5.1, richtext alpha05
+- **[Note]** **mockk 1.14.11 재시도 성공** — 0.15.2 에서 "AGP 상향 이후 재시도" 조건으로 보류했던 것이 바로 이번 회차에 풀렸다. AGP 9.3.1 의 lint 는 kotlin 2.4 메타데이터를 읽는다(테스트 271 + lint 경고 0 재확인). robolectric 4.16 은 재시도하지 않았다 — 실패 원인이 AGP 가 아니라 `VoiceChatIntegrationTest` 의 벽시계 대기 구조라, 그 테스트를 손보는 회차의 몫이다
+- **[Note]** **동결 판정 3건을 카탈로그 [WHY] 로 기록** — okhttp 5.x(메이저, 필요가 생길 때 별도 회차), mediapipe 1.0.0(메이저 + 영어 전용 임베더 하나만 쓰는 죽은 경로라 올리기보다 걷어내는 판단이 먼저, ADR-013), play-services-tflite 16.5(GPU 델리게이트 = 모델 런타임 인접, 승격 시 실기기 재검증 필수)
+- **[Note]** **실기기 스모크가 릴리스 게이트** — 일정 등록 1건(승인 카드 시각 온전), 위키 검색 1건(근거 답변), 앱 재시작 1회(마이그레이션·초기화 경로). compose·lifecycle·work 가 올라갔으므로 UI 렌더·전경 다운로드 알림도 눈으로 확인 권장
+- **[QA/Test]** 전체 **271건** 통과(실패·에러·스킵 0) + lintDebug **경고 0**(새 lint 9.3.1 에서도 기준선 유지) + assembleDebug. 기존 테스트 단언 수정 0건, 소스 코드 수정 0건(빌드 스크립트·카탈로그만)
+
 ## [0.15.2] - 2026-08-14
 > 0.15.1 마무리 뒤의 정리 회차. lint 경고 **76건(app 72 + data 4)을 전수 판정**해 21건은 고치고 55건은 [WHY] 와 함께 의도적으로 억제 — **"경고 0" 기준선**을 만들어 이후 새 경고가 1건만 생겨도 바로 보이게 했다. 대원칙: **버전 승격은 lint 알림이 아니라 검증 회차에서 수동 결정한다**(0.14.0→0.16.0 라운드가 그 증명이다, ADR-016~021). 테스트 스코프 상향 4종 중 2종이 게이트에서 탈락해 되돌렸다.
 - **[Chore]** **미사용 문자열 13건 삭제** — `R.string` 참조가 3건뿐임을 grep 으로 확인(남긴 것: image_attached·image_size_kb·chat_input_hint). web_search_approval_* 5종도 포함(설정 플래그는 있으나 승인 UI 미구현 — 필요 시 git 에서 복원). 말줄임표 `...` 를 전용 문자 `…` 로(살아남은 chat_input_hint 1건, 나머지 2건은 문자열 삭제로 소멸)
