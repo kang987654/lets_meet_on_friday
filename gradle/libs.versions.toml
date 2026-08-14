@@ -23,15 +23,19 @@ coroutines = "1.11.0"
 # EngineConfig 필드·SamplerConfig·ToolSet)이 전부 남아 있다. 추가분에 `ThinkingConfig` 가 있어
 # 맵 키로 끄던 생각 모드를 타입 API 로 옮길 수 있게 됐다.
 litertlm = "0.16.0"
+# [WHY] 5.x 는 메이저 상향(API 변경 가능) — 4.12 에 문제가 없고, 메이저는 필요가 생길 때
+# 별도 회차로 한다 (0.16.0 최신화 회차 판정, mockwebserver 도 같은 키를 쓴다).
 okhttp = "4.12.0"
+# [WHY] GPU 델리게이트 = 모델 런타임 인접 — litertlm 과 같은 이유로 승격 시 실기기 재검증이
+# 필요하므로 일반 최신화 회차(0.16.0)에서 제외했다.
 playServicesTfliteJava = "16.4.0"
 playServicesTfliteGpu = "16.4.0"
-commonmark = "1.0.0-alpha02"
-richtext = "1.0.0-alpha02"
+commonmark = "1.0.0-alpha05"
+richtext = "1.0.0-alpha05"
 lifecycleProcess = "2.11.0"
 
-kotlinx-serialization-json = "1.10.0"
-kotlinx-collections-immutable = "0.3.7"
+kotlinx-serialization-json = "1.11.0"
+kotlinx-collections-immutable = "0.5.1"
 # [WHY] hilt-navigation-compose 와 hilt-work 는 같은 androidx.hilt 릴리스 트레인이므로 버전 키를 공유한다.
 androidx-hilt = "1.4.0"
 work = "2.11.2"
@@ -51,6 +55,8 @@ junit = "4.13.2"
 # FirRegularClassImpl 해석 오류로 죽는다(2026-08-14 실측, 롤백으로 소멸 확인).
 # lint 가 테스트 소스를 분석하는 한 이 조합은 못 쓴다. AGP 상향 회차에서 재시도할 것.
 mockk = "1.13.10"
+# [WHY] 1.0.0 은 메이저 상향인 데다, 이 라이브러리는 영어 전용 임베더 하나만 쓰는 죽은 경로에
+# 가깝다(APK 52MB, ADR-013·0.14.0 관측) — 올리는 것보다 걷어내는 판단이 먼저다.
 mediapipe = "0.10.35"
 
 [plugins]
