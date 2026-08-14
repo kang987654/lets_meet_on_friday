@@ -141,6 +141,50 @@ class GemmaModelRunner @Inject constructor(
         kotlinx.coroutines.SupervisorJob() + llmDispatcher
     )
 
+    // [WHY] 감시는 llmDispatcher 에 둘 수 없다 — limitedParallelism(1)이라 네이티브 호출이
+    // 그 스레드를 점유하면(정확히 우리가 감시하려는 상황) 감시 코루틴이 영영 실행되지 않는다.
+    private val watchdogScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default
+    )
+
+    /**
+     * 추론 무활동 감시 — [Constants.INFERENCE_INACTIVITY_TIMEOUT_MS] 동안 토큰이 오지 않으면
+     * `cancelProcess()` 로 생성을 끊습니다.
+     *
+     * [WHY] **PRD EC1(추론 timeout) 의 집행이 없었다.** `ModelInferenceTimeout` 오류 타입과
+     * 사용자 문구까지 준비돼 있었지만 생성하는 곳이 0곳 — 네이티브가 멈추면 lifecycleMutex 를
+     * 쥔 채 영원히 매달려 이후 모든 턴(warmUp·close 포함)이 함께 막혔다.
+     *
+     * [WHY] `withTimeout` 이 아니라 감시 + `cancelProcess` 인 이유: 블로킹 JNI 호출은 코루틴
+     * 취소에 협조하지 않아 `withTimeout` 은 그 스레드를 풀지 못한다. `cancelProcess` 는 취소
+     * 버튼이 쓰는 네이티브 자체의 중단 경로라(뮤텍스도 잡지 않는다) 행 중인 생성을 실제로
+     * 끊을 수 있는 유일한 수단이다.
+     *
+     * [WHY] 사용자 취소와의 구분: 둘 다 cancelProcess 로 끝나지만 `timedOut` 은 이 감시만
+     * 세우므로, 사용자 취소는 지금처럼 부분 응답 보존으로, 타임아웃은 오류+재시도로 갈린다.
+     */
+    private inner class InferenceWatchdog(conversation: Conversation) {
+        private val lastActivity = java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis())
+        @Volatile
+        var timedOut = false
+            private set
+        private val job = watchdogScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(1_000)
+                val idleMs = System.currentTimeMillis() - lastActivity.get()
+                if (idleMs > Constants.INFERENCE_INACTIVITY_TIMEOUT_MS) {
+                    timedOut = true
+                    Log.w("GemmaModelRunner", "추론 무활동 ${idleMs}ms — cancelProcess 로 중단")
+                    runCatching { conversation.cancelProcess() }
+                    break
+                }
+            }
+        }
+
+        fun beat() = lastActivity.set(System.currentTimeMillis())
+        fun stop() = job.cancel()
+    }
+
     override suspend fun generate(
         prompt: ChatPrompt,
         onToken: ((String) -> Unit)?
@@ -226,6 +270,8 @@ class GemmaModelRunner @Inject constructor(
                 // 턴 종료 값과의 델타로 "툴 응답 + 생성이 실제로 몇 토큰을 먹었는지"가 나온다.
                 if (prompt.toolResponse != null) logKvUsage("툴 회신 직전", currentConversation)
 
+                val watchdog = InferenceWatchdog(currentConversation)
+
                 // [WHY] 부수 계산용 임시 대화는 여기서 반드시 닫는다. 캐시하지 않으므로 이
                 // 시점을 놓치면 네이티브 자원이 그대로 샌다.
                 try {
@@ -251,6 +297,7 @@ class GemmaModelRunner @Inject constructor(
                             .buffer(kotlinx.coroutines.channels.Channel.UNLIMITED)
                             .collect { message ->
                                 yield() // CPU 점유율 양보 (UI 스레드 기아 방지)
+                                watchdog.beat()
                                 collectToolCalls(message, toolCalls)
                                 val token = message.contents.contents
                                     .filterIsInstance<com.google.ai.edge.litertlm.Content.Text>()
@@ -268,14 +315,31 @@ class GemmaModelRunner @Inject constructor(
                     metricsCollector.recordEnd(System.currentTimeMillis() - startTime, tokenCount)
                     if (!prompt.oneShot) logKvUsage("턴 종료", currentConversation)
 
-                    if (error != null) {
+                    // [WHY] 타임아웃 판정이 스트리밍 오류보다 먼저다 — cancelProcess 가 수집을
+                    // 예외로 끝낼 수 있는데, 그 예외를 일반 추론 오류로 보고하면 "다시 시도해
+                    // 주세요" 대신 원인 불명의 실패로 보인다.
+                    if (watchdog.timedOut) {
+                        AppResult.Failure(AppError.ModelInferenceTimeout(System.currentTimeMillis() - startTime))
+                    } else if (error != null) {
                         AppResult.Failure(AppError.ModelInferenceError(error.message ?: "스트리밍 중 에러 발생"))
                     } else {
                         logTurn(prompt, finalResponse, toolCalls)
                         AppResult.Success(ModelTurn(finalResponse, toolCalls))
                     }
                 } else {
-                    val message = currentConversation.sendMessage(outgoing, thinkingConfig = THINKING_OFF)
+                    // [WHY] runCatching 인 이유 — 감시가 cancelProcess 를 부르면 이 블로킹 호출이
+                    // 예외로 끝날 수 있고, 그것을 바깥 catch 로 흘리면 Timeout 이 아니라 일반
+                    // 추론 오류로 둔갑한다. 비스트리밍은 토큰 신호가 없어 무활동 = 총시간이다.
+                    val sendResult = runCatching {
+                        currentConversation.sendMessage(outgoing, thinkingConfig = THINKING_OFF)
+                    }
+                    if (watchdog.timedOut) {
+                        metricsCollector.recordEnd(System.currentTimeMillis() - startTime)
+                        return@withLock AppResult.Failure(
+                            AppError.ModelInferenceTimeout(System.currentTimeMillis() - startTime)
+                        )
+                    }
+                    val message = sendResult.getOrThrow()
                     val toolCalls = mutableListOf<ModelToolCall>()
                     collectToolCalls(message, toolCalls)
                     val messageText = message.contents.contents
@@ -295,6 +359,7 @@ class GemmaModelRunner @Inject constructor(
                     }
                 }
                 } finally {
+                    watchdog.stop()
                     if (prompt.oneShot) runCatching { currentConversation.close() }
                 }
             }
