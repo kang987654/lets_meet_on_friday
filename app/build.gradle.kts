@@ -9,14 +9,15 @@ plugins {
 android {
     namespace = "com.kosmos.app"
     // [WHY] androidx-hilt 1.4·lifecycle 2.11 이 컴파일 API 37 을 요구한다(AAR 메타데이터).
-    // compileSdk 는 컴파일 시점 API 노출만 바꾸고, 런타임 동작 전환은 targetSdk 가 정한다 —
-    // targetSdk 35 는 유지해 실기기 검증(0.15.1)의 동작 조건을 지킨다.
     compileSdk = 37
 
     defaultConfig {
         applicationId = "com.kosmos.app"
         minSdk = 26
-        targetSdk = 35
+        // [WHY] 35 로 잡아두었으나 "나중에 OS 가 요구할 때 올리는 게 더 귀찮다"는 사용자 결정으로
+        // 최신(37)으로 맞췄다(2026-08-14). targetSdk 는 런타임 동작 규칙을 바꾸므로 상향 시
+        // 실기기 확인이 짝이다 — 이번 확인 대상: 전경 다운로드 알림, 오디오 녹음, 캘린더 동기화.
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
