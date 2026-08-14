@@ -33,6 +33,10 @@ dependencies {
     implementation(project(":domain"))
     implementation(project(":core"))
 
+    // [WHY] Uri 조립을 KTX 확장(toUri)으로 쓰므로 전이 의존에 기대지 않고 명시한다
+    // (app 모듈이 core-ktx 를 명시한 것과 같은 이유).
+    implementation(libs.androidx.core.ktx)
+
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

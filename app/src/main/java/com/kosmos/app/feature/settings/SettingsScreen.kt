@@ -227,7 +227,7 @@ fun SettingsScreen(
         // (근거: `Constants.ENGINE_MAX_TOKENS`).
         SectionBox(title = "대화 기억 범위") {
             Column {
-                var sliderValue by remember(uiState.maxTokens) { mutableStateOf(uiState.maxTokens.toFloat()) }
+                var sliderValue by remember(uiState.maxTokens) { mutableFloatStateOf(uiState.maxTokens.toFloat()) }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,

@@ -1,6 +1,7 @@
 package com.kosmos.app.data.local.file
 
 import android.content.Context
+import androidx.core.net.toUri
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
@@ -118,7 +119,7 @@ class ExportImportManager @Inject constructor(
     }
 
     override suspend fun restoreFromZip(zipUriString: String): AppResult<Unit> = withContext(Dispatchers.IO) {
-        val zipUri = android.net.Uri.parse(zipUriString)
+        val zipUri = zipUriString.toUri()
         val tempDir = File(context.cacheDir, "import_temp_${System.currentTimeMillis()}")
         try {
             if (!tempDir.exists() && !tempDir.mkdirs()) {
