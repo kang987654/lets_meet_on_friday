@@ -27,6 +27,11 @@ fun AppNavHost(
                     navController.navigate(AppDestination.Chat.route) {
                         popUpTo(AppDestination.Splash.route) { inclusive = true }
                     }
+                },
+                // [WHY] 스플래시를 백스택에 남긴다(popUpTo 없음) — 내려받기를 마치고 돌아오면
+                // 스플래시가 Ready 를 보고 자동으로 채팅에 진입한다.
+                onNavigateToModelManagement = {
+                    navController.navigate(AppDestination.ModelManagement.route)
                 }
             )
         }
