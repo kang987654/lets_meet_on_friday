@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- [WHY] allowBackup=false 는 Android 12+ 에서 클라우드 백업에만 적용되고 폐기 예고 상태다.
+     이 앱의 DB 에는 개인 일정·대화·기억이 담기므로 클라우드 백업과 기기 간 전송을 모두
+     명시적으로 차단해 allowBackup=false 의 의도를 12+ 에도 그대로 연장한다.
+     백업·이전은 앱 내 내보내기(ExportImportManager ZIP)가 담당한다. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>
