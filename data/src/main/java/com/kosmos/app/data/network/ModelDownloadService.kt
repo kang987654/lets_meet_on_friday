@@ -1,5 +1,6 @@
 package com.kosmos.app.data.network
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.data.di.DownloadClient
@@ -232,6 +233,10 @@ class ModelDownloadService @Inject constructor(
         backup.delete()
     }
 
+    // [WHY] lint(UsableSpace)가 권하는 getAllocatableBytes/allocateBytes 는 **타 앱 캐시를
+    // 지워서** 공간을 만드는 API 라 도입은 별도 결정이다 — 모델 3GB+ 를 위해 남의 캐시를
+    // 비우는 것이 맞는지의 문제. 지금은 보수적 사전 점검(있는 공간만 본다)을 유지한다.
+    @SuppressLint("UsableSpace")
     private fun ensureFreeSpace(required: Long) {
         val available = context.filesDir.usableSpace
         if (available < required) {

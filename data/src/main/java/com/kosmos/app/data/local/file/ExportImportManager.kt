@@ -1,5 +1,6 @@
 package com.kosmos.app.data.local.file
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.core.net.toUri
 import androidx.sqlite.db.SimpleSQLiteQuery
@@ -52,6 +53,9 @@ class ExportImportManager @Inject constructor(
         return createExportZipInternal(manifest)
     }
 
+    // [WHY] lint(UsableSpace)가 권하는 allocateBytes 는 타 앱 캐시를 지워서 공간을 만든다 —
+    // 10MB 백업 ZIP 을 위해 쓸 API 가 아니다. 보수적 사전 점검(있는 공간만 본다)을 유지한다.
+    @SuppressLint("UsableSpace")
     private suspend fun createExportZipInternal(manifest: ExportManifest): AppResult<File> = withContext(Dispatchers.IO) {
         var zipFile: File? = null
         try {

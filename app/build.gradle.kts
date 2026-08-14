@@ -52,6 +52,21 @@ android {
             isIncludeAndroidResources = true
         }
     }
+    lint {
+        // [WHY] 버전 승격은 lint 알림이 아니라 검증 회차에서 수동 결정한다 — 이 프로젝트에서
+        // 런타임 버전은 그 자체가 검증 대상이었다(0.14.0→0.16.0 가설 기각, ADR-016~021).
+        // 특히 litertlm·play-services-tflite 계열은 승격 = 실기기 재검증 필수.
+        // 대가: 새 버전(보안 패치 포함) 알림이 꺼지므로 확인은 최신화 회차에서 수동으로 한다.
+        disable += setOf(
+            "GradleDependency",
+            "NewerVersionAvailable",
+            "AndroidGradlePluginVersion",
+            "OldTargetApi",
+        )
+        // [WHY] 런처 아이콘 모양·중복 지적은 의도적 보류(개인용 앱) — 제대로 고치려면
+        // adaptive icon 자산 작업 회차가 필요하다. PNG 파일이라 인라인 억제가 불가능해 여기서 끈다.
+        disable += setOf("IconLauncherShape", "IconDuplicates")
+    }
 }
 
 dependencies {

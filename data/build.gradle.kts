@@ -23,6 +23,17 @@ android {
 
     packaging {
     }
+
+    lint {
+        // [WHY] 버전 승격은 lint 알림이 아니라 검증 회차에서 수동 결정한다 (app 모듈과 동일 —
+        // 근거는 app/build.gradle.kts 의 lint 블록 주석 참조).
+        disable += setOf(
+            "GradleDependency",
+            "NewerVersionAvailable",
+            "AndroidGradlePluginVersion",
+            "OldTargetApi",
+        )
+    }
 }
 
 ksp {

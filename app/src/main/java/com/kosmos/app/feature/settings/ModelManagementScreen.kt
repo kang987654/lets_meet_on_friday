@@ -2,6 +2,7 @@ package com.kosmos.app.feature.settings
 
 import com.kosmos.app.ui.theme.KosmosTheme
 import android.Manifest
+import android.annotation.SuppressLint
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -263,6 +264,10 @@ private fun DownloadCardShell(content: @Composable ColumnScope.() -> Unit) {
  * [WHY] 다운로드가 WorkManager 로 이관되어 앱을 닫아도 계속되므로, "앱을 종료하면 중단됩니다"
  * 라는 기존 안내는 사실과 반대가 되었다. (ADR-006)
  */
+// [WHY] lint(UsableSpace)는 allocateBytes 대체를 권하지만 여기는 **표시 전용**이라
+// usableSpace 가 의미상 정답이다 — 사용자에게 보여줄 값은 "지금 남은 공간"이지
+// "시스템이 타 앱 캐시를 지워서 만들 수 있는 공간"이 아니다.
+@SuppressLint("UsableSpace")
 @Composable
 private fun DownloadProgressCard(
     progress: Int,
