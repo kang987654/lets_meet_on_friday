@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.kosmos.app.data"
-    compileSdk = 35
+    compileSdk = 37 // [WHY] app 과 동일 — app/build.gradle.kts 의 compileSdk 주석 참조.
 
     defaultConfig {
         minSdk = 26

@@ -8,7 +8,10 @@ plugins {
 
 android {
     namespace = "com.kosmos.app"
-    compileSdk = 35
+    // [WHY] androidx-hilt 1.4·lifecycle 2.11 이 컴파일 API 37 을 요구한다(AAR 메타데이터).
+    // compileSdk 는 컴파일 시점 API 노출만 바꾸고, 런타임 동작 전환은 targetSdk 가 정한다 —
+    // targetSdk 35 는 유지해 실기기 검증(0.15.1)의 동작 조건을 지킨다.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.kosmos.app"

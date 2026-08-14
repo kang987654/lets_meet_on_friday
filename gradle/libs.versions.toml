@@ -1,8 +1,11 @@
 [versions]
-agp = "9.2.0"
-kotlin = "2.3.21"
-ksp = "2.3.7"
-hilt = "2.59"
+agp = "9.3.1"
+kotlin = "2.4.10"
+# [WHY] KSP 는 독립 버저닝 — 2.3.10 부터 Kotlin 2.4 의 기본 모듈명 형식을 지원한다(릴리스 노트).
+ksp = "2.3.11"
+# [WHY] kotlin 2.4 와 한 몸 — 2.59 는 kotlin 2.4 메타데이터를 못 읽어 KSP 가 죽는다
+# ("maximum supported version is 2.3.0", 2026-08-14 실측). kotlin 을 되돌리면 hilt 도 함께 볼 것.
+hilt = "2.60.1"
 
 compose-bom = "2026.04.01"
 navigation = "2.9.7"
@@ -30,7 +33,7 @@ lifecycleProcess = "2.8.7"
 kotlinx-serialization-json = "1.10.0"
 kotlinx-collections-immutable = "0.3.7"
 # [WHY] hilt-navigation-compose 와 hilt-work 는 같은 androidx.hilt 릴리스 트레인이므로 버전 키를 공유한다.
-androidx-hilt = "1.3.0"
+androidx-hilt = "1.4.0"
 work = "2.10.1"
 core-ktx = "1.15.0"
 # [WHY] 아래 테스트 스코프 전용은 런타임에 실리지 않으므로, 실기기 검증(0.15.1)을
