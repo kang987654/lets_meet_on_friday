@@ -372,8 +372,8 @@ fun ChatScreen(
                             TypingIndicator()
                         }
                     }
-                } // end LazyColumn
-            } // end Column
+                }
+            }
 
             // 최신으로 이동 FAB — 위로 스크롤한 상태에서만 노출 (C-3)
             if (listState.canScrollForward) {
@@ -414,8 +414,8 @@ fun ChatScreen(
                     )
                 }
             }
-        } // end Box
-    } // end Scaffold
+        }
+    }
 
     // 캘린더 초안이 없는 일반 승인(메모리 저장 등)만 승인 시트로 표시 — 초안 카드와 이중 노출 방지
     val request = uiState.pendingApproval

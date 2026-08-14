@@ -158,6 +158,9 @@ class AndroidCalendarTool @Inject constructor(
     }
 
     private fun getDefaultCalendarId(): Long {
+        // [WHY] 1L 은 대부분의 기기에서 첫(기본) 캘린더의 _ID 다 — IS_PRIMARY 조회가 실패하거나
+        // 권한이 없을 때의 마지막 폴백이고, 틀려도 insert 가 실패해 동기화 실패(로컬 저장 유지,
+        // ADR-004)로 떨어질 뿐 잘못된 캘린더에 조용히 쓰는 것보다 안전한 쪽으로 실패한다.
         var calId = 1L
         if (!hasPermission(Manifest.permission.READ_CALENDAR)) return calId
         try {
@@ -173,7 +176,7 @@ class AndroidCalendarTool @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            // fallback
+            AppLogger.w(TAG, "기본 캘린더 조회 실패(${e.message}) — _ID=1 폴백")
         }
         return calId
     }

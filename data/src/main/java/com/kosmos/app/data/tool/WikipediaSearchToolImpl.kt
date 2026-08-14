@@ -93,8 +93,9 @@ class WikipediaSearchToolImpl @Inject constructor(
                 val title = page.optString("title", "")
                 val extract = page.optString("extract", "")
 
-                // For MVP, we just return the extract since it's the most important text.
-                // Infobox fetching can be added later if needed, but extract is usually sufficient for RAG.
+                // [WHY] 도입부(extract)만 쓴다. gallery 원본은 action=parse 로 INFOBOX 까지
+                // 긁어 붙이지만 그만큼 토큰 예산을 먹고, 우리 상한(TOOL_RESULT_MAX_TOKENS 500)
+                // 에서는 도입부만으로도 꽉 찬다 — 필요해지면 예산 계산과 함께 재검토한다.
                 var finalResult = ""
                 if (extract.isNotEmpty()) {
                     finalResult += "--- SUMMARY ---\n$extract"

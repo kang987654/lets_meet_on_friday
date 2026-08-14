@@ -36,11 +36,10 @@ class GemmaRuntimeManager @Inject constructor(
     // TODO(v0): 실제 사용 시 설정(SettingsDataStore)에서 모델 경로를 읽어오는 구조로 개선 가능
     private val defaultModelFileName = com.kosmos.app.core.common.Constants.DEFAULT_MODEL_FILENAME
 
-    // [최적화 노트]
-    // 1. mmap 적용: LiteRT-LM LlmInferenceOptions의 setModelPath는 
-    //    내부 C++ LiteRT 엔진에서 자동으로 mmap(Memory Mapped File) 방식을 사용하여 모델을 로드하므로 별도의 MappedByteBuffer 처리가 필요 없습니다.
-    // 2. GPU Delegate: litertlm-android 라이브러리는 지원되는 기기에서 자동으로 GPU/NPU Delegate를 활성화하며,
-    //    수동 설정 없이도 최적화된 성능을 발휘합니다.
+    // [WHY] 모델 로드는 네이티브 엔진이 mmap 으로 처리하므로 Kotlin 쪽 MappedByteBuffer 가
+    // 필요 없다. (예전 노트의 "GPU Delegate 자동 활성화" 주장은 삭제 — 실제로는
+    // GemmaModelRunner.ensureInferenceInitialized 가 GPU 를 **수동 선택**하고 실패 시 CPU 로
+    // 폴백한다. 주석이 코드와 정반대였다.)
 
     init {
         checkModelFile()

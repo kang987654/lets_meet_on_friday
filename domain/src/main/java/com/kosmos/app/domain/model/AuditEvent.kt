@@ -15,7 +15,6 @@ enum class AuditEventType {
     APPROVAL_REJECTED,
     ERROR,
     
-    // v1 Extensions
     EXPORT,
     IMPORT,
     SEARCH_USED,

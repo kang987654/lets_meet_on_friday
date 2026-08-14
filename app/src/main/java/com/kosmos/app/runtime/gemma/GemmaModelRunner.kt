@@ -284,7 +284,9 @@ class GemmaModelRunner @Inject constructor(
                     var tokenCount = 0
 
                     try {
-                        // [WHY] **토큰 유실 방지.** 0.14.0 의 `sendMessageAsync` 는 callbackFlow 이고,
+                        // [WHY] **토큰 유실 방지.** `sendMessageAsync` 는 callbackFlow 이고
+                        // (0.14.0 바이트코드에서 확인 — 0.16.0 상향 후 재검증하지 않았으나
+                        // 무한 버퍼는 사실이 바뀌어도 무해한 방어다),
                         // 네이티브 콜백(`Conversation$sendMessageAsync$1$1.onMessage`)이
                         // `ProducerScope.trySend(message)` 를 호출한 뒤 **반환값을 버린다**(바이트코드
                         // 확인). callbackFlow 의 기본 용량은 64 이고, 가득 차면 `trySend` 는 예외도
@@ -497,8 +499,12 @@ class GemmaModelRunner @Inject constructor(
         }
     }
 
-    // [WHY] ExperimentalFlags 와 renderPrefaceIntoString 은 @ExperimentalApi — gallery 도 같은
-    // 플래그를 쓰므로 감수한다. 0.14.0 업그레이드 시점마다 존재 여부를 컴파일이 검증해 준다.
+    // [WHY] renderPrefaceIntoString 은 @ExperimentalApi — 진단용(프리페이스 로그)이라 API 가
+    // 사라져도 기능이 아니라 로그만 잃으므로 감수한다. 버전 상향 시점마다 존재 여부를 컴파일이
+    // 검증해 준다 (0.16.0 에서 확인).
+    //
+    // 되짚어야 할 것: 예전 근거는 "gallery 도 같은 플래그를 쓴다"였다 — gallery 는 근거 등급에서
+    // 제외됐으므로(.agents/04_MODEL_EVIDENCE.md) 위 이유로 교체했다.
     @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
     private fun getOrCreateConversation(prompt: ChatPrompt): Conversation {
         val currentEngine = engine ?: throw IllegalStateException("Engine is not initialized")
@@ -540,10 +546,10 @@ class GemmaModelRunner @Inject constructor(
         val existingTokens = existing?.getTokenCount() ?: 0
         val isTokenExceeded = existing != null && existingTokens > resetThreshold
 
-        // [WHY] 초과를 조용히 넘기지 않는다. AAR 0.14.0 은 KV 용량을 넘겨도 오류를 내지 않고
-        // 초과분을 처리해 버리는 것이 확인됐다(파이썬 0.15.0 은 `5857 >= 4096` 으로 거부한다).
-        // 그래서 이 경계는 크래시가 아니라 **품질 저하**로만 드러나고, 그 형태로는 원인을 찾기
-        // 어렵다. 디버그 빌드에서 경계에 닿는 것을 눈에 보이게 남긴다.
+        // [WHY] 초과를 조용히 넘기지 않는다. AAR 0.14.0 은 KV 용량을 넘겨도 오류 없이 진행했고
+        // (품질 저하로만 드러남), 0.16.0 은 `4097 >= 4096` 오류로 거부한다(2026-08-13 실기기) —
+        // 어느 쪽이든 초과는 여기서 미리 보여야 원인 추적이 가능하다. 디버그 빌드에서 경계에
+        // 닿는 것을 눈에 보이게 남긴다.
         if (com.kosmos.app.BuildConfig.DEBUG && existingTokens > Constants.PREFILL_CEILING_TOKENS) {
             Log.w(
                 "GemmaModelRunner",
@@ -611,7 +617,8 @@ class GemmaModelRunner @Inject constructor(
      * 부수 계산 전용 임시 대화입니다. **호출자가 닫아야 합니다.**
      *
      * [WHY] 툴도 few-shot 도 히스토리도 싣지 않는다. 그래서 채팅 대화보다 훨씬 싸다 —
-     * 툴 선언만 실측 ~2천 토큰이므로 그것이 빠지면 프리필이 짧은 시스템 지시 한 줄뿐이다.
+     * 툴 5종 선언이 실측 652 토큰, few-shot 104 토큰이므로(measure_overhead.py — 예전 주석의
+     * "~2천 토큰"은 재실측으로 정정) 그것들이 빠지면 프리필이 짧은 시스템 지시뿐이다.
      * 부수 계산에 툴을 줄 이유도 없다(전사·요약은 도구를 쓰지 않는다).
      */
     private fun createOneShotConversation(currentEngine: Engine, prompt: ChatPrompt): Conversation =

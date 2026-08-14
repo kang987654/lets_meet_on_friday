@@ -67,6 +67,9 @@ abstract class BaseAgent(
         // [WHY] 검색을 시도했는데 실패한 경우다. 사용자에게 "이 답은 기기 안에서만 만든 것"임을
         // 알려야 검색 결과로 오해하지 않는다 (PRD V1-AC3·EC5).
         var searchFailed = false
+        // [WHY] 3 은 SearchMemory 재조회 프로토콜의 하한이다 — 검색(1) → 재검색어로 재조회(2)
+        // → 최종 답변(3). 줄이면 그 프로토콜이 조용히 끊긴다. 인자 오류 자가수정도 이 상한을
+        // 공유한다(BAD_FORMAT 재시도).
         val MAX_TOOL_LOOP_COUNT = 3
         val THINK_TAG_WINDOW = 12 // "<|think|" 태그가 토큰 경계에 걸려도 감지되는 길이
 

@@ -14,7 +14,10 @@ import org.json.JSONObject
  * ### Key Flow
  * 1. 전체 응답 텍스트에서 `<|think|>` 블록을 정규식으로 탐색하여 에이전트의 사고 과정(thinking) 추출 및 본문에서 제거
  * 2. `<tool_call>` 블록을 정규식으로 탐색 후 내부 JSON을 파싱해 [ToolCallData] 리스트 생성
- * 3. JSON 자체가 깨진 블록은 [ParsedStream.malformedToolCalls]로 분리해 호출부가 모델에게 알릴 수 있게 함
+ *    — 단, 툴 호출의 **정식 경로는 런타임의 구조화된 toolCalls** 다(ADR-008). 이 텍스트 파싱은
+ *    모델이 프로토콜 문법을 본문으로 흘렸을 때 화면에 새지 않게 걷어내는 위생 처리에 가깝다
+ * 3. JSON 이 깨진 블록은 [ParsedStream.malformedToolCalls]로 분리 — **현재 소비자 없음**
+ *    (모델 회신 경로 미배선, 2026-08-15 감사). 본문 오염 방지 효과만 실사용 중이다
  * 4. 최종적으로 UI 렌더링을 위한 본문 텍스트, 사고 과정, 툴 콜 정보를 캡슐화한 [ParsedStream] 반환
  */
 object ToolParser {

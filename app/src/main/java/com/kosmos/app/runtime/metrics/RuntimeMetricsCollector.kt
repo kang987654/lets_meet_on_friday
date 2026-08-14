@@ -84,7 +84,9 @@ class RuntimeMetricsCollector @Inject constructor(
                 auditTrailService.logThermalEvent("system_thermal", "graceful_degradation", temp)
             }
             _thermalWarning.value = AppError.TemperatureCritical(temp)
-            // 기존 Hard Halt(에러 반환) 대신 Warning을 반환하여 UI가 경고를 띄울 수 있게 함
+            // [WHY] 임계(≥48°C)는 **하드 차단**이다 — Failure 를 돌려받은 runTurn 이 추론을
+            // 시작하지 않는다. (예전 주석은 정반대로 "Warning 반환"이라 적었다 — 경고 상태
+            // 노출은 위의 StateFlow 가 맡고, 반환값은 차단이 맞다.)
             return AppResult.Failure(AppError.TemperatureCritical(temp))
         } else if (temp >= Constants.THERMAL_WARNING_CELSIUS) {
             _thermalWarning.value = AppError.TemperatureWarning(temp)
@@ -104,8 +106,9 @@ class RuntimeMetricsCollector @Inject constructor(
      * [WHY] 예전에는 온도와 무관하게 5번째 추론마다 1초를 무조건 지연했다. 두 가지가 겹쳐
      * 실제 체감 비용이 됐다: ① 툴을 쓰는 대화는 한 번의 사용자 메시지가 **추론 2회**를 쓰므로
      * (호출 턴 + 응답 턴) 사용자 기준으로는 2~3 메시지마다 1초를 냈다. ② 사용자가 생각하는
-     * 시간이 끼는 채팅에서 "연속 5회"는 지속 부하와 다르다. 발열 방어는 이미 세 겹으로 있다 —
-     * 임계 온도 사전 차단, 경고 온도 이상에서의 토큰 단위 지연, 추론 종료 후 감사 이벤트.
+     * 시간이 끼는 채팅에서 "연속 5회"는 지속 부하와 다르다. 발열 방어는 이미 두 겹으로 있다 —
+     * 임계 온도 사전 차단(checkPreconditions), 추론 종료 후 임계/경고 감사 이벤트(recordEnd).
+     * (예전 주석의 "토큰 단위 지연"은 ADR-012 에서 폐기된 장치라 목록에서 지웠다.)
      * 이 지연은 그 위에 얹는 예방책이므로 정말 따뜻할 때만 낸다.
      */
     suspend fun handleCooldownIfNecessary() {
