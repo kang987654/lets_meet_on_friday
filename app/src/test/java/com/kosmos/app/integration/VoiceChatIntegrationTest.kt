@@ -166,6 +166,24 @@ class VoiceChatIntegrationTest {
             userMessages.any { it.inputType == com.kosmos.app.domain.model.InputType.VOICE }
         )
         assertTrue("Assistant response should be saved. Error: ${finalState.error}", assistantMessages.any { it.content.contains("Audio processed") })
+
+        // [WHY] 음성 턴의 화면 말풍선은 전사 전 자리표시자("(음성 메시지)")로 뜨므로, 턴 종료 후
+        // DB 의 전사문으로 교체되어야 한다 — 교체가 없으면 사용자가 화면에서 전사 결과를 확인할
+        // 수 없다(2026-08-14 실기기 관측: 자리표시자가 세션 내내 남았다).
+        val uiStartTime = System.currentTimeMillis()
+        while (viewModel.uiState.value.messages.none {
+                it.role == com.kosmos.app.domain.model.ChatMessage.Role.USER && it.content == TRANSCRIPT
+            } && System.currentTimeMillis() - uiStartTime < 3000
+        ) {
+            org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            Thread.sleep(50)
+        }
+        assertTrue(
+            "화면 말풍선이 자리표시자 대신 전사문이어야 한다. 현재: ${viewModel.uiState.value.messages.map { "${it.role}:${it.content}" }}",
+            viewModel.uiState.value.messages.any {
+                it.role == com.kosmos.app.domain.model.ChatMessage.Role.USER && it.content == TRANSCRIPT
+            }
+        )
     }
 
     private companion object {

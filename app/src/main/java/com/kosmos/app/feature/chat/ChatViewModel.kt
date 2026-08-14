@@ -253,6 +253,12 @@ class ChatViewModel @Inject constructor(
                 )
                 
                 handleAgentResult(result)
+                // [WHY] 음성 턴의 사용자 말풍선은 전사가 끝나기 전에 "(음성 메시지)" 자리표시자로
+                // 띄운 낙관적 항목이다. 턴이 끝나면 DB 의 진실(전사문)로 교체한다 — 교체하지
+                // 않으면 그 세션 화면에서 전사 결과를 확인할 방법이 없다(2026-08-14 실기기 관측:
+                // 자리표시자가 세션 내내 남았다). 전사 실패 턴은 사용자 메시지를 저장하지
+                // 않으므로(0.12.0) 자리표시자도 함께 사라지고, 오류 안내는 handleAgentResult 몫이다.
+                if (audioFilePath != null) loadMessages()
             } finally {
                 _uiState.update { it.copy(isInFlight = false, streamingText = null, streamingThinking = null) }
             }
