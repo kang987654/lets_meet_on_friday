@@ -376,6 +376,12 @@ class GemmaModelRunner @Inject constructor(
                 currentSessionId = null
                 currentSystemInstruction = null
                 currentEnabledTools = null
+                // [WHY] 엔진을 해제했는데 loadState 를 Ready 로 두면 상태가 거짓이 된다 —
+                // 재진입한 스플래시가 낡은 Ready 를 믿고 warmUp 을 건너뛰고, 이후 설정 화면의
+                // 재탐색(checkModelFile)이 상태를 FileFound 로 되돌리면 warmUp 을 불러줄 곳이
+                // 없어 "엔진 준비 중" 스피너가 영원히 멈춘다(2026-08-14 실기기 스모크).
+                // 해제 직후 상태를 사실(파일은 있고 엔진은 없음 = FileFound)로 되돌린다.
+                runtimeManager.checkModelFile()
             }
         }
     }
