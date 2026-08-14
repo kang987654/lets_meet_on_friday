@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KOSMOS 레이아웃 시안</title>
+<style>
+  :root{
+    --bg:#040D1F; --surface:#071526; --glass:#0B1D33; --glass-hi:#10263F;
+    --border:#1E3A55; --border-hi:#2C4F70;
+    --accent:#22D3EE; --accent-dim:#0E7490; --alt:#818CF8;
+    --text:#F1F5F9; --text2:#94A3B8; --muted:#475569;
+    --ok:#34D399; --warn:#FBBF24; --danger:#F87171;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{background:#020814; color:var(--text); font-family:'Segoe UI','Malgun Gothic',sans-serif; padding:32px 24px 64px}
+  h1{font-size:22px; margin-bottom:4px}
+  .sub{color:var(--text2); font-size:13px; margin-bottom:36px}
+  h2{font-size:17px; margin:48px 0 4px; color:var(--accent)}
+  h2 .tag{font-size:11px; background:var(--glass-hi); border:1px solid var(--border); border-radius:99px; padding:2px 10px; color:var(--text2); vertical-align:2px; margin-left:8px}
+  .concept-sub{color:var(--text2); font-size:13px; margin-bottom:20px; max-width:760px; line-height:1.6}
+  .row{display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start}
+  .phone{width:300px; height:620px; background:var(--bg); border:2px solid #223; border-radius:28px; overflow:hidden; position:relative; flex-shrink:0; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  .phone .label{position:absolute; top:-0px; left:0; right:0; text-align:center; font-size:10px; color:var(--muted); letter-spacing:1px; padding-top:6px; z-index:5}
+  .screen{flex:1; display:flex; flex-direction:column; font-size:11.5px; overflow:hidden}
+  .notes{flex:1; min-width:280px; max-width:400px; font-size:13px; line-height:1.75; color:var(--text2)}
+  .notes b{color:var(--text)}
+  .notes ul{padding-left:18px; margin:8px 0}
+  .notes li{margin-bottom:7px}
+  .fit{margin-top:14px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-radius:12px; font-size:12px}
+  .fit b{color:var(--accent)}
+  /* --- 공용 컴포넌트 --- */
+  .hdr{display:flex; align-items:center; gap:8px; padding:12px 14px 10px; border-bottom:1px solid var(--border)}
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--ok); flex-shrink:0}
+  .hdr .title{font-weight:600; font-size:13px}
+  .hdr .caret{color:var(--muted); font-size:10px}
+  .spacer{flex:1}
+  .icon{width:28px; height:28px; border-radius:50%; background:var(--glass); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--text2)}
+  .chip{font-size:9.5px; background:var(--glass); border:1px solid var(--border); border-radius:99px; padding:3px 8px; color:var(--text2)}
+  .msgs{flex:1; padding:12px; display:flex; flex-direction:column; gap:10px; overflow:hidden}
+  .bub-u{align-self:flex-end; max-width:78%; background:linear-gradient(135deg,#164E63,#0E7490); border-radius:16px 16px 4px 16px; padding:8px 12px; line-height:1.5}
+  .bub-a{align-self:flex-start; max-width:82%; background:var(--glass); border:1px solid var(--border); border-radius:16px 16px 16px 4px; padding:8px 12px; line-height:1.5}
+  .datesep{align-self:center; font-size:9px; color:var(--muted); background:var(--surface); padding:2px 10px; border-radius:99px}
+  .inputbar{margin:10px 12px 14px; background:var(--glass); border:1px solid var(--border-hi); border-radius:22px; padding:8px 10px; display:flex; align-items:center; gap:8px}
+  .inputbar .ph{flex:1; color:var(--muted)}
+  .rndbtn{width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0}
+  .send{background:var(--accent); color:#04121f; font-weight:bold}
+  .ghost{background:transparent; border:1px solid var(--border); color:var(--text2)}
+  .ghost.on{border-color:var(--accent); color:var(--accent)}
+  .tabbar{display:flex; border-top:1px solid var(--border); background:var(--surface)}
+  .tab{flex:1; text-align:center; padding:9px 0 11px; color:var(--muted); font-size:9.5px}
+  .tab .ti{font-size:15px; display:block; margin-bottom:2px}
+  .tab.on{color:var(--accent)}
+  .card{margin:0 12px 10px; background:var(--glass); border:1px solid var(--border); border-radius:14px; padding:10px 12px}
+  .card .ct{font-size:10px; color:var(--accent); letter-spacing:1px; margin-bottom:6px}
+  .card .big{font-size:12.5px; line-height:1.55}
+  .li{display:flex; gap:8px; align-items:center; padding:5px 0; border-bottom:1px solid rgba(30,58,85,.4)}
+  .li:last-child{border-bottom:none}
+  .li .t{color:var(--accent); font-size:10px; width:52px; flex-shrink:0}
+  .approval{margin:0 12px 10px; background:var(--glass-hi); border:1px solid var(--accent-dim); border-radius:14px; padding:10px 12px}
+  .approval .at{color:var(--warn); font-size:10px; margin-bottom:5px}
+  .btnrow{display:flex; gap:8px; margin-top:8px}
+  .btn{flex:1; text-align:center; border-radius:10px; padding:6px 0; font-size:11px}
+  .btn.p{background:var(--accent); color:#04121f; font-weight:600}
+  .btn.s{border:1px solid var(--border); color:var(--text2)}
+  .drawer{position:absolute; inset:0; background:rgba(2,8,20,.55); display:flex}
+  .drawer .panel{width:76%; background:var(--surface); border-right:1px solid var(--border); padding:14px 12px; display:flex; flex-direction:column; gap:6px}
+  .sess{padding:9px 10px; border-radius:10px; font-size:11.5px; color:var(--text2)}
+  .sess.on{background:var(--glass-hi); color:var(--text); border:1px solid var(--border)}
+  .sess small{display:block; color:var(--muted); font-size:9px; margin-top:2px}
+  .newbtn{display:flex; align-items:center; gap:8px; background:var(--glass-hi); border:1px solid var(--accent-dim); color:var(--accent); border-radius:12px; padding:9px 10px; font-size:12px; font-weight:600; margin-bottom:8px}
+  .dsec{margin-top:auto; border-top:1px solid var(--border); padding-top:8px; display:flex; flex-direction:column; gap:2px}
+  .dlink{padding:7px 10px; color:var(--text2); font-size:11.5px}
+  .seg{display:flex; gap:6px; margin:10px 12px}
+  .segb{flex:1; text-align:center; font-size:10.5px; padding:6px 0; border-radius:99px; border:1px solid var(--border); color:var(--text2)}
+  .segb.on{background:var(--glass-hi); border-color:var(--accent); color:var(--accent)}
+  .statuscap{font-size:9px; color:var(--text2); background:var(--glass); border:1px solid var(--border); border-radius:99px; padding:3px 8px}
+  .fab{position:absolute; right:14px; bottom:74px; width:44px; height:44px; border-radius:50%; background:var(--accent); color:#04121f; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:bold; box-shadow:0 6px 18px rgba(34,211,238,.35)}
+  .verdict{margin-top:56px; background:var(--surface); border:1px solid var(--border-hi); border-radius:16px; padding:20px 22px; max-width:900px}
+  .verdict h3{color:var(--accent); font-size:15px; margin-bottom:10px}
+  .verdict p{font-size:13px; color:var(--text2); line-height:1.75; margin-bottom:8px}
+  .verdict b{color:var(--text)}
+</style>
+</head>
+<body>
+
+<h1>KOSMOS 레이아웃 시안 3종</h1>
+<div class="sub">색 팔레트는 현행 유지 · 기준: 현재 기능(채팅/승인/캘린더/기억/감사/모델관리) + 확장(A1 세션·A4 브리핑·B1 리마인더·C′ Profile·E3 감사 타임라인) 수용력</div>
+
+<!-- ═══════════ 시안 A ═══════════ -->
+<h2>시안 A — 대화 단일 루트<span class="tag">몰입형 · 하단 탭 제거</span></h2>
+<div class="concept-sub">비서의 본체는 대화라는 판단. 채팅이 루트 화면이고 나머지(캘린더·기억·설정)는 좌측 드로어의 보조 공간. <b>예산 1,700 체제에서 세션이 짧고 많아지므로 세션 전환을 1급 동작으로 승격.</b></div>
+<div class="row">
+  <div class="phone"><div class="screen">
+    <div class="hdr">
+      <div class="icon">☰</div>
+      <div><div class="title">팀 회의 일정 잡기 <span class="caret">▾</span></div></div>
+      <div class="spacer"></div>
+      <span class="statuscap">🌡36° · 9.6t/s</span>
+      <div class="icon" style="color:var(--accent); border-color:var(--accent-dim)">＋</div>
+    </div>
+    <div class="msgs">
+      <div class="datesep">오늘</div>
+      <div class="bub-u">다음주 월요일 10시 팀 회의 잡아줘</div>
+      <div class="bub-a">일정 초안을 만들었어요. 확인해 주세요.</div>
+    </div>
+    <div class="approval">
+      <div class="at">📅 일정 승인 대기</div>
+      <div class="big">팀 회의<br><span style="color:var(--text2)">8/17 (월) 10:00 – 11:00</span></div>
+      <div class="btnrow"><div class="btn s">거절</div><div class="btn p">승인</div></div>
+    </div>
+    <div class="inputbar">
+      <div class="icon" style="border:none">📎</div>
+      <div class="ph">메시지를 입력하세요…</div>
+      <div class="rndbtn ghost on">🌐</div>
+      <div class="rndbtn ghost">🎙</div>
+    </div>
+  </div><div class="label">A-1 채팅 (루트)</div></div>
+
+  <div class="phone"><div class="screen" style="position:relative">
+    <div class="msgs" style="filter:blur(1px); opacity:.4">
+      <div class="bub-u">다음주 월요일 10시 팀 회의</div>
+      <div class="bub-a">일정 초안을 만들었어요.</div>
+    </div>
+    <div class="drawer"><div class="panel">
+      <div class="newbtn">＋ 새 대화</div>
+      <div class="sess on">팀 회의 일정 잡기<small>오늘 · 12턴</small></div>
+      <div class="sess">트와이스 데뷔일 검색<small>오늘 · 4턴</small></div>
+      <div class="sess">자전거 비밀번호<small>어제 · 6턴</small></div>
+      <div class="sess">우산 리마인더<small>8/12 · 3턴</small></div>
+      <div class="dsec">
+        <div class="dlink">📅 캘린더</div>
+        <div class="dlink">🧠 기억 <span style="color:var(--muted)">(지식·할 일·프로필)</span></div>
+        <div class="dlink">🛡 활동 기록</div>
+        <div class="dlink">⚙ 설정</div>
+      </div>
+    </div></div>
+  </div><div class="label">A-2 세션 드로어</div></div>
+
+  <div class="notes">
+    <b>핵심 결정</b>
+    <ul>
+      <li><b>세션 = 대화 목록</b>이 드로어에 상주. 새 대화(＋)가 헤더에 상시 노출 — 리셋을 사용자가 통제하는 품질 수단으로</li>
+      <li><b>웹 검색 토글을 입력바로</b>(🌐) — 질문을 쓰는 맥락 옆에 있어야 하고, 헤더 겹침 문제가 원천 소멸</li>
+      <li>상태 스트립 → 헤더 <b>캡슐 1개</b>(탭하면 온도/RAM/속도 상세 시트). 세로 공간 1줄 회수</li>
+      <li>하단 탭 제거 — 캘린더·기억은 드로어 하단으로. 채팅 몰입도 최대</li>
+    </ul>
+    <div class="fit"><b>확장 수용</b> — A1 세션관리(구조 자체), A4 브리핑(새 아침마다 시스템 세션으로 도착), C′ Profile(기억 화면 세그먼트), TTS(말풍선 재생 버튼)<br><br><b>대가</b> — 캘린더가 두 탭 깊이로 밀림. 일정 중심 사용자에겐 손해</div>
+  </div>
+</div>
+
+<!-- ═══════════ 시안 B ═══════════ -->
+<h2>시안 B — 허브 + 대화<span class="tag">오늘 탭 신설 · 4탭 재편</span></h2>
+<div class="concept-sub">"오늘" 탭이 홈 — 브리핑·일정·할 일을 한눈에(glanceable). 대화 탭은 메신저처럼 세션 목록이 첫 화면. <b>캘린더 탭을 "오늘"에 흡수해 P3(분절)를 화면 구조로 해소.</b></div>
+<div class="row">
+  <div class="phone"><div class="screen">
+    <div class="hdr"><div class="dot"></div><div class="title">8월 15일 금요일</div><div class="spacer"></div><span class="statuscap">🌡36°</span></div>
+    <div style="height:10px"></div>
+    <div class="card">
+      <div class="ct">아침 브리핑</div>
+      <div class="big">오늘 일정 2건, 미완료 할 일 1건이 있어요. 오후부터 비 소식이 있으니 우산을 챙기세요.</div>
+    </div>
+    <div class="card">
+      <div class="ct">오늘 일정</div>
+      <div class="li"><span class="t">10:00</span> 팀 회의 <span class="chip" style="margin-left:auto">회의실 3층</span></div>
+      <div class="li"><span class="t">19:00</span> 저녁 약속</div>
+    </div>
+    <div class="card">
+      <div class="ct">할 일 · 리마인더</div>
+      <div class="li"><span style="color:var(--muted)">☐</span> 자전거 자물쇠 교체</div>
+      <div class="li"><span style="color:var(--muted)">⏰</span> 15:00 우산 챙기기</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="tabbar">
+      <div class="tab on"><span class="ti">☀</span>오늘</div>
+      <div class="tab"><span class="ti">💬</span>대화</div>
+      <div class="tab"><span class="ti">🧠</span>기억</div>
+      <div class="tab"><span class="ti">⚙</span>설정</div>
+    </div>
+  </div><div class="label">B-1 오늘 (홈)</div></div>
+
+  <div class="phone"><div class="screen" style="position:relative">
+    <div class="hdr"><div class="title">대화</div><div class="spacer"></div><div class="icon">🔍</div></div>
+    <div style="padding:10px 12px; display:flex; flex-direction:column; gap:6px">
+      <div class="sess on">팀 회의 일정 잡기<small>방금 · "일정을 등록했어요"</small></div>
+      <div class="sess">트와이스 데뷔일 검색<small>오늘 · "2015년 10월 20일…"</small></div>
+      <div class="sess">자전거 비밀번호<small>어제</small></div>
+      <div class="sess">우산 리마인더<small>8/12</small></div>
+    </div>
+    <div class="fab">＋</div>
+    <div class="spacer"></div>
+    <div class="tabbar">
+      <div class="tab"><span class="ti">☀</span>오늘</div>
+      <div class="tab on"><span class="ti">💬</span>대화</div>
+      <div class="tab"><span class="ti">🧠</span>기억</div>
+      <div class="tab"><span class="ti">⚙</span>설정</div>
+    </div>
+  </div><div class="label">B-2 대화 목록</div></div>
+
+  <div class="phone"><div class="screen">
+    <div class="hdr"><div class="icon">‹</div><div><div class="title">팀 회의 일정 잡기</div></div><div class="spacer"></div><span class="statuscap">9.6t/s</span></div>
+    <div class="msgs">
+      <div class="bub-u">다음주 월요일 10시 팀 회의 잡아줘</div>
+      <div class="bub-a">일정을 등록했어요. 8/17 (월) 10:00 – 11:00 ✓</div>
+      <div class="bub-a" style="border-color:var(--accent-dim)"><span style="color:var(--accent); font-size:9px">🌐 위키백과 참고</span><br>트와이스는 2015년 10월 20일에 데뷔했습니다.</div>
+    </div>
+    <div class="inputbar">
+      <div class="icon" style="border:none">📎</div>
+      <div class="ph">메시지…</div>
+      <div class="rndbtn ghost">🌐</div>
+      <div class="rndbtn send">➤</div>
+    </div>
+  </div><div class="label">B-3 채팅 (탭 없음 · 몰입)</div></div>
+
+  <div class="notes">
+    <b>핵심 결정</b>
+    <ul>
+      <li><b>"오늘" 탭 = A4 브리핑의 집</b>. 아침 알림을 탭하면 여기로. 일정·할 일·리마인더가 카드 스택으로 — 캘린더 탭 폐지</li>
+      <li><b>대화 = 세션 목록 우선</b> (메신저 문법). 채팅 진입 시 탭바가 사라져 몰입</li>
+      <li>기억 탭: 지식 / 할 일 / <b>프로필(C′)</b> 3세그먼트 — 백업도 여기</li>
+      <li>설정이 탭으로 승격 — 채팅 헤더 밀집 원천 해소</li>
+    </ul>
+    <div class="fit"><b>확장 수용</b> — A4 브리핑·B1 리마인더(오늘 탭이 자연스러운 집), A1 세션(대화 탭 자체), B2 일정 수정(오늘 탭 카드에서), E1 앱 잠금(진입 시)<br><br><b>대가</b> — 화면 수가 가장 많음. 오늘 탭 콘텐츠(브리핑)가 구현 전이면 당분간 반쯤 빈 홈</div>
+  </div>
+</div>
+
+<!-- ═══════════ 시안 C ═══════════ -->
+<h2>시안 C — 현행 골격 유지 + 재배치<span class="tag">보수적 · 4탭 유지</span></h2>
+<div class="concept-sub">탭 구성(채팅·캘린더·기억·설정)은 그대로 두고 <b>채팅 헤더와 상태 표시만 재설계</b>. 보류 2건(토글·설정 겹침, 캘린더 선택 표지)을 해소하는 최소 이동 경로.</div>
+<div class="row">
+  <div class="phone"><div class="screen">
+    <div class="hdr">
+      <div class="dot"></div>
+      <div><div class="title">KOSMOS <span class="caret">▾</span></div><div style="font-size:8.5px;color:var(--muted)">세션: 팀 회의 일정 잡기</div></div>
+      <div class="spacer"></div>
+      <div class="icon" style="color:var(--accent); border-color:var(--accent-dim)">＋</div>
+    </div>
+    <div class="msgs">
+      <div class="datesep">오늘</div>
+      <div class="bub-u">다음주 월요일 10시 팀 회의 잡아줘</div>
+      <div class="bub-a">일정을 등록했어요 ✓</div>
+    </div>
+    <div class="inputbar">
+      <div class="icon" style="border:none">📎</div>
+      <div class="ph">메시지를 입력하세요…</div>
+      <div class="rndbtn ghost on">🌐</div>
+      <div class="rndbtn ghost">🎙</div>
+    </div>
+    <div class="tabbar">
+      <div class="tab on"><span class="ti">💬</span>채팅</div>
+      <div class="tab"><span class="ti">📅</span>캘린더</div>
+      <div class="tab"><span class="ti">🧠</span>기억</div>
+      <div class="tab"><span class="ti">⚙</span>설정</div>
+    </div>
+  </div><div class="label">C-1 채팅 (헤더 재설계)</div></div>
+
+  <div class="phone"><div class="screen">
+    <div class="hdr"><div class="title">캘린더</div><div class="spacer"></div><div class="seg" style="margin:0"><div class="segb on">오늘</div><div class="segb">주간</div></div></div>
+    <div style="display:flex; gap:6px; padding:10px 12px">
+      <div class="chip" style="border-color:var(--accent); color:var(--accent); padding:6px 10px">금<br>15</div>
+      <div class="chip" style="padding:6px 10px">토<br>16</div>
+      <div class="chip" style="padding:6px 10px">일<br>17</div>
+      <div class="chip" style="padding:6px 10px">월<br>18</div>
+      <div class="chip" style="padding:6px 10px">화<br>19</div>
+    </div>
+    <div class="card">
+      <div class="li"><span class="t">10:00</span> 팀 회의</div>
+      <div class="li"><span class="t">19:00</span> 저녁 약속</div>
+    </div>
+    <div class="card"><div class="ct">AI 요약</div><div class="big" style="color:var(--text2)">오전 회의 후 저녁까지 여유가 있어요.</div></div>
+    <div class="spacer"></div>
+    <div class="tabbar">
+      <div class="tab"><span class="ti">💬</span>채팅</div>
+      <div class="tab on"><span class="ti">📅</span>캘린더</div>
+      <div class="tab"><span class="ti">🧠</span>기억</div>
+      <div class="tab"><span class="ti">⚙</span>설정</div>
+    </div>
+  </div><div class="label">C-2 캘린더 (표지 수정)</div></div>
+
+  <div class="notes">
+    <b>핵심 결정</b>
+    <ul>
+      <li>헤더: 좌측 <b>상태 점 + 세션 이름 드롭다운</b>(▾ 탭 → 세션 시트), 우측 새 대화(＋)만. 설정은 탭으로 이동</li>
+      <li>웹 검색 토글 → 입력바(🌐). 상태 스트립 → 상태 점에 흡수(탭하면 상세)</li>
+      <li>캘린더는 선택 표지·세그먼트만 정리. 정보 구조 무변경</li>
+      <li>기억 탭에 프로필 세그먼트만 추가(C′ 대비)</li>
+    </ul>
+    <div class="fit"><b>확장 수용</b> — A1 세션(드롭다운 시트), C′ Profile(기억 세그먼트) ⭕ / A4 브리핑·B1 리마인더는 <b>집이 애매</b>(캘린더에 우겨넣거나 알림 전용) △<br><br><b>대가</b> — 가장 싸지만, 브리핑·리마인더가 들어올 때 다시 레이아웃 논의를 하게 될 가능성</div>
+  </div>
+</div>
+
+<div class="verdict">
+  <h3>제 추천: B (허브 + 대화), 단 2단계로</h3>
+  <p><b>이유 1 — 확장 로드맵과의 정합.</b> expand.md Phase 1~2의 주인공(A1 세션 관리, A4 아침 브리핑, B1 리마인더)이 전부 자연스러운 집을 갖는 유일한 구조입니다. A는 브리핑이 어색하고, C는 리마인더가 들어올 때 재논의가 필요합니다.</p>
+  <p><b>이유 2 — 예산 1,700 체제의 UX 번역.</b> 세션이 짧고 많아진 현실을 "대화 목록이 첫 화면"이라는 메신저 문법으로 자연스럽게 수용합니다. 사용자가 리셋을 의식하지 않고도 대화를 끊는 습관이 생깁니다.</p>
+  <p><b>2단계 제안</b> — 1단계: 탭 재편 + 채팅 헤더/입력바 재설계 + 대화 목록 화면(오늘 탭은 일정 카드만으로 시작). 2단계: 브리핑·리마인더가 구현될 때 오늘 탭에 카드 추가. 이러면 "반쯤 빈 홈" 문제를 피하면서 B의 골격을 미리 확보합니다.</p>
+</div>
+
+</body>
+</html>
