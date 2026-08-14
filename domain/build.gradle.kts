@@ -10,5 +10,5 @@ dependencies {
     // 소비 모듈이 :core를 중복 선언하지 않아도 된다.
     api(project(":core"))
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
 }
