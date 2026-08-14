@@ -129,6 +129,27 @@ class TokenBudgetInvariantTest {
         assertTrue("본문 예산이 $body 토큰뿐이다", body >= 300)
     }
 
+    @Test
+    fun `첨부 문서가 래퍼를 포함해도 최소 히스토리 예산에 살아남는다`() {
+        // [WHY] 예전 캡 2500자는 예산 6000 시절의 유물이었다 — 문서 메시지의 추정 토큰이
+        // 히스토리 예산(300)을 넘으면 슬라이딩 윈도우에서 **통째로 탈락**해, 문서에 대해 이어
+        // 물으면 모델이 문서를 본 적 없는 상태가 된다(MVP 감사 A3). 캡 상수만 보지 않고 실제
+        // 저장 형태(래퍼 포함)를 추정기에 넣어 확인한다 — 래퍼가 자라면 여기서 걸린다.
+        val tokenizer = com.kosmos.app.runtime.gemma.GemmaTokenizer(
+            io.mockk.mockk(), io.mockk.mockk()
+        )
+        val storedForm = "[Attached Document]\n\"\"\"\n" +
+            "첨부된 문서 내용(document.txt):\n" +
+            "가".repeat(Constants.MAX_ATTACHED_DOC_CHARS) +
+            "\n\"\"\""
+        // 슬라이딩 윈도우가 메시지마다 더하는 태그 오버헤드 10 을 포함한다 (ContextBuilder).
+        val estimated = tokenizer.sizeInTokens(storedForm) + 10
+        assertTrue(
+            "문서 메시지 추정 $estimated 토큰 > 최소 히스토리 ${Constants.MIN_HISTORY_TOKENS} — 윈도우에서 탈락한다",
+            estimated <= Constants.MIN_HISTORY_TOKENS
+        )
+    }
+
     private companion object {
         /** `Conversation.token_count` 실측 — 시스템 지시 573 + 툴 5종 652 + few-shot 104. */
         const val MEASURED_OVERHEAD = 1329
