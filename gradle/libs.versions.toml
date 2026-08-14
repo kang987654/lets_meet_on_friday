@@ -37,7 +37,11 @@ core-ktx = "1.15.0"
 # 무효화하지 않고 올릴 수 있는 유일한 범주다. 게이트는 전체 단위 테스트 + lint 통과.
 espressoCore = "3.7.0"
 androidxTestExtJunit = "1.3.0"
-robolectric = "4.16.1"
+# [WHY] robolectric 4.16.1 은 VoiceChatIntegrationTest 를 **단독 실행에서도 2/2 결정적으로**
+# 깨뜨린다(2026-08-14 실측; 전체 실행에서는 간헐 통과 — ShadowLooper 타이밍 의존 테스트라
+# 스케줄러 변화에 민감). 4.14 로 되돌리면 소멸. 상향은 테스트의 대기 구조를 손보는 회차에서
+# 재시도할 것 — 테스트 단언을 완화해서 맞추는 것은 금지 규칙이다.
+robolectric = "4.14"
 junit = "4.13.2"
 # [WHY] mockk 1.14.11 은 테스트는 전부 통과하지만 **lint(AGP 9.2)의 Kotlin 분석기를
 # 크래시시킨다** — lintAnalyzeDebugUnitTest 가 BaseAgentStreamTest 해석 중
