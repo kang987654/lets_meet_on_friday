@@ -167,12 +167,18 @@ abstract class BaseAgent(
                 // 포맷터가 이미 있었지만 호출하는 곳이 없어, 프라이버시상 가장 기록이 필요한
                 // 동작이 감사 로그에 남지 않았다.
                 if (call.name == "SearchWikipedia") {
+                    // [WHY] 뱃지 기준은 executed 가 아니라 **succeeded** 다. 위키 네트워크 실패는
+                    // 예외가 아니라 오류 JSON 으로 돌아오므로(executed=true), 예전 기준으로는
+                    // 실패한 검색에도 "참고했어요" 뱃지가 붙었다. 감사 기록은 executed 기준을
+                    // 유지한다 — 네트워크 시도 자체가 프라이버시상 기록할 사건이다.
                     if (outcome.executed) {
-                        searchUsed = true
                         auditTrailService.logSearchEvent(
                             request.sessionId,
                             args.optString("topic") ?: ""
                         )
+                    }
+                    if (outcome.succeeded) {
+                        searchUsed = true
                     } else if (call.name in allowedTools) {
                         // [WHY] allowlist 밖(토글 OFF)이면 '실패'가 아니라 '허용하지 않음'이다.
                         // 그 경우까지 "웹 검색 보강 실패"를 띄우면 사용자가 스스로 끈 것을
@@ -207,12 +213,19 @@ abstract class BaseAgent(
         // [WHY] 일정 초안 등 액션성 흐름은 모두 툴 콜 + 승인 경로로 일원화되었으므로(2026-07-31 절충안),
         // 최종 응답은 텍스트로 저장·반환한다. (구 ResponseParser/PreExecutionGuard 경로 제거)
         val text = finalParsed.content
-        createAndSaveMessage(request.sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT, searchUsed = searchUsed, thinkingProcess = finalParsed.thinking)
+        // [WHY] 저장 결과를 버리지 않는다. 실패해도 응답은 이미 화면에 있으므로 턴을 실패로
+        // 바꾸지 않되, 재시작 후 이 턴이 사라진다는 사실을 사용자가 알아야 한다(persistFailed).
+        // 감사 로그에는 원인을 남긴다.
+        val saveResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT, searchUsed = searchUsed, thinkingProcess = finalParsed.thinking)
+        if (saveResult is AppResult.Failure) {
+            auditTrailService.logError(request.sessionId, "비서 응답 저장 실패: ${saveResult.error}")
+        }
         return@coroutineScope AgentResult.Text(
             text,
             thinkingProcess = finalParsed.thinking,
             searchUsed = searchUsed,
-            searchFailed = searchFailed
+            searchFailed = searchFailed,
+            persistFailed = saveResult is AppResult.Failure
         )
     }
 
@@ -223,8 +236,28 @@ abstract class BaseAgent(
      * 그 문자열에서 `"status":"error"` 를 찾아야 하는데, 오류 JSON 을 만드는 곳이 네 군데이고
      * 그중 하나는 공백이 다른 손수 만든 리터럴이라(`{"status": "error"...}`) 문자열 검사가
      * 조용히 빗나간다. 실행 여부는 값으로 들고 나온다.
+     *
+     * [WHY] `succeeded` 는 `executed` 와 다르다. executor 가 실패를 예외가 아니라
+     * `{"status":"error"}` JSON 으로 돌려주면(위키 네트워크 실패가 그렇다) executed=true 인데,
+     * 예전에는 그것만 보고 searchUsed 를 켜서 **검색이 실패한 답변에 "위키백과 검색 결과를
+     * 참고했어요" 뱃지가 붙었다** — 검색 없이 만든 답을 근거 있는 답으로 오표시하는, PRD
+     * V1-AC3·EC5 를 실질 무력화하는 결함이었다. 판정은 문자열 검색이 아니라 JSON 파싱이다 —
+     * executor 출력은 전부 JSONObject 로 만들어져 형태가 균일하다.
      */
-    private data class ToolOutcome(val resultJson: String, val executed: Boolean)
+    private data class ToolOutcome(
+        val resultJson: String,
+        val executed: Boolean,
+        val succeeded: Boolean = executed
+    ) {
+        companion object {
+            fun of(resultJson: String, executed: Boolean): ToolOutcome {
+                val succeeded = executed && runCatching {
+                    org.json.JSONObject(resultJson).optString("status") != "error"
+                }.getOrDefault(true)
+                return ToolOutcome(resultJson, executed, succeeded)
+            }
+        }
+    }
 
     private suspend fun executeToolInner(
         call: ToolParser.ToolCallData,
@@ -271,7 +304,7 @@ abstract class BaseAgent(
                 }
                 auditTrailService.logApprovalGranted(sessionId, "${call.name}: ${approvalRequest.description}")
             }
-            ToolOutcome(executor.execute(call.args, sessionId), executed = true)
+            ToolOutcome.of(executor.execute(call.args, sessionId), executed = true)
         } catch (e: com.kosmos.app.assistant.tool.ToolArgumentException) {
             auditTrailService.logError(sessionId, "Invalid tool argument: ${call.name}.${e.field} (${e.reason})")
             ToolOutcome(toolArgumentErrorJson(call.name, e), executed = false)

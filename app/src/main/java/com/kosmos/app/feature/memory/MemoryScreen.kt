@@ -56,6 +56,16 @@ fun MemoryScreen(
         }
     }
 
+    // [WHY] 이 화면에는 Scaffold/SnackbarHost 가 없어 목록 조작 실패를 띄울 통로가 없었다 —
+    // Task 완료 토글이 실패하면 체크했는데 항목이 남아 "탭이 씹힌" 것처럼 보였다. 구조 변경
+    // 없이 토스트로 알린다.
+    LaunchedEffect(uiState.actionError) {
+        uiState.actionError?.let { message ->
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.dismissActionError()
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(KosmosTheme.colors.bg)) {
         Text(
             text = "Memory & Tasks",

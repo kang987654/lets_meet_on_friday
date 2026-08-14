@@ -17,11 +17,19 @@ sealed class AgentResult {
      * 언급할지는 확률이라, 네트워크가 끊긴 줄 모른 채 온디바이스 답변을 검색 결과로 오해할 수
      * 있었다. PRD V1-AC3·EC5 는 "로컬 응답 유지 + '웹 검색 보강 실패' 안내"를 요구한다.
      */
+    /**
+     * @param persistFailed 응답 텍스트의 DB 저장이 실패했는지 여부입니다.
+     *
+     * [WHY] 예전에는 저장 결과를 버렸다 — 화면에는 응답이 보이는데 재시작하면 그 턴만 사라지고,
+     * 사용자에게 어떤 안내도 없었다(사용자 메시지 저장 실패는 오류로 올리면서 비서 쪽만
+     * 비대칭으로 무음이었다). 응답 자체는 유효하므로 Error 로 바꾸지 않고 플래그로 알린다.
+     */
     data class Text(
         val content: String,
         val thinkingProcess: String? = null,
         val searchUsed: Boolean = false,
-        val searchFailed: Boolean = false
+        val searchFailed: Boolean = false,
+        val persistFailed: Boolean = false
     ) : AgentResult()
 
     data class Error(val error: AppError) : AgentResult()

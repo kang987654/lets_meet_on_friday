@@ -51,5 +51,12 @@ data class MemoryUiState(
     // [WHY] prd.md F8 정책 — 백업 파일에 개인정보가 포함됨을 UI에서 명시해야 한다.
     // v1은 암호화를 의도적으로 넣지 않았으므로 이 경고가 유일한 보호막이다.
     val showExportNotice: Boolean = false,
-    val showImportWarning: Boolean = false
+    val showImportWarning: Boolean = false,
+    /**
+     * 목록 조작(Task 완료 등) 실패 시 사용자에게 보여줄 문구입니다. 소비 후 null 로 되돌립니다.
+     *
+     * [WHY] 예전에는 Task 완료 토글의 저장 실패가 무시됐다 — 체크했는데 항목이 안 지워지면
+     * 사용자는 탭이 씹혔다고 본다(같은 뷰모델의 백업 경로만 실패를 노출했다).
+     */
+    val actionError: String? = null
 )

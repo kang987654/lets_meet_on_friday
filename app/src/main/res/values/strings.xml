@@ -7,4 +7,7 @@
     <string name="image_attached">이미지가 첨부되었습니다.</string>
     <string name="image_size_kb">크기: %1$d KB</string>
     <string name="chat_input_hint">메시지를 입력하세요…</string>
+    <!-- [WHY] 첨부만으로는 전송할 수 없다(빈 텍스트 거부). 안내가 없으면 전송 버튼이 안 뜨는
+         이유를 사용자가 알 수 없다 — 단독 전송 허용 대신 안내를 택했다(2026-08-15 결정). -->
+    <string name="attachment_needs_text">질문을 함께 입력하면 전송돼요</string>
 </resources>

@@ -141,51 +141,73 @@ fun ChatScreen(
     val context = LocalContext.current
     val contentResolver = context.contentResolver
     
+    // [WHY] 오류와 토글 피드백을 스낵바 한 곳으로 모으고, 문구는 ErrorMessages로 인간화한다.
+    // 첨부 피커와 권한 런처들이 이 두 값을 쓰므로 먼저 선언한다.
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    val snackbarScope = androidx.compose.runtime.rememberCoroutineScope()
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            try {
-                val mimeType = contentResolver.getType(uri)
-                if (mimeType?.startsWith("image/") == true) {
-                    contentResolver.openInputStream(uri)?.use { inputStream ->
-                        val bytes = inputStream.readBytes()
-                        val sharedImage = SharedInput.Image(
-                            uri = uri,
-                            sizeBytes = bytes.size.toLong()
-                        )
-                        viewModel.setSharedInput(sharedImage)
-                    }
-                } else {
-                    // Try to read as text document
-                    contentResolver.openInputStream(uri)?.use { inputStream ->
-                        val textContent = inputStream.bufferedReader().use { it.readText() }
-                        // Get file name
-                        var fileName = "document.txt"
-                        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                            if (cursor.moveToFirst() && nameIndex != -1) {
-                                fileName = cursor.getString(nameIndex)
+            // [WHY] 콜백은 메인 스레드다 — 최대 10MB 파일 전체 읽기는 IO 로 옮긴다. 전송 시점
+            // 읽기(ChatViewModel)는 같은 이유로 이미 IO 였는데 인테이크 쪽만 메인에 남아 있었다.
+            snackbarScope.launch {
+                val shared: SharedInput? = try {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        val mimeType = contentResolver.getType(uri)
+                        if (mimeType?.startsWith("image/") == true) {
+                            contentResolver.openInputStream(uri)?.use { inputStream ->
+                                SharedInput.Image(
+                                    uri = uri,
+                                    sizeBytes = inputStream.readBytes().size.toLong()
+                                )
+                            }
+                        } else {
+                            contentResolver.openInputStream(uri)?.use { inputStream ->
+                                val textContent = inputStream.bufferedReader().use { it.readText() }
+                                var fileName = "document.txt"
+                                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                    if (cursor.moveToFirst() && nameIndex != -1) {
+                                        fileName = cursor.getString(nameIndex)
+                                    }
+                                }
+                                // [WHY] 캡은 Constants.MAX_ATTACHED_DOC_CHARS 로 예산에서 파생된다.
+                                // 예전 2500 은 예산 6000 시절의 유물 — 그대로 두면 그 턴의 KV 가
+                                // GPU 숫자 깨짐 발병점을 넘고, 다음 턴부터는 슬라이딩 윈도우에서
+                                // 통째로 탈락해 모델이 문서를 본 적 없는 상태가 됐다.
+                                if (textContent.length > com.kosmos.app.core.common.Constants.MAX_ATTACHED_DOC_CHARS) {
+                                    snackbarScope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            "문서가 길어 앞부분만 첨부돼요. 긴 문서 요약은 아직 지원하지 않아요."
+                                        )
+                                    }
+                                }
+                                SharedInput.Document(
+                                    uri = uri,
+                                    fileName = fileName,
+                                    textContent = textContent.take(
+                                        com.kosmos.app.core.common.Constants.MAX_ATTACHED_DOC_CHARS
+                                    )
+                                )
                             }
                         }
-                        val sharedDoc = SharedInput.Document(
-                            uri = uri,
-                            fileName = fileName,
-                            textContent = textContent.take(2500) // Limit text to prevent exceeding token bounds
-                        )
-                        viewModel.setSharedInput(sharedDoc)
                     }
+                } catch (e: Exception) {
+                    null
                 }
-            } catch (e: Exception) {
-                // handle error
+                if (shared != null) {
+                    viewModel.setSharedInput(shared)
+                } else {
+                    // [WHY] 예전에는 catch 가 비어 있어(`// handle error`) 첨부 읽기가 실패하면
+                    // 아무 안내 없이 첨부가 사라졌다 — 사용자는 버튼이 고장 났다고 본다.
+                    // openInputStream 이 null 을 돌려주는 무예외 실패도 같은 안내로 덮는다.
+                    snackbarHostState.showSnackbar("첨부 파일을 읽지 못했어요. 다른 파일을 선택해주세요.")
+                }
             }
         }
     }
-
-    // [WHY] 오류와 토글 피드백을 스낵바 한 곳으로 모으고, 문구는 ErrorMessages로 인간화한다.
-    // 아래 권한 런처들이 이 두 값을 쓰므로 먼저 선언한다.
-    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
-    val snackbarScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // [WHY] 예전에는 거부 분기가 아예 없어 마이크를 거부하면 **아무 일도 일어나지 않았다** —
     // 사용자는 버튼이 고장 난 것으로 본다. PRD EC2 는 "음성 입력 비활성 + 텍스트 입력 안내"를
@@ -886,6 +908,15 @@ fun ChatInputBar(
                         Column {
                             Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.image_attached), color = KosmosTheme.colors.accent, style = MaterialTheme.typography.bodyMedium)
                             Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.image_size_kb, sharedInput.sizeBytes / 1024), color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodySmall)
+                            // [WHY] 첨부만으로는 전송할 수 없다 — 텍스트가 비면 전송 버튼 자리에
+                            // 마이크가 떠서 보낼 방법이 없는데 그 이유를 알 길이 없었다(AC3 감사).
+                            if (textState.text.isBlank()) {
+                                Text(
+                                    androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.attachment_needs_text),
+                                    color = KosmosTheme.colors.accent,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
                     }
                     IconButton(onClick = { onClearSharedInput() }) {
@@ -909,6 +940,13 @@ fun ChatInputBar(
                     Column {
                         Text("Document Attached", color = KosmosTheme.colors.accent, style = MaterialTheme.typography.bodyMedium)
                         Text(sharedInput.fileName, color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodySmall)
+                        if (textState.text.isBlank()) {
+                            Text(
+                                androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.attachment_needs_text),
+                                color = KosmosTheme.colors.accent,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
                     IconButton(onClick = { onClearSharedInput() }) {
                         Text("X", color = KosmosTheme.colors.textMuted)

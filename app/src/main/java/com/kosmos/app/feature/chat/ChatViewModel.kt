@@ -171,10 +171,14 @@ class ChatViewModel @Inject constructor(
                 sessionId,
                 Constants.MAX_RECENT_CONVERSATIONS
             )
-            if (result is AppResult.Success) {
-                _uiState.update { state -> 
-                    state.copy(messages = result.data.toImmutableList()) 
+            when (result) {
+                is AppResult.Success -> _uiState.update { state ->
+                    state.copy(messages = result.data.toImmutableList())
                 }
+                // [WHY] 예전에는 Failure 분기가 없어 DB 읽기가 실패하면 **아무 안내 없이 빈
+                // 화면**으로 열렸다 — 저장된 대화가 있는데도 사라진 것처럼 보인다. 스낵바가
+                // "데이터를 불러오지 못했어요" 를 띄우게 오류를 올린다.
+                is AppResult.Failure -> _uiState.update { it.copy(error = result.error) }
             }
         }
     }
@@ -185,7 +189,9 @@ class ChatViewModel @Inject constructor(
                 inputStream.readBytes()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            // [WHY] printStackTrace 가 아니라 로그다 — 이 파일에서 유일한 규약 위반이었다.
+            // null 의 의미(읽기 실패)는 호출자가 턴 중단으로 처리한다.
+            android.util.Log.w("ChatViewModel", "첨부 이미지 읽기 실패: ${uri}", e)
             null
         }
     }
@@ -226,6 +232,20 @@ class ChatViewModel @Inject constructor(
                         extractImageBytes(currentSharedInput.uri)
                     }
                 } else null
+
+                // [WHY] 이미지 첨부 턴인데 읽기가 실패하면 **턴을 중단한다.** 예전에는 null 이면
+                // 이미지 없이 그대로 진행했다 — 말풍선은 📷 "첨부된 이미지" 를 표시하는데 모델은
+                // 텍스트만 받아, 사용자는 모델이 이미지를 보고 답했다고 오해했다(성공처럼 보이는
+                // 실패). 낙관적 말풍선을 걷어내고 오류를 알린다.
+                if (currentSharedInput is com.kosmos.app.platform.share.SharedInput.Image && imageBytes == null) {
+                    _uiState.update { state ->
+                        state.copy(
+                            messages = state.messages.filterNot { it.id == tempUserMessage.id }.toImmutableList(),
+                            error = com.kosmos.app.core.common.AppError.UnsupportedImageFormat("첨부 이미지를 읽지 못했습니다")
+                        )
+                    }
+                    return@launch
+                }
 
                 // [WHY] 빈 문자열이 아니라 null 이다 — ChatScreen 은 streamingText 가 null 일 때만
                 // 타이핑 인디케이터를 띄우므로, ""로 초기화하면 첫 토큰이 오기 전까지 빈 버블만
@@ -315,7 +335,12 @@ class ChatViewModel @Inject constructor(
                                 messages = (it.messages + assistantMessage).toImmutableList(),
                                 // [WHY] 검색이 허용됐는데 실패한 턴이다. 알리지 않으면 사용자가
                                 // 온디바이스 답변을 검색 결과로 오해한다 (PRD V1-AC3·EC5).
-                                searchFailedNotice = agentResult.searchFailed
+                                searchFailedNotice = agentResult.searchFailed,
+                                // [WHY] 응답의 DB 저장이 실패한 턴 — 화면에는 있지만 재시작하면
+                                // 사라진다. "저장에 실패했어요" 스낵바로 알린다.
+                                error = if (agentResult.persistFailed) {
+                                    com.kosmos.app.core.common.AppError.DbWriteError("conversation")
+                                } else it.error
                             )
                         }
                     }

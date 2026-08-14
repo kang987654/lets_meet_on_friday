@@ -77,8 +77,15 @@ class MemoryViewModel @Inject constructor(
 
     fun completeTask(taskId: String) {
         viewModelScope.launch {
-            taskRepository.updateCompletion(taskId, true)
+            val result = taskRepository.updateCompletion(taskId, true)
+            if (result is AppResult.Failure) {
+                _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+            }
         }
+    }
+
+    fun dismissActionError() {
+        _uiState.update { it.copy(actionError = null) }
     }
 
     // --- 백업 (내보내기 / 가져오기) ---

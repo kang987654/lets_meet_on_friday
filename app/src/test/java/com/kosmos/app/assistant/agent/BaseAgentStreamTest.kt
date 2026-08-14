@@ -222,6 +222,31 @@ class BaseAgentStreamTest {
     }
 
     @Test
+    fun `실패한 웹 검색은 참고 뱃지 대신 실패 안내로 표시된다`() {
+        // [WHY] 위키 네트워크 실패는 예외가 아니라 `{"status":"error"}` JSON 으로 돌아온다
+        // (executed=true). 예전에는 executed 만 보고 searchUsed 를 켜서 **검색 없이 만든 답변에
+        // "위키백과 검색 결과를 참고했어요" 뱃지가 붙었다** — PRD V1-AC3·EC5(검색 실패 고지)를
+        // 실질 무력화하는 오표시였다(MVP 감사 B6).
+        val harness = runAgent(
+            ModelTurn("", listOf(toolCall("SearchWikipedia", mapOf("topic" to "아폴로 11호")))),
+            ModelTurn("기기 안의 지식으로 답하면 1969년입니다."),
+            allowedTools = listOf("SearchWikipedia"),
+            toolRegistry = registryWith(
+                "SearchWikipedia",
+                """{"status":"error","message":"검색 중 오류 발생: NetworkUnavailable"}"""
+            )
+        )
+
+        val result = harness.result as AgentResult.Text
+        assertFalse("실패한 검색에 참고 뱃지가 붙었다", result.searchUsed)
+        assertTrue("검색 실패 안내가 꺼져 있다", result.searchFailed)
+        // [WHY] 감사 기록은 executed 기준을 유지한다 — 네트워크 시도 자체가 기록할 사건이다.
+        coVerify { harness.audit.logSearchEvent("s1", "아폴로 11호") }
+        val assistant = harness.savedMessages.last { it.role == ChatMessage.Role.ASSISTANT }
+        assertFalse("DB 에도 참고 표시가 남으면 안 된다", assistant.searchUsed)
+    }
+
+    @Test
     fun `차단된 웹 검색은 검색으로 기록되지 않는다`() {
         // [WHY] 토글이 꺼져 allowlist 밖이면 실행되지 않았으므로 egress 기록을 남기면 거짓이다.
         // 실행 여부를 결과 JSON 문자열에서 추측하지 않고 값으로 들고 나오는 이유가 이것이다.
