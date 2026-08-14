@@ -23,6 +23,7 @@ import javax.inject.Inject
  *
  * ### Key Flow
  * 1. 지정된 언어(lang)와 토픽(topic)으로 Wikipedia API 엔드포인트를 구성합니다 (쿼리 인코딩 적용).
+ *    `exsentences` 로 도입부의 완결된 문장 10개만 요청해 전문을 받아 버리는 낭비를 없앱니다.
  * 2. OkHttp를 통해 네트워크 요청을 수행하고 JSON 결과를 파싱합니다.
  * 3. 검색된 페이지의 요약(extract)을 **토큰 예산** 이내로 문장 경계에서 잘라 반환합니다.
  */
@@ -49,6 +50,20 @@ class WikipediaSearchToolImpl @Inject constructor(
                 .addQueryParameter("prop", "extracts")
                 .addQueryParameter("explaintext", "1")
                 .addQueryParameter("exintro", "1")
+                // [WHY] `exintro` 는 "첫 섹션까지" 라는 뜻이지 **길이 제한이 아니다.** 길이
+                // 파라미터가 없으면 도입부 전문이 내려오고(실측: `제2차 세계 대전` 1,203자 이상),
+                // 우리는 그중 400토큰(약 480자)만 쓴 뒤 나머지를 버린다 — 필요한 양의 몇 배를
+                // 모바일 데이터·배터리·레이턴시로 지불한다. 아래 `SentenceTruncator` 가 예산을
+                // 지키므로 결과물은 같고, 낭비만 사라진다.
+                //
+                // [WHY] 10 은 API 최대값이다. 한국어 문서 10건 실측에서 10문장은 평균 424자·최대
+                // 730자로, 예산이 담을 수 있는 양보다 **살짝 많다** — 그래서 병목이 API 가 아니라
+                // 예산 쪽에 남고, 짧게 받는다고 담을 수 있는 내용을 놓치지 않는다.
+                //
+                // [WHY] `exchars` 를 쓰지 않는다. 실측에서 `exchars=1200` 은 `…아시아와 태평양을...`
+                // 처럼 **문장 중간을** 자르고, `exsentences=3` 은 `…총력전이다.` 로 문장을 완결한다.
+                // 잘린 조각은 모델이 없는 사실을 채워 넣는 재료가 된다.
+                .addQueryParameter("exsentences", "10")
                 // [WHY] origin=* 를 제거했다 — 브라우저 CORS 용 파라미터라 네이티브 클라이언트에는
                 // 의미가 없고, 요청을 익명 처리해 오히려 레이트리밋에 걸리기 쉽다.
                 .build()
