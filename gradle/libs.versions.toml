@@ -7,11 +7,11 @@ ksp = "2.3.11"
 # ("maximum supported version is 2.3.0", 2026-08-14 실측). kotlin 을 되돌리면 hilt 도 함께 볼 것.
 hilt = "2.60.1"
 
-compose-bom = "2026.04.01"
-navigation = "2.9.7"
+compose-bom = "2026.08.00"
+navigation = "2.9.8"
 room = "2.8.4"
 datastore = "1.2.1"
-paging = "3.4.2"
+paging = "3.5.1"
 coroutines = "1.11.0"
 # [WHY] 0.14.0 → 0.16.0. 글자 유실("2026-08-17T10:00" → "…T01:000")의 남은 유일한 후보가
 # 이 런타임이었다 — 파이썬 패키지 0.15.0·0.16.0 양쪽에서 자릿수가 36/36 온전했으므로(exp22)
@@ -28,14 +28,14 @@ playServicesTfliteJava = "16.4.0"
 playServicesTfliteGpu = "16.4.0"
 commonmark = "1.0.0-alpha02"
 richtext = "1.0.0-alpha02"
-lifecycleProcess = "2.8.7"
+lifecycleProcess = "2.11.0"
 
 kotlinx-serialization-json = "1.10.0"
 kotlinx-collections-immutable = "0.3.7"
 # [WHY] hilt-navigation-compose 와 hilt-work 는 같은 androidx.hilt 릴리스 트레인이므로 버전 키를 공유한다.
 androidx-hilt = "1.4.0"
-work = "2.10.1"
-core-ktx = "1.15.0"
+work = "2.11.2"
+core-ktx = "1.19.0"
 # [WHY] 아래 테스트 스코프 전용은 런타임에 실리지 않으므로, 실기기 검증(0.15.1)을
 # 무효화하지 않고 올릴 수 있는 유일한 범주다. 게이트는 전체 단위 테스트 + lint 통과.
 espressoCore = "3.7.0"
