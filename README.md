@@ -60,21 +60,20 @@ sequenceDiagram
     participant UI as ChatScreen / ViewModel
     participant UseCase as SendChatMessageUseCase
     participant Orchestrator as AssistantOrchestrator
-    participant Classifier as IntentClassifier
+    participant Agent as KosmosAgent (단일 에이전트)
     participant Model as Gemma 4 (LiteRT-LM)
     participant Tool as Calendar / Wikipedia Tool
 
     User->>UI: 자연어 입력 ("금요일 3시에 미팅 잡아줘")
     UI->>UseCase: invoke(prompt)
     UseCase->>Orchestrator: processChat(request)
-    Orchestrator->>Classifier: classify(input)
-    Classifier-->>Orchestrator: TargetAgent (CalendarAgent)
-    Orchestrator->>Model: generate(prompt + availableTools)
-    Model-->>Orchestrator: Tool Call JSON ("AddSchedule")
-    Orchestrator->>UI: ActionCard 생성 및 사용자 승인 대기 (ApprovalSheet)
+    Orchestrator->>Agent: execute(request, context)
+    Agent->>Model: 추론 (네이티브 툴 선언 포함, ADR-008)
+    Model-->>Agent: 구조화된 Tool Call ("AddSchedule")
+    Agent->>UI: 승인 카드 표시 및 사용자 승인 대기 (ApprovalSheet)
     User->>UI: 승인 클릭 (Approve)
-    UI->>Tool: AddScheduleTool.execute()
-    Tool-->>UI: 일정 등록 완료 및 UI 상태 반영
+    Agent->>Tool: AddScheduleToolExecutor.execute()
+    Tool-->>Agent: 실행 결과 JSON → 모델에 회신 → 최종 답변
 ```
 
 ---
@@ -83,14 +82,14 @@ sequenceDiagram
 
 | 분류 | 기술 및 라이브러리 |
 | :--- | :--- |
-| **Language** | Kotlin `2.0.21` |
+| **Language** | Kotlin `2.4.10` |
 | **Build & Plugin** | AGP `9.0+`, Gradle KTS, KSP |
 | **UI & Styling** | Jetpack Compose, Material 3, Glassmorphism, Custom Aurora Animations, 라이트/다크 테마 전환 (시맨틱 색상 토큰) |
 | **Architecture** | Clean Architecture, Multi-Module, Reactive Flow / StateFlow |
 | **Dependency Injection** | Hilt |
-| **On-Device AI** | LiteRT-LM (`litertlm-android`), Gemma 4-E4B-it INT4, MediaPipe Tasks Text Embedder |
+| **On-Device AI** | LiteRT-LM (`litertlm-android` 0.16.0), Gemma 4-E4B-it INT4 |
 | **Local Storage** | Room Database, Android DataStore, SQLite WAL |
-| **Network & Speech** | OkHttp 3, Android AudioRecord (16kHz PCM WAV Encoding) |
+| **Network & Speech** | OkHttp 4, Android AudioRecord (16kHz PCM WAV, 최대 30초) |
 | **Testing** | Robolectric, Compose UI Test Rule, JUnit4 |
 
 ---
@@ -100,7 +99,7 @@ sequenceDiagram
 ### 사전 요구사항 (Prerequisites)
 - **Android Studio**: Ladybug (2024.2.1) 이상 권장
 - **JDK**: JDK 17 이상
-- **Android SDK**: Min SDK 26 (Android 8.0+), Target SDK 35
+- **Android SDK**: Min SDK 26 (Android 8.0+), Target SDK 37
 
 ### 설치 및 빌드 방법
 ```bash
@@ -109,8 +108,10 @@ git clone https://github.com/kang987654/lets_meet_on_friday.git
 cd lets_meet_on_friday
 
 # 2. 온디바이스 모델 준비 (.litertlm)
-# 다운로드받은 gemma-4-e4b-it-int4.litertlm 모델 파일을 아래 경로에 위치시킵니다.
-# app/src/main/assets/models/gemma-4-e4b-it-int4.litertlm
+# 모델(약 3.6GB)은 APK 에 번들할 수 없어 앱이 직접 내려받거나 sideload 합니다.
+#  - 권장: 앱 실행 → 설정 > 모델 관리 > 내려받기 (HuggingFace, 이어받기 지원)
+#  - 수동: gemma-4-E4B-it.litertlm 파일을 기기의 앱 전용 폴더에 복사
+#    (Android/data/<패키지>/files/models/ — 파일명이 정확히 일치해야 합니다)
 
 # 3. 프로젝트 빌드
 ./gradlew build -x test

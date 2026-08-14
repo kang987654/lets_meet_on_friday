@@ -21,7 +21,7 @@
 | 🏗️ **아키텍처** | [architecture.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/architecture.md) | Clean Architecture 멀티모듈 시스템 구조 & 데이터 흐름 |
 | 🎨 **UI/UX 디자인** | [DESIGN.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/DESIGN.md) | Glassmorphism 테마, 애니메이션 및 UI 스펙 디자인 가이드 |
 | 📝 **태스크 분해** | [tasks.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/tasks.md) | AI Agent 1회 작업 단위의 74개 세부 태스크 분해목록 |
-| 🔌 **API 사양** | [api_spec.yaml](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/api_spec.yaml) | REST / WebSocket OpenAPI 3.0 사양서 |
+| 🔌 **내부 계약 사양** | [api_spec.yaml](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/api_spec.yaml) | 앱 내부 UseCase/도구 계약을 OpenAPI 문법으로 기술한 문서 — 오프라인 앱이므로 REST 서버는 없다 |
 | 🪵 **변경 이력** | [CHANGELOG.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/CHANGELOG.md) | 프로젝트 버전별 세부 리팩터링 및 수정 내역 기록 |
 | 🛠️ **트러블슈팅** | [trouble_shooting.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/trouble_shooting.md) | 16KB 메모리 정렬, Robolectric, Native crash 문제 해결 가이드 |
 | 📊 **인증 체크리스트** | [checklists/v0_acceptance.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/checklists/v0_acceptance.md) | v0 MVP 인수 테스트 기준 및 체크리스트 |

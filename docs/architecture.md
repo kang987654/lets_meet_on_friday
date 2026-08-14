@@ -238,26 +238,19 @@ Android 의존성 최소화.
 
 **`Constants.kt` 주요 상수**
 
-```kotlin
-object Constants {
-    const val MAX_CONTEXT_TOKENS = 4096
-    const val MAX_CONVERSATION_TURNS = 5
-    const val MAX_KNOWLEDGE_CONTEXT_ITEMS = 3
-    const val MAX_INPUT_CHARS = 8192
+> **정정 (2026-08-15)**: 아래 스니펫이 존재하지 않는 상수(`MAX_CONVERSATION_TURNS`)와 낡은
+> 값(`MAX_CONTEXT_TOKENS = 4096` — KV 용량과 예산을 혼동한 값, ADR-017 이 바로잡은 오류)을
+> "현재값"처럼 서술하고 있었다. 스니펫 복사 대신 **분류만** 적는다 — 값의 단일 출처는
+> `core/.../Constants.kt` 이고, 각 상수의 근거는 그 파일의 [WHY] 주석이 담당한다.
 
-    const val MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
-    const val MAX_IMAGE_DIMENSION_PX = 1024
-
-    const val THERMAL_WARNING_CELSIUS = 43f
-    const val THERMAL_SHUTDOWN_CELSIUS = 48f
-    const val THERMAL_COOLDOWN_INFERENCE_COUNT = 5
-
-    const val CALENDAR_DRAFT_MIN_CONFIDENCE = 0.7f
-
-    const val MODEL_DIR_NAME = "models"
-    const val DEFAULT_MODEL_FILENAME = "gemma4-e4b-it-q4.litertlm"
-}
-```
+`Constants.kt` 는 크게 다섯 무리다:
+- **토큰 예산** — `ENGINE_MAX_TOKENS`(KV 용량, 4096)에서 파생되는 예산 사슬
+  (`MAX_CONTEXT_TOKENS`·`PREFILL_OVERHEAD_TOKENS`·툴 결과/문서 첨부 캡 등, ADR-017·020·021).
+  관계는 `TokenBudgetInvariantTest` 가 고정한다
+- **멀티모달 상한** — 오디오 30초(공식 문서), 이미지 10MB/1024px/턴당 1장
+- **발열 임계** — 43°C 경고 / 48°C 차단 / 쿨다운 횟수
+- **모델 파일** — 파일명·다운로드 URL·크기 (현행 파일명: `gemma-4-E4B-it.litertlm`)
+- **추론 방어** — 무활동 타임아웃(EC1), 대화 재설정 하한
 
 ---
 
@@ -391,17 +384,13 @@ Domain 레이어의 인터페이스만 사용한다.
 | `agent/SearchAgent.kt` | 웹 검색 처리 (v1) |
 | `agent/KnowledgeAgent.kt` | 지식 메모 처리 (v1) |
 
-**`PromptAssembler` 프롬프트 구조 (4블록)**
+**`PromptAssembler` 프롬프트 구조**
 
-```text
-[시스템 블록]          ~300 tokens
-[메모리 블록]          ~500 tokens
-[대화 블록]            ~1200 tokens
-[현재 입력 블록]       ~500 tokens
-[응답 여유 공간]       ~1596 tokens
-─────────────────────────────────────
-총합: 4096 tokens
-```
+> **정정 (2026-08-15)**: 예전의 "4블록 예산표(총합 4096)"는 현재 산식과 전부 어긋나 삭제했다.
+> 현행 구조: 시스템 지시(세션 고정) + 툴 선언 + few-shot = 오버헤드 실측 1,329(예약 1,400),
+> 히스토리는 Token Sliding Window 가 프리필 예산(기본 1,700)에서 오버헤드를 뺀 몫을 배분한다.
+> "메모리 블록" 자동 주입은 ADR-013 에서 폐지됐다(SearchMemory 툴로 대체). 수치의 단일 출처는
+> `Constants.kt` 와 ADR-017·020·021 이다.
 
 **출력 형식 정책**
 - 채팅/에이전트 응답: 기본적으로 `ModelOutput` 구조화 JSON을 기대한다
@@ -1196,8 +1185,8 @@ object Redaction {
 
 | 항목 | v0 제한 | 확장 포인트 |
 |---|---|---|
-| 컨텍스트 길이 | 4096 tokens | Constants 변경 |
-| 대화 히스토리 | 최근 5턴 | Constants 변경 |
+| 컨텍스트 길이 | 프리필 예산 1,700 토큰 (KV 4,096, GPU 발병점 아래 — ADR-021) | 상류 FP16 수정 시 예산 복원 (expand.md E-Phase 4) |
+| 대화 히스토리 | Token Sliding Window (턴 수 고정 아님) | 예산 상향 시 자동 확장 |
 | 메모리 검색 | Conversation 중심 | v1 Knowledge, v2 벡터 검색 |
 | 검색 구현 | 구현하지 않음 | v1 WebSearchTool |
 | 모델 | Gemma 4 E4B-it | ModelRunner 교체 |
