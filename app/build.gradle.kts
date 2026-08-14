@@ -57,6 +57,13 @@ android {
         }
     }
     lint {
+        // [WHY] lint 의 테스트 소스 분석(lintAnalyzeDebugUnitTest)이 **비결정적으로** 죽는다 —
+        // BaseAgentStreamTest 해석 중 K2 FIR lazy-resolution 오류가 같은 입력에서 날 때도
+        // 안 날 때도 있다(2026-08-14: 크래시 2회, 무변경 재실행 통과 2회. 처음엔 mockk 1.14 를
+        // 원인으로 지목했으나 오판 — 버전과 무관하게 재현/비재현이 갈렸다). 복불복 게이트는
+        // 게이트가 아니므로 표면을 제거한다. 지금까지 테스트 소스에서 나온 lint 지적은 0건이라
+        // 잃는 것이 없다.
+        ignoreTestSources = true
         // [WHY] 버전 승격은 lint 알림이 아니라 검증 회차에서 수동 결정한다 — 이 프로젝트에서
         // 런타임 버전은 그 자체가 검증 대상이었다(0.14.0→0.16.0 가설 기각, ADR-016~021).
         // 특히 litertlm·play-services-tflite 계열은 승격 = 실기기 재검증 필수.
