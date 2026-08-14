@@ -26,10 +26,11 @@ litertlm = "0.16.0"
 # [WHY] 5.x 는 메이저 상향(API 변경 가능) — 4.12 에 문제가 없고, 메이저는 필요가 생길 때
 # 별도 회차로 한다 (0.16.0 최신화 회차 판정, mockwebserver 도 같은 키를 쓴다).
 okhttp = "4.12.0"
-# [WHY] GPU 델리게이트 = 모델 런타임 인접 — litertlm 과 같은 이유로 승격 시 실기기 재검증이
-# 필요하므로 일반 최신화 회차(0.16.0)에서 제외했다.
-playServicesTfliteJava = "16.4.0"
-playServicesTfliteGpu = "16.4.0"
+# [WHY] GPU 델리게이트 = 모델 런타임 인접 — 승격은 반드시 실기기 숫자 온전성 재검증과 짝이다
+# (GPU 연산 계층이 바뀌면 FP16 발병점 실측(exp30)의 전제가 흔들린다, ADR-021). 16.5.0 상향은
+# litertlm 0.17 을 기다리지 않고 지금 검증하기로 한 사용자 결정(2026-08-14).
+playServicesTfliteJava = "16.5.0"
+playServicesTfliteGpu = "16.5.0"
 commonmark = "1.0.0-alpha05"
 richtext = "1.0.0-alpha05"
 lifecycleProcess = "2.11.0"
