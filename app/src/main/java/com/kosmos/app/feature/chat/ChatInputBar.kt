@@ -165,6 +165,8 @@ fun ChatInputBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
+                        // [WHY] "Document Attached" 는 E2E 셀렉터다(MultimodalChatE2ETest) —
+                        // "Attach"/"Send" contentDescription 과 같은 불변 계약이라 한글화에서 제외.
                         Text("Document Attached", color = KosmosTheme.colors.accent, style = MaterialTheme.typography.bodyMedium)
                         Text(sharedInput.fileName, color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodySmall)
                         if (textState.text.isBlank()) {

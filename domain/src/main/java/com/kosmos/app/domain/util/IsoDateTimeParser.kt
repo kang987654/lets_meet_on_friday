@@ -34,4 +34,17 @@ object IsoDateTimeParser {
         toEpochMillis(iso, zoneId)?.let {
             Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate()
         }
+
+    /**
+     * 사람이 읽는 한국어 표기 — "8월 20일 오후 4:00". 파싱 실패 시 null.
+     * [WHY] ISO 원문("2026-08-20T16:00:00")이 화면·모델 답변에 그대로 노출되던 것을
+     * 한 곳에서 바꾼다 (2026-08-15 사용자 피드백) — 표기 규칙이 흩어지면 화면마다 어긋난다.
+     */
+    fun toDisplayKorean(iso: String, zoneId: ZoneId = ZoneId.systemDefault()): String? =
+        toEpochMillis(iso, zoneId)?.let {
+            val dt = Instant.ofEpochMilli(it).atZone(zoneId)
+            val amPm = if (dt.hour >= 12) "오후" else "오전"
+            val hour12 = if (dt.hour % 12 == 0) 12 else dt.hour % 12
+            "%d월 %d일 %s %d:%02d".format(dt.monthValue, dt.dayOfMonth, amPm, hour12, dt.minute)
+        }
 }

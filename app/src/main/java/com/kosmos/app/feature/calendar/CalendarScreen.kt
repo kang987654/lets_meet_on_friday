@@ -51,17 +51,17 @@ fun CalendarScreen(
         }
     }
 
+    // [WHY] 불투명 배경을 깔지 않는다 — MemoryScreen 과 동일 (통일 회차).
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(KosmosTheme.colors.bg)
             .padding(top = 16.dp)
     ) {
         // Header
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-            Text("Schedule", style = MaterialTheme.typography.headlineMedium, color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold)
+            Text("일정", style = MaterialTheme.typography.headlineMedium, color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold)
             val headerMonth = java.time.LocalDate.now()
-                .format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.ENGLISH))
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy년 M월", java.util.Locale.KOREAN))
             Text(headerMonth, color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
         }
 
@@ -100,7 +100,9 @@ fun CalendarScreen(
             items(days.size) { i ->
                 val date = days[i]
                 DatePill(
-                    dayOfWeek = date.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() },
+                    dayOfWeek = date.dayOfWeek.getDisplayName(
+                        java.time.format.TextStyle.SHORT, java.util.Locale.KOREAN
+                    ),
                     dayOfMonth = date.dayOfMonth.toString(),
                     // [WHY] 주간 탭에서는 필터를 걸었을 때만 강조한다 — 필터 없이 오늘 칸을
                     // 강조하면 "오늘만 보는 중"처럼 읽히는데 목록은 주 전체라 헷갈린다
@@ -159,12 +161,12 @@ fun CalendarScreen(
                     )
                 } else {
                     val sectionLabel = when {
-                        selectedDate != null && selectedDate == today -> "TODAY"
+                        selectedDate != null && selectedDate == today -> "오늘"
                         selectedDate != null -> selectedDate?.format(
                             java.time.format.DateTimeFormatter.ofPattern("M월 d일", java.util.Locale.KOREAN)
                         ).orEmpty()
-                        selectedRange == ScheduleData.RangeType.WEEK -> "THIS WEEK"
-                        else -> "TODAY"
+                        selectedRange == ScheduleData.RangeType.WEEK -> "이번 주"
+                        else -> "오늘"
                     }
                     ScheduleContent(state.scheduleData, sectionLabel)
                 }
@@ -297,7 +299,7 @@ fun DatePill(
 }
 
 @Composable
-fun ScheduleContent(data: ScheduleData, sectionLabel: String = "TODAY") {
+fun ScheduleContent(data: ScheduleData, sectionLabel: String = "오늘") {
     // [WHY] LazyListScope 람다는 @Composable이 아니므로 테마 토큰을 바깥에서 읽어둔다.
     val eventAccents = listOf(KosmosTheme.colors.accent, KosmosTheme.colors.accentAlt, KosmosTheme.colors.warning)
 
@@ -308,7 +310,7 @@ fun ScheduleContent(data: ScheduleData, sectionLabel: String = "TODAY") {
         // Today section
         item {
             Text(
-                text = "$sectionLabel  ·  ${data.events.size} EVENTS",
+                text = "$sectionLabel  ·  일정 ${data.events.size}건",
                 color = KosmosTheme.colors.textMuted,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
@@ -396,7 +398,7 @@ private fun formatIsoString(iso: String): String {
 
     val hours = localTime.hour
     val mins = "%02d".format(localTime.minute)
-    val amPm = if (hours >= 12) "PM" else "AM"
+    val amPm = if (hours >= 12) "오후" else "오전"
     val displayHour = if (hours % 12 == 0) 12 else hours % 12
-    return "$displayHour:$mins $amPm"
+    return "$amPm $displayHour:$mins"
 }

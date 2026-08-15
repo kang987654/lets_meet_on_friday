@@ -41,7 +41,7 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         Text(
-            text = "Settings",
+            text = "설정",
             style = MaterialTheme.typography.headlineMedium,
             color = KosmosTheme.colors.textPrimary,
             fontWeight = FontWeight.Bold,
@@ -49,32 +49,32 @@ fun SettingsScreen(
         )
 
         // 1. Model Status Section
-        SectionBox(title = "LOCAL AI MODEL (GEMMA)") {
+        SectionBox(title = "로컬 AI 모델 (GEMMA)") {
             when (val state = uiState.modelLoadState) {
                 is ModelLoadState.Loading -> {
                     CircularProgressIndicator(color = KosmosTheme.colors.accent)
-                    Text("Checking model state...", color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 8.dp))
+                    Text("모델 상태 확인 중…", color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 8.dp))
                 }
                 is ModelLoadState.FileFound -> {
                     CircularProgressIndicator(color = KosmosTheme.colors.accent)
-                    Text("Model file found, preparing engine...", color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 8.dp))
+                    Text("모델 파일 확인, 엔진 준비 중…", color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 8.dp))
                 }
                 is ModelLoadState.InitializingEngine -> {
                     CircularProgressIndicator(color = KosmosTheme.colors.accent)
-                    Text("Initializing AI Engine...", color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 8.dp))
+                    Text("AI 엔진 초기화 중…", color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 8.dp))
                 }
                 is ModelLoadState.Ready -> {
                     Text(
-                        text = "Status: Ready",
+                        text = "상태: 준비됨",
                         color = KosmosTheme.colors.success,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Model ID: ${state.modelInfo.modelId}", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
-                    Text("Version: ${state.modelInfo.modelVersion}", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
-                    Text("Quantization: ${state.modelInfo.quantization}", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
+                    Text("모델: ${state.modelInfo.modelId}", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
+                    Text("버전: ${state.modelInfo.modelVersion}", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
+                    Text("양자화: ${state.modelInfo.quantization}", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        text = "Path: ${state.modelInfo.modelPath}",
+                        text = "경로: ${state.modelInfo.modelPath}",
                         style = MaterialTheme.typography.bodySmall,
                         color = KosmosTheme.colors.textMuted,
                         modifier = Modifier.padding(top = 4.dp)
@@ -92,18 +92,18 @@ fun SettingsScreen(
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Manage Models", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
+                        Text("모델 관리", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
                     }
                 }
                 is ModelLoadState.NotFound -> {
                     Text(
-                        text = "Status: Not Found",
+                        text = "상태: 모델 없음",
                         color = KosmosTheme.colors.danger,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "The model file could not be found at the required path.",
+                        text = "모델 파일을 찾을 수 없어요. 내려받으면 바로 사용할 수 있어요.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = KosmosTheme.colors.danger
                     )
@@ -117,7 +117,7 @@ fun SettingsScreen(
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("Refresh", color = KosmosTheme.colors.textPrimary)
+                            Text("새로 고침", color = KosmosTheme.colors.textPrimary)
                         }
                         Box(
                             modifier = Modifier
@@ -131,13 +131,13 @@ fun SettingsScreen(
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("Download", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
+                            Text("내려받기", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
                 is ModelLoadState.Error -> {
                     Text(
-                        text = "Status: Error",
+                        text = "상태: 오류",
                         color = KosmosTheme.colors.danger,
                         fontWeight = FontWeight.Bold
                     )
@@ -152,7 +152,7 @@ fun SettingsScreen(
         }
 
         // 2. Appearance Section (ADR-005: 라이트/다크 테마 전환)
-        SectionBox(title = "APPEARANCE") {
+        SectionBox(title = "화면 테마") {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -183,19 +183,20 @@ fun SettingsScreen(
         }
 
         // 3. Response Style Section
-        SectionBox(title = "RESPONSE STYLE") {
-            val styles = listOf("CONCISE", "DEFAULT", "DETAILED")
+        SectionBox(title = "응답 스타일") {
+            // 저장값(영문 키)은 그대로 두고 표시만 한글화한다 — 키를 바꾸면 기존 설정이 깨진다.
+            val styles = listOf("CONCISE" to "간결", "DEFAULT" to "기본", "DETAILED" to "자세히")
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                styles.forEach { style ->
+                styles.forEach { (style, label) ->
                     val isSelected = uiState.responseStyle == style
                     val bgColor = if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.2f) else androidx.compose.ui.graphics.Color.Transparent
                     val textColor = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted
-                    
+
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -205,7 +206,7 @@ fun SettingsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = style.lowercase().replaceFirstChar { it.uppercase() }, 
+                            text = label,
                             color = textColor,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )

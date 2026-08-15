@@ -66,9 +66,12 @@ fun MemoryScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(KosmosTheme.colors.bg)) {
+    // [WHY] 불투명 배경을 깔지 않는다 — 채팅·설정은 셸의 오로라 배경 위에 글래스 카드가 뜨는데
+    // 이 화면만 bg 로 덮으면 다른 앱처럼 보였다 (2026-08-15 통일 회차).
+    Column(modifier = Modifier.fillMaxSize()) {
         Text(
-            text = "Memory & Tasks",
+            // 드로어 타일("메모 · 할 일")과 같은 이름 — 진입점과 화면 제목이 다르면 길을 잃는다.
+            text = "메모 · 할 일",
             style = MaterialTheme.typography.headlineMedium,
             color = KosmosTheme.colors.textPrimary,
             fontWeight = FontWeight.Bold,
@@ -82,13 +85,13 @@ fun MemoryScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             TabButton(
-                text = "🧠 Memory",
+                text = "🧠 메모",
                 isSelected = uiState.selectedFilter == MemoryFilterType.KNOWLEDGE,
                 onClick = { viewModel.onFilterSelected(MemoryFilterType.KNOWLEDGE) },
                 modifier = Modifier.weight(1f)
             )
             TabButton(
-                text = "✓ Tasks",
+                text = "✓ 할 일",
                 isSelected = uiState.selectedFilter == MemoryFilterType.TASK,
                 onClick = { viewModel.onFilterSelected(MemoryFilterType.TASK) },
                 modifier = Modifier.weight(1f)
@@ -112,7 +115,7 @@ fun MemoryScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "$pendingCount pending  ·  $doneCount done",
+                    text = "남은 일 $pendingCount  ·  완료 $doneCount",
                     style = MaterialTheme.typography.labelMedium,
                     color = KosmosTheme.colors.textSecondary
                 )
@@ -205,7 +208,7 @@ fun MemoryScreen(
                                 decorationBox = { inner ->
                                     if (newTaskText.isEmpty()) {
                                         Text(
-                                            text = "Add new task...",
+                                            text = "할 일 추가…",
                                             color = KosmosTheme.colors.textSecondary,
                                             style = MaterialTheme.typography.bodyLarge
                                         )
@@ -313,7 +316,7 @@ private fun BackupSection(
 
     Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
         Text(
-            text = "BACKUP",
+            text = "백업",
             style = MaterialTheme.typography.labelMedium,
             color = KosmosTheme.colors.textMuted,
             fontWeight = FontWeight.SemiBold,

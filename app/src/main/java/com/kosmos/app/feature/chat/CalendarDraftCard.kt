@@ -199,7 +199,7 @@ fun CalendarDraftCard(
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Reject", color = KosmosTheme.colors.danger, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+                Text("거절", color = KosmosTheme.colors.danger, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
             }
             Box(
                 modifier = Modifier
@@ -215,7 +215,7 @@ fun CalendarDraftCard(
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Approve & Save", color = KosmosTheme.colors.accent, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                Text("승인하고 저장", color = KosmosTheme.colors.accent, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             }
         }
     }

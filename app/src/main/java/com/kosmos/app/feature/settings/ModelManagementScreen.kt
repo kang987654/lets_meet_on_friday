@@ -51,10 +51,10 @@ fun ModelManagementScreen(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text("Model Management", color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold) },
+                title = { Text("모델 관리", color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     TextButton(onClick = onBack) {
-                        Text("Back", color = KosmosTheme.colors.accent)
+                        Text("뒤로", color = KosmosTheme.colors.accent)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
@@ -88,7 +88,7 @@ fun ModelManagementScreen(
             }
 
             Text(
-                text = "Predefined Models",
+                text = "기본 모델",
                 style = MaterialTheme.typography.titleMedium,
                 color = KosmosTheme.colors.textPrimary,
                 fontWeight = FontWeight.SemiBold
@@ -106,7 +106,7 @@ fun ModelManagementScreen(
                     Text("Gemma 4 E4B", style = MaterialTheme.typography.titleMedium, color = KosmosTheme.colors.accentAlt, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Optimized for LiteRT-LM. Size: ~3.6GB",
+                        "LiteRT-LM 최적화 · 크기 약 3.6GB",
                         style = MaterialTheme.typography.bodySmall,
                         color = KosmosTheme.colors.textMuted
                     )
@@ -123,13 +123,13 @@ fun ModelManagementScreen(
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Download", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
+                        Text("내려받기", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
                     }
                 }
             }
 
             Text(
-                text = "Custom Download URL",
+                text = "직접 URL 로 내려받기",
                 style = MaterialTheme.typography.titleMedium,
                 color = KosmosTheme.colors.textPrimary,
                 fontWeight = FontWeight.SemiBold
@@ -148,7 +148,7 @@ fun ModelManagementScreen(
                     OutlinedTextField(
                         value = customUrl,
                         onValueChange = { customUrl = it },
-                        label = { Text("URL (.litertlm file)", color = KosmosTheme.colors.textMuted) },
+                        label = { Text("URL (.litertlm 파일)", color = KosmosTheme.colors.textMuted) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = KosmosTheme.colors.accent,
@@ -175,7 +175,7 @@ fun ModelManagementScreen(
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Download Custom Model", color = btnText, fontWeight = FontWeight.Bold)
+                        Text("이 URL 로 내려받기", color = btnText, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -186,11 +186,11 @@ fun ModelManagementScreen(
         is DownloadState.Success -> {
             AlertDialog(
                 onDismissRequest = { viewModel.resetState() },
-                title = { Text("Download Complete") },
-                text = { Text("The model has been successfully downloaded and applied.") },
+                title = { Text("내려받기 완료") },
+                text = { Text("모델을 받아서 적용했어요. 이제 대화를 시작할 수 있어요.") },
                 confirmButton = {
                     TextButton(onClick = { viewModel.resetState() }) {
-                        Text("OK", color = KosmosTheme.colors.accent)
+                        Text("확인", color = KosmosTheme.colors.accent)
                     }
                 },
                 containerColor = KosmosTheme.colors.surface,
@@ -201,7 +201,7 @@ fun ModelManagementScreen(
         is DownloadState.Error -> {
             AlertDialog(
                 onDismissRequest = { viewModel.resetState() },
-                title = { Text("Download Failed", color = KosmosTheme.colors.danger) },
+                title = { Text("내려받기 실패", color = KosmosTheme.colors.danger) },
                 text = {
                     // 이어받을 부분 파일이 있으면 재시도가 저렴하다는 사실을 함께 알린다.
                     val resumeNote = if (state.resumableBytes > 0) {

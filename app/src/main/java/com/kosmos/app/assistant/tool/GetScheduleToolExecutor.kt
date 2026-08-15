@@ -41,15 +41,18 @@ class GetScheduleToolExecutor @Inject constructor(
         val res = getTodayScheduleUseCase(range)
         return if (res is AppResult.Success) {
             val data = res.data
-            // [WHY] 요약을 유스케이스에서 떼어낸 뒤에도 **툴 결과의 모양은 그대로 유지한다.**
-            // 모델에게 주는 관측값을 바꾸면 툴 호출 실패(2026-08-12 실기기, 미해결) 조사에
-            // 변수가 하나 더 늘어난다 — 그 조사가 끝난 뒤에 다룬다.
             val summary = (summarizeScheduleUseCase(data.events, range) as? AppResult.Success)?.data
             val text = buildString {
                 append(summary?.takeIf { it.isNotBlank() } ?: "일정 요약이 없습니다.")
                 append("\n\n")
                 data.events.forEach { event ->
-                    append("- ${event.title} (${event.startIso})\n")
+                    // [WHY] ISO 원문 대신 한국어 표기("8월 20일 오후 4:00")를 준다 — 모델이 툴
+                    // 결과를 그대로 인용하므로, 원문을 주면 답변에 "2026-08-20T16:00:00" 이
+                    // 노출됐다 (2026-08-15 사용자 피드백). 예전의 "관측값 동결" 유보(2026-08-12
+                    // 툴 호출 실패 조사)는 이후 실기기에서 툴 호출이 안정 확인되어 해제한다.
+                    val display = com.kosmos.app.domain.util.IsoDateTimeParser
+                        .toDisplayKorean(event.startIso) ?: event.startIso
+                    append("- ${event.title} ($display)\n")
                 }
             }
             // [WHY] 일정 제목에 따옴표/개행이 있어도 JSON이 깨지지 않도록 JSONObject로 조립한다.

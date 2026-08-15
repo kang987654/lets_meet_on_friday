@@ -34,10 +34,10 @@ fun AuditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Audit Logs", fontWeight = FontWeight.Bold, color = KosmosTheme.colors.textPrimary) },
+                title = { Text("활동 기록", fontWeight = FontWeight.Bold, color = KosmosTheme.colors.textPrimary) },
                 navigationIcon = {
                     TextButton(onClick = onNavigateBack) {
-                        Text("Back", color = KosmosTheme.colors.textSecondary)
+                        Text("뒤로", color = KosmosTheme.colors.textSecondary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -57,7 +57,7 @@ fun AuditScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No audit logs recorded.", color = KosmosTheme.colors.textMuted)
+                    Text("아직 기록된 활동이 없어요.", color = KosmosTheme.colors.textMuted)
                 }
             } else {
                 LazyColumn(
