@@ -97,11 +97,14 @@ import android.Manifest
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
-    onSettingsClick: () -> Unit = {},
+    // [WHY] onSettingsClick 은 제거됐다 — 설정 진입은 드로어 타일(M2-2). ☰ 은 셸 층의
+    // drawerState.open 을 람다로 받는다. 기본값은 E2E 계약(단독 compose) 때문에 필수.
+    onMenuClick: () -> Unit = {},
     webSearchEnabled: Boolean = false,
     onToggleWebSearch: (Boolean) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showStatusSheet by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val clipboard = androidx.compose.ui.platform.LocalClipboard.current
 
@@ -254,17 +257,11 @@ fun ChatScreen(
         snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHostState) },
         topBar = {
             com.kosmos.app.feature.chat.CustomChatHeader(
-                onSettingsClick = onSettingsClick,
-                webSearchEnabled = webSearchEnabled,
-                onToggleWebSearch = { enabled ->
-                    onToggleWebSearch(enabled)
-                    snackbarScope.launch {
-                        snackbarHostState.showSnackbar(
-                            if (enabled) "웹 검색 허용됨 — 위키피디아 검색을 사용할 수 있어요."
-                            else "웹 검색 차단됨 — 기기 안에서만 답변해요."
-                        )
-                    }
-                }
+                onMenuClick = onMenuClick,
+                engineState = uiState.engineState,
+                deviceStatus = uiState.deviceStatus,
+                warningMessage = uiState.warningMessage,
+                onStatusClick = { showStatusSheet = true }
             )
         },
         bottomBar = {
@@ -278,7 +275,7 @@ fun ChatScreen(
                         viewModel.sendMessage(text)
                     }
                 },
-                onMicClick = { 
+                onMicClick = {
                     if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                         viewModel.toggleRecording()
                     } else {
@@ -286,7 +283,17 @@ fun ChatScreen(
                     }
                 },
                 onAttachClick = { imagePickerLauncher.launch("*/*") },
-                onStopGeneration = { viewModel.cancelGeneration() }
+                onStopGeneration = { viewModel.cancelGeneration() },
+                webSearchEnabled = webSearchEnabled,
+                onToggleWebSearch = { enabled ->
+                    onToggleWebSearch(enabled)
+                    snackbarScope.launch {
+                        snackbarHostState.showSnackbar(
+                            if (enabled) "웹 검색 허용됨 — 위키피디아 검색을 사용할 수 있어요."
+                            else "웹 검색 차단됨 — 기기 안에서만 답변해요."
+                        )
+                    }
+                }
             )
         }
     ) { innerPadding ->
@@ -298,11 +305,6 @@ fun ChatScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                DeviceStatusStrip(
-                    status = uiState.deviceStatus,
-                    warningMessage = uiState.warningMessage
-                )
-
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -416,6 +418,14 @@ fun ChatScreen(
         )
     }
 
+    if (showStatusSheet) {
+        StatusDetailSheet(
+            engineState = uiState.engineState,
+            status = uiState.deviceStatus,
+            warningMessage = uiState.warningMessage,
+            onDismiss = { showStatusSheet = false }
+        )
+    }
 }
 
 /** 채팅 목록의 행 — 메시지와 날짜 구분선을 한 리스트로 표현합니다. */

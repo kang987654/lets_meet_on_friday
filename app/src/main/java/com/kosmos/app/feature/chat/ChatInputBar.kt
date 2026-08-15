@@ -88,7 +88,12 @@ fun ChatInputBar(
     onSend: (String) -> Unit,
     onMicClick: () -> Unit,
     onAttachClick: () -> Unit,
-    onStopGeneration: () -> Unit = {}
+    onStopGeneration: () -> Unit = {},
+    // [WHY] 웹 검색 토글이 헤더에서 여기로 왔다 (시안 A′, M2-1) — 질문을 쓰는 맥락 옆이
+    // 자연스럽고, 헤더의 토글·설정 겹침 문제가 원천 소멸한다. 기본값은 E2E 계약(ChatScreen
+    // 기본 인자 단독 compose) 때문에 필수다.
+    webSearchEnabled: Boolean = false,
+    onToggleWebSearch: (Boolean) -> Unit = {}
 ) {
     var textState by remember { mutableStateOf(TextFieldValue("")) }
 
@@ -190,6 +195,19 @@ fun ChatInputBar(
                     contentDescription = "Attach",
                     tint = if (!isLoading) KosmosTheme.colors.textSecondary else KosmosTheme.colors.textMuted,
                     modifier = Modifier.size(24.dp)
+                )
+            }
+
+            // 웹 검색 허용 토글 — ON: 승인 없이 검색 허용 / OFF(기본): 모델에 툴 미노출 + 실행 차단
+            IconButton(
+                onClick = { onToggleWebSearch(!webSearchEnabled) },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Language,
+                    contentDescription = "WebSearchToggle",
+                    tint = if (webSearchEnabled) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted,
+                    modifier = Modifier.size(22.dp)
                 )
             }
 

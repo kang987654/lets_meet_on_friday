@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloat
@@ -77,60 +78,143 @@ import android.Manifest
 // [WHY] ChatScreen.kt(1,200여 줄, 12개 컴포저블 동거)를 응집 단위로 분리했다
 // (2026-08-15, MVP 감사 refactor-ui) — 순수 이동이며 동작 변경이 없다. 이 파일: 상단 헤더와 기기 상태 표시.
 
+/**
+ * 슬림 헤더 (시안 A′, M2-1): ☰ + "KOSMOS" + 엔진 상태 점 + 상태 캡슐 1개.
+ *
+ * [WHY] 웹 검색 토글은 입력바로, 설정은 드로어(M2-2)로 갔다 — 우측 아이콘 밀집(토글·설정
+ * 겹침, ui_improvement_plan 보류 항목)이 원천 소멸한다. 상시 상태 스트립은 캡슐로 압축되어
+ * 세로 한 줄을 회수하고, 상세 수치는 캡슐 탭 → [StatusDetailSheet] 로 옮겼다.
+ */
 @Composable
 fun CustomChatHeader(
-    onSettingsClick: () -> Unit = {},
-    webSearchEnabled: Boolean = false,
-    onToggleWebSearch: (Boolean) -> Unit = {}
+    onMenuClick: () -> Unit = {},
+    engineState: ModelLoadState = ModelLoadState.Loading,
+    deviceStatus: com.kosmos.app.runtime.metrics.DeviceStatus =
+        com.kosmos.app.runtime.metrics.DeviceStatus(),
+    warningMessage: String? = null,
+    onStatusClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        IconButton(
+            onClick = onMenuClick,
+            modifier = Modifier.size(40.dp)
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = Icons.Default.Menu,
+                contentDescription = "Menu",
+                tint = KosmosTheme.colors.textSecondary,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
         Text(
             text = "KOSMOS",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
             letterSpacing = 1.sp,
-            color = KosmosTheme.colors.textPrimary
+            color = KosmosTheme.colors.textPrimary,
+            modifier = Modifier.padding(start = 4.dp, end = 8.dp)
         )
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // 웹 검색 허용 토글 — ON: 승인 없이 검색 허용 / OFF(기본): 모델에 툴 미노출 + 실행 차단
-            IconButton(
-                onClick = { onToggleWebSearch(!webSearchEnabled) },
+        // 엔진 상태 점 — Ready=success / 로딩 계열=muted / 오류·발열 경고=danger·warning.
+        val dotColor = when {
+            warningMessage != null -> KosmosTheme.colors.warning
+            engineState is ModelLoadState.Ready -> KosmosTheme.colors.success
+            engineState is ModelLoadState.Error || engineState is ModelLoadState.NotFound ->
+                KosmosTheme.colors.danger
+            else -> KosmosTheme.colors.textMuted
+        }
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(dotColor)
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // [WHY] 발열 경고 시 캡슐이 warning 색으로 승격된다 — 상시 스트립을 없애도 발열
+        // 가시성은 유지해야 한다 (기존 스트립의 경고 합류 설계를 캡슐이 승계).
+        val capsule = formatStatusCapsule(deviceStatus)
+        if (capsule.isNotEmpty() || warningMessage != null) {
+            val warning = warningMessage != null
+            Text(
+                text = if (warning) "⚠ ${capsule.ifEmpty { "발열 주의" }}" else capsule,
+                color = if (warning) KosmosTheme.colors.warning else KosmosTheme.colors.textSecondary,
+                style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier
-                    .size(36.dp)
-                    .glassEffect(shape = androidx.compose.foundation.shape.CircleShape)
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = Icons.Default.Language,
-                    contentDescription = "WebSearchToggle",
-                    tint = if (webSearchEnabled) KosmosTheme.colors.accent else KosmosTheme.colors.textSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
+                    .glassEffect(shape = RoundedCornerShape(99.dp))
+                    .clickable(onClick = onStatusClick)
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+            )
+        }
+    }
+}
+
+/**
+ * 기기 상태 상세 시트 — 캡슐 탭으로 열립니다. 기존 상시 스트립의 본문이 이곳으로 이동했다.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StatusDetailSheet(
+    engineState: ModelLoadState,
+    status: com.kosmos.app.runtime.metrics.DeviceStatus,
+    warningMessage: String?,
+    onDismiss: () -> Unit
+) {
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = KosmosTheme.colors.surface,
+        dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+            Text(
+                text = "기기 상태",
+                style = MaterialTheme.typography.titleMedium,
+                color = KosmosTheme.colors.textPrimary
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = formatDeviceStatus(status).ifEmpty { "수치를 수집하는 중이에요." },
+                color = KosmosTheme.colors.textSecondary,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            val engineLabel = when (engineState) {
+                is ModelLoadState.Ready -> "엔진 준비됨 (${engineState.modelInfo.modelId})"
+                is ModelLoadState.Error -> "엔진 오류"
+                is ModelLoadState.NotFound -> "모델 파일 없음"
+                else -> "엔진 준비 중"
             }
-
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(8.dp))
-
-            IconButton(
-                onClick = onSettingsClick,
-                modifier = Modifier
-                    .size(36.dp)
-                    .glassEffect(shape = androidx.compose.foundation.shape.CircleShape)
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = KosmosTheme.colors.textSecondary,
-                    modifier = Modifier.size(20.dp)
+            Text(
+                text = engineLabel,
+                color = KosmosTheme.colors.textMuted,
+                style = MaterialTheme.typography.bodySmall
+            )
+            if (warningMessage != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = warningMessage,
+                    color = KosmosTheme.colors.warning,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                 )
             }
         }
     }
+}
+
+/** 캡슐용 축약 포맷 — `🌡36° · 9.6t/s`. 상세 수치는 [formatDeviceStatus](시트)가 담당한다. */
+internal fun formatStatusCapsule(status: com.kosmos.app.runtime.metrics.DeviceStatus): String {
+    val parts = mutableListOf<String>()
+    if (status.temperatureCelsius > 0f) parts += "🌡%.0f°".format(status.temperatureCelsius)
+    status.tokensPerSecond?.let { parts += "%.1ft/s".format(it) }
+    return parts.joinToString(" · ")
 }
 /**
  * 채팅 상단에 상시 표시되는 기기 상태 줄입니다.
