@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -97,6 +98,11 @@ fun CustomChatHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            // [WHY] 이 헤더는 TopAppBar 가 아니라 평범한 Row 다 — M3 Scaffold 는 topBar 슬롯의
+            // 상태바 인셋을 topBar 자신이 처리한다고 가정한다(TopAppBar 는 내장). M2-2 에서
+            // 셸 Scaffold 를 제거하자 이 가정이 드러나 헤더가 상태바 밑에 깔렸다(2026-08-15
+            // 실기기: 헤더·입력바가 잘려 조작 불능). 인셋은 여기서 직접 진다.
+            .statusBarsPadding()
             .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

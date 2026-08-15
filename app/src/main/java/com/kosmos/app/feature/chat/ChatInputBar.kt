@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -107,6 +109,12 @@ fun ChatInputBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            // [WHY] M3 Scaffold 는 bottomBar 슬롯의 인셋을 슬롯 자신이 처리한다고 가정한다
+            // (NavigationBar 는 내장 — M2-2 에서 그 셸 Scaffold 를 제거하며 드러났다).
+            // 내비 제스처 바와 키보드 위로 입력바를 올린다. Robolectric 에서는 인셋이 0 이라
+            // E2E 계약(셀렉터·단독 compose)에 영향 없다.
+            .navigationBarsPadding()
+            .imePadding()
     ) {
         if (sharedInput is com.kosmos.app.platform.share.SharedInput.Image) {
             Box(
