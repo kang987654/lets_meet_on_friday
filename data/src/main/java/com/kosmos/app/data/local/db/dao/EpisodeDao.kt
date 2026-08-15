@@ -20,7 +20,12 @@ interface EpisodeDao {
     @Query("SELECT * FROM episode WHERE status = :status ORDER BY createdAt ASC")
     suspend fun getByStatus(status: String): List<EpisodeEntity>
 
-    @Query("SELECT * FROM episode ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
+    /**
+     * 아카이브 목록 — 요약이 완성된 문서만.
+     * [WHY] OPEN/CLOSED 는 제목이 없고(요약 전) FAILED 는 미노출 계약이다 — 원문은 타임라인에
+     * 그대로 있으므로 사용자가 잃는 것은 없다.
+     */
+    @Query("SELECT * FROM episode WHERE status = 'SUMMARIZED' ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
     suspend fun getEpisodes(offset: Int, limit: Int): List<EpisodeEntity>
 
     /**
