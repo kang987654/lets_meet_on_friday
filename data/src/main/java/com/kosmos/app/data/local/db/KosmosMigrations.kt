@@ -87,5 +87,45 @@ object KosmosMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_4_5)
+    /**
+     * 에피소드 기억(ADR-022) 스키마 — `episode` 테이블 신설 + `conversation` 칼럼 2개.
+     *
+     * [WHY] 단순 CREATE/ALTER 만이라 테이블 재구축이 없다(4→5 와 달리 데이터 재인코딩 없음).
+     * DDL 은 Room 이 생성하는 6.json 과 문자 단위로 맞아야 한다 — 어긋나면 다음 실행의 스키마
+     * 검증이 실패한다. `EpisodeMigrationTest` 가 sqlite_master 대조로 고정한다.
+     */
+    val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `episode` (
+                    `id` TEXT NOT NULL,
+                    `sessionId` TEXT NOT NULL,
+                    `status` TEXT NOT NULL,
+                    `title` TEXT,
+                    `summary` TEXT,
+                    `tags` TEXT NOT NULL,
+                    `startAt` INTEGER NOT NULL,
+                    `endAt` INTEGER,
+                    `messageCount` INTEGER NOT NULL,
+                    `retryCount` INTEGER NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    `updatedAt` INTEGER NOT NULL,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_episode_status` ON `episode` (`status`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_episode_createdAt` ON `episode` (`createdAt`)")
+
+            // [WHY] `DEFAULT NULL` 을 쓰지 않는다 — DDL 에 그 문구가 남아 Room 이 기대하는
+            // 스키마(기본값 없음)와 어긋나고, 다음 실행의 스키마 검증이 실패한다. SQLite 는
+            // DEFAULT 절이 없어도 기존 행을 NULL 로 채운다 (EpisodeMigrationTest 가 잡은 결함).
+            db.execSQL("ALTER TABLE `conversation` ADD COLUMN `episodeId` TEXT")
+            db.execSQL("ALTER TABLE `conversation` ADD COLUMN `recallEpisodeIds` TEXT")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_conversation_episodeId` ON `conversation` (`episodeId`)")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 }

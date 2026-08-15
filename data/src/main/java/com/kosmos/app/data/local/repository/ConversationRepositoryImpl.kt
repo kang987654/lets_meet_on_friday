@@ -23,7 +23,12 @@ class ConversationRepositoryImpl @Inject constructor(
                 content = message.content,
                 inputType = message.inputType.name,
                 searchUsed = message.searchUsed,
-                createdAt = message.createdAt
+                createdAt = message.createdAt,
+                episodeId = message.episodeId,
+                // [WHY] 빈 목록은 NULL 로 — "회수 없음"과 "빈 CSV"를 구분할 이유가 없고
+                // NULL 이 마이그레이션 기본값과 일치한다.
+                recallEpisodeIds = message.recallEpisodeIds
+                    .takeIf { it.isNotEmpty() }?.joinToString(",")
             )
             conversationDao.insert(entity)
             AppResult.Success(Unit)
@@ -63,6 +68,39 @@ class ConversationRepositoryImpl @Inject constructor(
             AppResult.Failure(AppError.DbReadError("conversation"))
         }
     }
+
+    override suspend fun getByEpisode(episodeId: String): AppResult<List<ChatMessage>> =
+        read("에피소드 메시지 조회") { conversationDao.getByEpisode(episodeId).map { it.toDomain() } }
+
+    override suspend fun getUnassigned(): AppResult<List<ChatMessage>> =
+        read("미배정 메시지 조회") { conversationDao.getUnassigned().map { it.toDomain() } }
+
+    override suspend fun assignEpisode(messageId: String, episodeId: String): AppResult<Unit> {
+        return try {
+            conversationDao.assignEpisode(messageId, episodeId)
+            AppResult.Success(Unit)
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            com.kosmos.app.core.logging.AppLogger.e("ConversationRepo", "에피소드 배정 실패", e)
+            AppResult.Failure(AppError.DbWriteError("conversation"))
+        }
+    }
+
+    override suspend fun getPagedAll(beforeTs: Long, offset: Int, limit: Int): AppResult<List<ChatMessage>> =
+        read("타임라인 페이징 조회") { conversationDao.getPagedAll(beforeTs, offset, limit).map { it.toDomain() } }
+
+    override suspend fun countNewerThan(ts: Long): AppResult<Int> =
+        read("타임라인 인덱스 계산") { conversationDao.countNewerThan(ts) }
+
+    private inline fun <T> read(what: String, block: () -> T): AppResult<T> = try {
+        AppResult.Success(block())
+    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        com.kosmos.app.core.logging.AppLogger.e("ConversationRepo", "$what 실패", e)
+        AppResult.Failure(AppError.DbReadError("conversation"))
+    }
 }
 
 fun ConversationEntity.toDomain(): ChatMessage {
@@ -73,7 +111,12 @@ fun ConversationEntity.toDomain(): ChatMessage {
         content = this.content,
         inputType = try { InputType.valueOf(this.inputType) } catch (e: Exception) { InputType.TEXT },
         searchUsed = this.searchUsed,
-        createdAt = this.createdAt
+        createdAt = this.createdAt,
+        episodeId = this.episodeId,
+        // [WHY] 저장과 대칭 — NULL/빈 문자열 모두 빈 목록으로. 여기서 빠뜨리면 thinkingProcess
+        // 처럼 "저장은 되는데 재로드에서 소실"되는 결함이 재현된다 (매퍼 왕복 테스트가 고정).
+        recallEpisodeIds = this.recallEpisodeIds
+            ?.split(",")?.mapNotNull { it.trim().ifEmpty { null } } ?: emptyList()
     )
 }
 

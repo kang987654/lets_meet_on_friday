@@ -58,4 +58,10 @@ abstract class MemoryModule {
     abstract fun bindMemoryBackupManager(
         impl: ExportImportManager
     ): MemoryBackupManager
+
+    @Binds
+    @Singleton
+    abstract fun bindEpisodeRepository(
+        impl: com.kosmos.app.data.local.repository.EpisodeRepositoryImpl
+    ): com.kosmos.app.domain.memory.EpisodeRepository
 }

@@ -21,4 +21,22 @@ interface ConversationRepository {
         limit: Int
     ): AppResult<List<ChatMessage>>
     suspend fun getPagedBySession(sessionId: String, offset: Int, limit: Int): AppResult<List<ChatMessage>>
+
+    /** 에피소드에 귀속된 메시지 전부 — 시간순 (요약 입력·원문 열람용, ADR-022). */
+    suspend fun getByEpisode(episodeId: String): AppResult<List<ChatMessage>>
+
+    /** 에피소드 미배정 메시지 — catch-up 소급 배정 대상. 시간순. */
+    suspend fun getUnassigned(): AppResult<List<ChatMessage>>
+
+    /** 메시지의 에피소드 귀속을 갱신합니다 (소급 배정용). */
+    suspend fun assignEpisode(messageId: String, episodeId: String): AppResult<Unit>
+
+    /**
+     * 세션 무관 연속 타임라인 페이징 — [beforeTs] 이전 행만, 최신순(DESC) 그대로 반환.
+     * [WHY] 앵커 이전 집합은 불변이라 offset 페이징이 안전하다 (시안 A′ 타임라인).
+     */
+    suspend fun getPagedAll(beforeTs: Long, offset: Int, limit: Int): AppResult<List<ChatMessage>>
+
+    /** [ts] 이후(포함) 메시지 수 — 타임라인 점프 인덱스 계산용. */
+    suspend fun countNewerThan(ts: Long): AppResult<Int>
 }
