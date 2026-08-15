@@ -31,7 +31,8 @@ class AssistantOrchestrator @Inject constructor(
     private val auditTrailService: AuditTrailService,
     private val agent: com.kosmos.app.assistant.agent.KosmosAgent,
     private val transcribeAudioUseCase: com.kosmos.app.domain.usecase.TranscribeAudioUseCase,
-    private val episodeBoundaryManager: com.kosmos.app.assistant.episode.EpisodeBoundaryManager
+    private val episodeBoundaryManager: com.kosmos.app.assistant.episode.EpisodeBoundaryManager,
+    private val episodeSummarizeScheduler: com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
 ) {
 
     suspend fun processRequest(request: ChatRequest): AgentResult {
@@ -107,7 +108,12 @@ class AssistantOrchestrator @Inject constructor(
         } else {
             request.copy(episodeId = episodeId)
         }
-        return agent.execute(agentRequest, context)
+        val result = agent.execute(agentRequest, context)
+        // [WHY] 턴이 끝난 지금이 미뤄둔 에피소드 요약을 돌릴 안전한 시점이다 — 사용자는 방금
+        // 받은 응답을 읽는 중이고 llmDispatcher 는 비어 있다. fire-and-forget 이라 반환을
+        // 막지 않는다 (ADR-022, EpisodeSummarizeScheduler [WHY] 참조).
+        episodeSummarizeScheduler.onTurnCompleted()
+        return result
     }
 
     // [WHY] 감사에는 진단용 원문을, 말풍선에는 사용자 문구를 남긴다. 0.11.0 에서 `BaseAgent` 쪽은
