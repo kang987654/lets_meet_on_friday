@@ -169,6 +169,10 @@ fun ChatBubbleAssistant(
     text: String,
     thinkingProcess: String? = null,
     searchUsed: Boolean = false,
+    // [WHY] 회수 칩(🧠, 시안 A′ P3 투명성): 이 답변이 과거 에피소드 기억을 참고했음을 표시한다.
+    // 기본값 null = 미렌더 — E2E(단독 compose)와 기존 버블 어서션이 그대로 유지된다.
+    recallChipLabel: String? = null,
+    onRecallChipClick: () -> Unit = {},
     onLongPress: () -> Unit = {}
 ) {
     var isThinkingExpanded by remember { mutableStateOf(false) }
@@ -255,6 +259,20 @@ fun ChatBubbleAssistant(
                     color = KosmosTheme.colors.textMuted,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(start = 14.dp, top = 4.dp)
+                )
+            }
+
+            // 회수 칩 — searchUsed 표기와 같은 원칙: 답변의 출처(기억)를 보이게 한다.
+            if (recallChipLabel != null) {
+                Text(
+                    text = "🧠 기억에서 — $recallChipLabel",
+                    color = KosmosTheme.colors.textSecondary,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier
+                        .padding(start = 14.dp, top = 4.dp)
+                        .glassEffect(shape = RoundedCornerShape(99.dp))
+                        .clickable(onClick = onRecallChipClick)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
                 )
             }
         }

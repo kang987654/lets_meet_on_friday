@@ -36,6 +36,7 @@ class VoiceChatIntegrationTest {
 
     @Inject lateinit var sessionStore: SessionStore
     @Inject lateinit var conversationRepository: ConversationRepository
+    @Inject lateinit var episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository
     @Inject lateinit var sendChatMessageUseCase: SendChatMessageUseCase
     @Inject lateinit var approvalCoordinator: ApprovalCoordinator
     @Inject lateinit var shareIntentHandler: ShareIntentHandler
@@ -103,6 +104,7 @@ class VoiceChatIntegrationTest {
             savedStateHandle = SavedStateHandle(),
             sessionStore = sessionStore,
             conversationRepository = conversationRepository,
+            episodeRepository = episodeRepository,
             sendChatMessageUseCase = sendChatMessageUseCase,
             approvalCoordinator = approvalCoordinator,
             shareIntentHandler = shareIntentHandler,

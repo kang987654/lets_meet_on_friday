@@ -16,7 +16,10 @@ fun AppNavHost(
     modifier: Modifier = Modifier,
     startDestination: String = AppDestination.Splash.route,
     /** 셸(MainScreen)의 드로어 열기 — 채팅 헤더 ☰ 이 부른다 (시안 A′). */
-    onOpenDrawer: () -> Unit = {}
+    onOpenDrawer: () -> Unit = {},
+    /** 드로어 에피소드 시트의 "원문 대화 보기" 요청 시각 — ChatScreen 이 소비한다 (M2-5). */
+    jumpToTimestamp: Long? = null,
+    onJumpConsumed: () -> Unit = {}
 ) {
     NavHost(
         navController = navController,
@@ -46,7 +49,9 @@ fun AppNavHost(
                 // [WHY] 설정 진입은 드로어 타일로 이동(M2-2) — ☰ 이 셸의 드로어를 연다.
                 onMenuClick = onOpenDrawer,
                 webSearchEnabled = webSearchEnabled,
-                onToggleWebSearch = webSearchViewModel::setWebSearchEnabled
+                onToggleWebSearch = webSearchViewModel::setWebSearchEnabled,
+                jumpToTimestamp = jumpToTimestamp,
+                onJumpConsumed = onJumpConsumed
             )
         }
         

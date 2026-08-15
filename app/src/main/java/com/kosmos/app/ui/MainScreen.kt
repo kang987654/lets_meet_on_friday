@@ -7,6 +7,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,6 +37,13 @@ fun MainScreen() {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
+    // [WHY] 드로어의 에피소드 시트 → "원문 대화 보기" 요청 (M2-5). 드로어는 셸 층이고
+    // 채팅의 listState 는 ChatScreen 안에 있으므로, 요청 시각을 상태로 내려 보내고
+    // ChatScreen 이 소비 후 지운다 — 드로어가 채팅 내부를 직접 만지지 않는 가장 싼 통로.
+    var pendingJumpTimestamp by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf<Long?>(null)
+    }
+
     // [WHY] 드로어가 열려 있을 때 시스템 뒤로가기는 드로어를 닫는다 — 앱 종료가 아니라.
     BackHandler(enabled = drawerState.isOpen) {
         scope.launch { drawerState.close() }
@@ -60,14 +68,20 @@ fun MainScreen() {
                     onNavigateToCalendar = { navigateFromDrawer(AppDestination.Calendar.route) },
                     onNavigateToAudit = { navigateFromDrawer(AppDestination.Audit.route) },
                     onNavigateToSettings = { navigateFromDrawer(AppDestination.Settings.route) },
-                    onNavigateToMemory = { navigateFromDrawer(AppDestination.Memory.route) }
+                    onNavigateToMemory = { navigateFromDrawer(AppDestination.Memory.route) },
+                    onJumpToTimeline = { startAt ->
+                        pendingJumpTimestamp = startAt
+                        scope.launch { drawerState.close() }
+                    }
                 )
             }
         }
     ) {
         AppNavHost(
             navController = navController,
-            onOpenDrawer = { scope.launch { drawerState.open() } }
+            onOpenDrawer = { scope.launch { drawerState.open() } },
+            jumpToTimestamp = pendingJumpTimestamp,
+            onJumpConsumed = { pendingJumpTimestamp = null }
         )
     }
 }

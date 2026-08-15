@@ -103,7 +103,11 @@ fun ChatScreen(
     // drawerState.open 을 람다로 받는다. 기본값은 E2E 계약(단독 compose) 때문에 필수.
     onMenuClick: () -> Unit = {},
     webSearchEnabled: Boolean = false,
-    onToggleWebSearch: (Boolean) -> Unit = {}
+    onToggleWebSearch: (Boolean) -> Unit = {},
+    // [WHY] 드로어의 에피소드 시트 → "원문 대화 보기" (M2-5). 셸(MainScreen)이 요청 시각을
+    // 내려주고, 소비 후 [onJumpConsumed]로 지운다. 기본값은 E2E 계약(단독 compose) 때문에 필수.
+    jumpToTimestamp: Long? = null,
+    onJumpConsumed: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showStatusSheet by remember { mutableStateOf(false) }
@@ -130,6 +134,47 @@ fun ChatScreen(
     LaunchedEffect(uiState.messages.size, uiState.isInFlight) {
         if (!userScrolledAway) {
             listState.animateScrollToItem(0)
+        }
+    }
+
+    // ── 회수 칩 + 원문 점프 (시안 A′ M2-5) ─────────────────────────────────────
+    val episodeChipLabels by viewModel.episodeChipLabels.collectAsStateWithLifecycle()
+    var openEpisodeId by remember { mutableStateOf<String?>(null) }
+    // 점프 도착 지점 1회성 하이라이트 — 값 = 에피소드 startAt, 경계 메시지가 자기를 식별한다.
+    var highlightStartAt by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(highlightStartAt) {
+        if (highlightStartAt != null) {
+            kotlinx.coroutines.delay(2_500)
+            highlightStartAt = null
+        }
+    }
+
+    /**
+     * [startAt] 시각의 메시지로 스크롤한다. reverseLayout 인덱스 = [스트리밍/타이핑 헤더]
+     * + 라이브 테일 + 히스토리 순이므로, 히스토리 내 인덱스(ViewModel 계산)에 앞 구간을 더한다.
+     * placeholder 덕에 미로드 위치로도 O(1) 점프가 된다 (CountedPagingSource).
+     */
+    val jumpToTimeline: suspend (Long) -> Unit = { startAt ->
+        val headerCount = (if (uiState.streamingText != null || uiState.streamingThinking != null) 1 else 0) +
+            (if (uiState.isInFlight && uiState.streamingText == null) 1 else 0)
+        val historyIndex = viewModel.historyIndexOf(startAt)
+        val target = if (historyIndex != null) {
+            headerCount + liveTail.size + historyIndex
+        } else {
+            // 앵커 이후에 시작한 에피소드 — 라이브 테일에서 가장 오래된 해당 메시지를 찾는다.
+            val tailIndex = liveTail.indexOfLast { it.createdAt >= startAt }
+            if (tailIndex >= 0) headerCount + tailIndex else 0
+        }
+        val lastIndex = headerCount + liveTail.size + history.itemCount - 1
+        userScrolledAway = true
+        highlightStartAt = startAt
+        listState.scrollToItem(target.coerceIn(0, maxOf(0, lastIndex)))
+    }
+
+    LaunchedEffect(jumpToTimestamp) {
+        if (jumpToTimestamp != null) {
+            jumpToTimeline(jumpToTimestamp)
+            onJumpConsumed()
         }
     }
 
@@ -347,10 +392,17 @@ fun ChatScreen(
                         // 다음(더 과거) 이웃: 테일 내부 → 없으면 페이징의 첫 항목.
                         val older = liveTail.getOrNull(index + 1)
                             ?: if (history.itemCount > 0) history.peek(0) else null
+                        val chipId = message.recallEpisodeIds.firstOrNull()
+                        if (chipId != null) {
+                            LaunchedEffect(chipId) { viewModel.ensureEpisodeChipLabel(chipId) }
+                        }
                         MessageWithDate(
                             message = message,
                             older = older,
-                            onCopy = { copyToClipboard(snackbarScope, clipboard, snackbarHostState, message.content) }
+                            onCopy = { copyToClipboard(snackbarScope, clipboard, snackbarHostState, message.content) },
+                            recallChipLabel = chipId?.let { episodeChipLabels[it] },
+                            onRecallChipClick = { if (chipId != null) openEpisodeId = chipId },
+                            highlighted = isJumpTarget(message, older, highlightStartAt)
                         )
                     }
 
@@ -364,10 +416,17 @@ fun ChatScreen(
                             PlaceholderBubble()
                         } else {
                             val older = if (index + 1 < history.itemCount) history.peek(index + 1) else null
+                            val chipId = message.recallEpisodeIds.firstOrNull()
+                            if (chipId != null) {
+                                LaunchedEffect(chipId) { viewModel.ensureEpisodeChipLabel(chipId) }
+                            }
                             MessageWithDate(
                                 message = message,
                                 older = older,
-                                onCopy = { copyToClipboard(snackbarScope, clipboard, snackbarHostState, message.content) }
+                                onCopy = { copyToClipboard(snackbarScope, clipboard, snackbarHostState, message.content) },
+                                recallChipLabel = chipId?.let { episodeChipLabels[it] },
+                                onRecallChipClick = { if (chipId != null) openEpisodeId = chipId },
+                                highlighted = isJumpTarget(message, older, highlightStartAt)
                             )
                         }
                     }
@@ -435,6 +494,16 @@ fun ChatScreen(
             onDismiss = { showStatusSheet = false }
         )
     }
+
+    // 회수 칩 탭 → 에피소드 시트 — 드로어와 같은 시트를 재사용한다 (EpisodeSheet [WHY]).
+    val chipEpisodeId = openEpisodeId
+    if (chipEpisodeId != null) {
+        com.kosmos.app.feature.episode.EpisodeSheet(
+            episodeId = chipEpisodeId,
+            onDismiss = { openEpisodeId = null },
+            onJumpToTimeline = { startAt -> snackbarScope.launch { jumpToTimeline(startAt) } }
+        )
+    }
 }
 
 /**
@@ -451,27 +520,52 @@ fun ChatScreen(
 private fun MessageWithDate(
     message: ChatMessage,
     older: ChatMessage?,
-    onCopy: () -> Unit
+    onCopy: () -> Unit,
+    recallChipLabel: String? = null,
+    onRecallChipClick: () -> Unit = {},
+    highlighted: Boolean = false
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         val label = dateLabelIfBoundary(message, older)
         if (label != null) DateSeparator(label)
 
-        if (message.role == ChatMessage.Role.USER) {
-            ChatBubbleUser(
-                text = message.content,
-                inputType = message.inputType,
-                onLongPress = onCopy
+        // 점프 도착 하이라이트 — 배경 은은한 강조 1회성 (jumpToTimeline 후 2.5초).
+        val bubbleModifier = if (highlighted) {
+            Modifier.background(
+                KosmosTheme.colors.accent.copy(alpha = 0.10f),
+                RoundedCornerShape(20.dp)
             )
-        } else {
-            ChatBubbleAssistant(
-                text = message.content,
-                thinkingProcess = message.thinkingProcess,
-                searchUsed = message.searchUsed,
-                onLongPress = onCopy
-            )
+        } else Modifier
+
+        Box(modifier = bubbleModifier) {
+            if (message.role == ChatMessage.Role.USER) {
+                ChatBubbleUser(
+                    text = message.content,
+                    inputType = message.inputType,
+                    onLongPress = onCopy
+                )
+            } else {
+                ChatBubbleAssistant(
+                    text = message.content,
+                    thinkingProcess = message.thinkingProcess,
+                    searchUsed = message.searchUsed,
+                    recallChipLabel = recallChipLabel,
+                    onRecallChipClick = onRecallChipClick,
+                    onLongPress = onCopy
+                )
+            }
         }
     }
+}
+
+/**
+ * [message]가 점프 도착 지점(에피소드 첫 메시지)인지 판정합니다 — startAt 이후이면서 더 과거
+ * 이웃은 그 이전인 경계 메시지. id 를 모른 채 점프하므로 시각으로 자기를 식별하게 한다.
+ */
+private fun isJumpTarget(message: ChatMessage, older: ChatMessage?, highlightStartAt: Long?): Boolean {
+    if (highlightStartAt == null) return false
+    return message.createdAt >= highlightStartAt &&
+        (older == null || older.createdAt < highlightStartAt)
 }
 
 /** 미로드 placeholder 자리 — 점프 직후 Paging 이 채우기 전까지의 스켈레톤. */

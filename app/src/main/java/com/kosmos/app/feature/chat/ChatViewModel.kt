@@ -53,6 +53,7 @@ class ChatViewModel @Inject constructor(
     private val sessionStore: SessionStore,
     private val conversationRepository: ConversationRepository,
     private val sendChatMessageUseCase: SendChatMessageUseCase,
+    private val episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
     private val approvalCoordinator: ApprovalCoordinator,
     private val shareIntentHandler: ShareIntentHandler,
     private val runtimeMetricsCollector: RuntimeMetricsCollector,
@@ -99,6 +100,48 @@ class ChatViewModel @Inject constructor(
                 }
             )
         }.flow.cachedIn(viewModelScope)
+
+    /**
+     * 회수 칩(🧠) 라벨 캐시 — episodeId → "제목 (M월 d일)".
+     *
+     * [WHY] DB 에는 id 만 저장한다(제목 비정규화 회피 — 사용자가 시트에서 제목을 고치면 낡는다).
+     * 라벨은 렌더 시점에 여기서 해석하고, 못 찾으면(삭제된 에피소드) 칩을 그리지 않는다.
+     */
+    private val _episodeChipLabels = MutableStateFlow<Map<String, String?>>(emptyMap())
+    val episodeChipLabels: StateFlow<Map<String, String?>> = _episodeChipLabels.asStateFlow()
+
+    /** [episodeId] 라벨을 캐시에 채웁니다 — 이미 조회했으면(실패 포함) 재조회하지 않습니다. */
+    fun ensureEpisodeChipLabel(episodeId: String) {
+        if (_episodeChipLabels.value.containsKey(episodeId)) return
+        // 동시 재진입 방지 — 먼저 자리를 차지해 두고 결과로 덮는다.
+        _episodeChipLabels.update { it + (episodeId to null) }
+        viewModelScope.launch {
+            val episode = (episodeRepository.getById(episodeId) as? AppResult.Success)?.data
+                ?: return@launch
+            val date = java.time.Instant.ofEpochMilli(episode.startAt)
+                .atZone(java.time.ZoneId.systemDefault())
+                .format(java.time.format.DateTimeFormatter.ofPattern("M월 d일", java.util.Locale.KOREAN))
+            val label = "${episode.title ?: "지난 대화"} ($date)"
+            _episodeChipLabels.update { it + (episodeId to label) }
+        }
+    }
+
+    /**
+     * [startAt] 시각 메시지의 **히스토리(앵커 이전) 내 인덱스**를 계산합니다. 앵커 이후(라이브
+     * 테일)에 있으면 null — 화면이 테일에서 직접 찾는다.
+     *
+     * [WHY] countNewerThan 은 전체 행 기준이라 앵커 이후 행도 세는데, 그 몫은 라이브 테일이
+     * 화면에서 따로 차지한다. 두 카운트의 차로 히스토리 몫만 남기면 낙관적 메시지의 영속
+     * 여부와 무관하게 정확하다. placeholder 덕에 scrollToItem 은 O(1) 이다 (CountedPagingSource).
+     */
+    suspend fun historyIndexOf(startAt: Long): Int? {
+        val total = (conversationRepository.countNewerThan(startAt) as? AppResult.Success)?.data
+            ?: return null
+        val afterAnchor = (conversationRepository.countNewerThan(timelineAnchor) as? AppResult.Success)?.data
+            ?: return null
+        val inHistory = total - afterAnchor
+        return if (inHistory <= 0) null else inHistory - 1
+    }
 
     init {
         viewModelScope.launch {
