@@ -222,6 +222,30 @@ class BaseAgentStreamTest {
     }
 
     @Test
+    fun `SearchMemory 의 meta 는 칩 데이터로 뽑히고 모델 회신에서는 제거된다`() {
+        // [WHY] meta.episodeIds 가 모델에 되돌아가면 프롬프트 토큰 낭비 + 모델이 id 를 답변에
+        // 에코할 재료가 된다. 반대로 추출을 빠뜨리면 회수 칩(🧠)이 영원히 안 뜬다 (ADR-022).
+        val harness = runAgent(
+            ModelTurn("", listOf(toolCall("SearchMemory", mapOf("keyword" to "자전거 비밀번호")))),
+            ModelTurn("자전거 비밀번호는 1234예요."),
+            allowedTools = listOf("SearchMemory"),
+            toolRegistry = registryWith(
+                "SearchMemory",
+                """{"status":"success","data":"- (과거 대화) 자전거 메모: 1234","meta":{"episodeIds":["ep-1","ep-2"]}}"""
+            )
+        )
+
+        val result = harness.result as AgentResult.Text
+        assertEquals(listOf("ep-1", "ep-2"), result.recallEpisodeIds)
+        val toolResponse = harness.prompts[1].toolResponse
+        assertNotNull(toolResponse)
+        assertFalse("meta 가 모델 회신에 남았다", toolResponse!!.resultJson.contains("episodeIds"))
+        assertTrue("data 는 남아야 한다", toolResponse.resultJson.contains("자전거 메모"))
+        val assistant = harness.savedMessages.last { it.role == ChatMessage.Role.ASSISTANT }
+        assertEquals("칩 데이터가 DB 저장에도 실려야 한다", listOf("ep-1", "ep-2"), assistant.recallEpisodeIds)
+    }
+
+    @Test
     fun `실패한 웹 검색은 참고 뱃지 대신 실패 안내로 표시된다`() {
         // [WHY] 위키 네트워크 실패는 예외가 아니라 `{"status":"error"}` JSON 으로 돌아온다
         // (executed=true). 예전에는 executed 만 보고 searchUsed 를 켜서 **검색 없이 만든 답변에

@@ -121,6 +121,9 @@ class EpisodeSummarizeSchedulerTest {
         val s = scheduler()
 
         closed.emit(EpisodeBoundaryManager.ClosedEpisode("e1", EpisodeBoundaryManager.CloseTrigger.RESET))
+        // [WHY] emit → 수집자(별도 코루틴)가 deferred 에 넣기까지 비동기다 — 즉시 드레인하면
+        // 빈 큐를 비우고 끝난다. 실제 앱에서는 턴(수 초)이 그 간격을 보장한다.
+        delay(200)
         s.onTurnCompleted()
         waitUntil { saved.count { it.status == EpisodeStatus.SUMMARIZED } == 2 }
 
@@ -145,6 +148,7 @@ class EpisodeSummarizeSchedulerTest {
 
         repeat(3) {
             closed.emit(EpisodeBoundaryManager.ClosedEpisode("e1", EpisodeBoundaryManager.CloseTrigger.IDLE))
+            delay(200) // emit → 수집자 정착 (위 다중 문서 테스트와 같은 이유)
             s.onTurnCompleted()
             waitUntil { saved.size >= it + 1 }
         }
@@ -174,6 +178,7 @@ class EpisodeSummarizeSchedulerTest {
 
         // 식은 뒤 드레인하면 처리된다.
         every { metricsCollector.getCurrentTemp() } returns 35f
+        delay(100)
         s.onTurnCompleted()
         waitUntil { saved.any { it.status == EpisodeStatus.SUMMARIZED } }
         assertTrue(saved.any { it.status == EpisodeStatus.SUMMARIZED })

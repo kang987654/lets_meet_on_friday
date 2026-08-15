@@ -67,6 +67,8 @@ abstract class BaseAgent(
         // [WHY] 검색을 시도했는데 실패한 경우다. 사용자에게 "이 답은 기기 안에서만 만든 것"임을
         // 알려야 검색 결과로 오해하지 않는다 (PRD V1-AC3·EC5).
         var searchFailed = false
+        // [WHY] SearchMemory 가 참조한 에피소드 출처 — 회수 칩(🧠)의 데이터 (ADR-022).
+        val recallEpisodeIds = mutableListOf<String>()
         // [WHY] 3 은 SearchMemory 재조회 프로토콜의 하한이다 — 검색(1) → 재검색어로 재조회(2)
         // → 최종 답변(3). 줄이면 그 프로토콜이 조용히 끊긴다. 인자 오류 자가수정도 이 상한을
         // 공유한다(BAD_FORMAT 재시도).
@@ -189,12 +191,19 @@ abstract class BaseAgent(
                         searchFailed = true
                     }
                 }
+                // [WHY] SearchMemory 의 meta.episodeIds 는 회수 칩의 출처다 — 여기서 뽑아 두고,
+                // **모델에 되돌리기 전에 meta 를 제거**한다. 남겨 보내면 프롬프트 토큰을 낭비하고
+                // 모델이 id 를 답변에 에코하거나 형식을 모방할 재료가 된다 (ADR-022).
+                if (call.name == "SearchMemory" && outcome.succeeded) {
+                    recallEpisodeIds += extractEpisodeIds(outcome.resultJson)
+                }
+
                 // [WHY] Conversation은 stateful이라 직전 입력/출력이 이미 컨텍스트에 있다.
                 // 툴 결과만 전용 응답 타입으로 되돌린다 — 이전에는 `<tool_response>` 텍스트를
                 // 사용자 턴으로 위장해 보냈다.
                 prompt = prompt.copy(
                     currentInput = "",
-                    toolResponse = ToolResponseInput(call.name, outcome.resultJson)
+                    toolResponse = ToolResponseInput(call.name, stripMeta(outcome.resultJson))
                 )
                 continue
             }
@@ -219,7 +228,8 @@ abstract class BaseAgent(
         // [WHY] 저장 결과를 버리지 않는다. 실패해도 응답은 이미 화면에 있으므로 턴을 실패로
         // 바꾸지 않되, 재시작 후 이 턴이 사라진다는 사실을 사용자가 알아야 한다(persistFailed).
         // 감사 로그에는 원인을 남긴다.
-        val saveResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT, searchUsed = searchUsed, thinkingProcess = finalParsed.thinking, episodeId = request.episodeId)
+        val recalled = recallEpisodeIds.distinct()
+        val saveResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT, searchUsed = searchUsed, thinkingProcess = finalParsed.thinking, episodeId = request.episodeId, recallEpisodeIds = recalled)
         if (saveResult is AppResult.Failure) {
             auditTrailService.logError(request.sessionId, "비서 응답 저장 실패: ${saveResult.error}")
         }
@@ -228,7 +238,8 @@ abstract class BaseAgent(
             thinkingProcess = finalParsed.thinking,
             searchUsed = searchUsed,
             searchFailed = searchFailed,
-            persistFailed = saveResult is AppResult.Failure
+            persistFailed = saveResult is AppResult.Failure,
+            recallEpisodeIds = recalled
         )
     }
 
@@ -314,6 +325,21 @@ abstract class BaseAgent(
         }
     }
 
+    /** 툴 결과 JSON 에서 meta.episodeIds 를 뽑습니다. 형식이 어긋나면 빈 목록 — 칩이 안 뜰 뿐이다. */
+    private fun extractEpisodeIds(resultJson: String): List<String> = runCatching {
+        val meta = org.json.JSONObject(resultJson).optJSONObject("meta") ?: return emptyList()
+        val ids = meta.optJSONArray("episodeIds") ?: return emptyList()
+        (0 until ids.length()).map { ids.getString(it) }
+    }.getOrDefault(emptyList())
+
+    /** 모델에 되돌릴 툴 결과에서 meta 필드를 제거합니다. 파싱이 안 되면 원문 그대로. */
+    private fun stripMeta(resultJson: String): String = runCatching {
+        val json = org.json.JSONObject(resultJson)
+        if (!json.has("meta")) return resultJson
+        json.remove("meta")
+        json.toString()
+    }.getOrDefault(resultJson)
+
     /** 인자 오류를 모델이 스스로 고칠 수 있는 구조화된 형태로 되돌립니다. */
     private fun toolArgumentErrorJson(
         toolName: String,
@@ -369,7 +395,8 @@ abstract class BaseAgent(
         inputType: InputType,
         searchUsed: Boolean = false,
         thinkingProcess: String? = null,
-        episodeId: String? = null
+        episodeId: String? = null,
+        recallEpisodeIds: List<String> = emptyList()
     ): AppResult<Unit> {
         val message = ChatMessage(
             id = UUID.randomUUID().toString(),
@@ -380,7 +407,8 @@ abstract class BaseAgent(
             searchUsed = searchUsed,
             createdAt = System.currentTimeMillis(),
             thinkingProcess = thinkingProcess,
-            episodeId = episodeId
+            episodeId = episodeId,
+            recallEpisodeIds = recallEpisodeIds
         )
         return conversationRepository.save(message)
     }

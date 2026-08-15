@@ -86,10 +86,16 @@ class EpisodeSummarizeScheduler @Inject constructor(
     }
 
     private suspend fun drain() = drainMutex.withLock {
-        while (true) {
-            val id = synchronized(deferred) { deferred.removeFirstOrNull() } ?: break
-            process(id)
+        // [WHY] 스냅샷 배치 — 지금 큐에 있는 것만 처리한다. removeFirst 루프로 돌리면 발열
+        // 게이트가 되돌려 넣은(addLast) 항목을 같은 루프가 즉시 다시 꺼내 **발열이 식을 때까지
+        // 무한 회전**한다(테스트가 잡은 결함 — 뮤텍스를 쥔 채라 이후 드레인도 전부 막힌다).
+        // 미뤄진 항목은 다음 드레인(다음 턴 종료/Ready)에서 재시도된다.
+        val batch = synchronized(deferred) {
+            val b = deferred.toList()
+            deferred.clear()
+            b
         }
+        for (id in batch) process(id)
     }
 
     private suspend fun process(episodeId: String) {

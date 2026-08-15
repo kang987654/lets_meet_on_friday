@@ -24,12 +24,19 @@ sealed class AgentResult {
      * 사용자에게 어떤 안내도 없었다(사용자 메시지 저장 실패는 오류로 올리면서 비서 쪽만
      * 비대칭으로 무음이었다). 응답 자체는 유효하므로 Error 로 바꾸지 않고 플래그로 알린다.
      */
+    /**
+     * @param recallEpisodeIds 이 답변이 SearchMemory 로 참조한 에피소드 문서 id 들 (최대 3).
+     *
+     * [WHY] 회수 칩(🧠)의 데이터다 — 단일 타임라인에서 검색 미스가 "비서가 까먹음"으로
+     * 느껴지는 실패 모드의 완화책으로, 어떤 기억을 참조했는지 투명하게 표시한다 (ADR-022).
+     */
     data class Text(
         val content: String,
         val thinkingProcess: String? = null,
         val searchUsed: Boolean = false,
         val searchFailed: Boolean = false,
-        val persistFailed: Boolean = false
+        val persistFailed: Boolean = false,
+        val recallEpisodeIds: List<String> = emptyList()
     ) : AgentResult()
 
     data class Error(val error: AppError) : AgentResult()

@@ -31,12 +31,27 @@ import javax.inject.Inject
  * 맡기는 것이 이 앱에서 가장 값싼 의미 검색이다.
  */
 class SearchMemoryToolExecutor @Inject constructor(
-    private val repository: KnowledgeRepository
+    private val repository: KnowledgeRepository,
+    private val episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
+    private val tokenizer: com.kosmos.app.domain.tool.Tokenizer
 ) : ToolExecutor {
     override val name: String = "SearchMemory"
 
     // [WHY] actionType 은 null — 기억 **읽기**는 승인이 필요 없다(쓰기는 AddMemory 가 받는다).
     // 로컬 조회이고 외부로 나가는 것이 없으므로 캘린더 읽기와 같은 정책이다 (PRD F4/F6).
+
+    /**
+     * 메모(Knowledge)와 에피소드 문서(ADR-022)를 하나의 랭킹으로 합치는 공통 표현입니다.
+     * [WHY] episodeId 가 null 이 아니면 회수 칩(🧠)의 출처가 된다 — 성공 JSON 의 meta 로
+     * 동봉되어 BaseAgent 가 뽑아 쓴다(모델에게는 전달되지 않는다).
+     */
+    private data class Hit(
+        val key: String,
+        val text: String,
+        val tags: List<String>,
+        val createdAt: Long,
+        val episodeId: String?
+    )
 
     override suspend fun execute(args: ToolArguments, sessionId: String): String {
         val keyword = args.requireString("keyword")
@@ -52,30 +67,48 @@ class SearchMemoryToolExecutor @Inject constructor(
         // [WHY] 본문뿐 아니라 **태그도** 본다. 모델은 의미로 키워드를 뽑으므로 본문과 글자가
         // 어긋나는 경우가 실측됐다("좋아하는 것" ↔ "커피보다 녹차를 더 좋아함"). 저장 시
         // 모델이 붙인 태그(`선호도`)가 그 간극을 메우는 두 번째 통로다.
-        val scored = LinkedHashMap<String, Pair<KnowledgeNote, Int>>()
+        //
+        // [WHY] 에피소드 문서(자동 요약된 과거 대화)도 같은 랭킹에 합류한다 — 검색 방식은
+        // 동일(본문 LIKE + 태그)하고, 키만 "ep:" 프리픽스로 충돌을 막는다 (ADR-022, exp33:
+        // 이 어휘 검색 + 모델 키워드 추출 조합이 에피소드 회수 recall@1 16/16).
+        val scored = LinkedHashMap<String, Pair<Hit, Int>>()
         for (token in tokens) {
             val byContent = repository.search(token, PER_TOKEN_LIMIT)
             if (byContent is AppResult.Failure) return errorJson(byContent.error.toString())
             val byTag = repository.searchByTags(listOf(token), PER_TOKEN_LIMIT)
             if (byTag is AppResult.Failure) return errorJson(byTag.error.toString())
+            val epByContent = episodeRepository.search(token, PER_TOKEN_LIMIT)
+            if (epByContent is AppResult.Failure) return errorJson(epByContent.error.toString())
+            val epByTag = episodeRepository.searchByTags(token, PER_TOKEN_LIMIT)
+            if (epByTag is AppResult.Failure) return errorJson(epByTag.error.toString())
 
-            ((byContent as AppResult.Success).data + (byTag as AppResult.Success).data)
+            val noteHits = ((byContent as AppResult.Success).data + (byTag as AppResult.Success).data)
                 .distinctBy { it.id }
-                .forEach { note ->
-                    val current = scored[note.id]
-                    scored[note.id] = if (current == null) note to 1 else current.first to current.second + 1
-                }
+                .map { it.toHit() }
+            val episodeHits = ((epByContent as AppResult.Success).data + (epByTag as AppResult.Success).data)
+                .distinctBy { it.id }
+                .map { it.toHit() }
+
+            (noteHits + episodeHits).forEach { hit ->
+                val current = scored[hit.key]
+                scored[hit.key] = if (current == null) hit to 1 else current.first to current.second + 1
+            }
         }
 
         val ranked = scored.values
             .sortedWith(
-                compareByDescending<Pair<KnowledgeNote, Int>> { it.second }
+                compareByDescending<Pair<Hit, Int>> { it.second }
                     .thenByDescending { it.first.createdAt }
             )
             .take(Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS)
             .map { it.first }
 
-        if (ranked.isNotEmpty()) return successJson(format(ranked))
+        if (ranked.isNotEmpty()) {
+            return successJson(
+                formatHits(ranked),
+                episodeIds = ranked.mapNotNull { it.episodeId }
+            )
+        }
 
         // [WHY] 한 건도 못 맞혔을 때 그냥 "없다"로 끝내면, 실제로는 저장돼 있는데 **글자가
         // 어긋났을 뿐인** 경우까지 없는 것으로 답하게 된다. 어휘 검색은 동의어를 못 넘는데
@@ -89,12 +122,17 @@ class SearchMemoryToolExecutor @Inject constructor(
         val recent = repository.searchRecent(TAG_SCAN_LIMIT)
         if (recent is AppResult.Failure) return errorJson(recent.error.toString())
         val all = (recent as AppResult.Success).data
+        // [WHY] 2차 회수의 태그 목록은 메모 ∪ 에피소드 — 과거 대화의 태그로도 재조회가 가능해야
+        // "그 고깃집" 류 질문이 에피소드 문서에 닿는다.
+        val recentEpisodes = (episodeRepository.getEpisodes(0, TAG_SCAN_LIMIT) as? AppResult.Success)
+            ?.data.orEmpty()
 
-        if (all.isEmpty()) {
+        if (all.isEmpty() && recentEpisodes.none { it.title != null }) {
             return successJson("저장된 기억이 하나도 없습니다. 사용자에게 저장된 것이 없다고 답하세요. 추측하지 마세요.")
         }
 
-        val tags = all.flatMap { it.tags }.distinct().take(MAX_TAGS)
+        val tags = (all.flatMap { it.tags } + recentEpisodes.flatMap { it.tags })
+            .distinct().take(MAX_TAGS)
         val data = buildString {
             append("'$keyword' 로는 일치하는 기억이 없습니다. ")
             if (tags.isNotEmpty()) {
@@ -115,9 +153,45 @@ class SearchMemoryToolExecutor @Inject constructor(
         "- ${note.content}$tagPart"
     }
 
+    private fun formatHits(hits: List<Hit>): String = hits.joinToString("\n") { hit ->
+        val tagPart = if (hit.tags.isEmpty()) "" else " [${hit.tags.joinToString(", ")}]"
+        "- ${hit.text}$tagPart"
+    }
+
+    private fun KnowledgeNote.toHit() = Hit(
+        key = id, text = content, tags = tags, createdAt = createdAt, episodeId = null
+    )
+
+    private fun com.kosmos.app.domain.model.Episode.toHit() = Hit(
+        // [WHY] "ep:" 프리픽스 — 메모와 에피소드의 id 가 우연히 같아도 랭킹 키가 충돌하지 않는다.
+        key = "ep:$id",
+        text = "(과거 대화) ${title.orEmpty()}: ${summary.orEmpty()}",
+        tags = tags,
+        createdAt = createdAt,
+        episodeId = id
+    )
+
     // [WHY] 메모 본문에 따옴표·개행이 있어도 JSON 이 깨지지 않도록 JSONObject 로 조립한다.
-    private fun successJson(data: String): String =
-        JSONObject().put("status", "success").put("data", data).toString()
+    //
+    // [WHY] data 는 툴 결과 토큰 예산에서 문장 경계로 자른다 — 에피소드 요약이 합류하면서
+    // 결과가 길어질 수 있는데, 캡을 어기면 툴 회신 턴(재생성 금지)의 KV 를 무예산으로 먹는다
+    // (ADR-020, WikipediaSearchToolImpl 과 같은 방어).
+    //
+    // [WHY] meta.episodeIds 는 회수 칩(🧠)의 출처다. BaseAgent 가 뽑아 쓰고 **모델에게
+    // 되돌리기 전에 제거**한다 — 모델이 id 를 답변에 에코하는 것을 막는다.
+    private fun successJson(data: String, episodeIds: List<String> = emptyList()): String {
+        val capped = com.kosmos.app.domain.util.SentenceTruncator.truncate(
+            text = data,
+            maxTokens = Constants.TOOL_RESULT_MAX_TOKENS - Constants.TOOL_RESULT_ENVELOPE_RESERVE_TOKENS,
+            tokenizer = tokenizer,
+            marker = "\n\n... [TRUNCATED TO SAVE CONTEXT]"
+        )
+        val json = JSONObject().put("status", "success").put("data", capped)
+        if (episodeIds.isNotEmpty()) {
+            json.put("meta", JSONObject().put("episodeIds", org.json.JSONArray(episodeIds)))
+        }
+        return json.toString()
+    }
 
     private fun errorJson(reason: String): String = JSONObject()
         .put("status", "error")

@@ -34,6 +34,20 @@ class MemoryPipelineIntegrationTest {
     private val repository: KnowledgeRepository = mockk()
     private val embedder: TextEmbedder = mockk()
 
+    // [WHY] 에피소드 저장소·토크나이저가 executor 에 추가됐다(ADR-022 회수 통합).
+    // 이 테스트의 관심사는 메모 파이프라인이므로 에피소드 쪽은 빈 결과로 고정한다.
+    private fun searchMemoryExecutor(): SearchMemoryToolExecutor {
+        val episodes: com.kosmos.app.domain.memory.EpisodeRepository = io.mockk.mockk {
+            coEvery { search(any(), any()) } returns AppResult.Success(emptyList())
+            coEvery { searchByTags(any(), any()) } returns AppResult.Success(emptyList())
+            coEvery { getEpisodes(any(), any()) } returns AppResult.Success(emptyList())
+        }
+        val tokenizer: com.kosmos.app.domain.tool.Tokenizer = io.mockk.mockk {
+            io.mockk.every { sizeInTokens(any()) } answers { firstArg<String>().length / 3 }
+        }
+        return SearchMemoryToolExecutor(repository, episodes, tokenizer)
+    }
+
     private fun note(content: String, tags: List<String> = emptyList()) = KnowledgeNote(
         id = UUID.randomUUID().toString(),
         content = content,
@@ -56,7 +70,7 @@ class MemoryPipelineIntegrationTest {
         coEvery { repository.search("매운", any()) } returns AppResult.Success(listOf(saved.captured))
         coEvery { repository.searchByTags(any(), any()) } returns AppResult.Success(emptyList())
 
-        val json = SearchMemoryToolExecutor(repository)
+        val json = searchMemoryExecutor()
             .execute(ToolArguments.of(mapOf("keyword" to "매운")), "s1")
 
         assertTrue("성공으로 돌아와야 한다: $json", json.contains("\"status\":\"success\""))
@@ -89,7 +103,7 @@ class MemoryPipelineIntegrationTest {
         coEvery { repository.search("비밀번호", any()) } returns AppResult.Success(listOf(both, onlyOne))
         coEvery { repository.searchByTags(any(), any()) } returns AppResult.Success(emptyList())
 
-        val json = SearchMemoryToolExecutor(repository)
+        val json = searchMemoryExecutor()
             .execute(ToolArguments.of(mapOf("keyword" to "자전거 비밀번호")), "s1")
 
         val first = json.indexOf("자전거 비밀번호는 1234")
@@ -106,7 +120,7 @@ class MemoryPipelineIntegrationTest {
         coEvery { repository.search(any(), any()) } returns AppResult.Success(emptyList())
         coEvery { repository.searchByTags(listOf("선호도"), any()) } returns AppResult.Success(listOf(tagged))
 
-        val json = SearchMemoryToolExecutor(repository)
+        val json = searchMemoryExecutor()
             .execute(ToolArguments.of(mapOf("keyword" to "선호도")), "s1")
 
         assertTrue("태그 경로로 찾아야 한다: $json", json.contains("커피보다 녹차를 더 좋아함"))
@@ -124,7 +138,7 @@ class MemoryPipelineIntegrationTest {
             listOf(note("커피보다 녹차를 더 좋아함", listOf("선호도", "음료")))
         )
 
-        val json = SearchMemoryToolExecutor(repository)
+        val json = searchMemoryExecutor()
             .execute(ToolArguments.of(mapOf("keyword" to "좋아하는 것")), "s1")
 
         assertTrue(json.contains("\"status\":\"success\""))
@@ -139,7 +153,7 @@ class MemoryPipelineIntegrationTest {
         coEvery { repository.searchByTags(any(), any()) } returns AppResult.Success(emptyList())
         coEvery { repository.searchRecent(any()) } returns AppResult.Success(emptyList())
 
-        val json = SearchMemoryToolExecutor(repository)
+        val json = searchMemoryExecutor()
             .execute(ToolArguments.of(mapOf("keyword" to "여권번호")), "s1")
 
         assertTrue(json.contains("저장된 기억이 하나도 없습니다"))
@@ -151,7 +165,7 @@ class MemoryPipelineIntegrationTest {
         coEvery { repository.search(any(), any()) } returns AppResult.Failure(AppError.SearchError("db"))
         coEvery { repository.searchByTags(any(), any()) } returns AppResult.Success(emptyList())
 
-        val json = SearchMemoryToolExecutor(repository)
+        val json = searchMemoryExecutor()
             .execute(ToolArguments.of(mapOf("keyword" to "자전거")), "s1")
 
         assertTrue(json.contains("\"status\":\"error\""))
@@ -160,7 +174,7 @@ class MemoryPipelineIntegrationTest {
     @Test
     fun `키워드가 비면 인자 오류로 걸러진다`() {
         // [WHY] 빈 검색어는 LIKE '%%' 가 되어 테이블 전체를 긁는다. 래퍼가 먼저 막는지 고정한다.
-        val executor = SearchMemoryToolExecutor(repository)
+        val executor = searchMemoryExecutor()
         val error = runCatching {
             runBlocking { executor.execute(ToolArguments.of(mapOf("keyword" to "  ")), "s1") }
         }.exceptionOrNull()

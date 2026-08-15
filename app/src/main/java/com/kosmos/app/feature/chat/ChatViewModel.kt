@@ -328,7 +328,10 @@ class ChatViewModel @Inject constructor(
                             inputType = InputType.TEXT,
                             createdAt = System.currentTimeMillis(),
                             thinkingProcess = agentResult.thinkingProcess,
-                            searchUsed = agentResult.searchUsed
+                            searchUsed = agentResult.searchUsed,
+                            // [WHY] 회수 칩(🧠) 데이터 — DB 에는 BaseAgent 가 이미 저장했고,
+                            // 화면의 낙관적 메시지에도 실어야 재로드 없이 칩이 보인다 (M2-5 렌더).
+                            recallEpisodeIds = agentResult.recallEpisodeIds
                         )
                         _uiState.update {
                             it.copy(
