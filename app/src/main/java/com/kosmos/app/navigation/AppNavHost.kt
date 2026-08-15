@@ -23,6 +23,16 @@ fun AppNavHost(
     jumpToTimestamp: Long? = null,
     onJumpConsumed: () -> Unit = {}
 ) {
+    // [WHY] popBackStack() 을 그대로 노출하면 화면 내 "뒤로" 버튼과 시스템 예측 뒤로가기가
+    // 같은 전환 구간에 겹칠 때 **두 번 pop** 될 수 있다 — 루트(chat)까지 뽑혀 NavHost 가
+    // 비면 오로라 배경만 남는 빈 화면이 되고, 복구 수단이 없다(2026-08-15 실기기: 화면 이동
+    // 중 빈 화면, 시맨틱 트리 노드 0개로 확인). 루트가 마지막 항목이면 pop 하지 않는다.
+    fun navigateBack() {
+        if (navController.previousBackStackEntry != null) {
+            navController.popBackStack()
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -33,6 +43,9 @@ fun AppNavHost(
                 onInitializationComplete = {
                     navController.navigate(AppDestination.Chat.route) {
                         popUpTo(AppDestination.Splash.route) { inclusive = true }
+                        // [WHY] Ready 가 재진입 요동(Ready→FileFound→Ready, 0.16.2 수명주기)으로
+                        // 두 번 올 수 있다 — 없으면 chat 이 중복 푸시되어 ViewModel 이 두 벌 뜬다.
+                        launchSingleTop = true
                     }
                 },
                 // [WHY] 스플래시를 백스택에 남긴다(popUpTo 없음) — 내려받기를 마치고 돌아오면
@@ -84,13 +97,13 @@ fun AppNavHost(
 
         composable(route = AppDestination.ModelManagement.route) {
             com.kosmos.app.feature.settings.ModelManagementScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navigateBack() }
             )
         }
 
         composable(route = AppDestination.Audit.route) {
             com.kosmos.app.feature.settings.AuditScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navigateBack() }
             )
         }
     }
