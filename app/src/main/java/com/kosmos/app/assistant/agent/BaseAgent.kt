@@ -219,7 +219,7 @@ abstract class BaseAgent(
         // [WHY] 저장 결과를 버리지 않는다. 실패해도 응답은 이미 화면에 있으므로 턴을 실패로
         // 바꾸지 않되, 재시작 후 이 턴이 사라진다는 사실을 사용자가 알아야 한다(persistFailed).
         // 감사 로그에는 원인을 남긴다.
-        val saveResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT, searchUsed = searchUsed, thinkingProcess = finalParsed.thinking)
+        val saveResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT, searchUsed = searchUsed, thinkingProcess = finalParsed.thinking, episodeId = request.episodeId)
         if (saveResult is AppResult.Failure) {
             auditTrailService.logError(request.sessionId, "비서 응답 저장 실패: ${saveResult.error}")
         }
@@ -363,12 +363,13 @@ abstract class BaseAgent(
     }
 
     private suspend fun createAndSaveMessage(
-        sessionId: String, 
-        role: ChatMessage.Role, 
-        content: String, 
+        sessionId: String,
+        role: ChatMessage.Role,
+        content: String,
         inputType: InputType,
-        searchUsed: Boolean = false, 
-        thinkingProcess: String? = null
+        searchUsed: Boolean = false,
+        thinkingProcess: String? = null,
+        episodeId: String? = null
     ): AppResult<Unit> {
         val message = ChatMessage(
             id = UUID.randomUUID().toString(),
@@ -378,7 +379,8 @@ abstract class BaseAgent(
             inputType = inputType,
             searchUsed = searchUsed,
             createdAt = System.currentTimeMillis(),
-            thinkingProcess = thinkingProcess
+            thinkingProcess = thinkingProcess,
+            episodeId = episodeId
         )
         return conversationRepository.save(message)
     }

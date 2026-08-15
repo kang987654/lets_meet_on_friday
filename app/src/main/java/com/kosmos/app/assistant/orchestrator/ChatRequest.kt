@@ -25,5 +25,10 @@ data class ChatRequest(
     val imageBytes: ByteArray? = null,
     val documentText: String? = null,
     val audioFilePath: String? = null,
-    val onStream: ((StreamUpdate) -> Unit)? = null
+    val onStream: ((StreamUpdate) -> Unit)? = null,
+    /**
+     * 이 턴이 속한 에피소드 (ADR-022). 오케스트레이터가 경계 판정 후 채워 넘기고, 에이전트는
+     * 최종 답변 저장에 그대로 배정한다. null = 판정 실패 — 미배정 저장 후 catch-up 이 소급.
+     */
+    val episodeId: String? = null
 )

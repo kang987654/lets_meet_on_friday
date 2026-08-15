@@ -14,6 +14,7 @@ import android.util.Log
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
+import com.kosmos.app.domain.modelrunner.ConversationResetEvent
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.modelrunner.ChatPrompt
@@ -127,6 +128,16 @@ class GemmaModelRunner @Inject constructor(
     }
 
     override val loadState: StateFlow<ModelLoadState> = runtimeManager.loadState
+
+    // [WHY] extraBufferCapacity 가 있어야 tryEmit 이 수신자 유무와 무관하게 성공한다 —
+    // 방출 지점(getOrCreateConversation)은 suspend 가 아니다.
+    private val _conversationResets =
+        kotlinx.coroutines.flow.MutableSharedFlow<com.kosmos.app.domain.modelrunner.ConversationResetEvent>(
+            extraBufferCapacity = 16
+        )
+    override val conversationResets:
+        kotlinx.coroutines.flow.SharedFlow<com.kosmos.app.domain.modelrunner.ConversationResetEvent> =
+        _conversationResets
 
     private var engine: Engine? = null
     private var conversation: Conversation? = null
@@ -560,6 +571,21 @@ class GemmaModelRunner @Inject constructor(
 
         if (existing != null && isSameSession && isSameSystemInstruction && isSameTools && !isTokenExceeded) {
             return existing
+        }
+
+        // [WHY] 리셋 이벤트를 밖으로 낸다 (ADR-022 — 예산 리셋이 에피소드 경계 후보).
+        // 같은 세션의 살아있는 대화를 버릴 때만 방출한다 — 세션 전환은 다른 대화로 넘어가는
+        // 것이지 이 대화의 주제가 끝난 사건이 아니고, oneShot 경로는 위에서 조기 반환하므로
+        // 구조적으로 여기 오지 않는다. reason 우선순위는 재생성 사유의 실제 판정 순서와 같다.
+        if (existing != null && isSameSession) {
+            val reason = when {
+                isTokenExceeded -> ConversationResetEvent.Reason.TOKEN_BUDGET
+                !isSameSystemInstruction -> ConversationResetEvent.Reason.SYSTEM_INSTRUCTION
+                else -> ConversationResetEvent.Reason.TOOLS
+            }
+            // [WHY] tryEmit — 이 함수는 suspend 가 아니고, 수신자가 없거나 느려도 리셋 자체를
+            // 막으면 안 된다. 버퍼(16)를 넘겨 유실되는 경우는 catch-up 이 DB 상태로 복원한다.
+            _conversationResets.tryEmit(ConversationResetEvent(prompt.sessionId, reason))
         }
 
         existing?.close()

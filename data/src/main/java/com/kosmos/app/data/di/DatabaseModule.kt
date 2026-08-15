@@ -55,4 +55,8 @@ object DatabaseModule {
 
     @Provides
     fun provideKnowledgeDao(database: KosmosDatabase): KnowledgeDao = database.knowledgeDao()
+
+    @Provides
+    fun provideEpisodeDao(database: KosmosDatabase): com.kosmos.app.data.local.db.dao.EpisodeDao =
+        database.episodeDao()
 }

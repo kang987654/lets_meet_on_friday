@@ -30,7 +30,8 @@ class AssistantOrchestrator @Inject constructor(
     private val contextBuilder: ContextBuilder,
     private val auditTrailService: AuditTrailService,
     private val agent: com.kosmos.app.assistant.agent.KosmosAgent,
-    private val transcribeAudioUseCase: com.kosmos.app.domain.usecase.TranscribeAudioUseCase
+    private val transcribeAudioUseCase: com.kosmos.app.domain.usecase.TranscribeAudioUseCase,
+    private val episodeBoundaryManager: com.kosmos.app.assistant.episode.EpisodeBoundaryManager
 ) {
 
     suspend fun processRequest(request: ChatRequest): AgentResult {
@@ -67,9 +68,12 @@ class AssistantOrchestrator @Inject constructor(
         }
 
         // 2. 유저 메시지 저장
+        // [WHY] 저장 직전이 에피소드 경계 판정 지점이다 — 여기가 메시지 저장의 단일 지점이고,
+        // 직전 메시지의 createdAt 과 지금의 간격(30분)을 여기서만 정확히 알 수 있다 (ADR-022).
+        val episodeId = episodeBoundaryManager.onUserMessage(request.sessionId, System.currentTimeMillis())
         val content = transcript ?: request.message
         val inputType = if (request.audioFilePath != null) InputType.VOICE else if (request.imageBytes != null) InputType.IMAGE else InputType.TEXT
-        val saveUserResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.USER, content, inputType)
+        val saveUserResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.USER, content, inputType, episodeId = episodeId)
         if (saveUserResult is AppResult.Failure) {
             return AgentResult.Error(saveUserResult.error)
         }
@@ -79,7 +83,7 @@ class AssistantOrchestrator @Inject constructor(
         // 세션 내내 지속되는 프롬프트 인젝션 경로가 된다. USER 역할의 구분된 블록으로 저장한다.
         if (request.documentText != null) {
             val documentBlock = "[Attached Document]\n\"\"\"\n${request.documentText}\n\"\"\""
-            val saveDocResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.USER, documentBlock, InputType.TEXT)
+            val saveDocResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.USER, documentBlock, InputType.TEXT, episodeId = episodeId)
             if (saveDocResult is AppResult.Failure) {
                 return AgentResult.Error(saveDocResult.error)
             }
@@ -99,9 +103,9 @@ class AssistantOrchestrator @Inject constructor(
         // [WHY] 음성이었다면 여기서부터는 **순수 텍스트 턴**이다 — 전사문을 message 로 넘기고
         // audioFilePath 를 비운다. 에이전트가 오디오를 다시 보낼 이유가 없다.
         val agentRequest = if (transcript != null) {
-            request.copy(message = transcript, audioFilePath = null)
+            request.copy(message = transcript, audioFilePath = null, episodeId = episodeId)
         } else {
-            request
+            request.copy(episodeId = episodeId)
         }
         return agent.execute(agentRequest, context)
     }
@@ -122,12 +126,13 @@ class AssistantOrchestrator @Inject constructor(
     }
 
     private suspend fun createAndSaveMessage(
-        sessionId: String, 
-        role: ChatMessage.Role, 
-        content: String, 
+        sessionId: String,
+        role: ChatMessage.Role,
+        content: String,
         inputType: InputType,
-        searchUsed: Boolean = false, 
-        thinkingProcess: String? = null
+        searchUsed: Boolean = false,
+        thinkingProcess: String? = null,
+        episodeId: String? = null
     ): AppResult<Unit> {
         val message = ChatMessage(
             id = UUID.randomUUID().toString(),
@@ -137,7 +142,8 @@ class AssistantOrchestrator @Inject constructor(
             inputType = inputType,
             searchUsed = searchUsed,
             createdAt = System.currentTimeMillis(),
-            thinkingProcess = thinkingProcess
+            thinkingProcess = thinkingProcess,
+            episodeId = episodeId
         )
         return conversationRepository.save(message)
     }
