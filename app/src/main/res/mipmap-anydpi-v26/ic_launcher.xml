@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- [WHY] 레거시 PNG 만 있으면 런처가 흰 배경 상자 위에 얹는다(2026-08-15 실기기) —
+     적응형 아이콘으로 배경(그라데이션)과 전경(글리프)을 분리해 어떤 마스크에도 꽉 차게 한다.
+     monochrome 은 Android 13+ 테마 아이콘용. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>

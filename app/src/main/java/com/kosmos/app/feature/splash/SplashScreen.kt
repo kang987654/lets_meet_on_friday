@@ -72,7 +72,42 @@ fun SplashScreen(
                 }
             }
         } else {
-            OrbPulse()
+            // [WHY] 오브만 있으면 어두운 배경에서 "빈 화면"으로 오인된다(2026-08-15 실기기 문의).
+            // 워드마크와 지금 무엇을 하는 중인지를 함께 보여 살아 있음을 드러낸다 — 엔진
+            // 재초기화는 실측 9~12초라(0.16.2) 그 시간 동안의 침묵이 가장 큰 불안 요소다.
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                OrbPulse()
+                Spacer(modifier = Modifier.height(40.dp))
+                Text(
+                    text = "KOSMOS",
+                    style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    letterSpacing = androidx.compose.ui.unit.TextUnit(
+                        6f, androidx.compose.ui.unit.TextUnitType.Sp
+                    ),
+                    color = KosmosTheme.colors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "기기 안에서만 생각하는 AI 비서",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    color = KosmosTheme.colors.textMuted
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                val statusText = when (loadState) {
+                    is ModelLoadState.Loading -> "모델 상태를 확인하고 있어요…"
+                    is ModelLoadState.FileFound -> "모델 파일 확인 — 엔진을 준비하고 있어요…"
+                    is ModelLoadState.InitializingEngine -> "AI 엔진을 깨우는 중이에요 (10초 정도)…"
+                    else -> ""
+                }
+                if (statusText.isNotEmpty()) {
+                    Text(
+                        text = statusText,
+                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                        color = KosmosTheme.colors.textSecondary
+                    )
+                }
+            }
         }
     }
 }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 적응형 아이콘 배경 — 기존 레거시 PNG 의 파랑 그라데이션을 승계한다 (흰 모서리 제거 회차). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:startColor="#6EF4FD"
+        android:endColor="#38C8F5" />
+</shape>
