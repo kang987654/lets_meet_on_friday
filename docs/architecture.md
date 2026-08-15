@@ -1812,3 +1812,46 @@ PC 결정적 재현 케이스가 확보됐다(같은 파일·같은 버전·같�
 - 예산 1,700 체제(ADR-021)의 "짧은 KV"가 약점에서 전제로 바뀐다 — 리셋이 곧 캡처 트리거다.
 - 실패 모드와 완화를 명시한다: 검색 미스는 "비서가 까먹음"으로 느껴진다 → 회수 칩으로 어떤
   기억을 참조했는지 투명화하고, 에피소드 시트에서 열람·수정·삭제를 보장한다(P4).
+
+### ADR-023. 에피소드 기억의 구현 결정 4건 (2026-08-15)
+
+- **Status**: Accepted
+- **Context**: ADR-022 구현(0.18.0 M1 백엔드 + M2 UI 셸)에서 대안이 실재했던 결정들을 기록한다.
+
+#### 1. `episode` 는 별도 테이블이다 — knowledge 편입 기각
+
+에피소드 문서는 형식상 knowledge(제목/태그/본문)와 닮았지만 편입하지 않았다. ① kind 판별자를
+빠뜨린 기존 소비처(메모 UI·프로필 후보 등)가 에피소드를 메모 목록에 흘리는 **무음 실패 모드**가
+생기고, ② 상태 기계(OPEN→CLOSED→SUMMARIZED|FAILED)·시간 범위(startAt/endAt)·재시도 카운트 등
+필드 형상이 달라 억지로 합치면 양쪽 스키마가 서로의 NULL 로 오염된다. 대가는 검색 시 두 테이블
+조회 — SearchMemory 가 LinkedHashMap 랭킹에서 합류시키므로 호출부 복잡도 증가는 한 곳에 갇힌다.
+
+#### 2. 리셋 경계는 `ModelRunner.conversationResets: SharedFlow` — reason 중 TOKEN_BUDGET 만
+
+경계 감지가 GemmaModelRunner 내부를 알게 하는 대신, `loadState: StateFlow` 선례를 따라 도메인
+인터페이스에 SharedFlow 를 추가했다. 기본 구현이 빈 flow 를 돌려주므로 fake 들은 무부담이다.
+**경계로 취급하는 reason 은 TOKEN_BUDGET 뿐** — SYSTEM_INSTRUCTION(웹 검색 토글)·TOOLS 리셋은
+KV 재구성일 뿐 주제 전환이 아니므로, 이것으로 에피소드를 가르면 토글 한 번에 기억이 쪼개진다.
+oneShot 경로는 조기 반환으로 방출 자체가 구조적으로 배제된다(요약 턴이 경계를 만들면 재귀).
+
+#### 3. 요약 실행은 인프로세스 큐 + **턴 종료 드레인** — WorkManager·즉시 실행·ON_STOP 기각
+
+- **WorkManager 기각**: 요약은 로드된 엔진(3.6GB)이 필요하다. 프로세스 사후 재로드는 발열·배터리
+  최악이고, 강제종료 유실은 catch-up(DB status 가 진실, 큐는 캐시)이 커버한다.
+- **"무활동 닫힘 = 즉시 실행" 기각** (계획 수정): llmDispatcher 는 직렬이라, 30분 만에 돌아온
+  사용자의 첫 턴보다 요약이 먼저 줄을 서면 응답이 수십 초 늦어진다 — 최악의 첫인상.
+- **"ON_STOP 소비" 기각** (계획 수정): `KosmosApp.onStop` 이 `modelRunner.close()` 를 부른다
+  (0.16.2) — 엔진이 사라지는 시점에 엔진이 필요한 일을 걸 수 없다.
+- 채택: 모든 요약은 **사용자 턴이 끝난 직후** 드레인한다(`onTurnCompleted`). 발열 43°C 초과 시
+  재연기하되, 드레인은 **스냅샷 배치**다 — 같은 루프가 재연기 항목을 즉시 재시도하며 뮤텍스를
+  쥔 채 도는 무한 회전을 테스트가 잡아 교정했다.
+
+#### 4. 연속 타임라인은 앵커 + 라이브 테일 합성 — offset 페이징의 불변 집합화
+
+`timelineAnchor`(화면 생성 시각) 이전은 Paging3(placeholder 켬), 이후는 기존 라이브 테일
+(`uiState.messages`)이 담당한다. offset 페이징에 새 행이 끼면 키가 밀려 중복/누락이 나는데,
+앵커로 페이징 집합을 불변으로 만들면 원천 차단되고 낙관적 append·스트리밍 버블 로직은 무변경이다.
+placeholder 총수를 위해 `CountedPagingSource` 를 신설(DefaultPagingSource 는 총수 미지원) —
+에피소드 → 원문 점프가 미로드 위치로도 `scrollToItem` O(1) 이 된다. 점프 인덱스는
+`countNewerThan(startAt) − countNewerThan(anchor)` 로 히스토리 몫만 남겨 계산한다 — 라이브
+테일의 영속 여부(낙관적 메시지)와 무관하게 정확하다.

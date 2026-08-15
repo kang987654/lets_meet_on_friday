@@ -1,6 +1,8 @@
 # ui_a_prime.md — 시안 A′: 세션 없는 비서
 
-> **상태**: 확정 (사용자 결정, 2026-08-15) | **근거**: exp33 (`scratch/lab/`) | **ADR**: ADR-022
+> **상태**: **구현 완료** (M1 백엔드 0.18.0 + M2 UI 셸 0.19.0, 실기기 게이트 잔여 — CHANGELOG 참조) |
+> **근거**: exp33 (`scratch/lab/`) | **ADR**: ADR-022 (결정) · ADR-023 (구현 결정 4건)
+> 미구현 잔여: A′-2 프로필 고정 카드(3층 기억 모델 C′ 배선 시), A′-1 아침 브리핑 카드(별도 회차)
 > **목업**: [ui_a_prime_mockup.html](ui_a_prime_mockup.html) (확정안) ·
 > [ui_layout_proposals.html](ui_layout_proposals.html) (기각된 대안 A/B/C 비교 — 결정 맥락 보존용)
 
