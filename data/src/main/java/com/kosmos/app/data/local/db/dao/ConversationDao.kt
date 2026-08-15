@@ -41,6 +41,10 @@ interface ConversationDao {
     @Query("SELECT COUNT(*) FROM conversation WHERE createdAt >= :ts")
     suspend fun countNewerThan(ts: Long): Int
 
+    /** 앵커 이전 메시지 총수 — Paging placeholder(전체 크기)와 O(1) 점프의 전제. */
+    @Query("SELECT COUNT(*) FROM conversation WHERE createdAt < :beforeTs")
+    suspend fun countOlderThan(beforeTs: Long): Int
+
     /** 에피소드 소급 배정 (catch-up). REPLACE insert 는 전체 행을 요구하므로 부분 UPDATE 를 둔다. */
     @Query("UPDATE conversation SET episodeId = :episodeId WHERE id = :messageId")
     suspend fun assignEpisode(messageId: String, episodeId: String)

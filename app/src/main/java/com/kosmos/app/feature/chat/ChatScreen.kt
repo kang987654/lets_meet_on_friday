@@ -57,6 +57,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemKey
 import com.halilibo.richtext.commonmark.Markdown
 import com.halilibo.richtext.ui.material3.RichText
 import com.kosmos.app.domain.model.ChatMessage
@@ -108,23 +110,26 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val clipboard = androidx.compose.ui.platform.LocalClipboard.current
 
-    // 날짜 구분선을 포함한 표시용 행 목록 (C-1)
-    val chatRows = remember(uiState.messages) { buildChatRows(uiState.messages) }
+    // [WHY] 연속 타임라인 (시안 A′ M2-3): 앵커 이전 과거는 Paging, 이후는 라이브 테일
+    // (uiState.messages). reverseLayout 이므로 index 0 = 화면 바닥(최신)이다.
+    val history = viewModel.historyPaging.collectAsLazyPagingItems()
+    val liveTail = remember(uiState.messages) { uiState.messages.asReversed() }
 
     // [WHY] 사용자가 위로 스크롤해 과거 대화를 읽는 중이라면 새 토큰이 도착해도 끌어내리지 않는다.
     // 스크롤 제스처가 끝난 시점에 바닥 여부를 기록해 자동 스크롤 여부를 판단한다. (C-3)
+    // reverseLayout 에서 "바닥에서 벗어남" = canScrollBackward (index 0 쪽으로 되돌아갈 수 있음).
     var userScrolledAway by remember { mutableStateOf(false) }
     LaunchedEffect(listState) {
         androidx.compose.runtime.snapshotFlow { listState.isScrollInProgress }
             .collect { inProgress ->
-                if (!inProgress) userScrolledAway = listState.canScrollForward
+                if (!inProgress) userScrolledAway = listState.canScrollBackward
             }
     }
 
-    // Auto-scroll to bottom when new messages arrive
-    LaunchedEffect(chatRows.size, uiState.isInFlight) {
-        if (chatRows.isNotEmpty() && !userScrolledAway) {
-            listState.animateScrollToItem(chatRows.size) // scroll past last item for indicator
+    // 새 메시지·스트리밍 시작 시 바닥(최신)으로 — reverseLayout 에서 바닥 = index 0.
+    LaunchedEffect(uiState.messages.size, uiState.isInFlight) {
+        if (!userScrolledAway) {
+            listState.animateScrollToItem(0)
         }
     }
 
@@ -142,59 +147,64 @@ fun ChatScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            // [WHY] 콜백은 메인 스레드다 — 최대 10MB 파일 전체 읽기는 IO 로 옮긴다. 전송 시점
-            // 읽기(ChatViewModel)는 같은 이유로 이미 IO 였는데 인테이크 쪽만 메인에 남아 있었다.
-            snackbarScope.launch {
-                val shared: SharedInput? = try {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        val mimeType = contentResolver.getType(uri)
-                        if (mimeType?.startsWith("image/") == true) {
-                            contentResolver.openInputStream(uri)?.use { inputStream ->
-                                SharedInput.Image(
-                                    uri = uri,
-                                    sizeBytes = inputStream.readBytes().size.toLong()
-                                )
+            // [WHY] 콜백은 메인 스레드지만 여기서는 **큰 읽기를 아예 하지 않는다** — 이미지는
+            // SIZE 메타데이터 쿼리(빠름), 문서는 캡(MAX_ATTACHED_DOC_CHARS)만큼만 경계 읽기.
+            // 예전에는 10MB 전체를 읽어 ANR 위험이 있었고, 그것을 IO 코루틴으로 옮기자
+            // 프리뷰 갱신이 비동기가 되어 E2E 와 경합했다(waitForIdle 이 IO 를 기다리지 않는다).
+            // 읽는 양을 줄이는 것이 스레드를 옮기는 것보다 나은 해법이다. 전체 바이트는
+            // 전송 시점에 ChatViewModel 이 IO 에서 읽는다.
+            val shared: SharedInput? = try {
+                val mimeType = contentResolver.getType(uri)
+                if (mimeType?.startsWith("image/") == true) {
+                    val sizeBytes = contentResolver.query(
+                        uri, arrayOf(OpenableColumns.SIZE), null, null, null
+                    )?.use { cursor ->
+                        val idx = cursor.getColumnIndex(OpenableColumns.SIZE)
+                        if (cursor.moveToFirst() && idx != -1 && !cursor.isNull(idx)) cursor.getLong(idx) else null
+                    } ?: contentResolver.openInputStream(uri)?.use { it.available().toLong() }
+                    if (sizeBytes != null) SharedInput.Image(uri = uri, sizeBytes = sizeBytes) else null
+                } else {
+                    contentResolver.openInputStream(uri)?.use { inputStream ->
+                        // [WHY] 캡은 Constants.MAX_ATTACHED_DOC_CHARS 로 예산에서 파생된다.
+                        // 예전 2500 은 예산 6000 시절의 유물 — 그대로 두면 그 턴의 KV 가
+                        // GPU 숫자 깨짐 발병점을 넘고, 다음 턴부터는 슬라이딩 윈도우에서
+                        // 통째로 탈락해 모델이 문서를 본 적 없는 상태가 됐다. +1 은 절단
+                        // 여부 감지용이다.
+                        val cap = com.kosmos.app.core.common.Constants.MAX_ATTACHED_DOC_CHARS
+                        val buffer = CharArray(cap + 1)
+                        val read = inputStream.bufferedReader().read(buffer, 0, buffer.size)
+                        val textContent = if (read <= 0) "" else String(buffer, 0, read)
+                        var fileName = "document.txt"
+                        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (cursor.moveToFirst() && nameIndex != -1) {
+                                fileName = cursor.getString(nameIndex)
                             }
-                        } else {
-                            contentResolver.openInputStream(uri)?.use { inputStream ->
-                                val textContent = inputStream.bufferedReader().use { it.readText() }
-                                var fileName = "document.txt"
-                                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                                    if (cursor.moveToFirst() && nameIndex != -1) {
-                                        fileName = cursor.getString(nameIndex)
-                                    }
-                                }
-                                // [WHY] 캡은 Constants.MAX_ATTACHED_DOC_CHARS 로 예산에서 파생된다.
-                                // 예전 2500 은 예산 6000 시절의 유물 — 그대로 두면 그 턴의 KV 가
-                                // GPU 숫자 깨짐 발병점을 넘고, 다음 턴부터는 슬라이딩 윈도우에서
-                                // 통째로 탈락해 모델이 문서를 본 적 없는 상태가 됐다.
-                                if (textContent.length > com.kosmos.app.core.common.Constants.MAX_ATTACHED_DOC_CHARS) {
-                                    snackbarScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            "문서가 길어 앞부분만 첨부돼요. 긴 문서 요약은 아직 지원하지 않아요."
-                                        )
-                                    }
-                                }
-                                SharedInput.Document(
-                                    uri = uri,
-                                    fileName = fileName,
-                                    textContent = textContent.take(
-                                        com.kosmos.app.core.common.Constants.MAX_ATTACHED_DOC_CHARS
-                                    )
+                        }
+                        if (textContent.length > cap) {
+                            snackbarScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    "문서가 길어 앞부분만 첨부돼요. 긴 문서 요약은 아직 지원하지 않아요."
                                 )
                             }
                         }
+                        SharedInput.Document(
+                            uri = uri,
+                            fileName = fileName,
+                            textContent = textContent.take(cap)
+                        )
                     }
-                } catch (e: Exception) {
-                    null
                 }
-                if (shared != null) {
-                    viewModel.setSharedInput(shared)
-                } else {
-                    // [WHY] 예전에는 catch 가 비어 있어(`// handle error`) 첨부 읽기가 실패하면
-                    // 아무 안내 없이 첨부가 사라졌다 — 사용자는 버튼이 고장 났다고 본다.
-                    // openInputStream 이 null 을 돌려주는 무예외 실패도 같은 안내로 덮는다.
+            } catch (e: Exception) {
+                null
+            }
+            if (shared != null) {
+                viewModel.setSharedInput(shared)
+            } else {
+                // [WHY] 예전에는 catch 가 비어 있어(`// handle error`) 첨부 읽기가 실패하면
+                // 아무 안내 없이 첨부가 사라졌다 — 사용자는 버튼이 고장 났다고 본다.
+                // openInputStream 이 null 을 돌려주는 무예외 실패도 같은 안내로 덮는다.
+                snackbarScope.launch {
                     snackbarHostState.showSnackbar("첨부 파일을 읽지 못했어요. 다른 파일을 선택해주세요.")
                 }
             }
@@ -305,74 +315,73 @@ fun ChatScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
+                // [WHY] reverseLayout — 선언 순서대로 index 0(바닥)부터 위로 쌓인다:
+                // 스트리밍/타이핑 → 라이브 테일(최신순) → 페이징된 과거(최신순 DESC 그대로).
+                // 과거로 스크롤하면 Paging 이 다음 페이지를 로드한다.
                 LazyColumn(
                     state = listState,
+                    reverseLayout = true,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // [WHY] key가 없으면 스트리밍 append마다 전체 행이 리바인드되고
-                    // 아코디언 확장 상태가 엉뚱한 버블에 붙을 수 있다.
-                    items(chatRows, key = { it.key }) { row ->
-                        when (row) {
-                            is ChatRow.DateHeader -> DateSeparator(row.label)
-                            is ChatRow.Message -> {
-                                val message = row.message
-                                val copyMessage = {
-                                    // [WHY] LocalClipboard 의 setClipEntry 는 suspend 다. 스낵바용 스코프가
-                                    // 이미 있으므로 복사와 안내를 같은 코루틴에서 순서대로 처리한다 —
-                                    // onLongPress 의 `() -> Unit` 콜백 계약은 그대로 유지된다.
-                                    snackbarScope.launch {
-                                        clipboard.setClipEntry(
-                                            androidx.compose.ui.platform.ClipEntry(
-                                                android.content.ClipData.newPlainText("채팅 메시지", message.content)
-                                            )
-                                        )
-                                        snackbarHostState.showSnackbar("메시지를 복사했어요.")
-                                    }
-                                    Unit
-                                }
-                                if (message.role == ChatMessage.Role.USER) {
-                                    ChatBubbleUser(
-                                        text = message.content,
-                                        inputType = message.inputType,
-                                        onLongPress = copyMessage
-                                    )
-                                } else {
-                                    ChatBubbleAssistant(
-                                        text = message.content,
-                                        thinkingProcess = message.thinkingProcess,
-                                        searchUsed = message.searchUsed,
-                                        onLongPress = copyMessage
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    
                     if (uiState.streamingText != null || uiState.streamingThinking != null) {
-                        item {
+                        item(key = "streaming") {
                             ChatBubbleAssistant(text = uiState.streamingText ?: "", thinkingProcess = uiState.streamingThinking)
                         }
                     }
 
                     if (uiState.isInFlight && uiState.streamingText == null) {
-                        item {
+                        item(key = "typing") {
                             TypingIndicator()
+                        }
+                    }
+
+                    // 라이브 테일 — 이 세션에서 생긴 메시지 (최신이 index 앞).
+                    // [WHY] key가 없으면 스트리밍 append마다 전체 행이 리바인드되고
+                    // 아코디언 확장 상태가 엉뚱한 버블에 붙을 수 있다.
+                    items(liveTail.size, key = { liveTail[it].id }) { index ->
+                        val message = liveTail[index]
+                        // 다음(더 과거) 이웃: 테일 내부 → 없으면 페이징의 첫 항목.
+                        val older = liveTail.getOrNull(index + 1)
+                            ?: if (history.itemCount > 0) history.peek(0) else null
+                        MessageWithDate(
+                            message = message,
+                            older = older,
+                            onCopy = { copyToClipboard(snackbarScope, clipboard, snackbarHostState, message.content) }
+                        )
+                    }
+
+                    // 페이징된 과거 — placeholder(null)는 스켈레톤으로.
+                    items(
+                        count = history.itemCount,
+                        key = history.itemKey { it.id }
+                    ) { index ->
+                        val message = history[index]
+                        if (message == null) {
+                            PlaceholderBubble()
+                        } else {
+                            val older = if (index + 1 < history.itemCount) history.peek(index + 1) else null
+                            MessageWithDate(
+                                message = message,
+                                older = older,
+                                onCopy = { copyToClipboard(snackbarScope, clipboard, snackbarHostState, message.content) }
+                            )
                         }
                     }
                 }
             }
 
-            // 최신으로 이동 FAB — 위로 스크롤한 상태에서만 노출 (C-3)
-            if (listState.canScrollForward) {
+            // 최신으로 이동 FAB — 위로 스크롤한 상태에서만 노출 (C-3).
+            // reverseLayout 에서 "위로 스크롤함" = canScrollBackward, 최신 = index 0.
+            if (listState.canScrollBackward) {
                 androidx.compose.material3.SmallFloatingActionButton(
                     onClick = {
                         userScrolledAway = false
                         snackbarScope.launch {
-                            if (chatRows.isNotEmpty()) listState.animateScrollToItem(chatRows.size)
+                            listState.animateScrollToItem(0)
                         }
                     },
                     modifier = Modifier
@@ -428,40 +437,86 @@ fun ChatScreen(
     }
 }
 
-/** 채팅 목록의 행 — 메시지와 날짜 구분선을 한 리스트로 표현합니다. */
-private sealed class ChatRow {
-    abstract val key: String
+/**
+ * 메시지 하나 + (해당하면) 그 위의 날짜 구분선.
+ *
+ * [WHY] 예전 buildChatRows(전체 리스트 전처리)는 Paging 과 함께 쓸 수 없다 — 리스트 전체가
+ * 한 번에 손에 없다. 대신 **항목별 경계 판정**으로 바꿨다: 이 메시지가 더 과거인 이웃
+ * [older]와 날짜가 다르면(= 그 날의 첫 메시지) 구분선을 위에 그린다. reverseLayout 에서
+ * 이웃(index+1)은 화면상 위에 있으므로, 아이템 내부 Column 의 [구분선, 버블] 순서가 시각적으로
+ * "구분선이 그 날의 첫 버블 위"가 된다. [older]가 placeholder(null)인 미로드 경계에서는
+ * 구분선을 생략한다 — 잘못 그리는 것보다 안 그리는 쪽이 덜 이상하다.
+ */
+@Composable
+private fun MessageWithDate(
+    message: ChatMessage,
+    older: ChatMessage?,
+    onCopy: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        val label = dateLabelIfBoundary(message, older)
+        if (label != null) DateSeparator(label)
 
-    data class DateHeader(val label: String, override val key: String) : ChatRow()
-    data class Message(val message: ChatMessage) : ChatRow() {
-        override val key: String get() = message.id
+        if (message.role == ChatMessage.Role.USER) {
+            ChatBubbleUser(
+                text = message.content,
+                inputType = message.inputType,
+                onLongPress = onCopy
+            )
+        } else {
+            ChatBubbleAssistant(
+                text = message.content,
+                thinkingProcess = message.thinkingProcess,
+                searchUsed = message.searchUsed,
+                onLongPress = onCopy
+            )
+        }
     }
 }
 
-/**
- * 메시지 목록에 날짜가 바뀌는 지점마다 구분선 행을 삽입합니다.
- * [WHY] 대화가 여러 날 누적되면 어떤 메시지가 언제 것인지 알 수 없어 맥락 파악이 어렵다.
- */
-private fun buildChatRows(messages: List<ChatMessage>): List<ChatRow> {
-    val zone = java.time.ZoneId.systemDefault()
-    val today = java.time.LocalDate.now(zone)
-    val rows = mutableListOf<ChatRow>()
-    var lastDate: java.time.LocalDate? = null
+/** 미로드 placeholder 자리 — 점프 직후 Paging 이 채우기 전까지의 스켈레톤. */
+@Composable
+private fun PlaceholderBubble() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(0.6f)
+            .height(40.dp)
+            .glassEffect(shape = RoundedCornerShape(16.dp))
+    )
+}
 
-    messages.forEach { message ->
-        val date = java.time.Instant.ofEpochMilli(message.createdAt).atZone(zone).toLocalDate()
-        if (date != lastDate) {
-            val label = when (date) {
-                today -> "오늘"
-                today.minusDays(1) -> "어제"
-                else -> date.format(
-                    java.time.format.DateTimeFormatter.ofPattern("M월 d일", java.util.Locale.KOREAN)
-                )
-            }
-            rows.add(ChatRow.DateHeader(label = label, key = "date-$date"))
-            lastDate = date
-        }
-        rows.add(ChatRow.Message(message))
+private fun copyToClipboard(
+    scope: kotlinx.coroutines.CoroutineScope,
+    clipboard: androidx.compose.ui.platform.Clipboard,
+    snackbarHostState: androidx.compose.material3.SnackbarHostState,
+    content: String
+) {
+    // [WHY] LocalClipboard 의 setClipEntry 는 suspend 다. 스낵바용 스코프에서 복사와 안내를
+    // 순서대로 처리한다 — onLongPress 의 `() -> Unit` 콜백 계약은 그대로 유지된다.
+    scope.launch {
+        clipboard.setClipEntry(
+            androidx.compose.ui.platform.ClipEntry(
+                android.content.ClipData.newPlainText("채팅 메시지", content)
+            )
+        )
+        snackbarHostState.showSnackbar("메시지를 복사했어요.")
     }
-    return rows
+}
+
+/** [message]가 [older]와 다른 날이면(그 날의 첫 메시지) 구분선 라벨을 돌려줍니다. */
+private fun dateLabelIfBoundary(message: ChatMessage, older: ChatMessage?): String? {
+    if (older == null) return null
+    val zone = java.time.ZoneId.systemDefault()
+    val date = java.time.Instant.ofEpochMilli(message.createdAt).atZone(zone).toLocalDate()
+    val olderDate = java.time.Instant.ofEpochMilli(older.createdAt).atZone(zone).toLocalDate()
+    if (date == olderDate) return null
+
+    val today = java.time.LocalDate.now(zone)
+    return when (date) {
+        today -> "오늘"
+        today.minusDays(1) -> "어제"
+        else -> date.format(
+            java.time.format.DateTimeFormatter.ofPattern("M월 d일", java.util.Locale.KOREAN)
+        )
+    }
 }

@@ -195,10 +195,18 @@ object Constants {
      */
     const val MIN_CONVERSATION_RESET_TOKENS = 1700
 
-    // [WHY] 슬라이딩 윈도우에 넣을 후보를 넉넉히 가져오는 수. 화면 히스토리 로드에도 같은 수를
-    // 쓴다 — 이전에는 화면이 `getRecentBySession(sessionId)` 를 인자 없이 호출해 계약 기본값
-    // (당시 5)이 적용됐고, **채팅을 열면 마지막 5개 메시지만 보였다.** 그 기본값은 제거했다.
+    // [WHY] **프롬프트 슬라이딩 윈도우 후보 수(ContextBuilder 전용).** 예전에는 화면 히스토리
+    // 로드도 이 상수를 썼지만, 타임라인이 Paging(CHAT_TIMELINE_PAGE_SIZE)으로 바뀌며 갈라졌다 —
+    // UI 페이지 크기를 조정하려고 이 값을 만지면 프롬프트 예산 계산이 함께 흔들린다.
     const val MAX_RECENT_CONVERSATIONS = 150
+
+    /**
+     * 타임라인(연속 대화 화면) 페이지 크기 — UI 전용.
+     *
+     * [WHY] 예전에는 화면이 150개를 즉시 전량 로드했고 그 이상은 도달 불가였다. 시안 A′의
+     * 무한 스크롤 타임라인은 Paging 으로 과거 전체에 닿는다. 30 은 한 화면 분량(+여유)이다.
+     */
+    const val CHAT_TIMELINE_PAGE_SIZE = 30
 
     const val MAX_KNOWLEDGE_CONTEXT_ITEMS = 3
     const val MAX_INPUT_CHARS = 8192

@@ -17,6 +17,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.content.Context
 import android.net.Uri
+import androidx.paging.cachedIn
+import com.kosmos.app.ui.paging.unwrapForPaging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -66,6 +68,37 @@ class ChatViewModel @Inject constructor(
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     private var sessionId: String = UUID.randomUUID().toString()
+
+    /**
+     * 타임라인 앵커 — 화면 생성 시각. **앵커 이전은 Paging(불변 집합), 이후는 라이브 테일**
+     * ([ChatUiState.messages])이 담당한다.
+     *
+     * [WHY] offset 페이징에 새 행이 끼어들면 offset 이 밀려 중복/누락이 난다. 앵커로 페이징
+     * 집합을 불변으로 만들면 그 결함이 원천 차단되고, 낙관적 append·스트리밍 버블 로직은
+     * 한 줄도 바꾸지 않아도 된다 (시안 A′ M2-3 핵심 결정).
+     */
+    val timelineAnchor: Long = System.currentTimeMillis()
+
+    /** 앵커 이전 과거 대화 — 세션 무관 연속 타임라인 (ADR-022: 세션은 UX 개념이 아니다). */
+    val historyPaging: kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<ChatMessage>> =
+        androidx.paging.Pager(
+            androidx.paging.PagingConfig(
+                pageSize = Constants.CHAT_TIMELINE_PAGE_SIZE,
+                initialLoadSize = Constants.CHAT_TIMELINE_PAGE_SIZE * 3,
+                // [WHY] placeholder 가 있어야 에피소드 → 원문 점프(scrollToItem 먼 인덱스)가
+                // O(1) 로 된다 (CountedPagingSource [WHY] 참조).
+                enablePlaceholders = true
+            )
+        ) {
+            com.kosmos.app.ui.paging.CountedPagingSource(
+                count = {
+                    conversationRepository.countOlderThan(timelineAnchor).unwrapForPaging()
+                },
+                fetch = { offset, limit ->
+                    conversationRepository.getPagedAll(timelineAnchor, offset, limit).unwrapForPaging()
+                }
+            )
+        }.flow.cachedIn(viewModelScope)
 
     init {
         viewModelScope.launch {
@@ -163,17 +196,26 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 라이브 테일(앵커 이후 메시지)을 DB 진실로 재동기화합니다.
+     *
+     * [WHY] 예전 loadMessages 는 최근 150개를 전량 로드했다 — 이제 앵커 이전은 [historyPaging]
+     * 이 담당하므로, 이 함수는 **이 세션에서 생긴 것들**(음성 전사 교체 등)만 되읽는다.
+     * 전량 로드 시절의 실패 안내([WHY] Failure 분기)는 그대로 유지한다.
+     */
     private fun loadMessages() {
         viewModelScope.launch {
-            // [WHY] 이전에는 limit 인자 없이 호출해 계약 기본값(5)이 적용됐고, 채팅을 열면
-            // 마지막 5개 메시지만 보였다 — 그 이상은 DB 에 있는데도 화면에서 사라졌다.
             val result = conversationRepository.getRecentBySession(
                 sessionId,
-                Constants.MAX_RECENT_CONVERSATIONS
+                Constants.CHAT_TIMELINE_PAGE_SIZE
             )
             when (result) {
                 is AppResult.Success -> _uiState.update { state ->
-                    state.copy(messages = result.data.toImmutableList())
+                    state.copy(
+                        messages = result.data
+                            .filter { it.createdAt >= timelineAnchor }
+                            .toImmutableList()
+                    )
                 }
                 // [WHY] 예전에는 Failure 분기가 없어 DB 읽기가 실패하면 **아무 안내 없이 빈
                 // 화면**으로 열렸다 — 저장된 대화가 있는데도 사라진 것처럼 보인다. 스낵바가

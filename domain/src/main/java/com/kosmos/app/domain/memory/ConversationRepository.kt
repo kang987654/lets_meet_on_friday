@@ -39,4 +39,7 @@ interface ConversationRepository {
 
     /** [ts] 이후(포함) 메시지 수 — 타임라인 점프 인덱스 계산용. */
     suspend fun countNewerThan(ts: Long): AppResult<Int>
+
+    /** 앵커 이전 메시지 총수 — Paging placeholder 의 전체 크기. */
+    suspend fun countOlderThan(beforeTs: Long): AppResult<Int>
 }

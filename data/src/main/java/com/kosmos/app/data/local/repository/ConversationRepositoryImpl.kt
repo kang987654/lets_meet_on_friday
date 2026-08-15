@@ -93,6 +93,9 @@ class ConversationRepositoryImpl @Inject constructor(
     override suspend fun countNewerThan(ts: Long): AppResult<Int> =
         read("타임라인 인덱스 계산") { conversationDao.countNewerThan(ts) }
 
+    override suspend fun countOlderThan(beforeTs: Long): AppResult<Int> =
+        read("타임라인 총수 계산") { conversationDao.countOlderThan(beforeTs) }
+
     private inline fun <T> read(what: String, block: () -> T): AppResult<T> = try {
         AppResult.Success(block())
     } catch (e: kotlin.coroutines.cancellation.CancellationException) {
