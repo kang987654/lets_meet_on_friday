@@ -27,7 +27,6 @@ import com.kosmos.app.domain.modelrunner.ModelLoadState
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
     themeViewModel: com.kosmos.app.ui.theme.ThemeViewModel = hiltViewModel(),
-    onNavigateToAudit: () -> Unit = {},
     onNavigateToModelManagement: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -261,30 +260,9 @@ fun SettingsScreen(
             }
         }
 
-        // 4. Security & Audit Section
-        SectionBox(title = "SECURITY & LOGS") {
-            Text(
-                text = "View the history of model executions and API calls.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = KosmosTheme.colors.textMuted
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassEffect(
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                        borderColor = KosmosTheme.colors.border
-                    )
-                    .clickable { onNavigateToAudit() }
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("View Audit Logs", color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Medium)
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(80.dp)) // padding for bottom nav
+        // [WHY] SECURITY & LOGS 섹션은 제거했다 — 활동 기록 진입점이 드로어 타일로 옮겨져
+        // (M2-2) 같은 화면으로 가는 문이 두 개였다 (2026-08-15 사용자 피드백).
+        Spacer(modifier = Modifier.height(40.dp))
     }
 }
 

@@ -44,8 +44,12 @@ class AndroidCalendarTool @Inject constructor(
                 CalendarContract.Events.EVENT_LOCATION,
                 CalendarContract.Events.DESCRIPTION
             )
-            val selection = "${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTEND} <= ?"
-            val selectionArgs = arrayOf(startMs.toString(), endMs.toString())
+            // [WHY] 겹침 판정이다 — 예전 `DTSTART >= ? AND DTEND <= ?`(완전 포함)는 조회 창을
+            // 조금이라도 벗어나는 일정을 통째로 걸렀다. 종일 일정은 UTC 자정 기준이라 KST 에서
+            // 9시간이 삐져나가 '오늘' 창에서 항상 탈락했다(2026-08-15 실기기: 광복절이 주간
+            // 탭에만 보임). 자정을 넘기는 일반 일정도 같은 이유로 빠졌다.
+            val selection = "${CalendarContract.Events.DTSTART} < ? AND ${CalendarContract.Events.DTEND} > ?"
+            val selectionArgs = arrayOf(endMs.toString(), startMs.toString())
 
             val cursor = contentResolver.query(
                 CalendarContract.Events.CONTENT_URI,

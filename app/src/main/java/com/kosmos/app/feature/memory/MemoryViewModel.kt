@@ -75,6 +75,34 @@ class MemoryViewModel @Inject constructor(
         _uiState.update { it.copy(selectedFilter = filterType) }
     }
 
+    /**
+     * 할 일을 직접 추가합니다.
+     * [WHY] "Add new task" 는 원래 빈 스텁(`clickable { }`)이었다 — 버튼만 있고 기능이 없어
+     * 탭이 무음으로 씹혔다 (2026-08-15 사용자 피드백). 저장 실패는 completeTask 와 같은
+     * 경로(actionError 토스트)로 알린다.
+     */
+    fun addTask(title: String, onSaved: () -> Unit = {}) {
+        val trimmed = title.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            val result = taskRepository.save(
+                TaskItem(
+                    id = java.util.UUID.randomUUID().toString(),
+                    title = trimmed,
+                    isCompleted = false,
+                    createdAt = System.currentTimeMillis()
+                )
+            )
+            when (result) {
+                // [WHY] 저장이 끝난 뒤에 알린다 — 호출부가 여기서 페이징 refresh 를 걸므로,
+                // 저장 전에 refresh 가 돌면 방금 추가한 항목이 목록에 안 보인다.
+                is AppResult.Success -> onSaved()
+                is AppResult.Failure ->
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+            }
+        }
+    }
+
     fun completeTask(taskId: String) {
         viewModelScope.launch {
             val result = taskRepository.updateCompletion(taskId, true)

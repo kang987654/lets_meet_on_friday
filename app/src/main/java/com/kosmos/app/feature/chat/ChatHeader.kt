@@ -215,10 +215,12 @@ fun StatusDetailSheet(
     }
 }
 
-/** 캡슐용 축약 포맷 — `🌡36° · 9.6t/s`. 상세 수치는 [formatDeviceStatus](시트)가 담당한다. */
+/** 캡슐용 축약 포맷 — `🌡36° · 4.1GB · 9.6t/s`. 상세 수치는 [formatDeviceStatus](시트)가 담당한다. */
 internal fun formatStatusCapsule(status: com.kosmos.app.runtime.metrics.DeviceStatus): String {
     val parts = mutableListOf<String>()
     if (status.temperatureCelsius > 0f) parts += "🌡%.0f°".format(status.temperatureCelsius)
+    // 앱 PSS — 3.6GB 모델이 차지하는 몫. 시스템 전체 사용량은 시트에서 (사용자 요청 2026-08-15).
+    if (status.appMemoryBytes > 0L) parts += "%.1fGB".format(status.appMemoryBytes / 1073741824.0)
     status.tokensPerSecond?.let { parts += "%.1ft/s".format(it) }
     return parts.joinToString(" · ")
 }

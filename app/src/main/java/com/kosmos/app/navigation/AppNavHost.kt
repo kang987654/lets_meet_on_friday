@@ -75,9 +75,6 @@ fun AppNavHost(
         composable(route = AppDestination.Settings.route) {
             Box(modifier = Modifier.systemBarsPadding()) {
                 com.kosmos.app.feature.settings.SettingsScreen(
-                    onNavigateToAudit = {
-                        navController.navigate(AppDestination.Audit.route)
-                    },
                     onNavigateToModelManagement = {
                         navController.navigate(AppDestination.ModelManagement.route)
                     }

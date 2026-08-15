@@ -160,7 +160,15 @@ fun MemoryScreen(
                 }
 
                 item {
-                    // Add new task button
+                    // 할 일 인라인 추가 — 예전에는 빈 스텁 버튼이었다 (MemoryViewModel.addTask [WHY]).
+                    var newTaskText by androidx.compose.runtime.remember {
+                        androidx.compose.runtime.mutableStateOf("")
+                    }
+                    fun submitNewTask() {
+                        if (newTaskText.isBlank()) return
+                        viewModel.addTask(newTaskText) { taskItems.refresh() }
+                        newTaskText = ""
+                    }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -170,7 +178,6 @@ fun MemoryScreen(
                                 color = KosmosTheme.colors.border,
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
                             )
-                            .clickable { /* Add Task */ }
                             .padding(16.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -180,11 +187,42 @@ fun MemoryScreen(
                                 style = MaterialTheme.typography.titleMedium,
                                 modifier = Modifier.padding(end = 12.dp)
                             )
-                            Text(
-                                text = "Add new task...",
-                                color = KosmosTheme.colors.textSecondary,
-                                style = MaterialTheme.typography.bodyLarge
+                            androidx.compose.foundation.text.BasicTextField(
+                                value = newTaskText,
+                                onValueChange = { newTaskText = it },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                    color = KosmosTheme.colors.textPrimary
+                                ),
+                                cursorBrush = androidx.compose.ui.graphics.SolidColor(KosmosTheme.colors.accent),
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                                ),
+                                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                                    onDone = { submitNewTask() }
+                                ),
+                                modifier = Modifier.weight(1f),
+                                decorationBox = { inner ->
+                                    if (newTaskText.isEmpty()) {
+                                        Text(
+                                            text = "Add new task...",
+                                            color = KosmosTheme.colors.textSecondary,
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    }
+                                    inner()
+                                }
                             )
+                            if (newTaskText.isNotBlank()) {
+                                Text(
+                                    text = "추가",
+                                    color = KosmosTheme.colors.accent,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier
+                                        .clickable { submitNewTask() }
+                                        .padding(start = 12.dp)
+                                )
+                            }
                         }
                     }
                 }

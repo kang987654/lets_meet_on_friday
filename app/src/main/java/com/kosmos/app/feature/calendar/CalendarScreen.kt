@@ -102,8 +102,16 @@ fun CalendarScreen(
                 DatePill(
                     dayOfWeek = date.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() },
                     dayOfMonth = date.dayOfMonth.toString(),
-                    isSelected = date == (selectedDate ?: today),
+                    // [WHY] 주간 탭에서는 필터를 걸었을 때만 강조한다 — 필터 없이 오늘 칸을
+                    // 강조하면 "오늘만 보는 중"처럼 읽히는데 목록은 주 전체라 헷갈린다
+                    // (2026-08-15 사용자 피드백). 오늘 표시는 점(isFiltered 아님)이 계속 맡는다.
+                    isSelected = if (selectedRange == ScheduleData.RangeType.WEEK) {
+                        date == selectedDate
+                    } else {
+                        date == (selectedDate ?: today)
+                    },
                     isFiltered = date == selectedDate,
+                    isToday = date == today,
                     onClick = { viewModel.onDateSelected(date) }
                 )
             }
@@ -256,6 +264,9 @@ fun DatePill(
     dayOfMonth: String,
     isSelected: Boolean,
     isFiltered: Boolean = false,
+    // [WHY] 오늘 점 표시를 강조(isSelected)에서 분리했다 — 주간 탭은 필터 전까지 아무 칸도
+    // 강조하지 않지만 오늘이 어디인지는 계속 보여야 한다.
+    isToday: Boolean = false,
     onClick: () -> Unit = {}
 ) {
     // 필터가 걸린 날짜는 테두리를 강조해 "이 날짜만 보고 있음"을 드러낸다
@@ -277,7 +288,7 @@ fun DatePill(
             Text(text = dayOfWeek, color = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted, style = MaterialTheme.typography.labelMedium)
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = dayOfMonth, color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            if (isSelected) {
+            if (isSelected || isToday) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Box(modifier = Modifier.size(4.dp).background(KosmosTheme.colors.accent, androidx.compose.foundation.shape.CircleShape))
             }
