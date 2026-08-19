@@ -55,7 +55,13 @@ On-device AI Assistant App/dist/
 .cache/
 .gemini/
 *.patch
-scratch/
+scratch/*
+!scratch/lab/
+!scratch/move_modules.py
+scratch/lab/fixtures/kosmos_db
+scratch/lab/__pycache__/
+__pycache__/
+*.pyc
 
 # ---------------------------------------------------------------------
 # 7. OS & Profiler Temp Files
