@@ -173,3 +173,18 @@ D1/D3 ◀── 발열 실측 (EC7 경로)
 3. **발열 경로 확인** — 추론 횟수를 늘리는 기능(D1·D3·A4)은 EC7 임계 동작을 실기기에서 관측.
 4. **정책 3종 자동 점검** — 오프라인 우선 / 쓰기 승인 / 감사 기록. 새 툴은 BaseAgent allowlist + 감사 이벤트가 함께 추가되어야 한다 (F7 이중 방어 선례).
 5. **기존 테스트 단언 수정 0건** 원칙 유지 — 계약 변경은 CHANGELOG 에 의도 명기.
+
+---
+
+## 6. 기술적 부채 및 향후 과제 관리 (Tech Debt & Engineering Management)
+
+확장 로드맵의 각 Phase를 안전하고 견고하게 실행하기 위해 선제적으로 관리해야 하는 기술적 부채와 엔지니어링 과제입니다.
+
+| # | 기술적 부채 / 과제 | 현황 및 영향 | 해소 계획 및 연계 트랙 |
+|---|---|---|---|
+| **TD-1** | **레거시 MediaPipe TextEmbedder 의존성** | 영어 전용 임베더가 APK 용량의 약 1/3(~52MB)을 차지하는 비활성 경로 | Track C1(SQLite FTS5 바이그램 검색) 도입 및 품질 검증 후, **C2에서 MediaPipe 의존성 및 자산 완전 제거** (APK 152MB → ~100MB 경량화) |
+| **TD-2** | **TargetSdk 37 vs Robolectric 35 에뮬레이션 갭** | 앱 런타임은 Android 15(SDK 37)이나 Robolectric 4.14 상한(35)으로 인해 `robolectric.properties(sdk=35)`로 테스트 환경 고정 | Robolectric 차기 버전(SDK 37 지원 릴리스) 시 테스트 에뮬레이션 SDK 상향 및 `VoiceChatIntegrationTest`의 타이밍 의존성 리팩터링 |
+| **TD-3** | **상류(LiteRT-LM) FP16 정밀도 제약 및 토큰 예산** | GPU FP16 activation overflow로 인해 대화 프리필 예산이 1,700 토큰으로 제한됨 | 상류 AAR 릴리스 감시 → `activationDataType` 노출 또는 FP16 수정 시 `exp30` 재실측 → **E-Phase 4에서 예산 3,328 토큰 복원** |
+| **TD-4** | **백그라운드 배치 추론 큐 및 발열 제어 연동** | 연속 다중 추론(D1 문서 파싱, D3 회의록 요약, A4 아침 브리핑) 시 단일 직렬 큐와 발열의 상호작용 | WorkManager의 `RequiresCharging` / `RequiresDeviceIdle` 제약 조건을 `RuntimeMetricsCollector`의 43°C/48°C 임계 정책과 결합한 **배치 추론 스케줄러 아키텍처 수립** |
+| **TD-5** | **대용량 모델 다운로드 회복력 및 저장공간 안전성** | 3.6GB 모델 파일의 네트워크 단절 재시도 및 기기 가용 저장공간 부족 시 IO 에러 위험 | `ModelDownloadWorker`의 청크 이어받기 검증 유지 및 다운로드 전 최소 5GB 가용 공간 사전 검증(`StatFs`) UI 피드백 강화 |
+
