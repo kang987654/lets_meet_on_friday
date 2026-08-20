@@ -1329,7 +1329,7 @@ GemmaModelRunner → {새모델}ModelRunner
 - **재현 조건(하네스가 맞춰야 하는 것)**: 툴을 스키마로 선언(`tools=`), constrained decoding on, greedy(`top_k=1`), thinking off, `automatic_tool_calling=False`. 이 다섯 개가 앱의 `GemmaModelRunner` 설정이다. `render_message_to_string()` 으로 렌더링된 preface 를 실기기 로그의 preface 와 대조해 재현성을 확인했다(구조 동일).
 - **한계(중요)**: ① 파이썬 패키지는 0.15.0, Android 는 0.14.0 이 최신이다(Maven 확인). 0.15.0 은 constrained decoding·thinking 을 전역 플래그가 아닌 config 객체로 노출하므로 **API 세부는 동일하지 않다.** ② 스키마 렌더링도 다르다 — 파이썬은 기본값 있는 파라미터를 `required` 에서 빼지만 Kotlin `ReflectionTool` 은 nullable 이어도 남긴다(둘 다 실측). ③ **하드웨어 고유 결함은 재현되지 않는다** — 숫자 왜곡("1234"→"134")이 PC 의 CPU·GPU 양쪽에서 한 번도 재현되지 않아 안드로이드 GPU(Adreno) 고유로 좁혀졌다. 따라서 하네스는 **프롬프트·성향 검증용이고, 수치 정확도나 런타임 배관 검증에는 쓸 수 없다.**
 - **하네스 자체의 함정 2건(기록)**: `from __future__ import annotations` 를 쓰면 타입 힌트가 문자열이 되어 `tool_from_function` 의 스키마가 전부 string 으로 fallback 한다(`tags: list[str]` 가 array 로 선언되지 않는다). `Message.model()`/`Message.tool()` 은 `str` 을 받지 않고 `Contents` 를 요구한다(`Message.user()` 만 허용).
-- **위치**: `scratch/` 는 gitignore 대상이라 하네스는 저장소에 포함되지 않는다. 모델 파일(3.7GB)이 같은 폴더에 있어야 하므로 의도된 배치이며, 실험 결론은 CHANGELOG 와 단위 테스트로 저장소에 남긴다 — 특히 `PromptAssemblerTest` 가 **예전 "DO NOT guess" 문구의 부활을 실패로 잡는다.**
+- **위치**: 하네스와 실험 스크립트는 `scratch/lab/` 으로 저장소에 포함된다(2026-08-15 추적 전환 — 이전에는 scratch 전체가 gitignore 대상이었다). 모델 파일(3.6GB)과 실제 대화 파생 데이터(kosmos_db·exp33 출력)는 계속 제외한다. 실험 결론은 CHANGELOG 와 단위 테스트로도 남는다 — 특히 `PromptAssemblerTest` 가 **예전 "DO NOT guess" 문구의 부활을 실패로 잡는다.**
 
 ### ADR-010. 시스템 지시는 하루 동안 고정한다 — 날짜는 날짜 단위로, 검색된 기억만 사용자 턴으로 (2026-08-07)
 - **결정**: `systemInstruction` 에는 하루 동안 변하지 않는 것(역할, 언어, 응답 스타일, **날짜 블록**, 툴 사용 태도)만 담는다. 날짜 블록에서 **분 단위 시계를 뺀다.** 질의마다 달라지는 RAG 검색 기억만 `ChatPrompt.turnContext` 로 분리해 사용자 턴 본문 앞머리에 싣는다.
