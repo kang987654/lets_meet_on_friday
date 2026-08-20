@@ -63,7 +63,8 @@ class MorningBriefingGenerator @Inject constructor(
     private val boundaryManager: EpisodeBoundaryManager,
     private val auditTrailService: AuditTrailService,
     private val metricsCollector: RuntimeMetricsCollector,
-    private val modelRunner: ModelRunner
+    private val modelRunner: ModelRunner,
+    private val notificationScheduler: com.kosmos.app.work.BriefingNotificationScheduler
 ) {
 
     /**
@@ -93,6 +94,12 @@ class MorningBriefingGenerator @Inject constructor(
      */
     fun start() {
         if (!started.compareAndSet(false, true)) return
+        scope.launch {
+            // 초기 예약 — KEEP 이라 이미 예약돼 있으면 무해하게 지나간다 (앱 시작마다 멱등).
+            if (settingsDataStore.briefingEnabledFlow.first()) {
+                notificationScheduler.ensureScheduled(settingsDataStore.briefingTimeMinutesFlow.first())
+            }
+        }
         scope.launch {
             modelRunner.loadState.collect { state ->
                 if (state is ModelLoadState.Ready) {

@@ -61,6 +61,8 @@ class MorningBriefingGeneratorTest {
     private val modelRunner: ModelRunner = mockk(relaxed = true) {
         io.mockk.every { this@mockk.loadState } returns this@MorningBriefingGeneratorTest.loadState
     }
+    private val notificationScheduler: com.kosmos.app.work.BriefingNotificationScheduler =
+        mockk(relaxed = true)
 
     @Before
     fun defaults() {
@@ -83,7 +85,7 @@ class MorningBriefingGeneratorTest {
     private fun generator() = MorningBriefingGenerator(
         settingsDataStore, sessionStore, conversationRepository, episodeRepository,
         taskRepository, getTodaySchedule, generateBriefing, boundaryManager,
-        auditTrailService, metricsCollector, modelRunner
+        auditTrailService, metricsCollector, modelRunner, notificationScheduler
     )
 
     @Test

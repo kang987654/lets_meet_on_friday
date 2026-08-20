@@ -225,6 +225,9 @@ object Constants {
 
     // --- 모델 다운로드 (WorkManager 전경 작업, ADR-006) ---
     const val MODEL_DOWNLOAD_WORK_NAME = "model_download"
+
+    // --- 아침 브리핑 알림 (WorkManager 자기 재예약, A4) ---
+    const val BRIEFING_WORK_NAME = "morning_briefing_notification"
     // [WHY] 서버가 Content-Length 를 주지 않는 경우(chunked)에도 저장 공간 사전 점검을
     // 포기하지 않기 위한 보수적 하한값이다.
     const val EXPECTED_MODEL_SIZE_BYTES = 3_900_000_000L

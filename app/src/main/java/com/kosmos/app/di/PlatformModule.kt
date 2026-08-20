@@ -32,6 +32,11 @@ abstract class PlatformModule {
     abstract fun bindDownloadNotifier(
         impl: AndroidDownloadNotifier
     ): DownloadNotifier
+
+    @Binds
+    abstract fun bindBriefingNotifier(
+        impl: com.kosmos.app.platform.notification.AndroidBriefingNotifier
+    ): com.kosmos.app.platform.notification.BriefingNotifier
     @Binds
     abstract fun bindCalendarTool(
         impl: AndroidCalendarTool

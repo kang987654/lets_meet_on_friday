@@ -22,9 +22,11 @@ import androidx.core.content.getSystemService
 object NotificationChannels {
 
     const val MODEL_DOWNLOAD = "model_download"
+    const val BRIEFING = "morning_briefing"
 
     const val NOTIF_ID_DOWNLOAD_PROGRESS = 1001
     const val NOTIF_ID_DOWNLOAD_RESULT = 1002
+    const val NOTIF_ID_BRIEFING = 1003
 
     fun ensureCreated(context: Context) {
         val manager = context.getSystemService<NotificationManager>() ?: return
@@ -40,5 +42,16 @@ object NotificationChannels {
             enableVibration(false)
         }
         manager.createNotificationChannel(channel)
+
+        // [WHY] 다운로드와 달리 사용자를 부르는 알림이므로 기본 중요도(소리·배지 시스템 기본).
+        // 채널이 분리돼 있어야 사용자가 시스템 설정에서 브리핑만 무음/차단할 수 있다 (A4).
+        val briefing = NotificationChannel(
+            BRIEFING,
+            "아침 브리핑",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "매일 아침 일정과 할 일 미리보기를 알립니다."
+        }
+        manager.createNotificationChannel(briefing)
     }
 }
