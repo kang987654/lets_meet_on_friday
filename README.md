@@ -6,7 +6,7 @@
 ![Compose](https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4?style=flat-square&logo=jetpackcompose)
 ![LiteRT-LM](https://img.shields.io/badge/On--Device_AI-LiteRT--LM_0.16_·_Gemma_4_E4B-FF6F00?style=flat-square&logo=google)
 ![Hilt](https://img.shields.io/badge/DI-Hilt-0052CC?style=flat-square&logo=dagger)
-![Status](https://img.shields.io/badge/Device-Galaxy_S25_Ultra_%EC%8B%A4%EA%B8%B0%EA%B8%B0_%EA%B2%80%EC%A6%9D-555?style=flat-square)
+![License](https://img.shields.io/badge/License-CC_BY--NC_4.0-lightgrey?style=flat-square)
 
 ---
 
@@ -169,11 +169,11 @@ cd lets_meet_on_friday
 
 ---
 
-## 📄 저작권
+## 📄 라이선스
 
-ⓒ 2026 jinwoo. All rights reserved.
+ⓒ 2026 jinwoo — [**CC BY-NC 4.0**](LICENSE.md)
 
-본 저장소는 **포트폴리오 열람 목적으로 공개**된 것으로, 별도의 오픈소스 라이선스를 부여하지
-않습니다. 코드와 문서의 열람은 자유이나, 사전 허가 없는 사용·복제·수정·재배포는 허용되지
-않습니다. (Gemma 모델은 저장소에 포함되지 않으며, 사용 시 Google 의 Gemma Terms of Use 를
-따릅니다.)
+- **비상업적 사용**: 자유롭게 사용·수정·재배포할 수 있습니다. 단, **출처(이 저장소와 저작자)를
+  명시**해야 합니다.
+- **상업적 이용**: 허용되지 않습니다 — 원하시면 저작권자와 **별도 라이선스 협의**가 필요합니다.
+- Gemma 모델은 저장소에 포함되지 않으며, 사용 시 Google 의 Gemma Terms of Use 를 따릅니다.
