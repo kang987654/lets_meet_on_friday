@@ -74,7 +74,20 @@ class EpisodeBoundaryManager @Inject constructor(
      * 유저 메시지 저장 직전 훅. 배정할 episodeId 를 돌려줍니다 (실패 시 null — 배정 없이
      * 저장하고 catch-up 이 소급한다: 에피소드 배선 문제가 채팅 자체를 막으면 안 된다).
      */
-    suspend fun onUserMessage(sessionId: String, now: Long): String? = mutex.withLock {
+    suspend fun onUserMessage(sessionId: String, now: Long): String? =
+        boundaryFor(sessionId, now)
+
+    /**
+     * 비서가 스스로 시작한 발화(아침 브리핑, A4)용 훅 — 판정은 [onUserMessage] 와 동일하다.
+     *
+     * [WHY] 브리핑을 episodeId=null 로 저장하면 catch-up 이 비서 발화 1줄짜리 CLOSED
+     * 에피소드를 소급 생성한다 — 무의미한 요약 추론 1회 + 아카이브 오염이 매일 쌓인다.
+     * 여기서 새 OPEN 에피소드를 열어 두면 사용자의 답이 같은 에피소드에 붙는다.
+     */
+    suspend fun onAssistantInitiatedMessage(sessionId: String, now: Long): String? =
+        boundaryFor(sessionId, now)
+
+    private suspend fun boundaryFor(sessionId: String, now: Long): String? = mutex.withLock {
         try {
             val open = openEpisodeOf(sessionId)
             val lastAt = lastMessageAt(sessionId)

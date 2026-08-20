@@ -58,7 +58,8 @@ class ChatViewModel @Inject constructor(
     private val shareIntentHandler: ShareIntentHandler,
     private val runtimeMetricsCollector: RuntimeMetricsCollector,
     private val modelRunner: ModelRunner,
-    private val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder
+    private val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder,
+    private val briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator
 ) : ViewModel() {
 
     // [WHY] 녹음 자동 종료 타이머. 사용자가 먼저 멈추면 취소해야 한다 — 남겨 두면 다음 녹음
@@ -164,6 +165,19 @@ class ChatViewModel @Inject constructor(
         observeThermalWarning()
         observeEngineState()
         observeDeviceStatus()
+        observeBriefing()
+    }
+
+    /**
+     * [WHY] 브리핑은 이 화면 밖(MorningBriefingGenerator)에서 DB 에 저장되는데 ConversationDao
+     * 에는 Flow 쿼리가 없어 자동 반영되지 않는다. 저장 신호를 받아 라이브 테일을 재동기화한다 —
+     * 스플래시 중 생성분(앵커 이전)은 히스토리 Paging 이 자연 표시하므로 이 구독은 앱 사용 중
+     * Ready 재전이(앵커 이후) 케이스만 담당한다.
+     */
+    private fun observeBriefing() {
+        viewModelScope.launch {
+            briefingGenerator.briefingSaved.collectLatest { loadMessages() }
+        }
     }
 
     /**

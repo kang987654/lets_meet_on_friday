@@ -24,6 +24,14 @@ class KosmosApp : Application(), Configuration.Provider {
     lateinit var workerFactory: HiltWorkerFactory
 
     /**
+     * [WHY] 브리핑 생성기는 아무도 참조하지 않으면 인스턴스화되지 않는다 — Orchestrator 주입으로
+     * 살아나는 EpisodeSummarizeScheduler 와 달리, Ready 편승 구독(init)을 깨우려면 여기서
+     * eager 주입이 필요하다.
+     */
+    @Inject
+    lateinit var briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+
+    /**
      * [WHY] @HiltWorker 로 만든 Worker 에 의존성을 주입하려면 WorkManager 의 기본 초기화를
      * 매니페스트에서 제거하고(WorkManagerInitializer node:remove) HiltWorkerFactory 를 물려야 한다.
      * WorkManager 2.9+ 에서 이 계약은 메서드가 아니라 프로퍼티다 — 옛 getWorkManagerConfiguration()
@@ -38,6 +46,7 @@ class KosmosApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         NotificationChannels.ensureCreated(this)
+        briefingGenerator.start()
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
             // [WHY] "FileFound 를 보면 warmUp" 반응이 스플래시 뷰모델에만 있으면, 프로세스가
             // 살아남은 재진입에서 구멍이 난다 — 아주 빠른 재진입은 close() 의 비동기 정리

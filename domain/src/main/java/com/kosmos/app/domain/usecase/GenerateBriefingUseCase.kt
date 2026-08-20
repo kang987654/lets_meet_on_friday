@@ -128,12 +128,13 @@ class GenerateBriefingUseCase @Inject constructor(
         if (episodes.isEmpty()) appendLine("- 없음") else episodes.forEach { appendLine(it) }
     }.trimEnd()
 
-    private companion object {
+    companion object {
+        /** 감사 기록과 프롬프트가 같은 식별자를 쓴다 — 생성기(app)가 logModelRun 에 재사용. */
         const val SESSION_ID = "morning-briefing"
 
         // [WHY] 다른 oneShot 과 같이 영어 [System] 프리픽스 + 한국어 본문. 후속 질문은
         // "정확히 1개" — 여러 개면 심문이 되고, 0개면 A4+ 의 존재 이유가 사라진다.
-        val SYSTEM_INSTRUCTION = """
+        private val SYSTEM_INSTRUCTION = """
             [System]
             You are a personal assistant writing a short morning briefing in Korean.
             당신은 사용자의 하루를 여는 아침 브리핑을 쓰는 개인 비서입니다. 아래 규칙을 지키세요.
@@ -147,6 +148,6 @@ class GenerateBriefingUseCase @Inject constructor(
 
         // [WHY] 프리필 예산(1,700)에서 지시·구조 여유를 뺀 값 — SummarizeEpisodeUseCase 와
         // 같은 유도. 재료가 이 상한을 넘는 날(일정 폭주)은 뒤층부터 떨어져 나간다.
-        val MAX_INPUT_TOKENS = Constants.MAX_CONTEXT_TOKENS - 300
+        private val MAX_INPUT_TOKENS = Constants.MAX_CONTEXT_TOKENS - 300
     }
 }

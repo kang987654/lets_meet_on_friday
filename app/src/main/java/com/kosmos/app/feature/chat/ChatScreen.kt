@@ -538,14 +538,16 @@ private fun MessageWithDate(
         } else Modifier
 
         Box(modifier = bubbleModifier) {
-            if (message.role == ChatMessage.Role.USER) {
-                ChatBubbleUser(
+            when {
+                message.role == ChatMessage.Role.USER -> ChatBubbleUser(
                     text = message.content,
                     inputType = message.inputType,
                     onLongPress = onCopy
                 )
-            } else {
-                ChatBubbleAssistant(
+                // 비서가 스스로 시작한 아침 브리핑 — 말풍선이 아니라 "도착한 카드" (A′-1).
+                message.inputType == com.kosmos.app.domain.model.InputType.BRIEFING ->
+                    BriefingCard(text = message.content, onLongPress = onCopy)
+                else -> ChatBubbleAssistant(
                     text = message.content,
                     thinkingProcess = message.thinkingProcess,
                     searchUsed = message.searchUsed,

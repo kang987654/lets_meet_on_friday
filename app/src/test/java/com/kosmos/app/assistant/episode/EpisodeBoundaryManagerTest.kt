@@ -138,6 +138,32 @@ class EpisodeBoundaryManagerTest {
     }
 
     @Test
+    fun `비서 발화 훅도 열린 에피소드가 없으면 새로 연다`() = runBlocking {
+        // [WHY] 브리핑을 미배정으로 저장하면 catch-up 이 1줄짜리 CLOSED 에피소드를 양산한다 —
+        // 새 OPEN 을 열어 두면 사용자의 답이 같은 에피소드에 붙는다 (A4).
+        stubOpen(null)
+        stubLastMessage(null)
+
+        val id = manager().onAssistantInitiatedMessage("s1", now = 1_000L)
+
+        assertEquals(savedEpisodes.single().id, id)
+        assertEquals(EpisodeStatus.OPEN, savedEpisodes.single().status)
+    }
+
+    @Test
+    fun `비서 발화 훅도 30분 초과면 닫고 새로 연다`() = runBlocking {
+        stubOpen(openEpisode("e1"))
+        stubLastMessage(at = 100_000L)
+        coEvery { conversationRepository.getByEpisode("e1") } returns
+            AppResult.Success(listOf(message(100_000L)))
+
+        val id = manager().onAssistantInitiatedMessage("s1", now = 100_000L + 31 * 60_000L)
+
+        assertTrue(savedEpisodes.any { it.id == "e1" && it.status == EpisodeStatus.CLOSED })
+        assertNotEquals("e1", id)
+    }
+
+    @Test
     fun `저장소 실패 시 null 을 돌려 채팅을 막지 않는다`() = runBlocking {
         coEvery { episodeRepository.getByStatus(any()) } throws RuntimeException("db down")
 

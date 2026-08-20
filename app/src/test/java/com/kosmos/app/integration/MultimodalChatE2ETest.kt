@@ -142,6 +142,7 @@ class MultimodalChatE2ETest {
     @Inject lateinit var sessionStore: SessionStore
     @Inject lateinit var conversationRepository: ConversationRepository
     @Inject lateinit var episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository
+    @Inject lateinit var briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator
     @Inject lateinit var sendChatMessageUseCase: SendChatMessageUseCase
     @Inject lateinit var approvalCoordinator: ApprovalCoordinator
     @Inject lateinit var shareIntentHandler: ShareIntentHandler
@@ -164,7 +165,8 @@ class MultimodalChatE2ETest {
             shareIntentHandler = shareIntentHandler,
             runtimeMetricsCollector = runtimeMetricsCollector,
             modelRunner = fakeModelRunner,
-            audioRecorder = audioRecorder
+            audioRecorder = audioRecorder,
+            briefingGenerator = briefingGenerator
         )
     }
 
