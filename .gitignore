@@ -59,6 +59,10 @@ scratch/*
 !scratch/lab/
 !scratch/move_modules.py
 scratch/lab/fixtures/kosmos_db
+# 실제 대화에서 파생된 실험 데이터 — 개인 대화 내용이 담기므로 공개 저장소에 올리지 않는다
+scratch/lab/exp33_episodes.txt
+scratch/lab/exp33_summaries.json
+scratch/lab/exp33_summaries_single.json
 scratch/lab/__pycache__/
 __pycache__/
 *.pyc
