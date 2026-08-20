@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.kosmos.app.ui.component.glassEffect
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
@@ -257,6 +258,80 @@ fun SettingsScreen(
                         "모델이 한 번에 읽을 수 있는 전체 한도와는 다릅니다.",
                     style = MaterialTheme.typography.bodySmall,
                     color = KosmosTheme.colors.textMuted
+                )
+            }
+        }
+
+        // 5. 아침 브리핑 (A4 — 알림은 미리보기, 본문은 앱을 열면 도착)
+        SectionBox(title = "아침 브리핑") {
+            var showTimePicker by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("매일 아침 브리핑 받기", color = KosmosTheme.colors.textPrimary)
+                Switch(
+                    checked = uiState.briefingEnabled,
+                    onCheckedChange = { viewModel.onBriefingEnabledChanged(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = KosmosTheme.colors.onAccent,
+                        checkedTrackColor = KosmosTheme.colors.accent
+                    )
+                )
+            }
+            if (uiState.briefingEnabled) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("알림 시각", color = KosmosTheme.colors.textPrimary)
+                    Text(
+                        text = "%02d:%02d".format(
+                            uiState.briefingTimeMinutes / 60,
+                            uiState.briefingTimeMinutes % 60
+                        ),
+                        color = KosmosTheme.colors.accent,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                            .clickable { showTimePicker = true }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "정시에 일정·할 일 개수를 알려드리고, 앱을 열면 브리핑이 대화로 도착해요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = KosmosTheme.colors.textMuted
+                )
+            }
+
+            if (showTimePicker) {
+                val timeState = rememberTimePickerState(
+                    initialHour = uiState.briefingTimeMinutes / 60,
+                    initialMinute = uiState.briefingTimeMinutes % 60,
+                    is24Hour = true
+                )
+                AlertDialog(
+                    onDismissRequest = { showTimePicker = false },
+                    title = { Text("브리핑 시각") },
+                    text = { TimePicker(state = timeState) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            viewModel.onBriefingTimeChanged(timeState.hour * 60 + timeState.minute)
+                            showTimePicker = false
+                        }) { Text("확인", color = KosmosTheme.colors.accent) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showTimePicker = false }) {
+                            Text("취소", color = KosmosTheme.colors.textMuted)
+                        }
+                    },
+                    containerColor = KosmosTheme.colors.surface,
+                    titleContentColor = KosmosTheme.colors.textPrimary
                 )
             }
         }
