@@ -48,4 +48,12 @@ interface ConversationDao {
     /** 에피소드 소급 배정 (catch-up). REPLACE insert 는 전체 행을 요구하므로 부분 UPDATE 를 둔다. */
     @Query("UPDATE conversation SET episodeId = :episodeId WHERE id = :messageId")
     suspend fun assignEpisode(messageId: String, episodeId: String)
+
+    /**
+     * [sinceTs] 이후의 특정 입력 유형 비서 메시지 수 — "오늘 브리핑 이미 생성됨" 판정용 (A4).
+     * [WHY] 생성 여부의 진실은 DB 다 — 플래그(DataStore 날짜 키)로 두면 저장 실패·복원과
+     * 어긋날 수 있다 (에피소드 스케줄러의 "큐는 캐시, DB 가 진실" 원칙과 동일).
+     */
+    @Query("SELECT COUNT(*) FROM conversation WHERE role = 'ASSISTANT' AND inputType = :inputType AND createdAt >= :sinceTs")
+    suspend fun countByInputTypeSince(inputType: String, sinceTs: Long): Int
 }

@@ -96,6 +96,9 @@ class ConversationRepositoryImpl @Inject constructor(
     override suspend fun countOlderThan(beforeTs: Long): AppResult<Int> =
         read("타임라인 총수 계산") { conversationDao.countOlderThan(beforeTs) }
 
+    override suspend fun countByInputTypeSince(inputType: InputType, sinceTs: Long): AppResult<Int> =
+        read("입력 유형 카운트") { conversationDao.countByInputTypeSince(inputType.name, sinceTs) }
+
     private inline fun <T> read(what: String, block: () -> T): AppResult<T> = try {
         AppResult.Success(block())
     } catch (e: kotlin.coroutines.cancellation.CancellationException) {

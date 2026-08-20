@@ -3,6 +3,7 @@ package com.kosmos.app.domain.memory
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.model.ChatMessage
+import com.kosmos.app.domain.model.InputType
 
 /**
  * [v0] 대화 내역 저장소
@@ -42,4 +43,7 @@ interface ConversationRepository {
 
     /** 앵커 이전 메시지 총수 — Paging placeholder 의 전체 크기. */
     suspend fun countOlderThan(beforeTs: Long): AppResult<Int>
+
+    /** [sinceTs] 이후의 특정 입력 유형 비서 메시지 수 — "오늘 브리핑 생성됨" 판정 (A4, DB 가 진실). */
+    suspend fun countByInputTypeSince(inputType: InputType, sinceTs: Long): AppResult<Int>
 }

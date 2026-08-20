@@ -21,6 +21,35 @@ class SettingsDataStore @Inject constructor(
         private val MAX_TOKENS_KEY = intPreferencesKey("max_tokens")
         private val WEB_SEARCH_ENABLED_KEY = booleanPreferencesKey("web_search_enabled")
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
+        private val BRIEFING_ENABLED_KEY = booleanPreferencesKey("briefing_enabled")
+        private val BRIEFING_TIME_MINUTES_KEY = intPreferencesKey("briefing_time_minutes")
+
+        // [WHY] 557 = 09:17 (사용자 지정 기본, 2026-08-21). 자정 기준 분 단위 int 하나가
+        // 단일 출처다 — 시/분을 따로 저장하면 갱신이 반쪽만 될 수 있다.
+        const val DEFAULT_BRIEFING_TIME_MINUTES = 9 * 60 + 17
+    }
+
+    // [WHY] 브리핑은 기본 켜짐 — 1인 앱이라 옵트인 부담이 없고, 선제형 비서가 이 앱의
+    // 정체성이다 (expand.md 순서 원칙 ④). 알림·본문 생성 둘 다 이 플래그 하나에 걸린다.
+    val briefingEnabledFlow: Flow<Boolean> = dataStore.data.map {
+        it[BRIEFING_ENABLED_KEY] ?: true
+    }
+
+    suspend fun saveBriefingEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[BRIEFING_ENABLED_KEY] = enabled
+        }
+    }
+
+    val briefingTimeMinutesFlow: Flow<Int> = dataStore.data.map {
+        (it[BRIEFING_TIME_MINUTES_KEY] ?: DEFAULT_BRIEFING_TIME_MINUTES)
+            .coerceIn(0, 24 * 60 - 1)
+    }
+
+    suspend fun saveBriefingTimeMinutes(minutes: Int) {
+        dataStore.edit { prefs ->
+            prefs[BRIEFING_TIME_MINUTES_KEY] = minutes
+        }
     }
 
     // [WHY] 테마 모드는 UI 계층의 enum(ThemeMode)이므로 data 계층에서는 키 문자열로만 다룬다
