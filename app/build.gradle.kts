@@ -24,6 +24,19 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        // [WHY] litertlm(20.5MB)·mediapipe(10MB) 네이티브가 4개 ABI 로 들어와 lib/ 이 APK 의
+        // 90MB 를 차지했는데, 실행하는 쪽은 그중 하나만 읽는다. 쓰는 둘만 남긴다:
+        //   arm64-v8a — 실기기(S25 Ultra, PRD 대상 기기)
+        //   x86_64    — 에뮬레이터. **격리된 검증 환경으로 의도적으로 유지한다** — 실기기 DB 에는
+        //               실제 대화와 비밀번호가 있어(scratch/lab/device_fixture.py) 자동화 검증을
+        //               거기서 돌리면 유출 경로가 생기고 폰에 잔여물도 남는다. 합성 데이터만 넣은
+        //               일회용 AVD 에서 기능·회귀를 보고, 충실도(GPU FP16·발열·인셋·체감)만 실기기로.
+        //               에뮬레이터는 OpenCL 이 없어 GPU 초기화가 실패하지만 CPU 폴백으로 동작한다.
+        // 뺀 둘: x86(구형 에뮬레이터), armeabi-v7a(32비트 기기 — 3.6GB 모델에 12GB+ RAM 이 필요해
+        // 애초에 대상 밖).
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
     }
 
     buildTypes {

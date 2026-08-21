@@ -203,9 +203,11 @@ D1/D3 ◀── 발열 실측 (EC7 경로)
 
 | # | 기술적 부채 / 과제 | 현황 및 영향 | 해소 계획 및 연계 트랙 |
 |---|---|---|---|
-| **TD-1** | **레거시 MediaPipe TextEmbedder 의존성** | 영어 전용 임베더가 APK 용량의 약 1/3(~52MB)을 차지하는 비활성 경로 | Track C1(SQLite FTS5 바이그램 검색) 도입 및 품질 검증 후, **C2에서 MediaPipe 의존성 및 자산 완전 제거** (APK 152MB → ~100MB 경량화) |
+| **TD-1** | **레거시 MediaPipe TextEmbedder 의존성** | 영어 전용 임베더가 실려만 있는 비활성 경로. **TD-6 이후 몫이 줄었다** — 남은 2개 ABI 기준 `lib` 22.4MB + assets 5.8MB ≈ **28MB**(4개 ABI 합산이던 52MB 는 더 이상 기준이 아니다) | Track C1(SQLite FTS5 바이그램 검색) 도입 및 품질 검증 후, **C2에서 MediaPipe 의존성 및 자산 완전 제거** (release APK 77.8MB → ~50MB 추정) |
 | **TD-2** | **TargetSdk 37 vs Robolectric 35 에뮬레이션 갭** | 앱 런타임은 Android 15(SDK 37)이나 Robolectric 4.14 상한(35)으로 인해 `robolectric.properties(sdk=35)`로 테스트 환경 고정 | Robolectric 차기 버전(SDK 37 지원 릴리스) 시 테스트 에뮬레이션 SDK 상향 및 `VoiceChatIntegrationTest`의 타이밍 의존성 리팩터링 |
 | **TD-3** | **상류(LiteRT-LM) FP16 정밀도 제약 및 토큰 예산** | GPU FP16 activation overflow로 인해 대화 프리필 예산이 1,700 토큰으로 제한됨 | 상류 AAR 릴리스 감시 → `activationDataType` 노출 또는 FP16 수정 시 `exp30` 재실측 → **E-Phase 4에서 예산 3,328 토큰 복원** |
 | **TD-4** | **백그라운드 배치 추론 큐 및 발열 제어 연동** | 연속 다중 추론(D1 문서 파싱, D3 회의록 요약, A4 아침 브리핑) 시 단일 직렬 큐와 발열의 상호작용 | WorkManager의 `RequiresCharging` / `RequiresDeviceIdle` 제약 조건을 `RuntimeMetricsCollector`의 43°C/48°C 임계 정책과 결합한 **배치 추론 스케줄러 아키텍처 수립** |
 | **TD-5** | **대용량 모델 다운로드 회복력 및 저장공간 안전성** | 3.6GB 모델 파일의 네트워크 단절 재시도 및 기기 가용 저장공간 부족 시 IO 에러 위험 | `ModelDownloadWorker`의 청크 이어받기 검증 유지 및 다운로드 전 최소 5GB 가용 공간 사전 검증(`StatFs`) UI 피드백 강화 |
+| **TD-6** | ~~**쓰지 않는 ABI 2종 패키징**~~ **(해소 — 2026-08-21, 0.20.1)** | `litertlm_jni`·`mediapipe_tasks_jni` 가 4개 ABI 로 들어와 `lib/` 이 APK 의 90MB 를 차지했다. `x86`(구형 에뮬레이터)·`armeabi-v7a`(32비트 기기)는 실행 주체가 없다 | `abiFilters += listOf("arm64-v8a", "x86_64")`. **실측 release 100.1 → 77.8MB, debug 123.6 → 100.7MB**. x86_64 는 격리된 검증 환경으로 의도적 유지 — 실기기 DB 에 실제 대화·비밀번호가 있어 자동화 검증은 합성 데이터 AVD 에서 돌린다(0.20.1 [Note]) |
+| **TD-7** | **검증용 AVD 사양 미달** | `my_phone`(x86_64, API 35)이 `hw.ramSize=2048`·`disk=10G` 라 앱 PSS 실측 5.5GB 를 못 받는다 — TD-6 이 열어 둔 에뮬레이터 검증 경로가 아직 실제로는 막혀 있다 | RAM 12GB+·데이터 파티션 16G 로 상향(호스트 63.5GB). 모델은 `getExternalFilesDir("models")` 에 1회 투입 후 영속. GPU 초기화 실패 → CPU 폴백 전제이므로 속도가 아닌 **기능·회귀 판정용**으로만 쓴다 |
 
