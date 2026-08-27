@@ -151,7 +151,11 @@ class TokenBudgetInvariantTest {
     }
 
     private companion object {
-        /** `Conversation.token_count` 실측 — 시스템 지시 573 + 툴 5종 652 + few-shot 104. */
-        const val MEASURED_OVERHEAD = 1329
+        /**
+         * `Conversation.token_count` 실측 — 시스템 지시 573 + 툴 5종 652 + few-shot 104 = 1,329
+         * 에 add_reminder 선언+트리거 규칙의 순증 52(기존 선언 다이어트 상쇄 후,
+         * `scratch/lab/exp34b_reminder_diet.py` 2026-08-28)를 더한 값.
+         */
+        const val MEASURED_OVERHEAD = 1381
     }
 }

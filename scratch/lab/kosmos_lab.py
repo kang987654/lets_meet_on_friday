@@ -39,7 +39,7 @@ def with_turn_reminder(user_input: str) -> str:
 
 
 def add_schedule(title: str, start_time: str, end_time: str | None, memo: str | None) -> dict:
-    """사용자의 캘린더에 일정을 추가한다. 약속·예약·미팅·병원·시험 등 앞으로 일어날 일을 등록할 때 쓴다.
+    """사용자의 캘린더에 일정을 추가한다.
 
     Args:
         title: 일정 제목. 예: '치과 예약'
@@ -60,7 +60,7 @@ def get_schedule(date: str) -> dict:
 
 
 def add_memory(content: str, tags: list[str]) -> dict:
-    """사용자에 관한 사실·선호·비밀번호 등을 영구 기억으로 저장한다. 사용자가 '기억해줘'라고 하거나 나중에 다시 필요할 정보를 말했을 때 반드시 쓴다.
+    """사용자에 관한 사실·선호·비밀번호 등을 영구 기억으로 저장한다.
 
     Args:
         content: 기억할 내용. 사용자가 말한 숫자와 고유명사는 절대 바꾸지 말고 그대로 적는다.
@@ -70,7 +70,7 @@ def add_memory(content: str, tags: list[str]) -> dict:
 
 
 def search_memory(keyword: str) -> dict:
-    """사용자가 이전에 저장해 둔 기억(메모)에서 찾는다. 사용자가 예전에 알려준 사실·비밀번호·선호를 다시 물으면 반드시 쓴다. 추측해서 답하지 말고 이 도구로 확인한다.
+    """사용자가 이전에 저장해 둔 기억(메모)에서 찾는다. 추측해서 답하지 말고 이 도구로 확인한다.
 
     Args:
         keyword: 찾을 핵심 키워드. 문장이 아니라 명사 위주의 짧은 단어로 쓴다. 예: '자전거 비밀번호', '와이파이', '알레르기'
@@ -79,7 +79,7 @@ def search_memory(keyword: str) -> dict:
 
 
 def search_wikipedia(topic: str, lang: str) -> dict:
-    """위키백과에서 주제의 요약을 가져온다. 사용자가 사실 확인이나 설명을 요청할 때 쓴다.
+    """위키백과에서 주제의 요약을 가져온다.
 
     Args:
         topic: 검색 키워드
@@ -88,7 +88,19 @@ def search_wikipedia(topic: str, lang: str) -> dict:
     raise NotImplementedError("툴 실행은 하네스 밖에서 주입한다")
 
 
-ALL_TOOLS = [add_schedule, get_schedule, add_memory, search_memory, search_wikipedia]
+def add_reminder(time: str, content: str) -> dict:
+    """지정 시각에 알림을 울려 상기시킨다. 캘린더 등록이 아니다.
+
+    Args:
+        time: 알림 시각. ISO 8601 형식.
+        content: 알림에 표시할 내용
+    """
+    raise NotImplementedError("툴 실행은 하네스 밖에서 주입한다")
+
+
+# 0.21.0 다이어트: 위 선언들의 둘째 문장(시스템 지시 트리거 규칙과 중복)을 앱과 함께 제거 —
+# 근거·실측은 exp34b_reminder_diet.py (순증 52토큰, 스모크 8/8).
+ALL_TOOLS = [add_schedule, get_schedule, add_memory, search_memory, search_wikipedia, add_reminder]
 
 
 def create_engine(backend=None) -> "llm.Engine":

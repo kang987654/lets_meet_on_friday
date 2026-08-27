@@ -7,14 +7,16 @@ class ToolRegistry @Inject constructor(
     getScheduleTool: GetScheduleToolExecutor,
     addMemoryTool: AddMemoryToolExecutor,
     searchMemoryTool: SearchMemoryToolExecutor,
-    searchWikipediaTool: SearchWikipediaToolExecutor
+    searchWikipediaTool: SearchWikipediaToolExecutor,
+    addReminderTool: AddReminderToolExecutor
 ) {
     private val executors = mapOf(
         addScheduleTool.name to addScheduleTool,
         getScheduleTool.name to getScheduleTool,
         addMemoryTool.name to addMemoryTool,
         searchMemoryTool.name to searchMemoryTool,
-        searchWikipediaTool.name to searchWikipediaTool
+        searchWikipediaTool.name to searchWikipediaTool,
+        addReminderTool.name to addReminderTool
     )
 
     fun getExecutor(name: String): ToolExecutor? {

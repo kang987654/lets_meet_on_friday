@@ -33,6 +33,7 @@ class KosmosToolDeclarationsTest {
         assertEquals("GetSchedule", KosmosToolDeclarations.canonicalName("get_schedule"))
         assertEquals("AddMemory", KosmosToolDeclarations.canonicalName("add_memory"))
         assertEquals("SearchWikipedia", KosmosToolDeclarations.canonicalName("search_wikipedia"))
+        assertEquals("AddReminder", KosmosToolDeclarations.canonicalName("add_reminder"))
     }
 
     @Test

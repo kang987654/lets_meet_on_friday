@@ -217,6 +217,11 @@ class PromptAssembler @Inject constructor() {
             if (availableTools.contains("SearchWikipedia")) {
                 appendLine("- The user asks a factual question you are not sure about — Korean triggers: \"검색해줘\", \"찾아봐\", \"~가 뭐야?\": call `search_wikipedia`.")
             }
+            // [WHY] 문구는 exp34b 에서 실측·검증된 원문 그대로다 — 다이어트 예산(순증 52) 안에서
+            // 스모크 8/8 을 통과한 조합이므로, 바꾸려면 실험실 재실측이 선행돼야 한다.
+            if (availableTools.contains("AddReminder")) {
+                appendLine("- The user asks to be reminded at a specific time — Korean triggers: \"3시에 알려줘\", \"리마인드\": you MUST call `add_reminder`.")
+            }
         }
         // [WHY] "above" 는 같은 시스템 지시 안의 [System Data] 날짜 블록을 가리킨다. 그 블록의
         // 위치를 옮기면 이 문구도 함께 옮겨야 한다 — 가리키는 곳이 틀리면 규칙이 무력해진다.

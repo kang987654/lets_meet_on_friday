@@ -107,13 +107,13 @@ class PromptFixtureExportTest {
     }
 
     private companion object {
-        // [WHY] 앱이 채팅에서 선언하는 5종 그대로다. 실험실이 4종만 선언하던 동안은 선언 크기와
+        // [WHY] 앱이 채팅에서 선언하는 6종 그대로다. 실험실이 4종만 선언하던 동안은 선언 크기와
         // 트리거 목록이 달라 툴 선택 성향 실험이 앱과 어긋났다.
         val ALL_TOOLS = listOf(
-            "AddSchedule", "GetSchedule", "AddMemory", "SearchMemory", "SearchWikipedia"
+            "AddSchedule", "GetSchedule", "AddMemory", "SearchMemory", "SearchWikipedia", "AddReminder"
         )
         val ALL_SNAKE_NAMES = listOf(
-            "add_schedule", "get_schedule", "add_memory", "search_memory", "search_wikipedia"
+            "add_schedule", "get_schedule", "add_memory", "search_memory", "search_wikipedia", "add_reminder"
         )
 
         // KosmosAgent 가 넘기는 역할 문구와 같아야 한다.

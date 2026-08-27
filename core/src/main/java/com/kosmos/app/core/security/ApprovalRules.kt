@@ -17,7 +17,8 @@ object ApprovalRules {
     enum class ActionType {
         CALENDAR_WRITE,
         MEMORY_WRITE,
-        WEB_SEARCH
+        WEB_SEARCH,
+        REMINDER_WRITE
     }
 
     fun requiresApproval(actionType: ActionType): Boolean =
@@ -28,5 +29,9 @@ object ApprovalRules {
             // 전역 토글(webSearchEnabled)로 허용 여부를 제어한다. 토글 OFF 시
             // 에이전트의 allowlist에서 제외되어 실행 자체가 차단된다.
             ActionType.WEB_SEARCH -> false
+            // [WHY] 영향 반경이 앱 내부(알림 1건)라 경량화(승인 생략)를 검토했으나,
+            // "쓰기=승인"(G3) 원칙을 예외 없이 유지하기로 결정 — 기존 ApprovalSheet 가
+            // 코드 0줄로 붙는다. 경량화는 실사용 마찰이 기록되면 재검토 (2026-08-28).
+            ActionType.REMINDER_WRITE -> true
         }
 }

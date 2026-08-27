@@ -68,6 +68,9 @@ class KosmosAgent @Inject constructor(
         // 한국어 검색이 무작위였고(ADR-013), 무관한 메모 3건이 매 턴 붙어 프리필만 축내고
         // 환각의 재료가 됐다. 모델이 필요할 때 키워드로 찾는 툴로 바꿨다.
         add("SearchMemory")
+        // [WHY] 리마인더 쓰기는 로컬 동작(AlarmManager+알림)이므로 상시 노출 — 승인은
+        // REMINDER_WRITE 관문이 별도로 지킨다 (B1).
+        add("AddReminder")
         if (context.webSearchEnabled) {
             add("SearchWikipedia")
         }

@@ -41,7 +41,8 @@ object KosmosToolDeclarations {
         "get_schedule" to "GetSchedule",
         "add_memory" to "AddMemory",
         "search_memory" to "SearchMemory",
-        "search_wikipedia" to "SearchWikipedia"
+        "search_wikipedia" to "SearchWikipedia",
+        "add_reminder" to "AddReminder"
     )
 
     private val PROVIDERS: Map<String, () -> ToolProvider> = mapOf(
@@ -49,7 +50,8 @@ object KosmosToolDeclarations {
         "GetSchedule" to { tool(GetScheduleDeclaration()) },
         "AddMemory" to { tool(AddMemoryDeclaration()) },
         "SearchMemory" to { tool(SearchMemoryDeclaration()) },
-        "SearchWikipedia" to { tool(SearchWikipediaDeclaration()) }
+        "SearchWikipedia" to { tool(SearchWikipediaDeclaration()) },
+        "AddReminder" to { tool(AddReminderDeclaration()) }
     )
 
     /** 활성화된 툴만 선언 목록으로 만듭니다. 알 수 없는 이름은 무시합니다. */
@@ -88,7 +90,11 @@ object KosmosToolDeclarations {
         // [WHY] nullable(`String?`) 은 스키마에 `nullable:true` 로 렌더링되지만 required 에서
         // 빠지지는 않는다(같은 preface 로 확인). 그래도 문법상 null 허용의 여지가 있어 유지한다.
         // 실행부는 누락·null 인자를 이미 처리한다 (AddScheduleToolExecutor.optString).
-        @Tool(description = "사용자의 캘린더에 일정을 추가한다. 약속·예약·미팅·병원·시험 등 앞으로 일어날 일을 등록할 때 쓴다.")
+        // [WHY] 설명의 둘째 문장("약속·예약·미팅…를 등록할 때 쓴다")은 시스템 지시의 트리거
+        // 규칙(PromptAssembler.buildFormatBlock)과 중복이었다 — add_reminder 추가 예산을 여기서
+        // 회수했다(선언 다이어트, exp34b: 다이어트+신규 합산 순증 52토큰, 스모크 8/8 유지).
+        // AddMemory·SearchMemory·SearchWikipedia 의 같은 자리 문장들도 동일하게 깎았다.
+        @Tool(description = "사용자의 캘린더에 일정을 추가한다.")
         fun addSchedule(
             @ToolParam(description = "일정 제목. 예: '치과 예약'") title: String,
             @ToolParam(description = "시작 시각. ISO 8601 형식. 예: '2026-08-07T15:00:00'") startTime: String,
@@ -112,7 +118,7 @@ object KosmosToolDeclarations {
     }
 
     private class AddMemoryDeclaration : ToolSet {
-        @Tool(description = "사용자에 관한 사실·선호·비밀번호 등을 영구 기억으로 저장한다. 사용자가 '기억해줘'라고 하거나 나중에 다시 필요할 정보를 말했을 때 반드시 쓴다.")
+        @Tool(description = "사용자에 관한 사실·선호·비밀번호 등을 영구 기억으로 저장한다.")
         fun addMemory(
             @ToolParam(description = "기억할 내용. 사용자가 말한 숫자와 고유명사는 절대 바꾸지 말고 그대로 적는다.") content: String,
             @ToolParam(description = "분류 태그 목록. 예: ['비밀번호', '자전거']") tags: List<String>
@@ -124,7 +130,7 @@ object KosmosToolDeclarations {
         // 문장을 통째로 받으면 아무것도 못 맞힌다("내 자전거 비밀번호 뭐였지?" → 0건).
         // 반대로 모델이 "자전거 비밀번호"만 뽑아 주면 정확히 맞는다 — 한국어 이해는 이미
         // 모델이 하고 있으므로 질의어 추출을 그쪽에 맡기는 설계다 (ADR-013).
-        @Tool(description = "사용자가 이전에 저장해 둔 기억(메모)에서 찾는다. 사용자가 예전에 알려준 사실·비밀번호·선호를 다시 물으면 반드시 쓴다. 추측해서 답하지 말고 이 도구로 확인한다.")
+        @Tool(description = "사용자가 이전에 저장해 둔 기억(메모)에서 찾는다. 추측해서 답하지 말고 이 도구로 확인한다.")
         fun searchMemory(
             @ToolParam(
                 description = "찾을 핵심 키워드. 문장이 아니라 명사 위주의 짧은 단어로 쓴다. " +
@@ -134,10 +140,22 @@ object KosmosToolDeclarations {
     }
 
     private class SearchWikipediaDeclaration : ToolSet {
-        @Tool(description = "위키백과에서 주제의 요약을 가져온다. 사용자가 사실 확인이나 설명을 요청할 때 쓴다.")
+        @Tool(description = "위키백과에서 주제의 요약을 가져온다.")
         fun searchWikipedia(
             @ToolParam(description = "검색 키워드") topic: String,
             @ToolParam(description = "언어 코드. 'ko' 또는 'en'.") lang: String
+        ): Map<String, Any> = notExecutedHere()
+    }
+
+    private class AddReminderDeclaration : ToolSet {
+        // [WHY] "캘린더 등록이 아니다" — add_schedule 과의 혼동 방지선. exp34b 스모크에서
+        // "3시에 회의 일정 잡아줘"(→ add_schedule)와 "3시에 알려줘"(→ add_reminder)가 이
+        // 문구로 갈라지는 것을 확인했다. ISO 예시는 add_schedule 선언이 이미 보여 주므로 생략
+        // (토큰 다이어트 — 스모크에서 형식 준수 확인).
+        @Tool(description = "지정 시각에 알림을 울려 상기시킨다. 캘린더 등록이 아니다.")
+        fun addReminder(
+            @ToolParam(description = "알림 시각. ISO 8601 형식.") time: String,
+            @ToolParam(description = "알림에 표시할 내용") content: String
         ): Map<String, Any> = notExecutedHere()
     }
 }
