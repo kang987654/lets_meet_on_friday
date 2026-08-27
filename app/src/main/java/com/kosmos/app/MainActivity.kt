@@ -22,6 +22,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var shareIntentHandler: ShareIntentHandler
 
+    @Inject
+    lateinit var voiceLaunchHandler: com.kosmos.app.platform.launch.VoiceLaunchHandler
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -30,6 +33,7 @@ class MainActivity : ComponentActivity() {
 
         // Handle intent on cold start
         shareIntentHandler.handleIntent(intent)
+        voiceLaunchHandler.handleIntent(intent)
 
         setContent {
             // [WHY] 저장된 테마 모드를 앱 루트에서 구독해 전체 트리에 적용한다 (ADR-005).
@@ -56,5 +60,6 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         // Handle intent when app is already running
         shareIntentHandler.handleIntent(intent)
+        voiceLaunchHandler.handleIntent(intent)
     }
 }

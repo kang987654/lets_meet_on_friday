@@ -157,16 +157,23 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
                 style = TextStyle(color = WidgetPalette.textSecondary, fontSize = 12.sp)
             )
             Spacer(modifier = GlanceModifier.defaultWeight())
-            WidgetButton(text = "열기")
+            WidgetButton(text = "열기", action = actionStartActivity<MainActivity>())
             Spacer(modifier = GlanceModifier.width(8.dp))
-            // [WHY] M3 에서 VOICE_INPUT 액션으로 배선 — 그 전까지는 열기와 동일 동작.
-            WidgetButton(text = "🎤")
+            // [WHY] 🎤 은 VOICE_INPUT 액션 — 채팅 도착 즉시 녹음 시작(A3, 사용자 결정).
+            WidgetButton(
+                text = "🎤",
+                // [WHY] Intent 오버로드는 core 가 아니라 appwidget 패키지에 있다 — core 의
+                // actionStartActivity 와 이름이 같아 FQN 으로 구분한다.
+                action = androidx.glance.appwidget.action.actionStartActivity(
+                    com.kosmos.app.platform.tile.voiceLaunchIntent(androidx.glance.LocalContext.current)
+                )
+            )
         }
     }
 }
 
 @Composable
-private fun WidgetButton(text: String) {
+private fun WidgetButton(text: String, action: androidx.glance.action.Action) {
     Text(
         text = text,
         style = TextStyle(color = WidgetPalette.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold),
@@ -174,6 +181,6 @@ private fun WidgetButton(text: String) {
             .background(WidgetPalette.accentDim)
             .cornerRadius(12.dp)
             .padding(horizontal = 12.dp, vertical = 6.dp)
-            .clickable(actionStartActivity<MainActivity>())
+            .clickable(action)
     )
 }

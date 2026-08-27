@@ -307,6 +307,20 @@ fun ChatScreen(
         viewModel.dismissSearchFailedNotice()
     }
 
+    // [WHY] 위젯 🎤·QS 타일 진입 — "도착 즉시 녹음 시작" (A3, 사용자 결정). 소비를 시작 시도
+    // 앞에 둬 재구성 시 중복 발화를 막고, 이미 녹음·생성 중이면 조용히 접는다(마이크 버튼의
+    // enabled 조건과 동일). 권한 게이트는 마이크 버튼과 같은 런처를 재사용한다.
+    LaunchedEffect(uiState.pendingVoiceStart) {
+        if (!uiState.pendingVoiceStart) return@LaunchedEffect
+        viewModel.consumePendingVoiceStart()
+        if (uiState.isRecording || uiState.isInFlight) return@LaunchedEffect
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            viewModel.toggleRecording()
+        } else {
+            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
         snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHostState) },

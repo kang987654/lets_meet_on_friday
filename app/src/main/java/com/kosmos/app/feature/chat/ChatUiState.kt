@@ -19,6 +19,8 @@ data class ChatUiState(
     val warningMessage: String? = null,
     val engineState: ModelLoadState = ModelLoadState.Loading,
     val isRecording: Boolean = false,
+    /** 위젯 🎤·QS 타일 진입 — 화면이 권한 게이트를 지나 녹음을 자동 시작한 뒤 소비한다 (A3). */
+    val pendingVoiceStart: Boolean = false,
     /** 웹 검색이 허용됐으나 실패한 턴이면 true — 화면이 한 번 안내한 뒤 소비한다. */
     val searchFailedNotice: Boolean = false,
     val deviceStatus: com.kosmos.app.runtime.metrics.DeviceStatus =

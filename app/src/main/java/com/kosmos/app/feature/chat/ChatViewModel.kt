@@ -59,7 +59,8 @@ class ChatViewModel @Inject constructor(
     private val runtimeMetricsCollector: RuntimeMetricsCollector,
     private val modelRunner: ModelRunner,
     private val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder,
-    private val briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+    private val briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator,
+    private val voiceLaunchHandler: com.kosmos.app.platform.launch.VoiceLaunchHandler
 ) : ViewModel() {
 
     // [WHY] 녹음 자동 종료 타이머. 사용자가 먼저 멈추면 취소해야 한다 — 남겨 두면 다음 녹음
@@ -166,6 +167,27 @@ class ChatViewModel @Inject constructor(
         observeEngineState()
         observeDeviceStatus()
         observeBriefing()
+        observeVoiceLaunch()
+    }
+
+    /**
+     * 위젯 🎤·QS 타일의 음성 진입 요청 (A3).
+     *
+     * [WHY] 녹음 시작은 여기서 하지 않는다 — RECORD_AUDIO 권한 게이트가 화면 층에 있으므로
+     * (ChatScreen 마이크 플로우) 플래그만 올리고 화면의 LaunchedEffect 가 게이트를 지나
+     * toggleRecording 을 부른다. replay=1 소비 즉시 비움(ShareIntentHandler 와 동일).
+     */
+    private fun observeVoiceLaunch() {
+        viewModelScope.launch {
+            voiceLaunchHandler.requests.collectLatest {
+                _uiState.update { it.copy(pendingVoiceStart = true) }
+                voiceLaunchHandler.clearConsumed()
+            }
+        }
+    }
+
+    fun consumePendingVoiceStart() {
+        _uiState.update { it.copy(pendingVoiceStart = false) }
     }
 
     /**

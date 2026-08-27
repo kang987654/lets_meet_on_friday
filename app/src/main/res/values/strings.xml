@@ -14,4 +14,5 @@
     <!-- 홈 위젯 (A3) — android:label/description 은 프레임워크가 읽으므로 리소스 필수 -->
     <string name="widget_label">KOSMOS 오늘</string>
     <string name="widget_description">오늘 일정과 할 일을 보여주고 음성 입력으로 바로 들어갑니다.</string>
+    <string name="tile_voice_label">KOSMOS 음성</string>
 </resources>

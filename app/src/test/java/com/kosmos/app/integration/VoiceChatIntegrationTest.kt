@@ -112,7 +112,8 @@ class VoiceChatIntegrationTest {
             runtimeMetricsCollector = runtimeMetricsCollector,
             modelRunner = modelRunner,
             audioRecorder = audioRecorder,
-            briefingGenerator = briefingGenerator
+            briefingGenerator = briefingGenerator,
+            voiceLaunchHandler = com.kosmos.app.platform.launch.VoiceLaunchHandler()
         )
     }
 

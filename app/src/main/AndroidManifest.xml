@@ -25,9 +25,12 @@
         android:supportsRtl="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">
+        <!-- [WHY] singleTop — 기본(standard)이면 위젯·타일·알림의 재진입이 액티비티를 재생성해
+             onNewIntent 를 타지 않는다. 인텐트에도 FLAG_ACTIVITY_SINGLE_TOP 이 짝으로 필요. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@android:style/Theme.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -99,5 +102,17 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!-- QS 타일 — 음성 입력으로 열기 (A3, PTT) -->
+        <service
+            android:name=".platform.tile.VoiceTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_mic"
+            android:label="@string/tile_voice_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

@@ -72,8 +72,10 @@ class AndroidBriefingNotifier @Inject constructor(
         PendingIntent.getActivity(
             context,
             REQUEST_CODE,
+            // [WHY] SINGLE_TOP — MainActivity 가 singleTop(0.22.0)이라 앱이 떠 있으면
+            // 재생성 없이 onNewIntent 로 전달된다.
             Intent(context, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 

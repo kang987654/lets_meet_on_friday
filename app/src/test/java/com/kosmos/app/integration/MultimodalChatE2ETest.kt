@@ -166,7 +166,8 @@ class MultimodalChatE2ETest {
             runtimeMetricsCollector = runtimeMetricsCollector,
             modelRunner = fakeModelRunner,
             audioRecorder = audioRecorder,
-            briefingGenerator = briefingGenerator
+            briefingGenerator = briefingGenerator,
+            voiceLaunchHandler = com.kosmos.app.platform.launch.VoiceLaunchHandler()
         )
     }
 
