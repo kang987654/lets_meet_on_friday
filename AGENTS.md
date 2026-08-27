@@ -114,6 +114,8 @@
    - 클래스 분리/생성 시 Hilt DI 모듈(`@Provides`, `@Binds` 등)의 객체 등록 여부를 함께 체크한다.
    - `@Singleton` 이 아무에게도 주입되지 않으면 인스턴스화되지 않는다 — 백그라운드 상주
      컴포넌트는 `KosmosApp` 에 `@Inject lateinit var` 로 eager 주입한다 (briefingGenerator 전례).
+   - `@EntryPoint` 는 프레임워크가 인스턴스화해 `@AndroidEntryPoint` 를 못 쓰는 컴포넌트에서만
+     쓰고(GlanceAppWidget 전례, 0.22.0), 필요한 의존성만 노출하는 전용 인터페이스로 좁게 연다.
 5. **UI 색상은 `KosmosTheme.colors` 토큰만** 사용한다 — 하드코딩 `Color(...)` 금지. 라이트/다크
    팔레트가 토큰째 바뀌므로 토큰만 쓰면 테마 대응이 자동이다. 시각 언어는 `glassEffect`.
 6. **사용자 표기 규칙**: UI 문자열은 한국어(§2-② E2E 계약 문자열 제외), 일시 표기는
