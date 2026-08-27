@@ -590,11 +590,13 @@ class GemmaModelRunner @Inject constructor(
 
         existing?.close()
 
-        val initialMessages = buildList {
-            addAll(fewShotToolExample(prompt.enabledTools))
-            prompt.history.forEach {
-                add(if (it.role.name == "USER") Message.user(it.content) else Message.model(it.content))
-            }
+        // [WHY] few-shot 시범(104토큰)은 0.23.0 에서 제거했다 — 도입 진단(ADR-010 시절
+        // "시범이 없으면 호출 안 함")은 ADR-017 이 철회했고(진짜 원인은 지침 거리 → 턴
+        // 리마인더가 해결), exp35 재실측에서 시범 없이 툴 선택 11/11 이 유지됐다. 회수한
+        // 104토큰은 프로필 상시 주입(C′1, PROFILE_MAX_TOKENS)의 재원이다. 시범의 예시
+        // 숫자("8282")가 조회 턴에 새던 실해(ADR-010)도 구조적으로 소멸한다.
+        val initialMessages = prompt.history.map {
+            if (it.role.name == "USER") Message.user(it.content) else Message.model(it.content)
         }
 
         val config = ConversationConfig(
@@ -642,9 +644,8 @@ class GemmaModelRunner @Inject constructor(
     /**
      * 부수 계산 전용 임시 대화입니다. **호출자가 닫아야 합니다.**
      *
-     * [WHY] 툴도 few-shot 도 히스토리도 싣지 않는다. 그래서 채팅 대화보다 훨씬 싸다 —
-     * 툴 5종 선언이 실측 652 토큰, few-shot 104 토큰이므로(measure_overhead.py — 예전 주석의
-     * "~2천 토큰"은 재실측으로 정정) 그것들이 빠지면 프리필이 짧은 시스템 지시뿐이다.
+     * [WHY] 툴도 히스토리도 싣지 않는다. 그래서 채팅 대화보다 훨씬 싸다 — 툴 선언이
+     * 수백 토큰이므로(exp34b·exp35 실측) 그것이 빠지면 프리필이 짧은 시스템 지시뿐이다.
      * 부수 계산에 툴을 줄 이유도 없다(전사·요약은 도구를 쓰지 않는다).
      */
     private fun createOneShotConversation(currentEngine: Engine, prompt: ChatPrompt): Conversation =
@@ -655,44 +656,6 @@ class GemmaModelRunner @Inject constructor(
                 samplerConfig = SamplerConfig(temperature = 1.0, topK = 1, topP = 0.95)
             )
         )
-
-    /**
-     * 툴 호출의 few-shot 시범입니다. 대화 서두에 "사용자 요청 → 모델의 실제 툴 호출 →
-     * 툴 응답 → 확인 답변" 왕복 한 번을 심어 둡니다.
-     *
-     * [WHY] 0.8.1~0.8.4 실기기에서 선언·constrained decoding·greedy·지목 프롬프트를 모두
-     * 갖춰도 모델이 호출 대신 말로만 약속했다("기억해 두겠습니다" — 호출 0회). 지시만으로
-     * 성향이 안 바뀌는 4B 모델에게 남은 가장 강한 지렛대는 **정확한 네이티브 형식의 시범**이다.
-     * 예시는 LLM 대화에만 존재하고 DB 나 화면 기록에는 남지 않는다.
-     */
-    private fun fewShotToolExample(enabledTools: List<String>): List<Message> {
-        if (!enabledTools.contains("AddMemory")) return emptyList()
-        return listOf(
-            Message.user("내 자물쇠 비밀번호는 8282야, 기억해줘"),
-            Message.model(
-                Contents.of(com.google.ai.edge.litertlm.Content.Text("")),
-                listOf(
-                    com.google.ai.edge.litertlm.ToolCall(
-                        "add_memory",
-                        mapOf(
-                            "content" to "자물쇠 비밀번호는 8282",
-                            "tags" to listOf("비밀번호", "자물쇠")
-                        )
-                    )
-                ),
-                emptyMap()
-            ),
-            Message.tool(
-                Contents.of(
-                    com.google.ai.edge.litertlm.Content.ToolResponse(
-                        "add_memory",
-                        """{"status":"success"}"""
-                    )
-                )
-            ),
-            Message.model("자물쇠 비밀번호 8282를 기억해 두었습니다.")
-        )
-    }
 
     /**
      * KV 실사용량을 send 경계에서 남깁니다. 디버그 빌드 전용입니다.

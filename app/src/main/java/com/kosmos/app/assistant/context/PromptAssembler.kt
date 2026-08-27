@@ -64,6 +64,13 @@ class PromptAssembler @Inject constructor() {
 
         val systemInstruction = buildString {
             appendLine(buildSystemBlock(context.responseStyle, systemRole))
+            // [WHY] 프로필(C′1)은 [System] 과 [System Data] 사이 — 날짜 블록의 위치(ADR-010)와
+            // 형식 블록의 "above" 포인터를 건드리지 않는 유일한 자리다. 빈 프로필은 블록째
+            // 생략(비용 0). 블록 렌더는 바이트-안정(renderProfileBlock [WHY]) — 여기 순서와
+            // 함께 "프로필이 안 바뀌면 시스템 지시도 안 바뀐다"는 재프리필 회피의 전제다.
+            if (context.profileText.isNotEmpty()) {
+                appendLine(context.profileText)
+            }
             appendLine(buildDateBlock())
             append(buildFormatBlock(availableTools))
         }

@@ -130,10 +130,11 @@ def few_shot_messages():
     ]
 
 
-def create_chat_conversation(engine, history=None, tools=ALL_TOOLS, system_message=None, few_shot=True):
+def create_chat_conversation(engine, history=None, tools=ALL_TOOLS, system_message=None, few_shot=False):
     """앱 채팅 대화와 동일 설정. history 는 [{'role': 'user'|'model', 'content': str}].
 
-    few_shot 기본 True — 앱은 AddMemory 선언 시 항상 few-shot 을 싣는다(GemmaModelRunner).
+    few_shot 기본 False — 앱은 0.23.0 에서 few-shot 을 제거했다(exp35 판정, 104토큰을
+    프로필 상시 주입 재원으로 회수). True 는 과거 조건 재현·A/B 용으로만 남긴다.
     """
     inject_few_shot = few_shot and tools and (add_memory in tools)
     initial = (few_shot_messages() if inject_few_shot else []) + list(history or [])

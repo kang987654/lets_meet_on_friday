@@ -74,6 +74,31 @@ class PromptFixtureExportTest {
     }
 
     @Test
+    fun `프로필 블록은 있을 때만 System 과 System Data 사이에 온다`() {
+        // [WHY] 빈 프로필이 정본 픽스처다 — 실험실 기본 측정은 프로필 없는 조건이고,
+        // 프로필 비용은 exp35 가 따로 쟀다. 블록 위치는 날짜 블록의 "above" 포인터(ADR-010)를
+        // 보존하는 자리로 고정한다.
+        val base = ContextBuilder.Context(
+            recentConversations = emptyList(),
+            sessionId = "lab-fixture",
+            responseStyle = "DEFAULT",
+            webSearchEnabled = true
+        )
+        val without = PromptAssembler().assembleWithTools(base, USER_INPUT, ALL_TOOLS, SYSTEM_ROLE)
+        assertTrue("빈 프로필은 블록째 생략돼야 한다", !without.systemInstruction.contains("[User Profile]"))
+
+        val with = PromptAssembler().assembleWithTools(
+            base.copy(profileText = "[User Profile]\n- 이름: 진우"),
+            USER_INPUT, ALL_TOOLS, SYSTEM_ROLE
+        )
+        val si = with.systemInstruction
+        val profileAt = si.indexOf("[User Profile]")
+        assertTrue("프로필 블록이 있어야 한다", profileAt >= 0)
+        assertTrue("[System] 뒤에 와야 한다", si.indexOf("[System]") < profileAt)
+        assertTrue("[System Data] 앞에 와야 한다", profileAt < si.indexOf("[System Data]"))
+    }
+
+    @Test
     fun `전사 지시문도 실험실 픽스처로 내보낸다`() = kotlinx.coroutines.runBlocking {
         // [WHY] exp16(전사 실험)이 지시문을 손으로 베끼면 같은 표류가 반복된다.
         //

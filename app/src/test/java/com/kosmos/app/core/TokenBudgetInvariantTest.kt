@@ -64,6 +64,17 @@ class TokenBudgetInvariantTest {
     }
 
     @Test
+    fun `오버헤드 예약이 프로필 상한까지 포함해 실측을 덮는다`() {
+        // [WHY] 프로필(C′1)은 상시 주입이라 최악(상한 꽉 채움)에도 예약 안에 들어야 한다 —
+        // 재원은 few-shot 제거(104토큰, exp35). 이 관계가 깨지면 프로필이 히스토리 예산을
+        // 조용히 침식한다.
+        assertTrue(
+            "예약 ${Constants.PREFILL_OVERHEAD_TOKENS} < 실측 $MEASURED_OVERHEAD + 프로필 상한 ${Constants.PROFILE_MAX_TOKENS}",
+            Constants.PREFILL_OVERHEAD_TOKENS >= MEASURED_OVERHEAD + Constants.PROFILE_MAX_TOKENS
+        )
+    }
+
+    @Test
     fun `오버헤드 예약이 실측값보다 크고 과하지 않다`() {
         // [WHY] 2600 이었고 주석은 "툴 선언만 ~2천 토큰" 이라고 적었는데 둘 다 틀렸다. 실측
         // 합계는 1,329 다(`scratch/lab/measure_overhead.py`). 과대 예약은 히스토리 예산을
@@ -152,10 +163,11 @@ class TokenBudgetInvariantTest {
 
     private companion object {
         /**
-         * `Conversation.token_count` 실측 — 시스템 지시 573 + 툴 5종 652 + few-shot 104 = 1,329
-         * 에 add_reminder 선언+트리거 규칙의 순증 52(기존 선언 다이어트 상쇄 후,
-         * `scratch/lab/exp34b_reminder_diet.py` 2026-08-28)를 더한 값.
+         * `Conversation.token_count` 실측 — 시스템 지시 + 툴 6종 선언 합계. 이력:
+         * 1,329(5종+few-shot) → +52(add_reminder 다이어트 후, exp34b) → −104(few-shot 제거,
+         * `scratch/lab/exp35_profile_budget.py` 2026-08-28) = **1,277**.
+         * 프로필 블록은 여기 없고 [Constants.PROFILE_MAX_TOKENS] 상한으로 따로 계상된다.
          */
-        const val MEASURED_OVERHEAD = 1381
+        const val MEASURED_OVERHEAD = 1277
     }
 }

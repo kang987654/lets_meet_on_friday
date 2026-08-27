@@ -21,10 +21,13 @@ class ContextBuilderTest {
     private val conversationRepository: ConversationRepository = mockk()
     private val tokenizer: Tokenizer = mockk()
     private val settingsDataStore: SettingsDataStore = mockk()
+    private val profileRepository: com.kosmos.app.domain.memory.ProfileRepository = mockk {
+        io.mockk.coEvery { getEntries() } returns AppResult.Success(emptyList())
+    }
 
     @Before
     fun setup() {
-        contextBuilder = ContextBuilder(conversationRepository, tokenizer, settingsDataStore)
+        contextBuilder = ContextBuilder(conversationRepository, tokenizer, settingsDataStore, profileRepository)
     }
 
     @Test

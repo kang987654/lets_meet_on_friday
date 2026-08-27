@@ -76,15 +76,16 @@ object Constants {
     const val MAX_CONTEXT_TOKENS = 1700
 
     /**
-     * 시스템 지시 + 툴 선언 + few-shot 시범이 차지하는 프리필 오버헤드입니다.
+     * 시스템 지시 + 툴 선언 + 프로필 블록(상한)이 차지하는 프리필 오버헤드입니다.
      *
      * [WHY] 슬라이딩 윈도우가 `ChatMessage.content` 만 세므로 이만큼을 먼저 예약하고 남은 것을
      * 히스토리에 배분한다. 예약하지 않으면 실제 프리필이 설정값을 크게 넘는다.
      *
-     * [WHY] 2600 이었고 주석은 *"툴 선언만 실측 ~2천 토큰"* 이라고 적었는데 **둘 다 틀렸다.**
-     * `Conversation.token_count` 실측(`scratch/lab/measure_overhead.py`): 시스템 지시 573,
-     * 툴 5종 선언 **652**, few-shot 104 → 합계 **1,329**. 과대 예약이 히스토리 예산을 1,200 토큰
-     * 넘게 깎고 있었다. 실측값에 여유를 얹어 1,400 으로 내린다.
+     * [WHY] 실측 이력(진실은 TokenBudgetInvariantTest.MEASURED_OVERHEAD): 1,329(5종+few-shot)
+     * → 1,381(리마인더 툴, 다이어트 상쇄) → **1,277**(few-shot 제거, exp35 — 회수분 104 는
+     * 프로필 상한 [PROFILE_MAX_TOKENS] 의 재원). 1,277 + 100 = 1,377 ≤ 1,400 이라 예약은
+     * 그대로 둔다 — 이 값을 만지면 MIN_HISTORY_TOKENS·MAX_CONTEXT_TOKENS 와의 바닥 관계
+     * (1400+300=1700)가 연쇄로 흔들린다.
      */
     const val PREFILL_OVERHEAD_TOKENS = 1400
 
@@ -207,6 +208,15 @@ object Constants {
      * 무한 스크롤 타임라인은 Paging 으로 과거 전체에 닿는다. 30 은 한 화면 분량(+여유)이다.
      */
     const val CHAT_TIMELINE_PAGE_SIZE = 30
+
+    /**
+     * 프로필 블록(`[User Profile]`, 상시 주입 기억)의 토큰 상한입니다 (C′1).
+     *
+     * [WHY] 상시 주입 1토큰 = 히스토리 1토큰 손실이라 상한이 필수다. 재원은 few-shot
+     * 제거(104토큰, exp35 실측·판정 — CHANGELOG 0.23.0)이며, 편집 시트가 저장 전에
+     * GemmaTokenizer 추정(과대 추정이 안전 방향)으로 이 상한을 집행한다.
+     */
+    const val PROFILE_MAX_TOKENS = 100
 
     const val MAX_KNOWLEDGE_CONTEXT_ITEMS = 3
     const val MAX_INPUT_CHARS = 8192

@@ -30,13 +30,21 @@ import javax.inject.Inject
 class ContextBuilder @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val tokenizer: Tokenizer,
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    private val profileRepository: com.kosmos.app.domain.memory.ProfileRepository
 ) {
     data class Context(
         val recentConversations: List<ChatMessage>,
         val sessionId: String,
         val responseStyle: String,
         val webSearchEnabled: Boolean = false,
+        /**
+         * 렌더된 `[User Profile]` 블록(C′1) — 비어 있으면 시스템 지시에서 블록째 생략된다.
+         *
+         * [WHY] 매 턴 다시 읽는다(responseStyle 전례) — 프로필 편집이 다음 턴의 시스템
+         * 지시에 반영되고, 런타임의 문자열 비교가 그때 1회만 재프리필을 만든다.
+         */
+        val profileText: String = "",
         /**
          * 설정에서 읽은 프리필 예산(토큰). 슬라이딩 윈도우뿐 아니라 런타임의 Conversation
          * 재설정 임계값에도 쓰이므로 컨텍스트에 실어 내보낸다.
@@ -74,6 +82,12 @@ class ContextBuilder @Inject constructor(
             false
         }
 
+        // [WHY] 읽기 실패는 "프로필 없음"으로 강등 — 프로필 배선 문제가 채팅을 막지 않는다.
+        val profileText = when (val entries = profileRepository.getEntries()) {
+            is AppResult.Success -> renderProfileBlock(entries.data)
+            is AppResult.Failure -> ""
+        }
+
         return when (conversationsResult) {
             is AppResult.Success -> {
                 // [WHY] **매 턴 자동 RAG 주입을 제거했다** (ADR-013). 예전에는 마지막 사용자
@@ -90,6 +104,7 @@ class ContextBuilder @Inject constructor(
                         sessionId = sessionId,
                         responseStyle = responseStyle,
                         webSearchEnabled = webSearchEnabled,
+                        profileText = profileText,
                         maxTokens = maxTokens
                     )
                 )
@@ -102,9 +117,10 @@ class ContextBuilder @Inject constructor(
      * 대화 기록을 최신부터 담다가 예산을 넘으면 멈춥니다.
      *
      * [WHY] `maxTokens` 는 **프리필 전체 예산**인데 이 윈도우는 `ChatMessage.content` 만 센다.
-     * 시스템 지시(실측 573), 툴 5종 선언(**652**), few-shot 시범(104)은 여기서 세지지 않으므로
-     * 예산을 그대로 히스토리에 쓰면 실제 프리필이 설정값을 넘는다 — 설정이 뜻대로 동작하지
-     * 않았다. 오버헤드를 먼저 예약하고 남은 것만 히스토리에 배분한다.
+     * 시스템 지시·툴 선언·프로필 블록은 여기서 세지지 않으므로 예산을 그대로 히스토리에
+     * 쓰면 실제 프리필이 설정값을 넘는다 — 오버헤드를 먼저 예약하고 남은 것만 히스토리에
+     * 배분한다. few-shot(104)은 0.23.0 에서 제거돼 그 몫이 프로필 상한으로 넘어갔다
+     * (합산 실측의 진실은 TokenBudgetInvariantTest.MEASURED_OVERHEAD 주석).
      *
      * [WHY] 예전 주석은 툴 선언을 "실측 ~2천 토큰" 이라고 적었고 예약도 2600 이었다. `token_count`
      * 로 실제로 재 보니 합계가 1,329 였다(`scratch/lab/measure_overhead.py`) — 과대 예약이
