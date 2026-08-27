@@ -410,12 +410,12 @@ Domain 레이어의 인터페이스만 사용한다.
 | 파일 | 책임 |
 |---|---|
 | `KosmosDatabase.kt` | Room DB 진입점 (WAL 모드 활성화) |
-| `dao/ProfileDao.kt` | profiles 테이블 접근 |
+| `dao/ProfileDao.kt` | profile 테이블(키-값, v8) 접근 |
 | `dao/ConversationDao.kt` | conversations 테이블 접근 |
 | `dao/TaskDao.kt` | tasks 테이블 접근 (v1) |
 | `dao/KnowledgeDao.kt` | knowledge_notes 테이블 접근 (v1) |
 | `dao/AuditDao.kt` | audit_events 테이블 접근 |
-| `entity/ProfileEntity.kt` | profiles 엔티티 |
+| `entity/ProfileEntity.kt` | profile 키-값 엔티티(ProfileEntryEntity, v8) |
 | `entity/ConversationEntity.kt` | conversations 엔티티 |
 | `entity/TaskEntity.kt` | tasks 엔티티 (v1) |
 | `entity/KnowledgeEntity.kt` | knowledge_notes 엔티티 (v1) |
