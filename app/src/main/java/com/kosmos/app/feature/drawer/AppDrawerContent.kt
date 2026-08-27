@@ -44,8 +44,8 @@ import com.kosmos.app.ui.theme.KosmosTheme
  * - **Dependencies**: [DrawerViewModel], [EpisodeSheet]
  *
  * [WHY] 목록은 사용자가 만든 세션이 아니라 **시스템이 자동 분절·요약한 에피소드 문서**다
- * (ADR-022) — 관리 대상이 아니라 열람 대상. 프로필 고정 카드는 3층 기억 모델(C′) 배선 시
- * 검색바 위에 온다 — 데이터 소스가 아직 없어 자리만 비워 둔다.
+ * (ADR-022) — 관리 대상이 아니라 열람 대상. 프로필 고정 카드(A′-2)는 검색바 위 — 상시 주입
+ * 기억(C′1)의 열람·편집 진입점이다.
  */
 @Composable
 fun AppDrawerContent(
@@ -59,7 +59,9 @@ fun AppDrawerContent(
     val episodes = viewModel.episodePaging.collectAsLazyPagingItems()
     val query by viewModel.query.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
+    val profileEntries by viewModel.profileEntries.collectAsState()
     var openEpisodeId by remember { mutableStateOf<String?>(null) }
+    var showProfileSheet by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -74,6 +76,13 @@ fun AppDrawerContent(
             color = KosmosTheme.colors.textPrimary,
             modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
         )
+
+        // 프로필 고정 카드 (A′-2) — 상시 주입 기억, 탭하면 편집 (C′1).
+        ProfileCard(
+            entries = profileEntries,
+            onClick = { showProfileSheet = true }
+        )
+        Spacer(modifier = Modifier.height(12.dp))
 
         // 기억 검색 — SearchMemory 툴과 같은 저장소·같은 방식 (DrawerViewModel [WHY]).
         Row(
@@ -175,6 +184,49 @@ fun AppDrawerContent(
             onDismiss = { openEpisodeId = null },
             onJumpToTimeline = onJumpToTimeline
         )
+    }
+
+    if (showProfileSheet) {
+        com.kosmos.app.feature.profile.ProfileSheet(onDismiss = { showProfileSheet = false })
+    }
+}
+
+@Composable
+private fun ProfileCard(
+    entries: List<com.kosmos.app.domain.model.ProfileEntry>,
+    onClick: () -> Unit
+) {
+    val name = entries.firstOrNull { it.key == "이름" }?.value
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassEffect(shape = RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = "👤", fontSize = 18.sp)
+        Spacer(modifier = Modifier.padding(start = 10.dp))
+        Column {
+            Text(
+                text = name ?: "프로필",
+                style = MaterialTheme.typography.bodyMedium,
+                color = KosmosTheme.colors.textPrimary,
+                maxLines = 1
+            )
+            Text(
+                text = if (entries.isEmpty()) {
+                    "등록해 보세요 — 비서가 나를 알게 돼요"
+                } else {
+                    entries.map { it.key }.filterNot { it == "이름" }
+                        .ifEmpty { listOf("항목 ${entries.size}개") }
+                        .joinToString(" · ")
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = KosmosTheme.colors.textMuted,
+                maxLines = 1
+            )
+        }
     }
 }
 
