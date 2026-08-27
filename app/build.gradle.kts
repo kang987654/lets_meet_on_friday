@@ -117,6 +117,9 @@ dependencies {
     // Navigation
     implementation(libs.androidx.navigation.compose)
 
+    // Glance (홈 위젯 — A3)
+    implementation(libs.androidx.glance.appwidget)
+
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

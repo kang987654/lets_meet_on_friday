@@ -10,4 +10,8 @@
     <!-- [WHY] 첨부만으로는 전송할 수 없다(빈 텍스트 거부). 안내가 없으면 전송 버튼이 안 뜨는
          이유를 사용자가 알 수 없다 — 단독 전송 허용 대신 안내를 택했다(2026-08-15 결정). -->
     <string name="attachment_needs_text">질문을 함께 입력하면 전송돼요</string>
+
+    <!-- 홈 위젯 (A3) — android:label/description 은 프레임워크가 읽으므로 리소스 필수 -->
+    <string name="widget_label">KOSMOS 오늘</string>
+    <string name="widget_description">오늘 일정과 할 일을 보여주고 음성 입력으로 바로 들어갑니다.</string>
 </resources>

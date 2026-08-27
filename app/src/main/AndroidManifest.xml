@@ -73,6 +73,19 @@
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
 
+        <!-- 홈 위젯 (A3) — 오늘 일정·할 일, 추론 없음 -->
+        <receiver
+            android:name=".widget.KosmosWidgetReceiver"
+            android:label="@string/widget_label"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_kosmos_info" />
+        </receiver>
+
         <!-- 리마인더 알람 발화 — 명시적 PendingIntent 전용이므로 intent-filter 없음 (B1) -->
         <receiver
             android:name=".platform.alarm.ReminderAlarmReceiver"

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- KOSMOS 홈 위젯 메타 (A3).
+     [WHY] updatePeriodMillis 30분 — 자정 넘김(어제 일정이 "오늘"로 남는 것) 반영용.
+     추론 0·DB 읽기만이라 싸고, 이 갱신은 기기를 깨우지 않는다. 즉시성은 쓰기 경로 훅
+     (WidgetRefresher)이 담당하고 이 주기는 시간 경과 보정만 맡는다. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:previewImage="@drawable/ic_stat_briefing"
+    android:description="@string/widget_description" />
