@@ -37,6 +37,11 @@ abstract class PlatformModule {
     abstract fun bindBriefingNotifier(
         impl: com.kosmos.app.platform.notification.AndroidBriefingNotifier
     ): com.kosmos.app.platform.notification.BriefingNotifier
+
+    @Binds
+    abstract fun bindReminderNotifier(
+        impl: com.kosmos.app.platform.notification.AndroidReminderNotifier
+    ): com.kosmos.app.platform.notification.ReminderNotifier
     @Binds
     abstract fun bindCalendarTool(
         impl: AndroidCalendarTool

@@ -60,7 +60,8 @@ class MemoryBackupStateTest {
             taskRepository = taskRepository,
             exportMemoryUseCase = exportUseCase,
             importMemoryUseCase = importUseCase,
-            backupFileWriter = backupFileWriter
+            backupFileWriter = backupFileWriter,
+            reminderAlarmScheduler = mockk(relaxed = true)
         )
     }
 

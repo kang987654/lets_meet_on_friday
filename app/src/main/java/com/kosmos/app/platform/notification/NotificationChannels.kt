@@ -23,10 +23,12 @@ object NotificationChannels {
 
     const val MODEL_DOWNLOAD = "model_download"
     const val BRIEFING = "morning_briefing"
+    const val REMINDER = "reminder"
 
     const val NOTIF_ID_DOWNLOAD_PROGRESS = 1001
     const val NOTIF_ID_DOWNLOAD_RESULT = 1002
     const val NOTIF_ID_BRIEFING = 1003
+    // 리마인더 알림 ID 는 고정 상수가 아니라 항목별 파생 — reminderStableId (B1)
 
     fun ensureCreated(context: Context) {
         val manager = context.getSystemService<NotificationManager>() ?: return
@@ -53,5 +55,16 @@ object NotificationChannels {
             description = "매일 아침 일정과 할 일 미리보기를 알립니다."
         }
         manager.createNotificationChannel(briefing)
+
+        // [WHY] 시점 알림은 그 시각을 놓치면 존재 이유가 없다 — 헤드업(IMPORTANCE_HIGH).
+        // 과하다고 느끼면 사용자가 채널 설정에서 낮출 수 있다 (B1).
+        val reminder = NotificationChannel(
+            REMINDER,
+            "리마인더",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "지정한 시각에 등록한 리마인더를 알립니다."
+        }
+        manager.createNotificationChannel(reminder)
     }
 }

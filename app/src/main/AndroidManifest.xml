@@ -11,6 +11,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <!-- 리마인더 정확 알람용 (B1). 권한이 없으면 ±10분 창으로 자동 강등되고,
+         재부팅 복원(BOOT_COMPLETED)은 AlarmManager 가 재부팅에 살아남지 않는 대가다. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application
         android:name=".KosmosApp"
         android:label="@string/app_name"
@@ -67,5 +72,19 @@
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
+
+        <!-- 리마인더 알람 발화 — 명시적 PendingIntent 전용이므로 intent-filter 없음 (B1) -->
+        <receiver
+            android:name=".platform.alarm.ReminderAlarmReceiver"
+            android:exported="false" />
+
+        <!-- 재부팅 후 알람 복원 — 시스템 보호 브로드캐스트는 exported=false 로도 수신된다 -->
+        <receiver
+            android:name=".platform.alarm.ReminderBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

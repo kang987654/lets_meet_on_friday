@@ -46,7 +46,8 @@ class MemoryViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val exportMemoryUseCase: ExportMemoryUseCase,
     private val importMemoryUseCase: ImportMemoryUseCase,
-    private val backupFileWriter: BackupFileWriter
+    private val backupFileWriter: BackupFileWriter,
+    private val reminderAlarmScheduler: com.kosmos.app.platform.alarm.ReminderAlarmScheduler
 ) : ViewModel() {
 
 
@@ -106,8 +107,12 @@ class MemoryViewModel @Inject constructor(
     fun completeTask(taskId: String) {
         viewModelScope.launch {
             val result = taskRepository.updateCompletion(taskId, true)
-            if (result is AppResult.Failure) {
-                _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+            when (result) {
+                // [WHY] 완료된 할 일의 리마인더 알람은 취소한다 — 최적화일 뿐 방어선은 아니다.
+                // 취소가 누락돼도 발화 핸들러의 DB 재확인이 완료 항목을 걸러낸다 (B1).
+                is AppResult.Success -> reminderAlarmScheduler.cancel(taskId)
+                is AppResult.Failure ->
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
             }
         }
     }
