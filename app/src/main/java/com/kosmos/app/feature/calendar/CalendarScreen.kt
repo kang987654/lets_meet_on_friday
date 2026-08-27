@@ -385,20 +385,7 @@ fun TodayEventCard(event: CalendarEvent, stripColor: Color) {
 
 
 
-// [WHY] 문자열 슬라이싱은 오프셋(+09:00)/UTC(Z) 포맷에서 깨지고 시간대 변환도 못 하므로
-// java.time 파서로 기기 시간대 기준 표시 시각을 계산한다.
-private fun formatIsoString(iso: String): String {
-    val zoneId = java.time.ZoneId.systemDefault()
-    val localTime: java.time.LocalTime? =
-        runCatching { java.time.OffsetDateTime.parse(iso).atZoneSameInstant(zoneId).toLocalTime() }.getOrNull()
-            ?: runCatching { java.time.Instant.parse(iso).atZone(zoneId).toLocalTime() }.getOrNull()
-            ?: runCatching { java.time.LocalDateTime.parse(iso).toLocalTime() }.getOrNull()
-
-    if (localTime == null) return iso
-
-    val hours = localTime.hour
-    val mins = "%02d".format(localTime.minute)
-    val amPm = if (hours >= 12) "오후" else "오전"
-    val displayHour = if (hours % 12 == 0) 12 else hours % 12
-    return "$amPm $displayHour:$mins"
-}
+// [WHY] 표기 규칙은 IsoDateTimeParser 가 단일 출처다 — 같은 파싱·12시간 변환 로직을 여기서
+// 사설 복제하고 있던 것을 0.22.0 에서 흡수했다. 실패 시 ISO 원문 폴백은 이 화면의 기존 계약.
+private fun formatIsoString(iso: String): String =
+    com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayTimeKorean(iso) ?: iso

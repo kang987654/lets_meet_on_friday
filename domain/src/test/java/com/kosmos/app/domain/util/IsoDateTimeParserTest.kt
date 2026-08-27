@@ -71,4 +71,22 @@ class IsoDateTimeParserTest {
     fun `임의 문자열은 null 이다`() {
         assertNull(IsoDateTimeParser.toEpochMillis("다음주 월요일", seoul))
     }
+
+    @Test
+    fun `시각만 표기는 오전-오후와 12시간제를 따른다`() {
+        assertEquals("오전 9:05", IsoDateTimeParser.toDisplayTimeKorean("2026-08-28T09:05:00", seoul))
+        assertEquals("오후 3:00", IsoDateTimeParser.toDisplayTimeKorean("2026-08-28T15:00:00", seoul))
+        assertEquals("오후 12:00", IsoDateTimeParser.toDisplayTimeKorean("2026-08-28T12:00:00", seoul))
+        assertEquals("오전 12:30", IsoDateTimeParser.toDisplayTimeKorean("2026-08-28T00:30:00", seoul))
+        assertNull(IsoDateTimeParser.toDisplayTimeKorean("깨진 값", seoul))
+    }
+
+    @Test
+    fun `날짜 포함 표기와 시각만 표기의 시각 부분이 일치한다`() {
+        // [WHY] 두 함수가 갈라지면 화면(일정)과 위젯의 같은 일정이 다른 시각으로 보인다.
+        val full = IsoDateTimeParser.toDisplayKorean("2026-08-20T16:00:00", seoul)
+        val timeOnly = IsoDateTimeParser.toDisplayTimeKorean("2026-08-20T16:00:00", seoul)
+        assertEquals("8월 20일 오후 4:00", full)
+        assertEquals("오후 4:00", timeOnly)
+    }
 }

@@ -43,8 +43,23 @@ object IsoDateTimeParser {
     fun toDisplayKorean(iso: String, zoneId: ZoneId = ZoneId.systemDefault()): String? =
         toEpochMillis(iso, zoneId)?.let {
             val dt = Instant.ofEpochMilli(it).atZone(zoneId)
-            val amPm = if (dt.hour >= 12) "오후" else "오전"
-            val hour12 = if (dt.hour % 12 == 0) 12 else dt.hour % 12
-            "%d월 %d일 %s %d:%02d".format(dt.monthValue, dt.dayOfMonth, amPm, hour12, dt.minute)
+            "%d월 %d일 %s".format(dt.monthValue, dt.dayOfMonth, timeKorean(dt.hour, dt.minute))
         }
+
+    /**
+     * 시각만의 한국어 표기 — "오전 9:00". 파싱 실패 시 null.
+     * [WHY] 같은 날짜 문맥(일정 화면의 날짜 그룹, 위젯의 "오늘")에서는 날짜를 반복하지
+     * 않는다 — CalendarScreen 이 같은 로직을 사설 복제하고 있던 것을 여기로 흡수(0.22.0).
+     */
+    fun toDisplayTimeKorean(iso: String, zoneId: ZoneId = ZoneId.systemDefault()): String? =
+        toEpochMillis(iso, zoneId)?.let {
+            val dt = Instant.ofEpochMilli(it).atZone(zoneId)
+            timeKorean(dt.hour, dt.minute)
+        }
+
+    private fun timeKorean(hour: Int, minute: Int): String {
+        val amPm = if (hour >= 12) "오후" else "오전"
+        val hour12 = if (hour % 12 == 0) 12 else hour % 12
+        return "%s %d:%02d".format(amPm, hour12, minute)
+    }
 }
