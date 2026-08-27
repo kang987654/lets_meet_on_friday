@@ -113,11 +113,33 @@ def create_engine(backend=None) -> "llm.Engine":
     )
 
 
-def create_chat_conversation(engine, history=None, tools=ALL_TOOLS, system_message=None):
-    """앱 채팅 대화와 동일 설정. history 는 [{'role': 'user'|'model', 'content': str}]."""
+def few_shot_messages():
+    """GemmaModelRunner.fewShotToolExample 원문 미러 — 채팅 대화 서두에 주입되는 툴 왕복 시범.
+
+    [WHY] 0.15.0 재구축 때 누락됐던 것을 0.23.0 에서 복원 — 없으면 하네스가 앱보다 ~104토큰
+    과소 측정하고, few-shot 제거 실험(exp35)의 대조군을 만들 수 없다.
+    """
+    return [
+        llm.Message.user("내 자물쇠 비밀번호는 8282야, 기억해줘"),
+        llm.Message.model(
+            llm.Contents([llm.Content.Text("")]),
+            [llm.ToolCall("add_memory", {"content": "자물쇠 비밀번호는 8282", "tags": ["비밀번호", "자물쇠"]})],
+        ),
+        llm.Message.tool(llm.Contents([llm.Content.ToolResponse("add_memory", '{"status":"success"}')])),
+        llm.Message.model(llm.Contents([llm.Content.Text("자물쇠 비밀번호 8282를 기억해 두었습니다.")])),
+    ]
+
+
+def create_chat_conversation(engine, history=None, tools=ALL_TOOLS, system_message=None, few_shot=True):
+    """앱 채팅 대화와 동일 설정. history 는 [{'role': 'user'|'model', 'content': str}].
+
+    few_shot 기본 True — 앱은 AddMemory 선언 시 항상 few-shot 을 싣는다(GemmaModelRunner).
+    """
+    inject_few_shot = few_shot and tools and (add_memory in tools)
+    initial = (few_shot_messages() if inject_few_shot else []) + list(history or [])
     return engine.create_conversation(
         system_message=system_message if system_message is not None else fixture("system_instruction.txt"),
-        messages=history,
+        messages=initial or None,
         tools=tools,
         automatic_tool_calling=False,
         thinking_config=llm.ThinkingConfig(enable_thinking=False),
