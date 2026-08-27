@@ -31,7 +31,11 @@ android {
         //               실제 대화와 비밀번호가 있어(scratch/lab/device_fixture.py) 자동화 검증을
         //               거기서 돌리면 유출 경로가 생기고 폰에 잔여물도 남는다. 합성 데이터만 넣은
         //               일회용 AVD 에서 기능·회귀를 보고, 충실도(GPU FP16·발열·인셋·체감)만 실기기로.
-        //               에뮬레이터는 OpenCL 이 없어 GPU 초기화가 실패하지만 CPU 폴백으로 동작한다.
+        //               **AVD 는 반드시 `-gpu swiftshader_indirect` 로 띄운다** — 기본값으로 띄우면
+        //               GPU(WebGPU) 초기화까지는 성공해 Ready 가 켜지지만, 토큰 샘플러가 OpenCL 을
+        //               요구해 생성 시점에 실패한다("Can not find OpenCL library"). 앱의 CPU 폴백은
+        //               초기화 실패에만 걸리므로 이 경로를 구제하지 못한다. 호스트 GPU 를 막아
+        //               초기화부터 CPU(XNNPack)로 가게 해야 종단 동작한다 (실증: CHANGELOG 0.20.2).
         // 뺀 둘: x86(구형 에뮬레이터), armeabi-v7a(32비트 기기 — 3.6GB 모델에 12GB+ RAM 이 필요해
         // 애초에 대상 밖).
         ndk {
