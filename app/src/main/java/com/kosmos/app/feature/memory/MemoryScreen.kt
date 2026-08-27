@@ -154,9 +154,12 @@ fun MemoryScreen(
                         TaskItemRow(
                             title = task.title,
                             isCompleted = task.isCompleted,
-                            onToggle = { 
+                            onToggle = {
                                 viewModel.completeTask(task.id)
                                 taskItems.refresh()
+                            },
+                            remindAtDisplay = task.remindAtIso?.let {
+                                com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayKorean(it)
                             }
                         )
                     }
@@ -500,7 +503,13 @@ fun TabButton(text: String, isSelected: Boolean, onClick: () -> Unit, modifier: 
 }
 
 @Composable
-fun TaskItemRow(title: String, isCompleted: Boolean, onToggle: () -> Unit) {
+fun TaskItemRow(
+    title: String,
+    isCompleted: Boolean,
+    onToggle: () -> Unit,
+    // [WHY] 기본값 필수 — 기존 호출부·테스트가 이 파라미터 없이 compose 된다 (B1).
+    remindAtDisplay: String? = null
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -540,13 +549,21 @@ fun TaskItemRow(title: String, isCompleted: Boolean, onToggle: () -> Unit) {
             Spacer(modifier = Modifier.width(16.dp))
             
             // Text
-            Text(
-                text = title, 
-                style = MaterialTheme.typography.bodyLarge, 
-                color = if (isCompleted) KosmosTheme.colors.textMuted else KosmosTheme.colors.textPrimary,
-                textDecoration = if (isCompleted) androidx.compose.ui.text.style.TextDecoration.LineThrough else androidx.compose.ui.text.style.TextDecoration.None,
-                modifier = Modifier.weight(1f)
-            )
+            androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (isCompleted) KosmosTheme.colors.textMuted else KosmosTheme.colors.textPrimary,
+                    textDecoration = if (isCompleted) androidx.compose.ui.text.style.TextDecoration.LineThrough else androidx.compose.ui.text.style.TextDecoration.None
+                )
+                if (remindAtDisplay != null) {
+                    Text(
+                        text = "⏰ $remindAtDisplay",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isCompleted) KosmosTheme.colors.textMuted else KosmosTheme.colors.accent
+                    )
+                }
+            }
             
             // Dot indicator
             Box(

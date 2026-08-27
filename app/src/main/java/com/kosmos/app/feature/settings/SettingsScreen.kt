@@ -336,6 +336,54 @@ fun SettingsScreen(
             }
         }
 
+        // 6. 리마인더 정확 알람 안내 (B1) — 권한이 없을 때만 노출
+        val context = LocalContext.current
+        var exactAlarmAllowed by remember { mutableStateOf(true) }
+        val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+        // [WHY] canScheduleExactAlarms 에는 Flow 가 없다 — 시스템 설정에서 돌아오는
+        // 순간(ON_RESUME)에 재확인해야 허용 직후 이 안내가 사라진다. SettingsViewModel 의
+        // combine 은 5개 상한에 닿아 있으므로(0.20.0 경계 기록) 시스템 API 상태는 화면에서
+        // 직접 읽는다 — DataStore 상태가 아니라 combine 에 넣을 이유도 없다.
+        DisposableEffect(lifecycleOwner) {
+            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                    exactAlarmAllowed =
+                        android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S ||
+                        context.getSystemService(android.app.AlarmManager::class.java)
+                            ?.canScheduleExactAlarms() != false
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
+        if (!exactAlarmAllowed) {
+            SectionBox(title = "리마인더") {
+                Text(
+                    text = "정확한 알림 권한이 꺼져 있어 리마인더가 지정 시각보다 최대 10분 늦게 울릴 수 있어요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = KosmosTheme.colors.textMuted
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "정확한 알림 허용하기",
+                    color = KosmosTheme.colors.accent,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                        .clickable {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
+                                ).apply {
+                                    data = android.net.Uri.parse("package:${context.packageName}")
+                                }
+                            )
+                        }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
+        }
+
         // [WHY] SECURITY & LOGS 섹션은 제거했다 — 활동 기록 진입점이 드로어 타일로 옮겨져
         // (M2-2) 같은 화면으로 가는 문이 두 개였다 (2026-08-15 사용자 피드백).
         Spacer(modifier = Modifier.height(40.dp))
