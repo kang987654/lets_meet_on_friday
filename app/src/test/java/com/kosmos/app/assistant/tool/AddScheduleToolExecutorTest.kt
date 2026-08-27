@@ -19,7 +19,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class AddScheduleToolExecutorTest {
 
-    private val executor = AddScheduleToolExecutor(mockk())
+    private val executor = AddScheduleToolExecutor(mockk(), mockk(relaxed = true))
 
     private fun args(json: String) = ToolArguments(JSONObject(json))
 

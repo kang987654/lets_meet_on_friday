@@ -25,7 +25,8 @@ import javax.inject.Inject
  */
 class AddReminderToolExecutor @Inject constructor(
     private val addReminderUseCase: AddReminderUseCase,
-    private val reminderAlarmScheduler: ReminderAlarmScheduler
+    private val reminderAlarmScheduler: ReminderAlarmScheduler,
+    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher
 ) : ToolExecutor {
     override val name: String = "AddReminder"
 
@@ -52,6 +53,7 @@ class AddReminderToolExecutor @Inject constructor(
                 IsoDateTimeParser.toEpochMillis(draft.time)?.let { triggerAtMs ->
                     reminderAlarmScheduler.schedule(res.data.id, triggerAtMs)
                 }
+                widgetRefresher.refresh()
                 JSONObject()
                     .put("status", "success")
                     .put("message", "리마인더 등록: ${draft.displayTime}에 '${draft.content}' 알림")

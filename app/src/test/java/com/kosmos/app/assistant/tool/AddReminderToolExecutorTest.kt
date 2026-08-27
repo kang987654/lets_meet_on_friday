@@ -29,7 +29,8 @@ class AddReminderToolExecutorTest {
 
     private val useCase: AddReminderUseCase = mockk()
     private val scheduler: ReminderAlarmScheduler = mockk(relaxed = true)
-    private val executor = AddReminderToolExecutor(useCase, scheduler)
+    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher = mockk(relaxed = true)
+    private val executor = AddReminderToolExecutor(useCase, scheduler, widgetRefresher)
 
     private fun args(json: String) = ToolArguments(JSONObject(json))
 
@@ -87,6 +88,7 @@ class AddReminderToolExecutorTest {
 
         val expectedMs = requireNotNull(IsoDateTimeParser.toEpochMillis("2026-08-29T15:00:00"))
         verify(exactly = 1) { scheduler.schedule("task-1", expectedMs) }
+        io.mockk.coVerify(exactly = 1) { widgetRefresher.refresh() }
         val json = JSONObject(result)
         assertEquals("success", json.getString("status"))
         assertTrue(json.getString("message").contains("8월 29일 오후 3:00"))
@@ -106,5 +108,6 @@ class AddReminderToolExecutorTest {
         assertEquals("error", json.getString("status"))
         assertTrue(json.getString("message").contains("이미 지난 시각"))
         verify(exactly = 0) { scheduler.schedule(any(), any()) }
+        io.mockk.coVerify(exactly = 0) { widgetRefresher.refresh() }
     }
 }

@@ -61,7 +61,8 @@ class MemoryBackupStateTest {
             exportMemoryUseCase = exportUseCase,
             importMemoryUseCase = importUseCase,
             backupFileWriter = backupFileWriter,
-            reminderAlarmScheduler = mockk(relaxed = true)
+            reminderAlarmScheduler = mockk(relaxed = true),
+            widgetRefresher = mockk(relaxed = true)
         )
     }
 

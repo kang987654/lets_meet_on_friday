@@ -47,7 +47,8 @@ class MemoryViewModel @Inject constructor(
     private val exportMemoryUseCase: ExportMemoryUseCase,
     private val importMemoryUseCase: ImportMemoryUseCase,
     private val backupFileWriter: BackupFileWriter,
-    private val reminderAlarmScheduler: com.kosmos.app.platform.alarm.ReminderAlarmScheduler
+    private val reminderAlarmScheduler: com.kosmos.app.platform.alarm.ReminderAlarmScheduler,
+    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher
 ) : ViewModel() {
 
 
@@ -97,7 +98,10 @@ class MemoryViewModel @Inject constructor(
             when (result) {
                 // [WHY] 저장이 끝난 뒤에 알린다 — 호출부가 여기서 페이징 refresh 를 걸므로,
                 // 저장 전에 refresh 가 돌면 방금 추가한 항목이 목록에 안 보인다.
-                is AppResult.Success -> onSaved()
+                is AppResult.Success -> {
+                    widgetRefresher.refresh()
+                    onSaved()
+                }
                 is AppResult.Failure ->
                     _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
             }
@@ -110,7 +114,10 @@ class MemoryViewModel @Inject constructor(
             when (result) {
                 // [WHY] 완료된 할 일의 리마인더 알람은 취소한다 — 최적화일 뿐 방어선은 아니다.
                 // 취소가 누락돼도 발화 핸들러의 DB 재확인이 완료 항목을 걸러낸다 (B1).
-                is AppResult.Success -> reminderAlarmScheduler.cancel(taskId)
+                is AppResult.Success -> {
+                    reminderAlarmScheduler.cancel(taskId)
+                    widgetRefresher.refresh()
+                }
                 is AppResult.Failure ->
                     _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
             }
@@ -178,7 +185,12 @@ class MemoryViewModel @Inject constructor(
         _uiState.update { it.copy(showImportWarning = false, backup = BackupState.Importing) }
         viewModelScope.launch {
             val next = when (val result = importMemoryUseCase(uri.toString())) {
-                is AppResult.Success -> BackupState.ImportSucceeded
+                is AppResult.Success -> {
+                    // [WHY] DB 파일이 통째로 교체됐다 — 위젯이 30분 주기까지 옛 데이터를
+                    // 보여주지 않도록 즉시 갱신한다(위젯은 새 DB 를 읽는다).
+                    widgetRefresher.refresh()
+                    BackupState.ImportSucceeded
+                }
                 is AppResult.Failure -> BackupState.Failed(ErrorMessages.userMessage(result.error))
             }
             _uiState.update { it.copy(backup = next) }

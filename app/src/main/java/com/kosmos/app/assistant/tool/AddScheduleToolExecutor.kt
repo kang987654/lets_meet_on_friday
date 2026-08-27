@@ -21,7 +21,8 @@ import javax.inject.Inject
  * 3. [AddScheduleUseCase] 실행 결과를 JSON 문자열로 반환합니다.
  */
 class AddScheduleToolExecutor @Inject constructor(
-    private val addScheduleUseCase: AddScheduleUseCase
+    private val addScheduleUseCase: AddScheduleUseCase,
+    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher
 ) : ToolExecutor {
     override val name: String = "AddSchedule"
 
@@ -50,6 +51,7 @@ class AddScheduleToolExecutor @Inject constructor(
 
         val res = addScheduleUseCase(draft.title, draft.startTime, draft.endTime, draft.description)
         return if (res is AppResult.Success) {
+            widgetRefresher.refresh()
             JSONObject()
                 .put("status", "success")
                 .put("message", "일정이 성공적으로 추가되었습니다.")
