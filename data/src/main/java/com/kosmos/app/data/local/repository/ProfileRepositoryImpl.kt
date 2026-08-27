@@ -2,57 +2,60 @@ package com.kosmos.app.data.local.repository
 
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.runCatchingCancellable
 import com.kosmos.app.data.local.db.dao.ProfileDao
-import com.kosmos.app.data.local.db.entity.ProfileEntity
-import com.kosmos.app.data.local.prefs.SettingsDataStore
+import com.kosmos.app.data.local.db.entity.ProfileEntryEntity
 import com.kosmos.app.domain.memory.ProfileRepository
-import com.kosmos.app.domain.model.UserProfile
+import com.kosmos.app.domain.model.ProfileEntry
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class ProfileRepositoryImpl @Inject constructor(
-    private val profileDao: ProfileDao,
-    private val settingsDataStore: SettingsDataStore
+    private val dao: ProfileDao
 ) : ProfileRepository {
 
-    override fun getProfile(): Flow<UserProfile?> {
-        return profileDao.getProfileFlow().combine(settingsDataStore.responseStyleFlow) { entity, style ->
-            if (entity == null) {
-                UserProfile(
-                    name = "User",
-                    role = "Default",
-                    preferences = mapOf("response_style" to style)
-                )
-            } else {
-                UserProfile(
-                    name = entity.name,
-                    role = entity.style,
-                    preferences = mapOf("response_style" to style)
-                )
-            }
-        }
-    }
+    override fun observeEntries(): Flow<List<ProfileEntry>> =
+        dao.observeAll()
+            .map { entities -> entities.map { it.toDomain() } }
+            // [WHY] 드로어 카드가 구독한다 — DB 오류가 드로어를 죽이면 안 되고,
+            // 빈 목록이면 카드가 "등록해 보세요" 상태로 정직하게 강등된다.
+            .catch { emit(emptyList()) }
 
-    override suspend fun saveProfile(profile: UserProfile): AppResult<Unit> {
-        return try {
-            val entity = ProfileEntity(
-                id = "LOCAL_USER",
-                name = profile.name,
-                style = profile.role,
-                updatedAt = System.currentTimeMillis()
+    override suspend fun getEntries(): AppResult<List<ProfileEntry>> = runCatchingCancellable {
+        dao.getAll().map { it.toDomain() }
+    }.fold(
+        onSuccess = { AppResult.Success(it) },
+        onFailure = { AppResult.Failure(AppError.DbReadError("profile")) }
+    )
+
+    override suspend fun upsert(key: String, value: String, source: String): AppResult<Unit> =
+        runCatchingCancellable {
+            dao.upsert(
+                ProfileEntryEntity(
+                    key = key,
+                    value = value,
+                    source = source,
+                    updatedAt = System.currentTimeMillis()
+                )
             )
-            profileDao.insertOrUpdateProfile(entity)
-            
-            profile.preferences["response_style"]?.let {
-                settingsDataStore.saveResponseStyle(it)
-            }
-            
-            AppResult.Success(Unit)
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            AppResult.Failure(AppError.DbWriteError("profile"))
-        }
-    }
+        }.fold(
+            onSuccess = { AppResult.Success(Unit) },
+            onFailure = { AppResult.Failure(AppError.DbWriteError("profile")) }
+        )
+
+    override suspend fun delete(key: String): AppResult<Unit> = runCatchingCancellable {
+        dao.delete(key)
+    }.fold(
+        onSuccess = { AppResult.Success(Unit) },
+        onFailure = { AppResult.Failure(AppError.DbWriteError("profile")) }
+    )
+
+    private fun ProfileEntryEntity.toDomain() = ProfileEntry(
+        key = key,
+        value = value,
+        source = source,
+        updatedAt = updatedAt
+    )
 }

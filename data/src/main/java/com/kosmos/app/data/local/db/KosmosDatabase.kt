@@ -10,19 +10,19 @@ import com.kosmos.app.data.local.db.dao.TaskDao
 import com.kosmos.app.data.local.db.entity.AuditEntity
 import com.kosmos.app.data.local.db.entity.ConversationEntity
 import com.kosmos.app.data.local.db.entity.KnowledgeEntity
-import com.kosmos.app.data.local.db.entity.ProfileEntity
+import com.kosmos.app.data.local.db.entity.ProfileEntryEntity
 import com.kosmos.app.data.local.db.entity.TaskEntity
 
 @Database(
     entities = [
-        ProfileEntity::class,
+        ProfileEntryEntity::class,
         ConversationEntity::class,
         AuditEntity::class,
         TaskEntity::class,
         KnowledgeEntity::class,
         com.kosmos.app.data.local.db.entity.EpisodeEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class KosmosDatabase : RoomDatabase() {

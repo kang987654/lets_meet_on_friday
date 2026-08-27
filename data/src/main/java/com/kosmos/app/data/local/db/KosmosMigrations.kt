@@ -140,5 +140,22 @@ object KosmosMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+    /**
+     * 프로필(C′1) 스키마 — 고정 컬럼 단일 행을 키-값 행 구조로 교체.
+     *
+     * [WHY] DROP 이 무손실인 근거: v7 까지 ProfileRepository 는 호출처 0곳의 사문이라
+     * 실기기 포함 어디에도 profile 행이 없다(2026-08-15 감사, PRD AC6 주석). 스키마를
+     * 재구축(복사)할 원본 데이터 자체가 존재하지 않는다.
+     */
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("DROP TABLE IF EXISTS `profile`")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `profile` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, " +
+                    "`source` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`key`))"
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 }
