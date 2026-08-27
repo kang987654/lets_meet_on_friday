@@ -127,5 +127,18 @@ object KosmosMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+    /**
+     * 리마인더(B1) 스키마 — `task_item` 에 알림 시각/발화 시각 칼럼 2개.
+     *
+     * [WHY] `DEFAULT NULL` 을 쓰지 않는다(5→6 과 같은 이유 — Room 기대 스키마와 DDL 이
+     * 어긋나 다음 실행의 검증이 실패한다). 기존 행은 NULL = 리마인더 아님.
+     */
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `task_item` ADD COLUMN `remindAtIso` TEXT")
+            db.execSQL("ALTER TABLE `task_item` ADD COLUMN `remindedAtMs` INTEGER")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
 }

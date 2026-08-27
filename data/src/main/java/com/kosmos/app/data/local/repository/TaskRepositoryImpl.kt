@@ -22,7 +22,9 @@ class TaskRepositoryImpl @Inject constructor(
                 completedAt = if (task.isCompleted) System.currentTimeMillis() else null,
                 dueDateIso = task.dueDateIso,
                 endDateIso = task.endDateIso,
-                description = task.description
+                description = task.description,
+                remindAtIso = task.remindAtIso,
+                remindedAtMs = task.remindedAtMs
             )
         )
     }.fold(
@@ -45,6 +47,27 @@ class TaskRepositoryImpl @Inject constructor(
         onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbReadError("task_item")) }
     )
 
+    override suspend fun getById(taskId: String): AppResult<TaskItem?> = com.kosmos.app.core.common.runCatchingCancellable {
+        dao.getById(taskId)?.toDomain()
+    }.fold(
+        onSuccess = { AppResult.Success(it) },
+        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbReadError("task_item")) }
+    )
+
+    override suspend fun getActiveReminders(): AppResult<List<TaskItem>> = com.kosmos.app.core.common.runCatchingCancellable {
+        dao.getActiveReminders().map { it.toDomain() }
+    }.fold(
+        onSuccess = { AppResult.Success(it) },
+        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbReadError("task_item")) }
+    )
+
+    override suspend fun markReminded(taskId: String, remindedAtMs: Long): AppResult<Unit> = com.kosmos.app.core.common.runCatchingCancellable {
+        dao.markReminded(taskId, remindedAtMs)
+    }.fold(
+        onSuccess = { AppResult.Success(Unit) },
+        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbWriteError("task_item")) }
+    )
+
     private fun TaskEntity.toDomain(): TaskItem {
         return TaskItem(
             id = id,
@@ -53,7 +76,9 @@ class TaskRepositoryImpl @Inject constructor(
             dueDateIso = dueDateIso,
             endDateIso = endDateIso,
             description = description,
-            createdAt = createdAt
+            createdAt = createdAt,
+            remindAtIso = remindAtIso,
+            remindedAtMs = remindedAtMs
         )
     }
 }

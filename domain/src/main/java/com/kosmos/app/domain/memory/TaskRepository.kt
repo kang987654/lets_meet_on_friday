@@ -11,4 +11,9 @@ interface TaskRepository {
     suspend fun save(task: TaskItem): AppResult<Unit>
     suspend fun updateCompletion(taskId: String, isCompleted: Boolean): AppResult<Unit>
     suspend fun getPendingTasksData(offset: Int, limit: Int): AppResult<List<TaskItem>>
+    suspend fun getById(taskId: String): AppResult<TaskItem?>
+
+    /** 아직 발화되지 않고 완료되지 않은 리마인더 전부 — 시각 정렬·과거 판정은 호출측 몫. */
+    suspend fun getActiveReminders(): AppResult<List<TaskItem>>
+    suspend fun markReminded(taskId: String, remindedAtMs: Long): AppResult<Unit>
 }

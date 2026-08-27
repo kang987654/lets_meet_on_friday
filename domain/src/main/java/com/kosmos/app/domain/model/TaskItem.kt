@@ -7,5 +7,7 @@ data class TaskItem(
     val dueDateIso: String? = null,
     val endDateIso: String? = null,
     val description: String? = null,
-    val createdAt: Long
+    val createdAt: Long,
+    val remindAtIso: String? = null,
+    val remindedAtMs: Long? = null
 )

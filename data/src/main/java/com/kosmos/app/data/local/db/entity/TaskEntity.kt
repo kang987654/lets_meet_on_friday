@@ -19,5 +19,9 @@ data class TaskEntity(
     val completedAt: Long?,
     val dueDateIso: String? = null,
     val endDateIso: String? = null,
-    val description: String? = null
+    val description: String? = null,
+    // [WHY] 리마인더(B1) = remindAtIso 가 있는 할 일. 발화 여부(remindedAtMs)와
+    // 완료(isCompleted)는 별개다 — 알림이 울렸다고 할 일이 끝난 것은 아니다.
+    val remindAtIso: String? = null,
+    val remindedAtMs: Long? = null
 )

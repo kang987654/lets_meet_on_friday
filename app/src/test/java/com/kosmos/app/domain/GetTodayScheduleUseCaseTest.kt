@@ -26,6 +26,12 @@ class GetTodayScheduleUseCaseTest {
             AppResult.Success(Unit)
         override suspend fun getPendingTasksData(offset: Int, limit: Int): AppResult<List<TaskItem>> =
             AppResult.Success(tasks)
+        override suspend fun getById(taskId: String): AppResult<TaskItem?> =
+            AppResult.Success(tasks.firstOrNull { it.id == taskId })
+        override suspend fun getActiveReminders(): AppResult<List<TaskItem>> =
+            AppResult.Success(emptyList())
+        override suspend fun markReminded(taskId: String, remindedAtMs: Long): AppResult<Unit> =
+            AppResult.Success(Unit)
     }
 
     private val fakeCalendarTool = object : com.kosmos.app.domain.tool.CalendarTool {
