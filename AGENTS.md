@@ -1,10 +1,12 @@
 # Kotlin & Android 프로젝트 전역 AI 에이전트 지침 (AGENTS.md)
 > **적용 레포지토리**: `lets_meet_on_friday` (KOSMOS)
-> **최종 개정일**: 2026-08-21
+> **최종 개정일**: 2026-09-02
 
 이 문서는 이 저장소에서 작업하는 AI 코딩 에이전트를 위한 전역 지침입니다.
 모든 리팩터링, 신규 기능 구현 및 코드 수정 작업 시작 전 아래 지침을 반드시 준수해야 합니다.
 아키텍처 결정의 맥락은 `docs/architecture.md` 의 ADR, 회차별 이력은 `docs/CHANGELOG.md` 가 진실이다.
+**문서 지도**: 이 파일이 유일한 정본 — 모델·런타임 주장의 근거 등급은 `.agents/04_MODEL_EVIDENCE.md`,
+회차 계획서는 `docs/plans/`, 폐기된 옛 규칙은 `docs/archive/agent-rules-2026-09/`(따르지 말 것).
 
 ---
 
@@ -24,6 +26,9 @@
   재생성한다(PromptFixtureExport). 의도치 않은 픽스처 갱신이 기능 커밋에 딸려 들어간 전례가 있다.
 - `scratch/` 에서 **실제 대화 파생 데이터**(kosmos_db, exp33 출력 등)는 절대 커밋하지 않는다 —
   `.gitignore` 의 명시 규칙 참조. 스크립트(코드)는 `scratch/lab/` 으로 추적된다.
+- **파일은 UTF-8(No BOM)** — 한글 주석·KDoc 이 많다. Windows PowerShell 의 기본 인코딩(ANSI)으로
+  쓰면 깨진다: 에이전트의 파일 편집 도구를 쓰고, 셸로 써야 하면 `-Encoding utf8`/`UTF8Encoding(false)`.
+- `git reset --hard`·`git clean -fd` 는 미추적 파일을 확인하고 **사용자 허가 후에만**.
 
 ---
 
@@ -37,6 +42,10 @@
   마지막 마일스톤이다.
 - 계획과 실제가 갈리면(구현 중 발견) 그 이유를 `[WHY]` 주석과 CHANGELOG 에 남긴다 — 계획을
   조용히 덮어쓰지 않는다.
+- **승인된 계획은 `docs/plans/<버전>-<회차명>.md` 로 저장소에 남긴다** — 계획 세션(Claude)과
+  구현 세션(Antigravity/Gemini 등)이 다른 에이전트일 수 있다(2026-09-02 분업 결정). 구현 에이전트는
+  이 파일의 마일스톤·결정·게이트를 그대로 따르고, 갈린 지점만 CHANGELOG 에 적는다. 회차가 끝나면
+  계획서 상단에 `상태: 완료 (CHANGELOG x.y.z)` 를 적고 두되, 결정의 진실은 CHANGELOG 로 옮긴다.
 
 ### ② 테스트 코드 보호 및 Robolectric 수칙 (Strict Rule)
 - **기존 테스트 단언 수정 0건**: `src/test/` 하위의 기존 테스트 검증 로직(`@Test`)을 임의로 삭제하거나 오버라이딩하지 말 것. 테스트 실패 시 **구현 코드를 수정하여 통과**시켜야 한다. (생성자 인자 추가 등 컴파일을 위한 생성부 수정은 허용 — 단언은 불변.)
@@ -46,6 +55,9 @@
   0.19.2 한글화 회차에서 마지막 것을 바꿨다가 E2E 가 잡아냈다.
 - **Robolectric + Compose E2E 제약**:
   - `hiltViewModel()` 크래시 방지를 위해 Compose Screen 테스트 시 ViewModel을 수동으로 인스턴스화하여 주입한다.
+  - `@UninstallModules` 로 모듈을 떼면 빠진 의존성(예: Tokenizer)은 `@BindValue` 로 다시 묶는다.
+  - 테스트 mock 이 오버라이드하는 플랫폼 클래스 메서드(예: `AudioRecorder.stopRecording`)는 프로덕션에서
+    `open suspend fun` 이어야 한다.
   - Background 코루틴 검증 시 `ShadowLooper.runUiThreadTasksIncludingDelayedTasks()` Polling 루프를 사용한다.
   - TextField 검색 시 Hint 텍스트(`onNodeWithText`) 대신 `hasSetTextAction()` 또는 `testTag`를 사용하며, 버튼 클릭 시 `onNodeWithContentDescription("Attach")` / `"Send"`를 사용한다.
 
@@ -68,8 +80,8 @@
 
 ### ⑤ 프롬프트 표면 수칙 — 2026-08-28 리마인더 회차에서 확립
 - **툴 선언·트리거 규칙·시스템 지시를 바꾸면 실험실 실측+기능 스모크가 선행**된다
-  (`scratch/lab/exp34b` 전례): 오버헤드 여유가 수십 토큰 단위라(0.21.0 기준 실측 1,381 /
-  예약 1,400) 어림짐작으로 넣으면 예산 불변식이 연쇄로 깨진다. 실측 후
+  (`scratch/lab/exp34b`·`exp35` 전례): 오버헤드 여유가 수십 토큰 단위라(0.23.0 기준 실측 1,277 +
+  프로필 상한 100 / 예약 1,400) 어림짐작으로 넣으면 예산 불변식이 연쇄로 깨진다. 실측 후
   `TokenBudgetInvariantTest.MEASURED_OVERHEAD` 를 갱신하고 수치를 CHANGELOG 에 남긴다.
 - 선언과 트리거 규칙에 **같은 정보를 두 번 쓰지 않는다** — 선언의 "언제 쓴다" 문장은
   시스템 지시 트리거 규칙과 중복이라 0.21.0 다이어트에서 제거됐다.
@@ -116,8 +128,10 @@
      컴포넌트는 `KosmosApp` 에 `@Inject lateinit var` 로 eager 주입한다 (briefingGenerator 전례).
    - `@EntryPoint` 는 프레임워크가 인스턴스화해 `@AndroidEntryPoint` 를 못 쓰는 컴포넌트에서만
      쓰고(GlanceAppWidget 전례, 0.22.0), 필요한 의존성만 노출하는 전용 인터페이스로 좁게 연다.
-5. **UI 색상은 `KosmosTheme.colors` 토큰만** 사용한다 — 하드코딩 `Color(...)` 금지. 라이트/다크
+5. `AnimatedContent` 안의 버튼은 크기·`clip` 제약을 최상위 modifier 에 두고 내부 아이콘은 `fillMaxSize()` —
+   안쪽에 두면 전환 중 레이아웃이 깨진다.
+6. **UI 색상은 `KosmosTheme.colors` 토큰만** 사용한다 — 하드코딩 `Color(...)` 금지. 라이트/다크
    팔레트가 토큰째 바뀌므로 토큰만 쓰면 테마 대응이 자동이다. 시각 언어는 `glassEffect`.
-6. **사용자 표기 규칙**: UI 문자열은 한국어(§2-② E2E 계약 문자열 제외), 일시 표기는
+7. **사용자 표기 규칙**: UI 문자열은 한국어(§2-② E2E 계약 문자열 제외), 일시 표기는
    `IsoDateTimeParser.toDisplayKorean` 이 단일 출처다 — ISO 원문을 화면·모델 관측값에 노출하지
    않는다 (0.19.2).

@@ -1,3 +1,10 @@
+## [0.23.1] - 2026-09-02
+> 코드 변경 0건 — **AI 에이전트 지침 간소화 + 분업 체계 문서화**. 지침 파일 7개(219줄) 중 살아있는 것은 2개였고, 나머지는 중복·사문·현행 결정과 정면 충돌했다. 삭제 대신 `docs/archive/` 로 옮겨 이력을 보존했다(사용자 결정).
+- **[Docs]** **정본 단일화** — `AGENTS.md` 가 유일한 정본, `.agents/04_MODEL_EVIDENCE.md`(근거 등급, 코드·ADR 참조)만 유지. 신설: 루트 `CLAUDE.md`(`@AGENTS.md` — Claude Code 자동 로드, 매 세션 "읽어줘" 불필요), `.agents/00_README.md`(Antigravity 등 `.agents/` 를 읽는 에이전트용 포인터). `AGENTS.md` 에 흡수: UTF-8 No BOM·`reset --hard` 허가(01), `@UninstallModules`→`@BindValue`·mock 용 `open suspend fun`·AnimatedContent 레이아웃(android SKILL), §2-⑤ 수치 0.23.0 기준으로 갱신
+- **[Docs]** **보관(`docs/archive/agent-rules-2026-09/`, README 에 사유 표)** — `.agents/01·02·03`, `skills/android-friday`, `skills/litertlm-gemma4`, `docs/agent/ui_improvement_plan.md`. 02 는 `AGENTS.md` §2-①이 대체한 3-Phase 를 여전히 ALWAYS 로 요구(직접 충돌). **litertlm SKILL 이 가장 위험했다**: `<tool_call>` 텍스트 파싱(ADR-008 폐기), 윈도우 3,000토큰(현행 1,700), thinking 여유 2~4천(사고 모드 꺼짐), MTP(미검증), 이미지 토큰 표(측정 없이 정하지 않기로 결정), `filesDir`(실제 `getExternalFilesDir`) — 따르면 확정 아키텍처를 되돌린다. 유효분(오디오 WAV 16k mono)은 `AudioRecorder` KDoc 에 이미 있음
+- **[Docs]** **분업 체계** — 계획=Claude(plan 모드) / 구현=Antigravity(Gemini) / 검수=Claude(짧게). 전제: 계획서는 **저장소 파일**(`docs/plans/<버전>-<회차>.md`, README 에 형식·수칙; `~/.claude/plans` 는 다른 에이전트가 못 본다), 프롬프트 표면 회차는 M0 실측 문구를 계획서에 원문 그대로, 구현 에이전트도 같은 게이트를 진다. `agent_workflow_guide.md` v2.0(추천 프롬프트 3종), 0.23.0 계획서를 첫 예시로 보존
+- **[QA/Test]** 코드·빌드 설정 변경 없음 — 게이트 생략(직전 0.23.0 녹색 유효). 잔여 참조 점검: 옮긴 파일을 가리키는 곳은 CHANGELOG 과거 기록뿐
+
 ## [0.23.0] - 2026-08-28
 > **프로필 상시 주입 + 드로어 고정 카드** (expand.md C′1, E-Phase 2 첫 회차 — 시안 A′-2 로 **시안 A′ 전체 완료**) — 이름·호칭·말투 같은 항상-관련 기억이 `[User Profile]` 블록으로 시스템 지시에 상시 주입돼 답변의 톤을 바꾼다(AC6 정식 배선). 재원은 **few-shot 제거**. 사용자 확정 결정 2건: 자유 키-값 / 폴백=히스토리 동적 차감(실측 성공으로 미사용).
 - **[Feat]** **few-shot 시범 제거 (104토큰 회수, exp35 판정)** — 도입 진단("시범 없으면 호출 0회", 0.8.5)은 ADR-017 이 철회했고(진짜 원인 = 지침 거리 → 턴 리마인더가 해결), 제거 가능성은 재실측된 적이 없었다. exp35: few-shot 실측 정확히 104, **제거 후 툴 선택 스모크 11/11 유지**(기억 저장/조회 방향·숫자 보존 포함). 시범의 예시 숫자("8282")가 조회 턴에 새던 실해(ADR-010)도 구조적으로 소멸. 실험실 하네스에 few-shot 미러를 복원(0.15.0 재구축 때 누락 — 그간 lab 실측이 앱보다 104 과소)한 뒤 A/B 로 판정했다
