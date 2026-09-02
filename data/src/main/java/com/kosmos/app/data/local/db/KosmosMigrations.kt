@@ -157,5 +157,27 @@ object KosmosMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+    /**
+     * 자동 추출(C′2) 스키마 — `knowledge_note.source` 출처 컬럼 + `profile_suggestion` 승인 대기 테이블.
+     *
+     * [WHY] `source` 는 NOT NULL 이라 `DEFAULT 'manual'` 이 **필수**다(SQLite 가 NOT NULL 컬럼
+     * 추가에 기본값을 요구). Room 쪽은 엔티티 `@ColumnInfo(defaultValue = "manual")` 로 같은
+     * DDL 을 기대하게 맞췄다 — 5→6 은 "DEFAULT 를 쓰면 안 되는" 경우였고 여기는 "써야 하는"
+     * 경우다. 기존 행 = 전부 manual(사용자·툴 콜 저장)이 사실에 맞다.
+     */
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `knowledge_note` ADD COLUMN `source` TEXT NOT NULL DEFAULT 'manual'")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `profile_suggestion` (`id` TEXT NOT NULL, `key` TEXT NOT NULL, " +
+                    "`value` TEXT NOT NULL, `episodeId` TEXT, `status` TEXT NOT NULL, " +
+                    "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_profile_suggestion_status` ON `profile_suggestion` (`status`)")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(
+        MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9
+    )
 }

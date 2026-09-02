@@ -20,9 +20,10 @@ import com.kosmos.app.data.local.db.entity.TaskEntity
         AuditEntity::class,
         TaskEntity::class,
         KnowledgeEntity::class,
-        com.kosmos.app.data.local.db.entity.EpisodeEntity::class
+        com.kosmos.app.data.local.db.entity.EpisodeEntity::class,
+        com.kosmos.app.data.local.db.entity.ProfileSuggestionEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class KosmosDatabase : RoomDatabase() {
@@ -32,4 +33,5 @@ abstract class KosmosDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun knowledgeDao(): KnowledgeDao
     abstract fun episodeDao(): com.kosmos.app.data.local.db.dao.EpisodeDao
+    abstract fun profileSuggestionDao(): com.kosmos.app.data.local.db.dao.ProfileSuggestionDao
 }

@@ -22,7 +22,8 @@ class KnowledgeRepositoryImpl @Inject constructor(
                 tags = com.kosmos.app.core.common.Tags.normalizeAll(note.tags).joinToString(","),
                 embedding = note.embedding?.let { com.kosmos.app.core.common.FloatBytes.encode(it) },
                 createdAt = note.createdAt,
-                updatedAt = note.updatedAt
+                updatedAt = note.updatedAt,
+                source = note.source
             )
         )
     }.fold(
@@ -134,7 +135,8 @@ class KnowledgeRepositoryImpl @Inject constructor(
             tags = tags.split(",").map { it.trim() }.filter { it.isNotEmpty() },
             embedding = if (floatArr.isNotEmpty()) floatArr else null,
             createdAt = createdAt,
-            updatedAt = updatedAt
+            updatedAt = updatedAt,
+            source = source
         )
     }
 }

@@ -43,6 +43,12 @@ abstract class MemoryModule {
 
     @Binds
     @Singleton
+    abstract fun bindProfileSuggestionRepository(
+        impl: com.kosmos.app.data.local.repository.ProfileSuggestionRepositoryImpl
+    ): com.kosmos.app.domain.memory.ProfileSuggestionRepository
+
+    @Binds
+    @Singleton
     abstract fun bindAuditRepository(
         impl: com.kosmos.app.data.local.repository.AuditRepositoryImpl
     ): com.kosmos.app.domain.memory.AuditRepository
