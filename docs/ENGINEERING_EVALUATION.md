@@ -99,8 +99,8 @@ const val MAX_ATTACHED_DOC_CHARS = 300        // 첨부 문서 윈도우 생존 
 
 ## 6. 기술적 부채 및 향후 과제 (Tech Debt & Roadmap)
 
-1. **레거시 MediaPipe 임베더 정리 (Track C2)**:
-   - 영어 전용인 MediaPipe 임베더가 APK 용량(52MB)을 차지하고 있어, SQLite FTS5 기반 바이그램 어휘 검색(C1) 도입 후 제거 필요.
+1. ~~**레거시 MediaPipe 임베더 정리 (Track C2)**~~ → **해소 (0.26.0)**:
+   - 인메모리 바이그램 어휘 검색(C1, 0.25.0) 확정 후 구현·의존·자산 제거 — release APK 78.5MB → 50.0MB. 계약 층(`TextEmbedder`·embedding 컬럼)은 C3 자리로 유지(ADR-026).
 2. **Robolectric SDK 에뮬레이션 상한 고정**:
    - `targetSdk`는 최신인 37로 상향되었으나, Robolectric 4.14의 상한(35)으로 인해 `robolectric.properties(sdk=35)`로 에뮬레이션을 고정해 둔 상태 → 추후 Robolectric 업데이트 시 동기화 권장.
 3. **대용량 파일 백그라운드 처리 (WorkManager 확장)**:
