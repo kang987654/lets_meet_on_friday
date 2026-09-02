@@ -219,6 +219,24 @@ object Constants {
     const val PROFILE_MAX_TOKENS = 100
 
     const val MAX_KNOWLEDGE_CONTEXT_ITEMS = 3
+
+    /**
+     * 기억 검색의 바이그램 전수 스캔 상한 — 최근 지식 노트·에피소드 문서를 이만큼 읽어 점수를 매긴다 (C1, 0.25.0).
+     *
+     * [WHY] 인메모리 스코어러의 규모 경계다. 개인 1인 규모(문서 수백)에서 스캔은 수 ms 이고
+     * (BigramMatcherTest 2,000 문서 계측), 이 상한을 넘는 문서가 쌓이면 FTS5 가상 테이블로 옮기는
+     * 규모 게이트(문서 2,000+ 또는 스캔 50ms+)를 연다 — ADR-025.
+     */
+    const val MEMORY_SCAN_LIMIT = 500
+
+    /**
+     * 전수 스캔에서 문서를 결과로 인정하는 **최소 항 겹침**(가장 잘 맞은 항의 바이그램 겹침 비율).
+     *
+     * [WHY] 합계 점수만 쓰면 아무 문서나 조금씩 겹쳐 잡음이 올라온다. 0.5 는 exp37 실측값 —
+     * "자물쇠번호"↔"자물쇠 비밀번호"(0.75)는 통과하고, "좋아하는 것"↔"커피보다 녹차…"(0.33)는
+     * 걸러져 기존 태그 목록 폴백 계약(MemoryPipelineIntegrationTest)이 보존된다.
+     */
+    const val BIGRAM_MIN_TERM_OVERLAP = 0.5
     const val MAX_INPUT_CHARS = 8192
     const val MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
     const val MAX_IMAGE_DIMENSION_PX = 1024
