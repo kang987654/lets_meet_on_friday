@@ -62,6 +62,7 @@ scratch/lab/fixtures/kosmos_db
 scratch/lab/exp33_episodes.txt
 scratch/lab/exp33_summaries.json
 scratch/lab/exp33_summaries_single.json
+scratch/lab/exp36_facts.json
 scratch/lab/__pycache__/
 __pycache__/
 *.pyc
