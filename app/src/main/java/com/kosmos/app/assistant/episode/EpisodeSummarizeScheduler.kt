@@ -53,7 +53,8 @@ class EpisodeSummarizeScheduler @Inject constructor(
     private val summarizeEpisode: SummarizeEpisodeUseCase,
     private val metricsCollector: RuntimeMetricsCollector,
     boundaryManager: EpisodeBoundaryManager,
-    modelRunner: ModelRunner
+    modelRunner: ModelRunner,
+    private val factExtractor: EpisodeFactExtractor
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -119,7 +120,14 @@ class EpisodeSummarizeScheduler @Inject constructor(
         }
 
         when (val result = summarizeEpisode(messages)) {
-            is AppResult.Success -> applyDocs(episode, result.data)
+            is AppResult.Success -> {
+                applyDocs(episode, result.data)
+                // [WHY] 자동 추출(C′2)은 요약 **성공 직후 같은 드레인**에서 1회 — 발열 게이트를
+                // 이미 지났고 llmDispatcher 경합도 없는 자리다. 실패·재시도 경로에서는 부르지
+                // 않는다(재시도마다 중복 추출 방지). 추출 실패는 요약 상태에 영향을 주지 않는다.
+                runCatching { factExtractor.extract(episode.copy(tags = result.data.first().tags), messages) }
+                    .onFailure { AppLogger.w(TAG, "자동 추출 예외(${episode.id}): ${it.message}") }
+            }
             is AppResult.Failure -> {
                 val retried = episode.copy(
                     retryCount = episode.retryCount + 1,

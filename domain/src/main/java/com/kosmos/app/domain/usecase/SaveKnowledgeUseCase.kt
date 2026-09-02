@@ -34,7 +34,11 @@ class SaveKnowledgeUseCase @Inject constructor(
      * [WHY] 그래도 계산은 계속한다. 한국어를 다루는 임베더로 자산만 갈아 끼우면 의미 검색이
      * 되살아나야 하는데, 여기서 배선을 끊어 두면 그때 조용히 썩어 있을 것이다.
      */
-    suspend operator fun invoke(content: String, tags: List<String>): AppResult<KnowledgeNote> {
+    suspend operator fun invoke(
+        content: String,
+        tags: List<String>,
+        source: String = KnowledgeNote.SOURCE_MANUAL
+    ): AppResult<KnowledgeNote> {
         val embedding = when (val embeddingResult = textEmbedder.embed(content)) {
             is AppResult.Success -> embeddingResult.data
             is AppResult.Failure -> null
@@ -47,7 +51,8 @@ class SaveKnowledgeUseCase @Inject constructor(
             tags = tags,
             embedding = embedding,
             createdAt = currentTime,
-            updatedAt = currentTime
+            updatedAt = currentTime,
+            source = source
         )
 
         val saveResult = repository.save(note)

@@ -55,6 +55,8 @@ class EpisodeSummarizeSchedulerTest {
         every { it.loadState } returns (loadStateFlow as StateFlow<ModelLoadState>)
     }
 
+    private val factExtractor: EpisodeFactExtractor = mockk(relaxed = true)
+
     private val saved = mutableListOf<Episode>()
 
     @org.junit.Before
@@ -73,7 +75,7 @@ class EpisodeSummarizeSchedulerTest {
 
     private fun scheduler(): EpisodeSummarizeScheduler = EpisodeSummarizeScheduler(
         episodeRepository, conversationRepository, summarize,
-        metricsCollector, boundaryManager, modelRunner
+        metricsCollector, boundaryManager, modelRunner, factExtractor
     )
 
     private fun closedEpisode(id: String = "e1") = Episode(
@@ -182,6 +184,42 @@ class EpisodeSummarizeSchedulerTest {
         s.onTurnCompleted()
         waitUntil { saved.any { it.status == EpisodeStatus.SUMMARIZED } }
         assertTrue(saved.any { it.status == EpisodeStatus.SUMMARIZED })
+    }
+
+    @Test
+    fun `요약 성공 직후 같은 드레인에서 자동 추출이 1회 돈다`() = runBlocking {
+        // [WHY] C′2 — 추출은 SUMMARIZED 전이 뒤, 요약 문서의 태그를 받아 돈다(지식 태그 재료).
+        coEvery { episodeRepository.getById("e1") } returns AppResult.Success(closedEpisode())
+        coEvery { conversationRepository.getByEpisode("e1") } returns AppResult.Success(messages())
+        coEvery { summarize(any()) } returns AppResult.Success(listOf(doc()))
+        val s = scheduler()
+
+        closed.emit(EpisodeBoundaryManager.ClosedEpisode("e1", EpisodeBoundaryManager.CloseTrigger.RESET))
+        delay(200)
+        s.onTurnCompleted()
+        waitUntil { saved.any { it.status == EpisodeStatus.SUMMARIZED } }
+        delay(100)
+
+        io.mockk.coVerify(exactly = 1) {
+            factExtractor.extract(match { it.id == "e1" && it.tags == doc().tags }, messages(), any())
+        }
+    }
+
+    @Test
+    fun `요약이 실패하면 자동 추출은 돌지 않는다`() = runBlocking {
+        // [WHY] 재시도마다 추출이 돌면 같은 에피소드의 사실이 중복 저장된다 — 성공 경로에만 건다.
+        coEvery { episodeRepository.getById("e1") } returns AppResult.Success(closedEpisode())
+        coEvery { conversationRepository.getByEpisode("e1") } returns AppResult.Success(messages())
+        coEvery { summarize(any()) } returns AppResult.Failure(AppError.ModelInferenceError("파싱 실패"))
+        val s = scheduler()
+
+        closed.emit(EpisodeBoundaryManager.ClosedEpisode("e1", EpisodeBoundaryManager.CloseTrigger.IDLE))
+        delay(200)
+        s.onTurnCompleted()
+        waitUntil { saved.isNotEmpty() }
+        delay(100)
+
+        io.mockk.coVerify(exactly = 0) { factExtractor.extract(any(), any(), any()) }
     }
 
     @Test

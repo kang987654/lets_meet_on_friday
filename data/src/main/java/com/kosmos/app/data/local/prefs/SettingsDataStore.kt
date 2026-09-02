@@ -23,6 +23,7 @@ class SettingsDataStore @Inject constructor(
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         private val BRIEFING_ENABLED_KEY = booleanPreferencesKey("briefing_enabled")
         private val BRIEFING_TIME_MINUTES_KEY = intPreferencesKey("briefing_time_minutes")
+        private val AUTO_EXTRACT_ENABLED_KEY = booleanPreferencesKey("auto_extract_enabled")
 
         // [WHY] 557 = 09:17 (사용자 지정 기본, 2026-08-21). 자정 기준 분 단위 int 하나가
         // 단일 출처다 — 시/분을 따로 저장하면 갱신이 반쪽만 될 수 있다.
@@ -38,6 +39,19 @@ class SettingsDataStore @Inject constructor(
     suspend fun saveBriefingEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[BRIEFING_ENABLED_KEY] = enabled
+        }
+    }
+
+    // [WHY] 자동 추출(C′2)은 기본 켜짐 — 브리핑과 같은 이유(1인 앱, 선제형 정체성). 지식은
+    // 자동 저장·프로필은 승인 카드라는 계약 자체가 이 플래그 하나에 걸린다. OFF 면 추출 oneShot
+    // 자체가 돌지 않는다(대기 중 제안은 남아 카드로 종결 가능).
+    val autoExtractEnabledFlow: Flow<Boolean> = dataStore.data.map {
+        it[AUTO_EXTRACT_ENABLED_KEY] ?: true
+    }
+
+    suspend fun saveAutoExtractEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[AUTO_EXTRACT_ENABLED_KEY] = enabled
         }
     }
 

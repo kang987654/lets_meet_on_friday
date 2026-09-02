@@ -59,4 +59,8 @@ object DatabaseModule {
     @Provides
     fun provideEpisodeDao(database: KosmosDatabase): com.kosmos.app.data.local.db.dao.EpisodeDao =
         database.episodeDao()
+
+    @Provides
+    fun provideProfileSuggestionDao(database: KosmosDatabase): com.kosmos.app.data.local.db.dao.ProfileSuggestionDao =
+        database.profileSuggestionDao()
 }

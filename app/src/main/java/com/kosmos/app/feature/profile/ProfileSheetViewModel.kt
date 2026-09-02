@@ -2,6 +2,7 @@ package com.kosmos.app.feature.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kosmos.app.assistant.context.projectedProfileTokens
 import com.kosmos.app.assistant.context.renderProfileBlock
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
@@ -57,9 +58,7 @@ class ProfileSheetViewModel @Inject constructor(
         viewModelScope.launch {
             // [WHY] 저장 전에 "편집이 반영된 전체"를 렌더해 검사한다 — 항목 단위 검사는
             // 합계 초과를 못 막는다. 초과분은 저장 자체를 차단해 예산 불변식을 지킨다.
-            val projected = entries.value.filterNot { it.key == trimmedKey } +
-                ProfileEntry(key = trimmedKey, value = trimmedValue)
-            val estimated = tokenizer.sizeInTokens(renderProfileBlock(projected))
+            val estimated = projectedProfileTokens(entries.value, trimmedKey, trimmedValue, tokenizer)
             if (estimated > Constants.PROFILE_MAX_TOKENS) {
                 _error.value = "프로필이 너무 길어요 (${estimated}/${Constants.PROFILE_MAX_TOKENS}토큰) — 항목을 줄이거나 짧게 써 주세요."
                 return@launch
