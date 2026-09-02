@@ -24,5 +24,9 @@ data class ChatUiState(
     /** 웹 검색이 허용됐으나 실패한 턴이면 true — 화면이 한 번 안내한 뒤 소비한다. */
     val searchFailedNotice: Boolean = false,
     val deviceStatus: com.kosmos.app.runtime.metrics.DeviceStatus =
-        com.kosmos.app.runtime.metrics.DeviceStatus()
+        com.kosmos.app.runtime.metrics.DeviceStatus(),
+    /** 자동 추출(C′2)의 프로필 제안 대기 목록 — 첫 항목이 입력바 위 카드로 뜬다. */
+    val pendingSuggestions: ImmutableList<com.kosmos.app.domain.model.ProfileSuggestion> = persistentListOf(),
+    /** 제안 승인/거절 결과 한 줄 안내(스낵바) — 화면이 한 번 보인 뒤 소비한다. */
+    val suggestionNotice: String? = null
 )

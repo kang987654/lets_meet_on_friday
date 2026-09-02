@@ -60,6 +60,7 @@ fun AppDrawerContent(
     val query by viewModel.query.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
     val profileEntries by viewModel.profileEntries.collectAsState()
+    val pendingSuggestionCount by viewModel.pendingSuggestionCount.collectAsState()
     var openEpisodeId by remember { mutableStateOf<String?>(null) }
     var showProfileSheet by remember { mutableStateOf(false) }
 
@@ -80,6 +81,7 @@ fun AppDrawerContent(
         // 프로필 고정 카드 (A′-2) — 상시 주입 기억, 탭하면 편집 (C′1).
         ProfileCard(
             entries = profileEntries,
+            pendingSuggestionCount = pendingSuggestionCount,
             onClick = { showProfileSheet = true }
         )
         Spacer(modifier = Modifier.height(12.dp))
@@ -194,6 +196,7 @@ fun AppDrawerContent(
 @Composable
 private fun ProfileCard(
     entries: List<com.kosmos.app.domain.model.ProfileEntry>,
+    pendingSuggestionCount: Int = 0,
     onClick: () -> Unit
 ) {
     val name = entries.firstOrNull { it.key == "이름" }?.value
@@ -214,14 +217,16 @@ private fun ProfileCard(
                 color = KosmosTheme.colors.textPrimary,
                 maxLines = 1
             )
+            val subtitle = if (entries.isEmpty()) {
+                "등록해 보세요 — 비서가 나를 알게 돼요"
+            } else {
+                entries.map { it.key }.filterNot { it == "이름" }
+                    .ifEmpty { listOf("항목 ${entries.size}개") }
+                    .joinToString(" · ")
+            }
             Text(
-                text = if (entries.isEmpty()) {
-                    "등록해 보세요 — 비서가 나를 알게 돼요"
-                } else {
-                    entries.map { it.key }.filterNot { it == "이름" }
-                        .ifEmpty { listOf("항목 ${entries.size}개") }
-                        .joinToString(" · ")
-                },
+                // 대기 제안(C′2)이 있으면 앞에 붙인다 — 종결은 채팅 화면의 카드에서.
+                text = if (pendingSuggestionCount > 0) "제안 ${pendingSuggestionCount}건 · $subtitle" else subtitle,
                 style = MaterialTheme.typography.labelSmall,
                 color = KosmosTheme.colors.textMuted,
                 maxLines = 1

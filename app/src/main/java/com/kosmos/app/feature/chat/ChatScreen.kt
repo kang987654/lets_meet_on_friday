@@ -307,6 +307,13 @@ fun ChatScreen(
         viewModel.dismissSearchFailedNotice()
     }
 
+    // 프로필 제안 승인/거절 결과 (C′2) — 상한 초과 안내가 여기로 온다.
+    LaunchedEffect(uiState.suggestionNotice) {
+        val notice = uiState.suggestionNotice ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(notice)
+        viewModel.dismissSuggestionNotice()
+    }
+
     // [WHY] 위젯 🎤·QS 타일 진입 — "도착 즉시 녹음 시작" (A3, 사용자 결정). 소비를 시작 시도
     // 앞에 둬 재구성 시 중복 발화를 막고, 이미 녹음·생성 중이면 조용히 접는다(마이크 버튼의
     // enabled 조건과 동일). 권한 게이트는 마이크 버튼과 같은 런처를 재사용한다.
@@ -484,6 +491,25 @@ fun ChatScreen(
                         draft = pendingDraft,
                         onApprove = { viewModel.approvePendingRequest() },
                         onReject = { viewModel.rejectPendingRequest() }
+                    )
+                }
+            }
+
+            // [WHY] 프로필 제안 카드(C′2)는 같은 자리(입력바 위 플로팅)에 뜬다 — 툴 승인이 대기 중이면
+            // 양보한다(이중 노출 금지). 제안은 테이블에 영속이라 승인이 끝나면 다시 올라온다.
+            val firstSuggestion = uiState.pendingSuggestions.firstOrNull()
+            if (uiState.pendingApproval == null && firstSuggestion != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    ProfileSuggestionCard(
+                        suggestion = firstSuggestion,
+                        remaining = uiState.pendingSuggestions.size - 1,
+                        onAccept = { viewModel.acceptSuggestion(firstSuggestion) },
+                        onReject = { viewModel.rejectSuggestion(firstSuggestion) }
                     )
                 }
             }

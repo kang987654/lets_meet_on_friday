@@ -93,4 +93,11 @@ class SettingsViewModelTest {
         coVerify(exactly = 1) { settingsDataStore.saveBriefingTimeMinutes(8 * 60) }
         io.mockk.verify(exactly = 0) { briefingScheduler.reschedule(any()) }
     }
+
+    @Test
+    fun `자동 기억 토글은 저장된다`() = runTest {
+        viewModel().onAutoExtractEnabledChanged(false)
+
+        coVerify(exactly = 1) { settingsDataStore.saveAutoExtractEnabled(false) }
+    }
 }

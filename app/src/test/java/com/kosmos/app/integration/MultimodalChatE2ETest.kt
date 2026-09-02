@@ -167,7 +167,12 @@ class MultimodalChatE2ETest {
             modelRunner = fakeModelRunner,
             audioRecorder = audioRecorder,
             briefingGenerator = briefingGenerator,
-            voiceLaunchHandler = com.kosmos.app.platform.launch.VoiceLaunchHandler()
+            voiceLaunchHandler = com.kosmos.app.platform.launch.VoiceLaunchHandler(),
+            // C′2 생성부 — 제안 흐름은 이 E2E 의 관심사가 아니다(빈 대기 목록).
+            suggestionRepository = io.mockk.mockk {
+                io.mockk.every { observePending() } returns kotlinx.coroutines.flow.flowOf(emptyList())
+            },
+            suggestionResolver = io.mockk.mockk(relaxed = true)
         )
     }
 

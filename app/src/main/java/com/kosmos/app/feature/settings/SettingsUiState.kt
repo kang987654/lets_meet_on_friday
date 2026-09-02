@@ -8,5 +8,7 @@ data class SettingsUiState(
     val modelLoadState: ModelLoadState = ModelLoadState.Loading,
     val briefingEnabled: Boolean = true,
     val briefingTimeMinutes: Int =
-        com.kosmos.app.data.local.prefs.SettingsDataStore.DEFAULT_BRIEFING_TIME_MINUTES
+        com.kosmos.app.data.local.prefs.SettingsDataStore.DEFAULT_BRIEFING_TIME_MINUTES,
+    /** 대화 리셋 시점 자동 추출(C′2) — 기본 켜짐. */
+    val autoExtractEnabled: Boolean = true
 )

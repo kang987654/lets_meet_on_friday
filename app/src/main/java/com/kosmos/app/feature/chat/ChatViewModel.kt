@@ -60,7 +60,9 @@ class ChatViewModel @Inject constructor(
     private val modelRunner: ModelRunner,
     private val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder,
     private val briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator,
-    private val voiceLaunchHandler: com.kosmos.app.platform.launch.VoiceLaunchHandler
+    private val voiceLaunchHandler: com.kosmos.app.platform.launch.VoiceLaunchHandler,
+    private val suggestionRepository: com.kosmos.app.domain.memory.ProfileSuggestionRepository,
+    private val suggestionResolver: com.kosmos.app.feature.profile.ProfileSuggestionResolver
 ) : ViewModel() {
 
     // [WHY] 녹음 자동 종료 타이머. 사용자가 먼저 멈추면 취소해야 한다 — 남겨 두면 다음 녹음
@@ -168,6 +170,7 @@ class ChatViewModel @Inject constructor(
         observeDeviceStatus()
         observeBriefing()
         observeVoiceLaunch()
+        observeSuggestions()
     }
 
     /**
@@ -184,6 +187,45 @@ class ChatViewModel @Inject constructor(
                 voiceLaunchHandler.clearConsumed()
             }
         }
+    }
+
+    /**
+     * 프로필 제안(C′2) 대기 목록 구독 — 테이블이 진실이라 화면 생존과 무관하게 남고, 승인/거절로
+     * 상태가 바뀌면 Flow 가 카드를 내린다. 기존 ApprovalCoordinator(60초 자동 거절)를 쓰지 않는
+     * 이유는 ProfileSuggestion KDoc 참조.
+     */
+    private fun observeSuggestions() {
+        viewModelScope.launch {
+            suggestionRepository.observePending().collectLatest { pending ->
+                _uiState.update { it.copy(pendingSuggestions = pending.toImmutableList()) }
+            }
+        }
+    }
+
+    fun acceptSuggestion(suggestion: com.kosmos.app.domain.model.ProfileSuggestion) {
+        viewModelScope.launch {
+            val notice = when (val result = suggestionResolver.accept(suggestion)) {
+                is AppResult.Success -> "프로필에 저장했어요 — ${suggestion.key}: ${suggestion.value}"
+                // [WHY] 상한 초과는 ValidationError.reason 에 "N/100토큰" 안내가 담겨 있다 —
+                // 일반 매핑("입력을 확인해주세요")보다 그 문장이 조치 가능하다.
+                is AppResult.Failure -> (result.error as? com.kosmos.app.core.common.AppError.ValidationError)?.reason
+                    ?: com.kosmos.app.core.mapper.ErrorMessages.userMessage(result.error)
+            }
+            _uiState.update { it.copy(suggestionNotice = notice) }
+        }
+    }
+
+    fun rejectSuggestion(suggestion: com.kosmos.app.domain.model.ProfileSuggestion) {
+        viewModelScope.launch {
+            val result = suggestionResolver.reject(suggestion)
+            if (result is AppResult.Failure) {
+                _uiState.update { it.copy(suggestionNotice = com.kosmos.app.core.mapper.ErrorMessages.userMessage(result.error)) }
+            }
+        }
+    }
+
+    fun dismissSuggestionNotice() {
+        _uiState.update { it.copy(suggestionNotice = null) }
     }
 
     fun consumePendingVoiceStart() {

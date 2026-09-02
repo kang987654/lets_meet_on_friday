@@ -105,7 +105,12 @@ fun ProfileSheet(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = entry.key,
+                            // 출처 표시(관리 장치) — 자동 추출(C′2)로 들어온 항목은 "자동".
+                            text = if (entry.source == com.kosmos.app.domain.model.ProfileEntry.SOURCE_AUTO) {
+                                "${entry.key} · 자동"
+                            } else {
+                                entry.key
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = KosmosTheme.colors.textMuted
                         )

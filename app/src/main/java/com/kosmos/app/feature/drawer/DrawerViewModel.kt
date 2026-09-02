@@ -37,8 +37,14 @@ import javax.inject.Inject
 @HiltViewModel
 class DrawerViewModel @Inject constructor(
     private val episodeRepository: EpisodeRepository,
-    profileRepository: com.kosmos.app.domain.memory.ProfileRepository
+    profileRepository: com.kosmos.app.domain.memory.ProfileRepository,
+    suggestionRepository: com.kosmos.app.domain.memory.ProfileSuggestionRepository
 ) : ViewModel() {
+
+    /** 대기 중 프로필 제안 수(C′2) — 프로필 카드 부제에 "제안 N건"으로 표시. 종결은 채팅 카드에서. */
+    val pendingSuggestionCount: StateFlow<Int> =
+        suggestionRepository.observePending().map { it.size }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     /** 프로필 고정 카드(A′-2) — 상시 주입 기억의 열람 창. 빈 목록이면 등록 안내 상태. */
     val profileEntries: StateFlow<List<com.kosmos.app.domain.model.ProfileEntry>> =

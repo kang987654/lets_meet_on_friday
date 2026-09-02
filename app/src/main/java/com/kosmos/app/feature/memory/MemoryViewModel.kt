@@ -124,6 +124,20 @@ class MemoryViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 지식 항목 삭제 — 자동 추출(C′2) 항목의 통제 장치. 수동 항목도 지울 수 있다(P4 통제권).
+     * [WHY] `KnowledgeRepository.delete` 의 첫 호출처다 — 이전에는 지식 카드가 읽기 전용이었다.
+     */
+    fun deleteKnowledge(noteId: String, onDeleted: () -> Unit = {}) {
+        viewModelScope.launch {
+            when (val result = knowledgeRepository.delete(noteId)) {
+                is AppResult.Success -> onDeleted()
+                is AppResult.Failure ->
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+            }
+        }
+    }
+
     fun dismissActionError() {
         _uiState.update { it.copy(actionError = null) }
     }

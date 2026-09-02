@@ -336,6 +336,31 @@ fun SettingsScreen(
             }
         }
 
+        // 5-b. 자동 기억 (C′2) — 대화가 정리될 때 기억할 사실을 골라 저장
+        SectionBox(title = "기억") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("대화에서 자동으로 기억하기", color = KosmosTheme.colors.textPrimary)
+                Switch(
+                    checked = uiState.autoExtractEnabled,
+                    onCheckedChange = { viewModel.onAutoExtractEnabledChanged(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = KosmosTheme.colors.onAccent,
+                        checkedTrackColor = KosmosTheme.colors.accent
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "대화가 정리될 때 기억할 사실을 골라 저장해요. 이름·호칭 같은 항목은 먼저 물어보고 저장하고, 기억 화면에서 언제든 지울 수 있어요.",
+                style = MaterialTheme.typography.bodySmall,
+                color = KosmosTheme.colors.textMuted
+            )
+        }
+
         // 6. 리마인더 정확 알람 안내 (B1) — 권한이 없을 때만 노출
         val context = LocalContext.current
         var exactAlarmAllowed by remember { mutableStateOf(true) }

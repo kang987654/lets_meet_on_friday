@@ -30,6 +30,7 @@ fun MemoryScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val knowledgeItems = viewModel.knowledgePagingData.collectAsLazyPagingItems()
     val taskItems = viewModel.taskPagingData.collectAsLazyPagingItems()
+    var knowledgeToDelete by remember { mutableStateOf<com.kosmos.app.domain.model.KnowledgeNote?>(null) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -64,6 +65,29 @@ fun MemoryScreen(
             android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
             viewModel.dismissActionError()
         }
+    }
+
+    // 지식 삭제 확인 (C′2 관리 장치) — 자동 저장 항목을 한 탭으로 되돌릴 수 있어야 G3 예외가 성립한다.
+    knowledgeToDelete?.let { note ->
+        AlertDialog(
+            onDismissRequest = { knowledgeToDelete = null },
+            title = { Text("이 기억을 지울까요?") },
+            text = { Text(note.content, maxLines = 4) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteKnowledge(note.id) { knowledgeItems.refresh() }
+                    knowledgeToDelete = null
+                }) { Text("지우기", color = KosmosTheme.colors.danger) }
+            },
+            dismissButton = {
+                TextButton(onClick = { knowledgeToDelete = null }) {
+                    Text("취소", color = KosmosTheme.colors.textMuted)
+                }
+            },
+            containerColor = KosmosTheme.colors.surface,
+            titleContentColor = KosmosTheme.colors.textPrimary,
+            textContentColor = KosmosTheme.colors.textSecondary
+        )
     }
 
     // [WHY] 불투명 배경을 깔지 않는다 — 채팅·설정은 셸의 오로라 배경 위에 글래스 카드가 뜨는데
@@ -252,7 +276,36 @@ fun MemoryScreen(
                                 )
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text(text = note.content, style = MaterialTheme.typography.bodyLarge, color = KosmosTheme.colors.textPrimary)
+                                Row(verticalAlignment = Alignment.Top) {
+                                    Text(
+                                        text = note.content,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = KosmosTheme.colors.textPrimary,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    if (note.source == com.kosmos.app.domain.model.KnowledgeNote.SOURCE_AUTO) {
+                                        // 출처 배지 — 자동 추출(C′2) 항목. 수동·툴 콜 저장은 배지 없음.
+                                        Text(
+                                            text = "자동",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = KosmosTheme.colors.textMuted,
+                                            modifier = Modifier
+                                                .padding(start = 8.dp)
+                                                .background(
+                                                    color = KosmosTheme.colors.glass,
+                                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
+                                                )
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "✕",
+                                        color = KosmosTheme.colors.danger,
+                                        modifier = Modifier
+                                            .clickable { knowledgeToDelete = note }
+                                            .padding(start = 10.dp, end = 2.dp)
+                                    )
+                                }
                                 if (note.tags.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(8.dp))
                                     @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)

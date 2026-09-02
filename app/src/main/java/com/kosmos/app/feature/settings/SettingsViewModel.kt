@@ -21,21 +21,30 @@ class SettingsViewModel @Inject constructor(
     private val briefingScheduler: com.kosmos.app.work.BriefingNotificationScheduler
 ) : ViewModel() {
 
-    // [WHY] combine 은 vararg 없는 오버로드가 5개까지다 — 여기서 딱 상한에 닿았다.
-    // 다음 설정부터는 설정 플로우들을 data class 로 묶는 리팩터가 필요하다.
+    // [WHY] combine 은 vararg 없는 오버로드가 5개까지다 — 0.20.0 에서 상한에 닿았고, 여섯째
+    // 설정(자동 추출, C′2)부터는 **모델·응답 묶음 / 비서 동작 묶음** 두 그룹의 중첩 combine 으로
+    // 간다. 그룹 경계가 설정 화면의 섹션 경계와 같아 다음 설정도 자기 그룹에 붙이면 된다.
     val uiState: StateFlow<SettingsUiState> = combine(
-        settingsDataStore.responseStyleFlow,
-        settingsDataStore.maxTokensFlow,
-        runtimeManager.loadState,
-        settingsDataStore.briefingEnabledFlow,
-        settingsDataStore.briefingTimeMinutesFlow
-    ) { responseStyle, maxTokens, loadState, briefingEnabled, briefingTimeMinutes ->
+        combine(
+            settingsDataStore.responseStyleFlow,
+            settingsDataStore.maxTokensFlow,
+            runtimeManager.loadState
+        ) { responseStyle, maxTokens, loadState -> Triple(responseStyle, maxTokens, loadState) },
+        combine(
+            settingsDataStore.briefingEnabledFlow,
+            settingsDataStore.briefingTimeMinutesFlow,
+            settingsDataStore.autoExtractEnabledFlow
+        ) { briefingEnabled, briefingTimeMinutes, autoExtractEnabled ->
+            Triple(briefingEnabled, briefingTimeMinutes, autoExtractEnabled)
+        }
+    ) { (responseStyle, maxTokens, loadState), (briefingEnabled, briefingTimeMinutes, autoExtractEnabled) ->
         SettingsUiState(
             responseStyle = responseStyle,
             maxTokens = maxTokens,
             modelLoadState = loadState,
             briefingEnabled = briefingEnabled,
-            briefingTimeMinutes = briefingTimeMinutes
+            briefingTimeMinutes = briefingTimeMinutes,
+            autoExtractEnabled = autoExtractEnabled
         )
     }.stateIn(
         scope = viewModelScope,
@@ -65,6 +74,13 @@ class SettingsViewModel @Inject constructor(
             } else {
                 briefingScheduler.cancel()
             }
+        }
+    }
+
+    /** 자동 추출(C′2) 토글 — OFF 면 추출 oneShot 자체가 돌지 않는다(EpisodeFactExtractor 게이트). */
+    fun onAutoExtractEnabledChanged(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsDataStore.saveAutoExtractEnabled(enabled)
         }
     }
 
