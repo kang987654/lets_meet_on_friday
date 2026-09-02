@@ -26,7 +26,7 @@ abstract class MemoryModule {
     @Binds
     @Singleton
     abstract fun bindTextEmbedder(
-        impl: com.kosmos.app.data.embedder.MediaPipeTextEmbedder
+        impl: com.kosmos.app.data.embedder.DisabledTextEmbedder
     ): com.kosmos.app.domain.memory.TextEmbedder
 
     @Binds

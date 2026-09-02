@@ -25,7 +25,7 @@ object CoroutineModule {
     @Singleton
     @LLMDispatcher
     fun provideLLMDispatcher(): CoroutineDispatcher {
-        // MediaPipe LlmInference 등 JNI/블로킹 연산을 위한 전용 제한 코루틴 풀
+        // LiteRT-LM 엔진 등 JNI/블로킹 연산을 위한 전용 제한 코루틴 풀 (limitedParallelism(1) = 직렬)
         return Dispatchers.IO.limitedParallelism(1)
     }
 }

@@ -24,8 +24,8 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-        // [WHY] litertlm(20.5MB)·mediapipe(10MB) 네이티브가 4개 ABI 로 들어와 lib/ 이 APK 의
-        // 90MB 를 차지했는데, 실행하는 쪽은 그중 하나만 읽는다. 쓰는 둘만 남긴다:
+        // [WHY] litertlm(20.5MB) 네이티브가 4개 ABI 로 들어와 lib/ 이 APK 의 90MB 를 차지했는데
+        // (당시 mediapipe 10MB 포함 — 0.26.0 C2 에서 제거), 실행하는 쪽은 그중 하나만 읽는다. 쓰는 둘만 남긴다:
         //   arm64-v8a — 실기기(S25 Ultra, PRD 대상 기기)
         //   x86_64    — 에뮬레이터. **격리된 검증 환경으로 의도적으로 유지한다** — 실기기 DB 에는
         //               실제 대화와 비밀번호가 있어(scratch/lab/device_fixture.py) 자동화 검증을

@@ -63,9 +63,6 @@ dependencies {
 
     // Network
     implementation(libs.okhttp)
-    
-    // MediaPipe
-    implementation(libs.mediapipe.tasks.text)
 
     // Serialization
     implementation(libs.kotlinx.serialization.json)

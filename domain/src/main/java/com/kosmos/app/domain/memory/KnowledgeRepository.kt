@@ -23,10 +23,11 @@ interface KnowledgeRepository {
      * (평균 0.964)으로 한 점에 뭉치고(같은 내용의 영어 문장은 0.63~0.82), 관련쌍과 무관쌍의
      * 분리도가 **0.000**, 실제 검색 정확도는 top-1 1/7 로 무작위(1/8)와 같았다.
      *
-     * 지우지 않고 남겨 둔 이유는 **막힌 곳이 외부 자산 하나**이기 때문이다. 한국어를 다루는
-     * 임베더로 교체하면 이 경로와 [KnowledgeNote.embedding] 저장은 그대로 되살아난다.
-     * 그때까지 기억 조회는 `SearchMemory` 툴(어휘 검색)이 맡는다. **다시 배선하기 전에
-     * 반드시 임베더의 한국어 분별력을 먼저 재라.**
+     * 0.26.0(C2, ADR-026)에서 그 임베더의 **구현·의존·자산은 제거**됐고(`DisabledTextEmbedder` 가
+     * 항상 실패), 이 계약과 [KnowledgeNote.embedding] 저장 자리만 남았다 — 테스트가 고정하고 있고,
+     * 한국어를 다루는 임베더(C3)를 바인딩하면 그대로 되살아나는 자리다. 그때까지 기억 조회는
+     * `SearchMemory` 툴(바이그램 어휘 검색, 0.25.0)이 맡는다. **다시 배선하기 전에 반드시 임베더의
+     * 한국어 분별력을 먼저 재라**(보관된 exp11 의 방법).
      */
     suspend fun searchByVector(queryEmbedding: FloatArray, limit: Int = 3): AppResult<List<KnowledgeNote>>
     /** [WHY] `AuditRepository.getEvents` 와 같은 이유로 offset/limit 계약이다. */
