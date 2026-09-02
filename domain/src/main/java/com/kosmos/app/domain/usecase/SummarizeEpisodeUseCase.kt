@@ -41,7 +41,7 @@ class SummarizeEpisodeUseCase @Inject constructor(
             return AppResult.Failure(AppError.ValidationError("messages", "빈 에피소드는 요약할 수 없습니다"))
         }
 
-        val transcript = buildTranscript(messages)
+        val transcript = buildEpisodeTranscript(messages, tokenizer, MAX_INPUT_TOKENS)
         val prompt = ChatPrompt(
             sessionId = SESSION_ID,
             systemInstruction = SYSTEM_INSTRUCTION,
@@ -65,23 +65,7 @@ class SummarizeEpisodeUseCase @Inject constructor(
         }
     }
 
-    /**
-     * 원문을 "사용자:/비서:" 라벨로 이어 붙이고 토큰 상한에서 자릅니다.
-     *
-     * [WHY] 에피소드는 예산 리셋 경계 덕에 보통 프리필 예산(≈1,700토큰) 이내지만, catch-up 이
-     * 소급 배정한 고아 구간은 더 길 수 있다. 상한을 넘으면 **앞쪽을 보존**한다 — 에피소드의
-     * 주제는 첫 발화들이 정하고, 꼬리는 대개 그 변주다.
-     */
-    private fun buildTranscript(messages: List<ChatMessage>): String {
-        val lines = StringBuilder()
-        for (m in messages) {
-            val label = if (m.role == ChatMessage.Role.USER) "사용자" else "비서"
-            val line = "$label: ${m.content}\n"
-            if (tokenizer.sizeInTokens(lines.toString() + line) > MAX_INPUT_TOKENS) break
-            lines.append(line)
-        }
-        return lines.toString().trimEnd()
-    }
+    // 전사 조립은 buildEpisodeTranscript(EpisodeTranscript.kt) — 자동 추출(C′2)과 공유한다.
 
     /**
      * "제목:/태그:/요약:" 블록을 파싱합니다. `---` 로 구분된 다중 문서를 지원합니다.

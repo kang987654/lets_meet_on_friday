@@ -131,6 +131,39 @@ class PromptFixtureExportTest {
         }
     }
 
+    @Test
+    fun `자동 추출 지시문도 실험실 픽스처로 내보낸다`() = kotlinx.coroutines.runBlocking {
+        // [WHY] exp36 이 이 픽스처를 읽어 실험 프롬프트와 같은지 먼저 검사한다(`fixture` 모드) —
+        // 실측 문구와 앱 상수가 갈리면 실험이 앱과 다른 것을 측정한다 (AGENTS §2-⑤).
+        val runner: com.kosmos.app.domain.modelrunner.ModelRunner = mockk()
+        val tokenizer: com.kosmos.app.domain.tool.Tokenizer = mockk<com.kosmos.app.domain.tool.Tokenizer>().also {
+            io.mockk.every { it.sizeInTokens(any()) } answers { firstArg<String>().length / 2 }
+        }
+        val captured = slot<com.kosmos.app.domain.modelrunner.ChatPrompt>()
+        coEvery { runner.generate(capture(captured), any()) } returns com.kosmos.app.core.common.AppResult.Success(
+            com.kosmos.app.domain.modelrunner.ModelTurn("프로필: 없음\n지식: 없음")
+        )
+        val message = com.kosmos.app.domain.model.ChatMessage(
+            id = "m1", sessionId = "s1", role = com.kosmos.app.domain.model.ChatMessage.Role.USER,
+            content = USER_INPUT, inputType = com.kosmos.app.domain.model.InputType.TEXT, createdAt = 1
+        )
+
+        com.kosmos.app.domain.usecase.ExtractFactsUseCase(runner, tokenizer)(listOf(message))
+
+        val prompt = captured.captured
+        assertTrue("두 라벨 형식을 지시해야 한다", prompt.systemInstruction.contains("프로필:") && prompt.systemInstruction.contains("지식:"))
+        assertTrue("일회성 일정 제외가 명시돼야 한다 (exp36 v1 오추출 교정)", prompt.systemInstruction.contains("예약·약속"))
+        assertTrue("툴을 선언하면 안 된다", prompt.enabledTools.isEmpty())
+        assertTrue("oneShot 이어야 채팅 대화를 깨지 않는다", prompt.oneShot)
+        assertTrue(prompt.currentInput.endsWith("사용자: $USER_INPUT"))
+
+        val dir = File(FIXTURE_DIR)
+        if (dir.isDirectory) {
+            File(dir, "extract_system.txt").writeText(prompt.systemInstruction)
+            File(dir, "extract_user.txt").writeText(prompt.currentInput.removeSuffix("사용자: $USER_INPUT"))
+        }
+    }
+
     private companion object {
         // [WHY] 앱이 채팅에서 선언하는 6종 그대로다. 실험실이 4종만 선언하던 동안은 선언 크기와
         // 트리거 목록이 달라 툴 선택 성향 실험이 앱과 어긋났다.
