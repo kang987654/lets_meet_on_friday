@@ -60,7 +60,10 @@ fun SplashScreen(
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                if (loadState is ModelLoadState.NotFound) {
+                // [WHY] 로드 실패(파일 손상 추정)도 해법이 "다시 내려받기"라 같은 버튼을 준다.
+                val canRedownload = loadState is ModelLoadState.NotFound ||
+                    (loadState as? ModelLoadState.Error)?.error is com.kosmos.app.core.common.AppError.ModelLoadFailed
+                if (canRedownload) {
                     Button(onClick = onNavigateToModelManagement) {
                         Text(text = "모델 내려받기")
                     }

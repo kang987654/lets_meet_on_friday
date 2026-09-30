@@ -42,6 +42,7 @@ object ErrorCodeMapper {
 
         is AppError.ModelNotFound -> ErrorCode.MODEL_NOT_FOUND
         is AppError.ModelNotReady -> ErrorCode.MODEL_NOT_READY
+        is AppError.ModelLoadFailed -> ErrorCode.MODEL_LOAD_FAILED
         is AppError.ModelInferenceTimeout -> ErrorCode.MODEL_INFERENCE_TIMEOUT
         is AppError.ModelInferenceError -> ErrorCode.MODEL_INFERENCE_ERROR
 

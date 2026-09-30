@@ -36,6 +36,7 @@ object ErrorMessages {
 
         ErrorCode.MODEL_NOT_FOUND -> "AI 모델 파일을 찾을 수 없어요. 설정 > 모델 관리에서 내려받아 주세요."
         ErrorCode.MODEL_NOT_READY -> "AI 모델을 준비하고 있어요. 잠시 후 다시 시도해주세요."
+        ErrorCode.MODEL_LOAD_FAILED -> "AI 모델을 불러오지 못했어요. 파일이 손상됐을 수 있어요 — 설정 > 모델 관리에서 다시 내려받아 주세요."
         ErrorCode.MODEL_INFERENCE_TIMEOUT -> "응답 생성이 너무 오래 걸려 중단했어요. 다시 시도해주세요."
         ErrorCode.MODEL_INFERENCE_ERROR -> "응답을 만들지 못했어요. 다시 시도해주세요."
 

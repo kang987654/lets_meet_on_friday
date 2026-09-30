@@ -14,6 +14,13 @@ package com.kosmos.app.core.common
 sealed class AppError {
     data class ModelNotFound(val path: String) : AppError()
     data class ModelNotReady(val reason: String) : AppError()
+
+    /**
+     * 엔진 초기화가 모든 백엔드에서 실패했다 — 파일 손상·형식 불일치가 대표 원인.
+     * [WHY] ModelNotReady("준비하고 있어요")로 알리면 진행 중처럼 읽혀 사용자가 기다리기만 한다
+     * (2026-09-30 에뮬레이터: 손상 파일로 재현). 행동(다시 내려받기)을 안내해야 하는 별개 상태다.
+     */
+    data class ModelLoadFailed(val reason: String) : AppError()
     data class ModelInferenceTimeout(val durationMs: Long) : AppError()
     data class ModelInferenceError(val reason: String) : AppError()
 

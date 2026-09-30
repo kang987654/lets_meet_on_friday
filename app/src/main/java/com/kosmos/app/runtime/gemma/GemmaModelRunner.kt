@@ -500,7 +500,7 @@ class GemmaModelRunner @Inject constructor(
                 .onSuccess { runtimeManager.setReady(currentState.modelInfo) }
                 .onFailure { e ->
                     Log.e("GemmaModelRunner", "Engine initialization failed on every backend", e)
-                    runtimeManager.setError(AppError.ModelNotReady("엔진 초기화 실패: ${e.message}"))
+                    runtimeManager.setError(AppError.ModelLoadFailed("엔진 초기화 실패: ${e.message}"))
                 }
         }
     }

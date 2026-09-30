@@ -30,20 +30,19 @@ class CountedPagingSource<T : Any>(
     }
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, T> {
-        // [WHY] key = offset(행 인덱스) — DefaultPagingSource 와 같은 이유로 페이지 번호를
-        // 쓰지 않는다(initialLoadSize 와의 중복 로드).
-        val offset = (params.key ?: 0).coerceAtLeast(0)
-        val limit = params.loadSize
+        // [WHY] key = offset(행 인덱스) — DefaultPagingSource 와 같은 이유로 페이지 번호를 쓰지 않는다.
+        // 앞쪽 로드 구간은 offsetRange 가 계산한다(끝 오프셋 키 — 겹침 중복 방지).
+        val range = offsetRange(params)
 
         return try {
             val total = count()
-            val data = fetch(offset, limit)
+            val data = if (range.count > 0) fetch(range.start, range.count) else emptyList()
             LoadResult.Page(
                 data = data,
-                prevKey = if (offset == 0) null else (offset - limit).coerceAtLeast(0),
-                nextKey = if (data.isEmpty() || offset + data.size >= total) null else offset + data.size,
-                itemsBefore = offset,
-                itemsAfter = (total - offset - data.size).coerceAtLeast(0)
+                prevKey = range.prevKey,
+                nextKey = if (data.isEmpty() || range.start + data.size >= total) null else range.start + data.size,
+                itemsBefore = range.start,
+                itemsAfter = (total - range.start - data.size).coerceAtLeast(0)
             )
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e

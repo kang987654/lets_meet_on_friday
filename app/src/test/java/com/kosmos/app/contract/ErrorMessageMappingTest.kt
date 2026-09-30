@@ -92,6 +92,7 @@ class ErrorMessageMappingTest {
                 ErrorCode.PERMISSION_DENIED_STORAGE -> AppError.PermissionDenied("other")
                 ErrorCode.MODEL_NOT_FOUND -> AppError.ModelNotFound("p")
                 ErrorCode.MODEL_NOT_READY -> AppError.ModelNotReady("r")
+                ErrorCode.MODEL_LOAD_FAILED -> AppError.ModelLoadFailed("r")
                 ErrorCode.MODEL_INFERENCE_TIMEOUT -> AppError.ModelInferenceTimeout(1L)
                 ErrorCode.MODEL_INFERENCE_ERROR -> AppError.ModelInferenceError("r")
                 ErrorCode.CALENDAR_PROVIDER_ERROR -> AppError.CalendarReadError("r")

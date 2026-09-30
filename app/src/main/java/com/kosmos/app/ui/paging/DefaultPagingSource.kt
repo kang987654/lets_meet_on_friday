@@ -15,23 +15,23 @@ class DefaultPagingSource<T : Any>(
     private val fetch: suspend (offset: Int, limit: Int) -> List<T>
 ) : PagingSource<Int, T>() {
 
-    override fun getRefreshKey(state: PagingState<Int, T>): Int? {
-        return state.anchorPosition
-    }
+    // [WHY] 새로고침은 화면에 보이던 자리(앵커)에서 다시 읽는다. 절대 위치여야 하므로 Page 가
+    // itemsBefore 를 싣는다 — 싣지 않으면 앵커가 "로드된 목록 안의 인덱스"라 오프셋으로 쓸 수 없다.
+    override fun getRefreshKey(state: PagingState<Int, T>): Int? =
+        state.anchorPosition?.let { anchor -> (anchor - state.config.initialLoadSize / 2).coerceAtLeast(0) }
 
-    // [WHY] key를 페이지 번호로 두고 offset = page * loadSize로 계산하면 Paging3의
-    // initialLoadSize(기본 pageSize×3)와 충돌해 행이 중복 로드된다(LazyColumn duplicate key 크래시).
-    // key 자체를 offset(행 인덱스)으로 사용해 loadSize와 무관하게 정확한 구간을 읽는다.
+    // [WHY] 구간 계산(특히 앞쪽 로드)은 offsetRange 가 단일 출처다 — CountedPagingSource 와 공유.
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, T> {
-        val offset = params.key ?: 0
-        val limit = params.loadSize
-
+        val range = offsetRange(params)
         return try {
-            val data = fetch(offset, limit)
+            val data = if (range.count > 0) fetch(range.start, range.count) else emptyList()
             LoadResult.Page(
                 data = data,
-                prevKey = if (offset == 0) null else (offset - limit).coerceAtLeast(0),
-                nextKey = if (data.size < limit) null else offset + data.size
+                prevKey = range.prevKey,
+                // 앞쪽 로드로 붙은 페이지의 다음은 이미 있는 페이지다 — 뒤쪽 끝은 가득 찼을 때만 이어 읽는다.
+                nextKey = if (params is LoadParams.Prepend || data.size == range.count) range.start + data.size else null,
+                itemsBefore = range.start,
+                itemsAfter = LoadResult.Page.COUNT_UNDEFINED
             )
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
