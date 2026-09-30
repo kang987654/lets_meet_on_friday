@@ -1,8 +1,5 @@
 package com.kosmos.app.data
 
-import android.content.Context
-import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.data.local.db.KosmosDatabase
 import com.kosmos.app.data.local.repository.ConversationRepositoryImpl
@@ -12,7 +9,6 @@ import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.domain.model.EpisodeStatus
 import com.kosmos.app.domain.model.InputType
 import kotlinx.coroutines.runBlocking
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -31,24 +27,21 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class EpisodeRepositoryTest {
 
+    // [WHY] DB 수명(열기·닫기)은 공용 Rule 이 맡는다 — 설정만 옮겼고 단언은 그대로다.
+    @get:org.junit.Rule
+    val dbRule = com.kosmos.app.testing.InMemoryKosmosDbRule()
+
     private lateinit var db: KosmosDatabase
     private lateinit var episodes: EpisodeRepositoryImpl
     private lateinit var conversations: ConversationRepositoryImpl
 
     @Before
     fun setUp() {
-        val context: Context = ApplicationProvider.getApplicationContext()
-        db = Room.inMemoryDatabaseBuilder(context, KosmosDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+        db = dbRule.db
         episodes = EpisodeRepositoryImpl(db.episodeDao())
         conversations = ConversationRepositoryImpl(db.conversationDao())
     }
 
-    @After
-    fun tearDown() {
-        db.close()
-    }
 
     private fun episode(
         id: String,

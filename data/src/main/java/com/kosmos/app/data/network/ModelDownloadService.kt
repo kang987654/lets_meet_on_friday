@@ -86,7 +86,7 @@ class ModelDownloadService @Inject constructor(
 
     override suspend fun probe(url: String): DownloadProbe = withContext(Dispatchers.IO) {
         // [WHY] HEAD를 거부하는 CDN이 있어, 실패하면 Range 0-0 GET으로 헤더만 확인한다.
-        val head = runCatching { execute(Request.Builder().url(url).head().build()) }.getOrNull()
+        val head = com.kosmos.app.core.common.runCatchingCancellable { execute(Request.Builder().url(url).head().build()) }.getOrNull()
         // [WHY] 실패한 HEAD 응답도 반드시 close 한다 — 예전에는 takeIf 가 걸러낸 응답이 그대로
         // 버려져 연결이 반납되지 않았고, 다운로드가 최대 5회 재시도라 실패가 반복되면 안 닫힌
         // 연결이 누적돼 커넥션 풀이 고갈됐다.

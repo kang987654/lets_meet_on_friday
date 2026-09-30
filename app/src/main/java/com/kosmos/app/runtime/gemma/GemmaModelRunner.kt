@@ -5,18 +5,15 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
-import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.Message
-import com.google.ai.edge.litertlm.SamplerConfig
 import android.util.Log
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.common.runCatchingCancellable
-import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ConversationResetEvent
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
@@ -98,10 +95,10 @@ internal fun buildEngineConfig(
  * - **Dependencies**: [GemmaRuntimeManager], [RuntimeMetricsCollector], LiteRT Engine
  *
  * ### Key Flow
- * 1. [ChatPrompt] 객체를 입력받아 모델 초기화(엔진 및 GPU 백엔드) 확인
- * 2. LiteRT-LM [Conversation] 객체 생성 또는 기존 세션 유지
- * 3. 입력 텍스트(또는 텍스트+이미지)를 모델에 전달하여 스트리밍(또는 단일) 추론 수행
- * 4. 추론 중 기기 온도/리소스 메트릭 수집 및 스레드 병목 방지(Yield) 적용
+ * 1. [warmUp] 만 엔진을 초기화한다(GPU → 실패 시 CPU). 실패는 [ModelLoadState.Error] 로 내린다.
+ * 2. 턴마다 뮤텍스 안에서 준비 상태를 재확인하고, [decideConversation] 판정으로 대화를 재사용/재생성
+ * 3. 입력(텍스트·이미지·오디오)을 보내 스트리밍 또는 단일 추론, 무활동 감시로 행을 끊는다
+ * 4. 추론 전후 발열 게이트·메트릭 기록 — 진단 로그는 [RuntimeDiagnostics], 설정 조립은 ConversationPolicy.kt
  */
 @Singleton
 class GemmaModelRunner @Inject constructor(
@@ -132,10 +129,6 @@ class GemmaModelRunner @Inject constructor(
          */
         private val THINKING_OFF = com.google.ai.edge.litertlm.ThinkingConfig(enableThinking = false)
 
-        // [WHY] logcat 한 줄의 실용 한계보다 넉넉히 아래로 잡는다. 프리페이스 전체(툴 선언 포함)를
-        // 남기려면 자르지 않고 **나눠서** 찍어야 한다.
-        private const val PREFACE_CHUNK = 1500
-
         // [WHY] 방출 지점(getOrCreateConversation)이 suspend 가 아니라 tryEmit 이 수신자 유무와
         // 무관하게 성공할 여유가 필요하다. 넘쳐 유실되면 catch-up 이 DB 상태로 복원한다.
         private const val RESET_EVENT_BUFFER = 16
@@ -143,12 +136,6 @@ class GemmaModelRunner @Inject constructor(
         // [WHY] 무활동 감시의 점검 주기. 타임아웃(INFERENCE_INACTIVITY_TIMEOUT_MS)보다 충분히
         // 짧기만 하면 되고, 짧을수록 Default 디스패처를 자주 깨운다.
         private const val WATCHDOG_TICK_MS = 1_000L
-
-        /**
-         * greedy(topK=1) 샘플러 — 채팅과 oneShot 이 같은 값을 쓴다 (근거는 getOrCreateConversation).
-         * topK=1 에서 temperature/topP 는 효력이 없지만, 샘플링을 열 때의 출발점으로 남긴다.
-         */
-        private val GREEDY_SAMPLER = SamplerConfig(temperature = 1.0, topK = 1, topP = 0.95)
     }
 
     override val loadState: StateFlow<ModelLoadState> = runtimeManager.loadState
@@ -159,9 +146,7 @@ class GemmaModelRunner @Inject constructor(
 
     private var engine: Engine? = null
     private var conversation: Conversation? = null
-    private var currentSessionId: String? = null
-    private var currentSystemInstruction: String? = null
-    private var currentEnabledTools: List<String>? = null
+    private var cachedKey: ConversationKey? = null
 
     // [WHY] 지금 send 중인 대화(캐시 채팅이든 oneShot 이든). cancel() 은 뮤텍스 밖에서 불리므로
     // @Volatile 로 가시성을 보장한다.
@@ -305,7 +290,7 @@ class GemmaModelRunner @Inject constructor(
                 // [WHY] 툴 회신 턴은 재생성이 금지된 턴이라(0.8.5 가드) 어떤 예산 검사도 거치지
                 // 않고 KV 에 얹힌다 — 초과가 일어난다면 바로 이 지점이다. 직전 값을 남겨야
                 // 턴 종료 값과의 델타로 "툴 응답 + 생성이 실제로 몇 토큰을 먹었는지"가 나온다.
-                if (prompt.toolResponse != null) logKvUsage("툴 회신 직전", currentConversation)
+                if (prompt.toolResponse != null) RuntimeDiagnostics.logKvUsage("툴 회신 직전", currentConversation)
 
                 val watchdog = InferenceWatchdog(currentConversation)
 
@@ -356,7 +341,7 @@ class GemmaModelRunner @Inject constructor(
                     }
 
                     metricsCollector.recordEnd(System.currentTimeMillis() - startTime, tokenCount)
-                    if (!prompt.oneShot) logKvUsage("턴 종료", currentConversation)
+                    if (!prompt.oneShot) RuntimeDiagnostics.logKvUsage("턴 종료", currentConversation)
 
                     // [WHY] 타임아웃 판정이 스트리밍 오류보다 먼저다 — cancelProcess 가 수집을
                     // 예외로 끝낼 수 있는데, 그 예외를 일반 추론 오류로 보고하면 "다시 시도해
@@ -370,7 +355,7 @@ class GemmaModelRunner @Inject constructor(
                         // 첫 토큰 전에 끊으면 정상적으로 빈 부분 응답이 되고, 그 처리(빈 말풍선을
                         // 안 남김)는 BaseAgent 의 몫이다.
                         val text = finalResponse.toString()
-                        logTurn(prompt, text, toolCalls)
+                        RuntimeDiagnostics.logTurn(prompt, text, toolCalls)
                         AppResult.Success(ModelTurn(text, toolCalls))
                     }
                 } else {
@@ -392,12 +377,12 @@ class GemmaModelRunner @Inject constructor(
                     val messageText = message.textContent()
 
                     metricsCollector.recordEnd(System.currentTimeMillis() - startTime)
-                    if (!prompt.oneShot) logKvUsage("턴 종료", currentConversation)
+                    if (!prompt.oneShot) RuntimeDiagnostics.logKvUsage("턴 종료", currentConversation)
 
                     // [WHY] 텍스트가 비어도 툴 호출만 온 턴은 정상이다 — 모델이 말 없이 곧바로
                     // 툴을 부르는 경우가 흔하다. 둘 다 비었을 때만 실패로 본다.
                     if (messageText.isNotEmpty() || toolCalls.isNotEmpty()) {
-                        logTurn(prompt, messageText, toolCalls)
+                        RuntimeDiagnostics.logTurn(prompt, messageText, toolCalls)
                         AppResult.Success(ModelTurn(messageText, toolCalls))
                     } else {
                         AppResult.Failure(AppError.ModelInferenceError("응답 생성 결과가 null입니다."))
@@ -463,16 +448,6 @@ class GemmaModelRunner @Inject constructor(
         }
     }
 
-    // [WHY] 툴 호출 여부는 실기기에서만 확인할 수 있고 감사 로그에는 시스템 지시가 남지 않는다.
-    // enabledTools 를 함께 남겨야 toolCalls=[] 가 "선언 안 됨"인지 "모델이 거부"인지 구분된다.
-    private fun logTurn(prompt: ChatPrompt, text: String, toolCalls: List<ModelToolCall>) {
-        Log.d(
-            "GemmaModelRunner",
-            "turn done: textLen=${text.length}, toolCalls=${toolCalls.map { it.name }}, " +
-                "enabledTools=${prompt.enabledTools}"
-        )
-    }
-
     override suspend fun cancel() {
         // [WHY] cancelProcess는 진행 중 스트리밍을 중단시키기 위한 호출이므로 뮤텍스를 잡지 않는다
         // (생성 본문이 뮤텍스를 보유 중이어도 취소가 가능해야 함).
@@ -492,9 +467,7 @@ class GemmaModelRunner @Inject constructor(
                 conversation = null
                 runCatching { engine?.close() }
                 engine = null
-                currentSessionId = null
-                currentSystemInstruction = null
-                currentEnabledTools = null
+                cachedKey = null
                 // [WHY] 엔진을 해제했는데 loadState 를 Ready 로 두면 상태가 거짓이 된다 —
                 // 재진입한 스플래시가 낡은 Ready 를 믿고 warmUp 을 건너뛰고, 이후 설정 화면의
                 // 재탐색(checkModelFile)이 상태를 FileFound 로 되돌리면 warmUp 을 불러줄 곳이
@@ -565,79 +538,26 @@ class GemmaModelRunner @Inject constructor(
         }
     }
 
-    // [WHY] renderPrefaceIntoString 은 @ExperimentalApi — 진단용(프리페이스 로그)이라 API 가
-    // 사라져도 기능이 아니라 로그만 잃으므로 감수한다. 버전 상향 시점마다 존재 여부를 컴파일이
-    // 검증해 준다 (0.16.0 에서 확인).
-    //
-    // 되짚어야 할 것: 예전 근거는 "gallery 도 같은 플래그를 쓴다"였다 — gallery 는 근거 등급에서
-    // 제외됐으므로(.agents/04_MODEL_EVIDENCE.md) 위 이유로 교체했다.
+    // [WHY] ExperimentalFlags(제약 디코딩 전역 플래그)가 @ExperimentalApi 다 — 툴 호출 형식 강제에
+    // 필수라 감수한다. 버전 상향마다 존재 여부를 컴파일이 검증해 준다.
     @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
     private fun getOrCreateConversation(currentEngine: Engine, prompt: ChatPrompt): Conversation {
         // [WHY] 부수 계산(음성 전사, 일정 요약)은 시스템 지시와 sessionId 가 채팅과 다르므로,
         // 캐시된 대화에 섞으면 재사용 판정이 깨져 채팅 전체가 다시 프리필된다(ADR-010).
         // 캐시를 **건드리지 않고** 임시 대화를 만들어 돌려준다 — 호출자가 닫는다.
-        if (prompt.oneShot) return createOneShotConversation(currentEngine, prompt)
+        if (prompt.oneShot) return currentEngine.createConversation(oneShotConversationConfig(prompt))
 
         val existing = conversation
-        val isSameSession = currentSessionId == prompt.sessionId
-        // [WHY] 응답 스타일 설정 등으로 시스템 지시가 달라지면 동일 세션이라도 대화를 재생성해야
-        // 모델이 새 지시를 본다.
-        val isSameSystemInstruction = currentSystemInstruction == prompt.systemInstruction
-        // [WHY] 선언된 툴이 달라지면(웹 검색 토글 등) 대화를 재생성해야 모델이 새 툴 목록을 본다.
-        val isSameTools = currentEnabledTools == prompt.enabledTools
-
-        // [WHY] 툴 응답 턴은 **반드시** 직전 턴의 호출 문맥이 있는 대화로 돌아가야 한다. 0.8.5
-        // 실기기에서 토큰 초과 판정이 승인 대기 사이에 대화를 재생성해, 모델이 "자기가 호출한
-        // 적 없는 툴"의 응답을 받고 뜬금없는 답을 만들었다. 이 턴만큼은 어떤 재생성 조건보다
-        // 재사용이 우선한다.
-        if (prompt.toolResponse != null && existing != null && isSameSession && isSameTools) {
-            return existing
+        val decision = decideConversation(cachedKey.takeIf { existing != null }, prompt) {
+            val tokens = existing?.getTokenCount() ?: 0
+            RuntimeDiagnostics.warnIfOverCeiling(tokens)
+            tokens
         }
-
-        // [WHY] 임계값을 사용자 설정(프리필 예산)에서 파생시킨다. 예전에는 런타임에 박힌
-        // 8000 이어서, 설정에서 예산을 내려도 살아 있는 대화의 KV 는 8000 토큰까지 자랐다 —
-        // 설정이 메모리에 아무 영향을 주지 못했다.
-        //
-        // [WHY] 하한이 필요하다. 예산 최소값(1000)을 그대로 쓰면 시스템 지시 + 툴 선언만으로
-        // 이미 임계값을 넘어 **매 턴 재생성**되고, 재생성이야말로 우리가 없애려는 비용이다.
-        //
-        // [WHY] 임계값을 엔진 KV 천장으로도 묶는다. 예전에는 하한이 4000 이라 천장(3328)보다 컸고,
-        // 그러면 예산을 낮춰도 임계값이 밀려 올라가 **대화가 용량을 넘도록 자라는 것을 허용**했다 —
-        // 재생성을 막으려는 하한이 오히려 초과를 보장했다 (Constants.ENGINE_MAX_TOKENS 참조).
-        val resetThreshold = prompt.contextBudgetTokens
-            .coerceAtLeast(Constants.MIN_CONVERSATION_RESET_TOKENS)
-            .coerceAtMost(Constants.PREFILL_CEILING_TOKENS)
-        val existingTokens = existing?.getTokenCount() ?: 0
-        val isTokenExceeded = existing != null && existingTokens > resetThreshold
-
-        // [WHY] 초과를 조용히 넘기지 않는다. AAR 0.14.0 은 KV 용량을 넘겨도 오류 없이 진행했고
-        // (품질 저하로만 드러남), 0.16.0 은 `4097 >= 4096` 오류로 거부한다(2026-08-13 실기기) —
-        // 어느 쪽이든 초과는 여기서 미리 보여야 원인 추적이 가능하다. 디버그 빌드에서 경계에
-        // 닿는 것을 눈에 보이게 남긴다.
-        if (com.kosmos.app.BuildConfig.DEBUG && existingTokens > Constants.PREFILL_CEILING_TOKENS) {
-            Log.w(
-                "GemmaModelRunner",
-                "KV 천장 초과: tokens=$existingTokens > ceiling=${Constants.PREFILL_CEILING_TOKENS} " +
-                    "(engine=${Constants.ENGINE_MAX_TOKENS}). 예산·오버헤드 상수를 다시 볼 것."
-            )
-        }
-
-        if (existing != null && isSameSession && isSameSystemInstruction && isSameTools && !isTokenExceeded) {
-            return existing
-        }
+        if (decision is ConversationDecision.Reuse && existing != null) return existing
 
         // [WHY] 리셋 이벤트를 밖으로 낸다 (ADR-022 — 예산 리셋이 에피소드 경계 후보).
-        // 같은 세션의 살아있는 대화를 버릴 때만 방출한다 — 세션 전환은 다른 대화로 넘어가는
-        // 것이지 이 대화의 주제가 끝난 사건이 아니고, oneShot 경로는 위에서 조기 반환하므로
-        // 구조적으로 여기 오지 않는다. reason 우선순위는 재생성 사유의 실제 판정 순서와 같다.
-        if (existing != null && isSameSession) {
-            val reason = when {
-                isTokenExceeded -> ConversationResetEvent.Reason.TOKEN_BUDGET
-                !isSameSystemInstruction -> ConversationResetEvent.Reason.SYSTEM_INSTRUCTION
-                else -> ConversationResetEvent.Reason.TOOLS
-            }
-            // [WHY] tryEmit — 이 함수는 suspend 가 아니고, 수신자가 없거나 느려도 리셋 자체를
-            // 막으면 안 된다. 버퍼(16)를 넘겨 유실되는 경우는 catch-up 이 DB 상태로 복원한다.
+        // tryEmit — 이 함수는 suspend 가 아니고, 수신자가 없거나 느려도 리셋 자체를 막으면 안 된다.
+        (decision as? ConversationDecision.Recreate)?.resetReason?.let { reason ->
             _conversationResets.tryEmit(ConversationResetEvent(prompt.sessionId, reason))
         }
 
@@ -645,125 +565,22 @@ class GemmaModelRunner @Inject constructor(
         // 닫힌 네이티브 객체를 계속 가리켜, 다음 턴이 getTokenCount 를 부르거나 툴 회신 경로가
         // 그 객체를 재사용했다(use-after-free).
         conversation = null
-        currentSessionId = null
-        currentSystemInstruction = null
-        currentEnabledTools = null
+        cachedKey = null
         existing?.let { runCatching { it.close() } }
 
-        // [WHY] few-shot 시범(104토큰)은 0.23.0 에서 제거했다 — 도입 진단(ADR-010 시절
-        // "시범이 없으면 호출 안 함")은 ADR-017 이 철회했고(진짜 원인은 지침 거리 → 턴
-        // 리마인더가 해결), exp35 재실측에서 시범 없이 툴 선택 11/11 이 유지됐다. 회수한
-        // 104토큰은 프로필 상시 주입(C′1, PROFILE_MAX_TOKENS)의 재원이다. 시범의 예시
-        // 숫자("8282")가 조회 턴에 새던 실해(ADR-010)도 구조적으로 소멸한다.
-        val initialMessages = prompt.history.map {
-            if (it.role == ChatMessage.Role.USER) Message.user(it.content) else Message.model(it.content)
-        }
-
-        val config = ConversationConfig(
-            systemInstruction = Contents.of(prompt.systemInstruction),
-            initialMessages = initialMessages,
-            // [WHY] 툴 선언을 런타임에 넘겨 모델의 정식 함수호출 템플릿으로 주입한다.
-            // 시스템 프롬프트에 형식을 글로 설명하던 방식은 실기기에서 무시됐다 (ADR-008).
-            tools = KosmosToolDeclarations.providersFor(prompt.enabledTools),
-            // [WHY] false 여야 런타임이 툴을 스스로 실행하지 않고 우리에게 호출을 넘긴다 —
-            // 승인 다이얼로그(PRD F4)를 거쳐야 하므로 자동 실행을 쓸 수 없다.
-            automaticToolCalling = false,
-            // [WHY] greedy(topK=1) 로 둔다. 샘플링이 남아 있으면 호출 시작 토큰이 최빈이 아닐 때
-            // 툴 호출이 확률적으로 뭉개지고, 숫자 왜곡("1234"→"12", 0.8.3 실기기)도 난다.
-            // topK=1 에서 temperature/topP 는 효력이 없다. 지우지 않는 이유는 나중에 샘플링을
-            // 열 때 어떤 값에서 출발했는지가 남아 있어야 하기 때문이다.
-            //
-            // [WHY] 공식 문서에는 **함수 호출용 샘플링 지침이 없다.** 이 선택의 근거는 우리
-            // 실측이다 — 반복 2회가 완전히 동일했고 자릿수도 36/36 온전했다(exp15·exp22).
-            // gallery 도 agent chat 에서 greedy 를 강제하지만 그것은 가설의 출처일 뿐이다
-            // (`.agents/04_MODEL_EVIDENCE.md`).
-            samplerConfig = GREEDY_SAMPLER
-        )
         // [WHY] 이 플래그가 툴 스키마로부터 FST 문법을 만들어 모델 출력을 호출 구문으로 강제한다.
         // 근거는 **우리 실측**이다 — 선언만으로는 4B 모델이 호출 형식을 지키지 못해 `toolCalls` 가
         // 비었다(0.8.0 실기기). 켠 상태에서 자릿수가 깨지지 않는 것도 확인했다(exp15·exp22 36/36).
         // `ConversationConfig` 필드가 아니라 생성 시점에만 읽히는 전역이다.
         ExperimentalFlags.enableConversationConstrainedDecoding = prompt.enabledTools.isNotEmpty()
         val newConversation = try {
-            currentEngine.createConversation(config)
+            currentEngine.createConversation(chatConversationConfig(prompt))
         } finally {
             ExperimentalFlags.enableConversationConstrainedDecoding = false
         }
-        logConversationCreated(prompt, newConversation)
+        RuntimeDiagnostics.logConversationCreated(prompt, newConversation)
         conversation = newConversation
-        currentSessionId = prompt.sessionId
-        currentSystemInstruction = prompt.systemInstruction
-        currentEnabledTools = prompt.enabledTools
+        cachedKey = ConversationKey.of(prompt)
         return newConversation
-    }
-
-    /**
-     * 부수 계산 전용 임시 대화입니다. **호출자가 닫아야 합니다.**
-     *
-     * [WHY] 툴도 히스토리도 싣지 않는다. 그래서 채팅 대화보다 훨씬 싸다 — 툴 선언이
-     * 수백 토큰이므로(exp34b·exp35 실측) 그것이 빠지면 프리필이 짧은 시스템 지시뿐이다.
-     * 부수 계산에 툴을 줄 이유도 없다(전사·요약은 도구를 쓰지 않는다).
-     */
-    private fun createOneShotConversation(currentEngine: Engine, prompt: ChatPrompt): Conversation =
-        currentEngine.createConversation(
-            ConversationConfig(
-                systemInstruction = Contents.of(prompt.systemInstruction),
-                automaticToolCalling = false,
-                samplerConfig = GREEDY_SAMPLER
-            )
-        )
-
-    /**
-     * KV 실사용량을 send 경계에서 남깁니다. 디버그 빌드 전용입니다.
-     *
-     * [WHY] KV 사용량은 다음 턴 시작(재설정 판정, [getOrCreateConversation])에서야 보였다 —
-     * 툴 회신이 턴 중간에 몇 토큰을 먹는지, 턴이 끝난 시점에 용량 대비 어디까지 왔는지가
-     * 로그에 없어서 조용한 초과를 실기기에서 판정할 수 없었다. AAR 은 용량을 넘겨도 오류를
-     * 내지 않으므로(파이썬 0.15.0+ 은 거부, exp17) 이 로그가 초과와 글자 깨짐의 시간적 상관을
-     * 확정할 유일한 증거다 (ADR-020 실기기 재검증 프로토콜).
-     *
-     * [WHY] send 경계에서만 읽는다 — 스트리밍 중 네이티브 getTokenCount 호출은 생성과 경합한다.
-     */
-    private fun logKvUsage(stage: String, conversation: Conversation) {
-        if (!com.kosmos.app.BuildConfig.DEBUG) return
-        val tokens = runCatching { conversation.getTokenCount() }.getOrNull() ?: return
-        if (tokens > Constants.ENGINE_MAX_TOKENS) {
-            Log.w(
-                "GemmaModelRunner",
-                "KV 용량 초과 상태로 계속 진행: $stage tokens=$tokens > engine=${Constants.ENGINE_MAX_TOKENS}"
-            )
-        } else {
-            Log.d("GemmaModelRunner", "KV usage: $stage tokens=$tokens / ${Constants.ENGINE_MAX_TOKENS}")
-        }
-    }
-
-    // [WHY] toolCalls=[] 만으로는 "선언이 템플릿에 안 들어감"과 "모델이 호출을 거부"를 구분할 수
-    // 없다. 렌더링된 프리페이스에 툴 블록이 있는지가 모델 파일의 템플릿 지원 여부를 실기기에서
-    // 확정하는 유일한 단서다 (Gemma 3n 계열 템플릿에는 툴 블록이 없다).
-    //
-    // [WHY] 디버그 빌드로 한정한다. `renderPrefaceIntoString()` 은 템플릿 전체를 실제로
-    // 렌더링하는 작업이고, 그것도 LLM 디스패처의 수명주기 뮤텍스 안에서 일어난다 — 릴리스에서
-    // 매 재생성마다 낼 비용이 아니다. 프리페이스 2천 자를 logcat 에 남기는 것 자체도
-    // 사용자 발화와 검색된 기억이 로그로 새는 경로다.
-    @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
-    private fun logConversationCreated(prompt: ChatPrompt, created: Conversation) {
-        if (!com.kosmos.app.BuildConfig.DEBUG) return
-        Log.d(
-            "GemmaModelRunner",
-            "conversation created: tools=${prompt.enabledTools}, " +
-                "providers=${KosmosToolDeclarations.providersFor(prompt.enabledTools).size}"
-        )
-        // [WHY] 조각으로 나눠 찍는다. 예전에는 `take(2000)` 이라 **툴 선언 블록 중간에서 잘렸다** —
-        // "툴이 선언됐나" 를 답하려고 넣은 로그인데 정작 그 답이 안 보였다(2026-08-13 로그 분석).
-        // logcat 한 줄에는 길이 제한이 있으므로 자르는 것 자체는 필요하지만, 잘라 버리는 대신
-        // 여러 줄로 나눠 전체를 남긴다.
-        runCatching { created.renderPrefaceIntoString() }
-            .onSuccess { preface ->
-                Log.d("GemmaModelRunner", "preface: ${preface.length}자, ${PREFACE_CHUNK}자씩")
-                preface.chunked(PREFACE_CHUNK).forEachIndexed { index, chunk ->
-                    Log.d("GemmaModelRunner", "preface[$index] $chunk")
-                }
-            }
-            .onFailure { e -> Log.d("GemmaModelRunner", "preface render failed: ${e.message}") }
     }
 }

@@ -58,7 +58,8 @@ mockk = "1.14.11"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+# [WHY] kotlin-android 별칭을 두지 않는다 — AGP 9 는 Kotlin 을 내장하므로 모듈에서 재선언하면 충돌한다
+# (AGENTS §4-1). 쓰는 곳이 없는 별칭이 남아 있으면 새 모듈을 만들 때 그대로 붙여 넣기 쉬운 함정이다.
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
@@ -73,7 +74,6 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinx-collections-immutable" }
 javax-inject = { module = "javax.inject:javax.inject", version = "1" }
-androidx-paging-common = { module = "androidx.paging:paging-common", version.ref = "paging" }
 
 # Compose BOM + 주요 Compose 라이브러리
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
@@ -116,7 +116,6 @@ androidx-work-testing = { module = "androidx.work:work-testing", version.ref = "
 # Room
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
-androidx-room-paging = { module = "androidx.room:room-paging", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 
 # DataStore

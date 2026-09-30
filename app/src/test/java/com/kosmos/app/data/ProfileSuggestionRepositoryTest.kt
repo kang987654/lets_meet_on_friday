@@ -1,8 +1,5 @@
 package com.kosmos.app.data
 
-import android.content.Context
-import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.data.local.db.KosmosDatabase
 import com.kosmos.app.data.local.repository.KnowledgeRepositoryImpl
@@ -12,7 +9,6 @@ import com.kosmos.app.domain.model.ProfileSuggestion
 import com.kosmos.app.domain.model.ProfileSuggestionStatus
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -32,24 +28,21 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class ProfileSuggestionRepositoryTest {
 
+    // [WHY] DB 수명(열기·닫기)은 공용 Rule 이 맡는다 — 설정만 옮겼고 단언은 그대로다.
+    @get:org.junit.Rule
+    val dbRule = com.kosmos.app.testing.InMemoryKosmosDbRule()
+
     private lateinit var db: KosmosDatabase
     private lateinit var suggestions: ProfileSuggestionRepositoryImpl
     private lateinit var knowledge: KnowledgeRepositoryImpl
 
     @Before
     fun setUp() {
-        val context: Context = ApplicationProvider.getApplicationContext()
-        db = Room.inMemoryDatabaseBuilder(context, KosmosDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+        db = dbRule.db
         suggestions = ProfileSuggestionRepositoryImpl(db.profileSuggestionDao())
         knowledge = KnowledgeRepositoryImpl(db.knowledgeDao())
     }
 
-    @After
-    fun tearDown() {
-        db.close()
-    }
 
     private fun suggestion(
         id: String,

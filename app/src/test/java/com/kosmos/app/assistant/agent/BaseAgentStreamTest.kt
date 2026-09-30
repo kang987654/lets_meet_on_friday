@@ -45,42 +45,11 @@ import org.robolectric.RobolectricTestRunner
  * `toolResponse` 로 되돌아가면서 루프가 2턴으로 넘어간다. `ToolRegistry` 를 채우지 않고도
  * 다중 턴 시나리오를 만들 수 있는 가장 좁은 경로다.
  */
+/** 턴마다 다른 [ModelTurn] 을 주고, 텍스트는 3글자씩 쪼개 emit 하는 공용 대역(설정만 옮김). */
+private typealias ChunkedModelRunner = com.kosmos.app.testing.ScriptedModelRunner
+
 @RunWith(RobolectricTestRunner::class)
 class BaseAgentStreamTest {
-
-    /** 턴마다 다른 [ModelTurn] 을 주고, 텍스트는 토큰 단위로 쪼개 emit 하는 fake. */
-    private class ChunkedModelRunner(private val turns: List<ModelTurn>) : ModelRunner {
-        private var index = 0
-        val receivedPrompts = mutableListOf<ChatPrompt>()
-
-        override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(
-            ModelLoadState.Ready(ModelInfo("fake", "fake", "1.0", "int8", 0L))
-        )
-
-        override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
-            receivedPrompts += prompt
-            val turn = turns.getOrElse(index) { ModelTurn("") }
-            index++
-            turn.text.chunked(3).forEach { onToken?.invoke(it) }
-            return AppResult.Success(turn)
-        }
-
-        override suspend fun generateWithImage(
-            prompt: ChatPrompt,
-            imageBytes: ByteArray,
-            onToken: ((String) -> Unit)?
-        ): AppResult<ModelTurn> = generate(prompt, onToken)
-
-        override suspend fun generateWithAudio(
-            prompt: ChatPrompt,
-            audioPath: String,
-            onToken: ((String) -> Unit)?
-        ): AppResult<ModelTurn> = generate(prompt, onToken)
-
-        override suspend fun cancel() = Unit
-        override suspend fun warmUp() = Unit
-        override fun close() = Unit
-    }
 
     private class TestAgent(
         modelRunner: ModelRunner,
