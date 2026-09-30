@@ -79,10 +79,7 @@ class TokenBudgetInvariantTest {
         // [WHY] 2600 이었고 주석은 "툴 선언만 ~2천 토큰" 이라고 적었는데 둘 다 틀렸다. 실측
         // 합계는 1,329 다(`scratch/lab/measure_overhead.py`). 과대 예약은 히스토리 예산을
         // 조용히 깎으므로, 실측 밑으로 내려가지 않으면서 두 배를 넘지도 않게 묶는다.
-        assertTrue(
-            "예약 ${Constants.PREFILL_OVERHEAD_TOKENS} 이 실측 $MEASURED_OVERHEAD 보다 작다",
-            Constants.PREFILL_OVERHEAD_TOKENS >= MEASURED_OVERHEAD
-        )
+        // 하한(예약 ≥ 실측)은 위 테스트의 "예약 ≥ 실측 + 프로필 상한"에서 따라 나온다 — 상한만 본다.
         assertTrue(
             "예약이 실측의 두 배를 넘으면 히스토리 예산을 과도하게 깎는다",
             Constants.PREFILL_OVERHEAD_TOKENS <= MEASURED_OVERHEAD * 2

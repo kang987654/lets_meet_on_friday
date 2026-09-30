@@ -100,7 +100,7 @@ class ToolApprovalE2ETest {
         ): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
             val toolResponse = prompt.toolResponse
             val turn = if (toolResponse != null) {
-                val text = if (toolResponse.resultJson.contains("취소")) {
+                val text = if (toolResponse.resultJson.contains("승인하지 않아")) {
                     "알겠습니다. 일정 추가를 취소했습니다."
                 } else {
                     "일정 처리가 완료되었습니다."

@@ -57,45 +57,6 @@ import com.kosmos.app.platform.speech.AudioRecorder
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 import androidx.lifecycle.SavedStateHandle
 
-class FakeE2EModelRunner : ModelRunner {
-    override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(
-        ModelLoadState.Ready(ModelInfo("test", "test", "1.0", "int8", 0L))
-    )
-    
-    var lastPrompt: ChatPrompt? = null
-    var lastImageBytes: ByteArray? = null
-    var lastAudioPath: String? = null
-    var generateCallCount = 0
-
-    override suspend fun warmUp() {}
-    
-    override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
-        lastPrompt = prompt
-        generateCallCount++
-        onToken?.invoke("This is a response summary of the document.")
-        return AppResult.Success(ModelTurn("This is a response summary of the document."))
-    }
-    
-    override suspend fun generateWithImage(prompt: ChatPrompt, imageBytes: ByteArray, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
-        lastPrompt = prompt
-        lastImageBytes = imageBytes
-        generateCallCount++
-        onToken?.invoke("Image parsed.")
-        return AppResult.Success(ModelTurn("Image parsed."))
-    }
-    
-    override suspend fun generateWithAudio(prompt: ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
-        lastPrompt = prompt
-        lastAudioPath = audioPath
-        generateCallCount++
-        onToken?.invoke("Audio parsed.")
-        return AppResult.Success(ModelTurn("Audio parsed."))
-    }
-
-    override suspend fun cancel() {}
-    
-    override fun close() {}
-}
 
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
@@ -111,7 +72,9 @@ class MultimodalChatE2ETest {
     val composeTestRule = createComposeRule()
 
     @BindValue
-    val fakeModelRunner: ModelRunner = FakeE2EModelRunner()
+    val fakeModelRunner: ModelRunner = com.kosmos.app.testing.ScriptedModelRunner(
+        listOf(com.kosmos.app.domain.modelrunner.ModelTurn("This is a response summary of the document."))
+    )
 
     @BindValue
     val tokenizer: com.kosmos.app.domain.tool.Tokenizer = object : com.kosmos.app.domain.tool.Tokenizer {
@@ -237,18 +200,17 @@ class MultimodalChatE2ETest {
         composeTestRule.onNodeWithContentDescription("Send").performClick()
 
         // 5. Wait for the model runner to receive the prompt with the document content injected
-        val runner = fakeModelRunner as FakeE2EModelRunner
+        val runner = fakeModelRunner as com.kosmos.app.testing.ScriptedModelRunner
         val startTime = System.currentTimeMillis()
-        while (runner.lastPrompt == null && System.currentTimeMillis() - startTime < 5000) {
+        while (runner.receivedPrompts.isEmpty() && System.currentTimeMillis() - startTime < 5000) {
             org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
             Thread.sleep(100)
         }
         
-        assertNotNull("ModelRunner did not receive a prompt within 5 seconds", runner.lastPrompt)
-        assertTrue("ModelRunner should have received the prompt", runner.generateCallCount > 0)
+        assertTrue("ModelRunner did not receive a prompt within 5 seconds", runner.receivedPrompts.isNotEmpty())
         
         // Orchestrator concatenates the document text into the context/history, not currentInput
-        val prompt = runner.lastPrompt!!
+        val prompt = runner.receivedPrompts.last()
         val historyText = prompt.history.joinToString { it.content }
         assertTrue("History or System Instruction must contain the document content", 
             historyText.contains(fakeDocContent) || prompt.systemInstruction.contains(fakeDocContent))

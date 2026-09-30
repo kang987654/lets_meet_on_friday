@@ -31,14 +31,13 @@ class ToolParserTest {
     }
 
     @Test
-    fun `parseStream surfaces malformed tool call instead of silently dropping it`() {
-        // [WHY] 이전에는 빈 catch 로 삼켜서 툴 콜이 흔적 없이 사라졌고, 모델은 오류를 받지
-        // 못한 채 그 턴이 평문 답변으로 처리됐다.
+    fun `parseStream strips a malformed tool call from content without counting it`() {
+        // [WHY] 0.27.x — malformedToolCalls 필드는 소비자가 없어 삭제했다(사용자 확인). 남는 계약은
+        // "깨진 블록이 본문에 새지 않고, 툴 콜로도 세지지 않는다" 이다.
         val raw = "확인해보겠습니다.<tool_call>{\"name\":\"AddSchedule\", \"args\":{</tool_call>"
         val result = ToolParser.parseStream(raw)
 
         assertEquals(0, result.toolCalls.size)
-        assertEquals(1, result.malformedToolCalls.size)
         assertEquals("확인해보겠습니다.", result.content)
     }
 
@@ -48,7 +47,6 @@ class ToolParserTest {
         val result = ToolParser.parseStream(raw)
 
         assertEquals(0, result.toolCalls.size)
-        assertEquals(1, result.malformedToolCalls.size)
     }
 
     @Test

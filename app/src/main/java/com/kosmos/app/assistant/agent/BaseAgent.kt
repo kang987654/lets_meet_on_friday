@@ -307,7 +307,7 @@ abstract class BaseAgent(
                 val approved = approvalCoordinator.requireApproval(approvalRequest)
                 if (!approved) {
                     auditTrailService.logApprovalRejected(sessionId, "${call.name}: ${approvalRequest.description}")
-                    return ToolOutcome(ToolResultJson.error("사용자가 취소했습니다"), executed = false)
+                    return ToolOutcome(ToolResultJson.error(rejectionMessage(call.name)), executed = false)
                 }
                 auditTrailService.logApprovalGranted(sessionId, "${call.name}: ${approvalRequest.description}")
             }
@@ -316,6 +316,24 @@ abstract class BaseAgent(
             auditTrailService.logError(sessionId, "Invalid tool argument: ${call.name}.${e.field} (${e.reason})")
             ToolOutcome(toolArgumentErrorJson(call.name, e), executed = false)
         }
+    }
+
+    /**
+     * 승인 거절(시간 초과 포함) 회신 문구.
+     *
+     * [WHY] exp38d 실측(툴 2종 × 발화 6): 예전 "사용자가 취소했습니다"는 리마인더에서 거짓 성공 1/6
+     * ("알림을 설정했습니다")이었고, 나머지 답변 대부분이 취소를 "오류가 발생했습니다"로 말했다. 해야 할
+     * 행동을 적은 지시형은 거짓 성공 0/12 에 "승인이 필요합니다"로 사실대로 말했다(+10~18토큰).
+     * "취소" 단어를 살린 변형은 거짓 성공은 0 이었지만 12/12 가 "오류"로 오인해 기각했다(exp38e).
+     */
+    private fun rejectionMessage(toolName: String): String {
+        val notDone = when (toolName) {
+            ToolNames.ADD_SCHEDULE -> "일정을 추가하지 않았다고"
+            ToolNames.ADD_REMINDER -> "알림을 등록하지 않았다고"
+            ToolNames.ADD_MEMORY -> "기억하지 않았다고"
+            else -> "요청을 실행하지 않았다고"
+        }
+        return "사용자가 승인하지 않아 실행하지 않았습니다. $notDone 알리세요."
     }
 
     /** 툴 결과 JSON 에서 meta.episodeIds 를 뽑습니다. 형식이 어긋나면 빈 목록 — 칩이 안 뜰 뿐이다. */

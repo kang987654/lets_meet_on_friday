@@ -103,6 +103,8 @@ class SearchMemoryToolExecutorTest {
 
         val json = run("좋아하는 것")
 
+        // MemoryPipelineIntegrationTest 에서 옮긴 단언 — 폴백도 성공 응답이다(0.27.x 중복 정리).
+        assertTrue(json.contains("\"status\":\"success\""))
         assertTrue(json.contains("선호도") && json.contains("한 번 더 호출") && json.contains("지어내지 마세요"))
         assertTrue("스캔 결과로 오인되면 안 된다", !json.contains("\"meta\""))
     }
@@ -126,6 +128,8 @@ class SearchMemoryToolExecutorTest {
 
         val json = run("자전거 비밀번호")
 
+        // MemoryPipelineIntegrationTest 에서 옮긴 단언 — 한 항만 맞는 노트도 빠지지 않는다.
+        assertTrue("두 노트가 모두 있어야 한다", json.contains("1234") && json.contains("5678"))
         assertTrue(json.indexOf("1234") < json.indexOf("5678"))
     }
 }

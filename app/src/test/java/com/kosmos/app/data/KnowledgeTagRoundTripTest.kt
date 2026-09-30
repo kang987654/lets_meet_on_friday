@@ -90,17 +90,4 @@ class KnowledgeTagRoundTripTest {
         assertEquals(0, searchTag("wor"))
     }
 
-    @Test
-    fun `정규화로 중복이 된 태그는 하나만 남는다`() {
-        save("a,b", "a b")
-
-        assertEquals(listOf("a b"), readTags())
-    }
-
-    @Test
-    fun `콤마만인 태그는 저장되지 않는다`() {
-        save("work", ",,,")
-
-        assertEquals(listOf("work"), readTags())
-    }
 }

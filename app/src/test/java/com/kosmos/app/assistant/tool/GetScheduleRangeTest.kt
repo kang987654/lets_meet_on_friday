@@ -48,41 +48,25 @@ class GetScheduleRangeTest {
         return captured.captured
     }
 
+    // [WHY] 표 형식 — 입력만 다른 사례 7개를 하나로 모았다(0.27.x 정리, 사용자 확인). 각 사례의 뜻은 주석으로 남긴다.
     @Test
-    fun `today 는 오늘 범위로 해석된다`() {
-        assertEquals(ScheduleData.RangeType.TODAY, rangeFor("today"))
-    }
-
-    @Test
-    fun `한국어 오늘도 오늘 범위로 해석된다`() {
-        assertEquals(ScheduleData.RangeType.TODAY, rangeFor("오늘"))
-    }
-
-    @Test
-    fun `date 가 없으면 오늘 범위다`() {
-        assertEquals(ScheduleData.RangeType.TODAY, rangeFor(null))
-    }
-
-    @Test
-    fun `week 는 주간 범위로 해석된다`() {
-        assertEquals(ScheduleData.RangeType.WEEK, rangeFor("week"))
-    }
-
-    @Test
-    fun `tomorrow 는 오늘이 아니라 주간으로 넓혀진다`() {
-        // [WHY] 이것이 이 테스트의 핵심 회귀 방지다 — 예전에는 TODAY 로 떨어져 "내일"을 물으면
-        // 오늘 일정이 나왔다. 도메인이 TODAY/WEEK 만 지원하므로 내일이 포함된 주간으로 넓힌다.
-        assertEquals(ScheduleData.RangeType.WEEK, rangeFor("tomorrow"))
-    }
-
-    @Test
-    fun `구체적 날짜 문자열도 주간으로 넓혀진다`() {
-        assertEquals(ScheduleData.RangeType.WEEK, rangeFor("2026-08-09"))
-    }
-
-    @Test
-    fun `대문자나 공백이 섞여도 판정이 흔들리지 않는다`() {
-        assertEquals(ScheduleData.RangeType.TODAY, rangeFor("  TODAY "))
-        assertEquals(ScheduleData.RangeType.WEEK, rangeFor(" Week "))
+    fun `date 인자가 조회 범위로 해석되는 규칙`() {
+        val today = ScheduleData.RangeType.TODAY
+        val week = ScheduleData.RangeType.WEEK
+        val cases = listOf(
+            "today" to today,
+            "오늘" to today,              // 한국어
+            null to today,               // date 가 없으면 오늘
+            "week" to week,
+            // [WHY] 이 테스트의 핵심 회귀 방지 — 예전에는 TODAY 로 떨어져 "내일"을 물으면 오늘 일정이
+            // 나왔다. 도메인이 TODAY/WEEK 만 지원하므로 내일이 포함된 주간으로 넓힌다.
+            "tomorrow" to week,
+            "2026-08-09" to week,        // 구체적 날짜도 주간으로
+            "  TODAY " to today,         // 대소문자·공백이 섞여도 흔들리지 않는다
+            " Week " to week,
+        )
+        cases.forEach { (arg, expected) ->
+            assertEquals("date=[$arg]", expected, rangeFor(arg))
+        }
     }
 }

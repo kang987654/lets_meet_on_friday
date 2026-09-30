@@ -21,20 +21,14 @@ import org.junit.Test
 class AudioLimitTest {
 
     @Test
-    fun `녹음 상한은 공식 문서의 30초다`() {
-        assertEquals(30, Constants.MAX_AUDIO_SECONDS)
-    }
-
-    @Test
     fun `30초 오디오의 토큰 비용이 프리필 천장 안에 들어간다`() {
         // [WHY] 전사는 일회성 경로라 툴 선언도 히스토리도 싣지 않는다. 그래서 오디오 토큰 +
         // 전사 시스템 지시만 천장 안에 들어가면 된다.
+        // [WHY] 750 = 공식 문서 상한 30초 × 초당 25토큰 — 상한(30초) 고정도 이 한 줄이 겸한다
+        // (별도 테스트였던 `MAX_AUDIO_SECONDS == 30` 은 0.27.x 에서 합쳤다). 천장 안에 드는지는 아래
+        // "여유 ≥ 1000" 에서 따라 나온다.
         val audioTokens = Constants.MAX_AUDIO_SECONDS * TOKENS_PER_SECOND
         assertEquals(750, audioTokens)
-        assertTrue(
-            "오디오 $audioTokens 토큰이 천장 ${Constants.PREFILL_CEILING_TOKENS} 을 넘는다",
-            audioTokens < Constants.PREFILL_CEILING_TOKENS
-        )
     }
 
     @Test

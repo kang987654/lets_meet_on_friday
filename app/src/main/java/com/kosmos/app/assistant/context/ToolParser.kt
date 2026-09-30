@@ -16,8 +16,10 @@ import org.json.JSONObject
  * 2. `<tool_call>` 블록을 정규식으로 탐색 후 내부 JSON을 파싱해 [ToolCallData] 리스트 생성
  *    — 단, 툴 호출의 **정식 경로는 런타임의 구조화된 toolCalls** 다(ADR-008). 이 텍스트 파싱은
  *    모델이 프로토콜 문법을 본문으로 흘렸을 때 화면에 새지 않게 걷어내는 위생 처리에 가깝다
- * 3. JSON 이 깨진 블록은 [ParsedStream.malformedToolCalls]로 분리 — **현재 소비자 없음**
- *    (모델 회신 경로 미배선, 2026-08-15 감사). 본문 오염 방지 효과만 실사용 중이다
+ * 3. JSON 이 깨진 블록도 본문에서 걷어낸다(툴 콜로는 세지 않는다) — 본문 오염 방지
+ *    [WHY] 예전에는 깨진 블록 원문을 `malformedToolCalls` 로 따로 모았지만 소비자가 끝내 없었다
+ *    (모델 회신 경로 미배선, 2026-08-15 감사 → 0.27.x 에서 필드 삭제). 정식 툴 경로는 런타임의
+ *    구조화된 toolCalls 라, 텍스트 경로의 깨진 호출을 모델에 되돌릴 일이 없다(ADR-008).
  * 4. 최종적으로 UI 렌더링을 위한 본문 텍스트, 사고 과정, 툴 콜 정보를 캡슐화한 [ParsedStream] 반환
  */
 object ToolParser {
@@ -25,15 +27,7 @@ object ToolParser {
     data class ParsedStream(
         val content: String,
         val thinking: String?,
-        val toolCalls: List<ToolCallData>,
-        /**
-         * JSON 파싱에 실패한 `<tool_call>` 블록의 원문입니다.
-         *
-         * [WHY] 기존에는 파싱 실패를 빈 catch로 삼켜서 툴 콜이 흔적 없이 사라졌다. 모델은
-         * 오류를 받지 못하고 그 턴은 평문 답변으로 처리되므로, 사용자는 요청이 무시된 것처럼
-         * 보인다. 실패를 밖으로 드러내 호출부가 모델에게 되돌릴 수 있게 한다.
-         */
-        val malformedToolCalls: List<String> = emptyList()
+        val toolCalls: List<ToolCallData>
     )
 
     data class ToolCallData(
@@ -45,7 +39,6 @@ object ToolParser {
         var text = rawString
         var thinkingProcess: String? = null
         val toolCalls = mutableListOf<ToolCallData>()
-        val malformed = mutableListOf<String>()
 
         // 1. Extract <|think|> blocks
         // [WHY] findAll 이다 — 예전에는 find(단수)여서 두 번째 이후 생각 블록이 본문에 남아
@@ -90,13 +83,9 @@ object ToolParser {
                     ?.let { ToolArguments(it) }
                     ?: ToolArguments.empty()
 
-                if (name.isNotEmpty()) {
-                    toolCalls.add(ToolCallData(name, args))
-                } else {
-                    malformed.add(jsonString)
-                }
+                if (name.isNotEmpty()) toolCalls.add(ToolCallData(name, args))
             } catch (e: Exception) {
-                malformed.add(jsonString)
+                // 깨진 JSON 블록 — 본문에서만 걷어낸다(아래 replace). 툴 콜로 세지 않는다.
             }
             // Remove the parsed tool call from the text
             text = text.replace(match.value, "")
@@ -105,8 +94,7 @@ object ToolParser {
         return ParsedStream(
             content = stripIncompleteTag(text).trimStart(),
             thinking = thinkingProcess,
-            toolCalls = toolCalls,
-            malformedToolCalls = malformed
+            toolCalls = toolCalls
         )
     }
 

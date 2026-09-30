@@ -94,25 +94,6 @@ class MemoryPipelineIntegrationTest {
     // --- SearchMemory 툴 계약 ---
 
     @Test
-    fun `여러 토큰이 맞은 기억이 먼저 나온다`() = runBlocking {
-        // [WHY] 모델이 "자전거 비밀번호" 처럼 두 어절을 주면 LIKE 는 붙어 있는 형태만 맞히므로
-        // 쪼개서 조회한다. 그러면 어느 한쪽만 맞는 노트도 섞이므로 순위가 중요해진다.
-        val both = note("자전거 비밀번호는 1234")
-        val onlyOne = note("현관 비밀번호는 5678")
-        coEvery { repository.search("자전거", any()) } returns AppResult.Success(listOf(both))
-        coEvery { repository.search("비밀번호", any()) } returns AppResult.Success(listOf(both, onlyOne))
-        coEvery { repository.searchByTags(any(), any()) } returns AppResult.Success(emptyList())
-
-        val json = searchMemoryExecutor()
-            .execute(ToolArguments.of(mapOf("keyword" to "자전거 비밀번호")), "s1")
-
-        val first = json.indexOf("자전거 비밀번호는 1234")
-        val second = json.indexOf("현관 비밀번호는 5678")
-        assertTrue("두 노트가 모두 있어야 한다", first >= 0 && second >= 0)
-        assertTrue("두 토큰이 맞은 노트가 앞서야 한다", first < second)
-    }
-
-    @Test
     fun `태그로도 찾는다`() = runBlocking {
         // [WHY] 모델은 의미로 키워드를 뽑으므로 본문과 글자가 어긋나는 경우가 실측됐다
         // ("좋아하는 것" ↔ "커피보다 녹차를 더 좋아함"). 저장 시 붙인 태그가 두 번째 통로다.
@@ -124,27 +105,6 @@ class MemoryPipelineIntegrationTest {
             .execute(ToolArguments.of(mapOf("keyword" to "선호도")), "s1")
 
         assertTrue("태그 경로로 찾아야 한다: $json", json.contains("커피보다 녹차를 더 좋아함"))
-    }
-
-    @Test
-    fun `못 맞히면 분류 목록을 주고 재호출을 유도한다`() = runBlocking {
-        // [WHY] 어휘 검색은 동의어를 못 넘는데 모델은 의미로 키워드를 뽑는다 — 실측에서
-        // "좋아하는 것"(모델)과 "커피보다 녹차를 더 좋아함"·태그 `선호도`(저장본)가 한 글자도
-        // 겹치지 않았다. 태그는 저장 시 모델 자신이 붙인 것이라 알아보고, 기억이 늘어도 목록이
-        // 짧게 유지되므로 최근 몇 건을 흘려보내는 것보다 규모를 탄다.
-        coEvery { repository.search(any(), any()) } returns AppResult.Success(emptyList())
-        coEvery { repository.searchByTags(any(), any()) } returns AppResult.Success(emptyList())
-        coEvery { repository.searchRecent(any()) } returns AppResult.Success(
-            listOf(note("커피보다 녹차를 더 좋아함", listOf("선호도", "음료")))
-        )
-
-        val json = searchMemoryExecutor()
-            .execute(ToolArguments.of(mapOf("keyword" to "좋아하는 것")), "s1")
-
-        assertTrue(json.contains("\"status\":\"success\""))
-        assertTrue("분류 목록이 있어야 한다: $json", json.contains("선호도"))
-        assertTrue("재호출을 유도해야 한다", json.contains("한 번 더 호출"))
-        assertTrue("지어내지 말라는 지시가 남아야 한다", json.contains("지어내지 마세요"))
     }
 
     @Test

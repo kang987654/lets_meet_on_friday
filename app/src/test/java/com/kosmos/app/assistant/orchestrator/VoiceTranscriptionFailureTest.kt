@@ -80,17 +80,7 @@ class VoiceTranscriptionFailureTest {
         assertEquals("감사에 정확히 한 건 남아야 한다", 1, auditErrors.size)
         assertTrue("무엇이 실패했는지 알 수 있어야 한다", auditErrors.first().contains("음성 전사 실패"))
         assertTrue("빈 말풍선을 만들면 안 된다 (PRD EC3)", savedMessages.isEmpty())
-    }
-
-    @Test
-    fun `전사 실패해도 임시 오디오 파일을 지운다`() = runBlocking {
-        val audio = tempAudio()
-        coEvery { transcribe(any()) } returns AppResult.Failure(AppError.SttError("실패"))
-
-        orchestrator().processRequest(
-            ChatRequest(sessionId = SESSION, message = "", audioFilePath = audio.absolutePath)
-        )
-
+        // 옮겨 온 단언(0.27.x 중복 정리) — 같은 셋업의 별도 테스트였다.
         assertFalse("녹음이 캐시에 남으면 안 된다", audio.exists())
     }
 

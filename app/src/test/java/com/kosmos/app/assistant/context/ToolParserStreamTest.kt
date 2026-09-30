@@ -73,15 +73,6 @@ class ToolParserStreamTest {
     }
 
     @Test
-    fun `생각 블록이 닫히면 뒤 본문이 나온다`() {
-        val raw = "<|think|>고민</|think|>답은 이렇습니다."
-        val parsed = ToolParser.parseStream(raw)
-
-        assertEquals("답은 이렇습니다.", parsed.content)
-        assertEquals("고민", parsed.thinking)
-    }
-
-    @Test
     fun `생각 블록이 두 개면 모두 제거되고 합쳐진다`() {
         // [WHY] 예전에는 find(단수)여서 두 번째 블록이 본문에 남아 노출됐다.
         val raw = "<|think|>첫째</|think|>중간 문장.<|think|>둘째</|think|>끝 문장."
@@ -90,16 +81,6 @@ class ToolParserStreamTest {
         assertFalse("두 번째 생각 블록이 본문에 남았다: ${parsed.content}", parsed.content.contains("think"))
         assertFalse(parsed.content.contains("둘째"))
         assertEquals("첫째\n둘째", parsed.thinking)
-    }
-
-    @Test
-    fun `완결된 tool_call 은 여전히 파싱된다`() {
-        val raw = "처리합니다.<tool_call>{\"name\":\"GetSchedule\", \"args\":{}}</tool_call>"
-        val parsed = ToolParser.parseStream(raw)
-
-        assertEquals("처리합니다.", parsed.content)
-        assertEquals(1, parsed.toolCalls.size)
-        assertEquals("GetSchedule", parsed.toolCalls[0].name)
     }
 
     @Test

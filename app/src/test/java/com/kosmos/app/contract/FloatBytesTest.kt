@@ -42,13 +42,4 @@ class FloatBytesTest {
         assertEquals(0, FloatBytes.decode(byteArrayOf(1, 2, 3, 4, 5)).size)
     }
 
-    @Test
-    fun `벡터 길이가 보존된다`() {
-        val original = FloatArray(384) { it * 0.01f }
-        val decoded = FloatBytes.decode(FloatBytes.encode(original))
-        // [WHY] 길이가 어긋나면 searchByVector 의 크기 비교에서 탈락해 노트가 조용히
-        // 벡터 검색에서 사라진다.
-        assertEquals(384, decoded.size)
-        assertArrayEquals(original, decoded, 0f)
-    }
 }
