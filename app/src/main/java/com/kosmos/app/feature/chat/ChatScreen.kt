@@ -214,7 +214,11 @@ fun ChatScreen(
     // 거부해도 일정은 로컬 DB에 저장되고 기기 캘린더 동기화만 생략된다 (ADR-004 Graceful Degradation).
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* 결과와 무관하게 진행 — 미승인 시 로컬 저장만 수행 */ }
+    ) {
+        // 결과와 무관하게 진행 — 미승인 시 로컬 저장만 수행. 대화상자가 카드를 가린 동안 흐른 승인
+        // 제한 시간은 되돌려 준다(ApprovalCoordinator.restartTimeout).
+        viewModel.onApprovalObstructionCleared()
+    }
 
     LaunchedEffect(uiState.pendingApproval) {
         val needsCalendarPermission = uiState.pendingApproval?.calendarDraft != null

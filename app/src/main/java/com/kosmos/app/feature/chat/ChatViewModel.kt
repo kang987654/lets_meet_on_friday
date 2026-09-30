@@ -475,6 +475,14 @@ class ChatViewModel @Inject constructor(
         approvalCoordinator.approve()
     }
 
+    /**
+     * 승인 카드를 가리던 시스템 대화상자(캘린더 권한)가 닫혔다 — 승인 제한 시간을 새로 준다.
+     * [WHY] 대화상자에 머문 시간만큼 카드를 볼 시간이 줄어, 느리게 답하면 카드가 뜨자마자 자동 거절됐다.
+     */
+    fun onApprovalObstructionCleared() {
+        approvalCoordinator.restartTimeout()
+    }
+
     private fun handleAgentResult(result: AppResult<AgentResult>) {
         when (result) {
             is AppResult.Success -> {
