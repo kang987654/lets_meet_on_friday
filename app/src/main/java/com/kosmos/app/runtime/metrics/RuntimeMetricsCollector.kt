@@ -165,3 +165,13 @@ class RuntimeMetricsCollector @Inject constructor(
     }
 
 }
+
+/**
+ * 급하지 않은 백그라운드 추론(요약·자동 추출·브리핑)을 미뤄야 할 온도인지 판정합니다.
+ *
+ * [WHY] 같은 비교(`getCurrentTemp() >= THERMAL_WARNING_CELSIUS`)가 세 호출부에 복제돼 있었다 —
+ * 기준을 바꾸면 한 곳만 고쳐지기 쉽다. 멤버가 아니라 확장 함수인 이유: 호출부 테스트들이
+ * `getCurrentTemp()` 만 스텁한 목을 쓰므로, 멤버로 두면 그 목들이 스텁 없는 호출로 깨진다.
+ */
+fun RuntimeMetricsCollector.shouldDeferBackgroundInference(): Boolean =
+    getCurrentTemp() >= Constants.THERMAL_WARNING_CELSIUS

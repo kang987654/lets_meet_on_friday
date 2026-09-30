@@ -97,6 +97,10 @@ object Constants {
     // 발병점 안전선(1854)을 넘는다. 300 은 대략 2~3턴이다.
     const val MIN_HISTORY_TOKENS = 300
 
+    // [WHY] 슬라이딩 윈도우가 메시지마다 더하는 턴 템플릿(역할 태그·턴 경계) 몫. 본문 추정만으로는
+    // 태그 비용이 빠진다 — 과대 방향 여유라 예산 불변식에 안전하다(ContextBuilder 에 박혀 있던 10).
+    const val PER_MESSAGE_TEMPLATE_TOKENS = 10
+
     /**
      * 툴 실행 결과(resultJson 전체)가 넘지 않아야 하는 토큰 예산입니다.
      *

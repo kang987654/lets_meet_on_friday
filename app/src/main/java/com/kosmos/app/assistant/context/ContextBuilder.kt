@@ -2,6 +2,8 @@ package com.kosmos.app.assistant.context
 
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
+import com.kosmos.app.core.common.ResponseStyle
+import com.kosmos.app.core.common.runCatchingCancellable
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.tool.Tokenizer
@@ -63,24 +65,17 @@ class ContextBuilder @Inject constructor(
             Constants.MAX_RECENT_CONVERSATIONS
         )
 
-        val responseStyle = try {
-            settingsDataStore.responseStyleFlow.first()
-        } catch (e: Exception) {
-            "DEFAULT"
-        }
+        // [WHY] runCatchingCancellable — 설정 읽기 실패는 기본값으로 강등하되, 턴 취소까지
+        // 기본값으로 삼켜 파이프라인을 계속 돌리면 안 된다(plain catch(Exception) 이던 곳).
+        val responseStyle = runCatchingCancellable { settingsDataStore.responseStyleFlow.first() }
+            .getOrDefault(ResponseStyle.DEFAULT)
 
-        val maxTokens = try {
-            settingsDataStore.maxTokensFlow.first()
-        } catch (e: Exception) {
-            Constants.MAX_CONTEXT_TOKENS
-        }
+        val maxTokens = runCatchingCancellable { settingsDataStore.maxTokensFlow.first() }
+            .getOrDefault(Constants.MAX_CONTEXT_TOKENS)
 
         // [WHY] 읽기 실패 시 프라이버시 우선 원칙에 따라 웹 검색은 비활성(false)으로 폴백한다.
-        val webSearchEnabled = try {
-            settingsDataStore.webSearchEnabledFlow.first()
-        } catch (e: Exception) {
-            false
-        }
+        val webSearchEnabled = runCatchingCancellable { settingsDataStore.webSearchEnabledFlow.first() }
+            .getOrDefault(false)
 
         // [WHY] 읽기 실패는 "프로필 없음"으로 강등 — 프로필 배선 문제가 채팅을 막지 않는다.
         val profileText = when (val entries = profileRepository.getEntries()) {
@@ -138,7 +133,7 @@ class ContextBuilder @Inject constructor(
 
         // messages is chronological (oldest first). We iterate from newest (end) to oldest.
         for (message in messages.reversed()) {
-            val msgTokens = tokenizer.sizeInTokens(message.content) + 10 // overhead for tags
+            val msgTokens = tokenizer.sizeInTokens(message.content) + Constants.PER_MESSAGE_TEMPLATE_TOKENS
             if (currentTokens + msgTokens > historyBudget) {
                 break
             }

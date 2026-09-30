@@ -40,10 +40,13 @@ import javax.inject.Singleton
 class EpisodeBoundaryManager @Inject constructor(
     private val episodeRepository: EpisodeRepository,
     private val conversationRepository: ConversationRepository,
-    modelRunner: ModelRunner
+    private val modelRunner: ModelRunner
 ) {
 
-    /** 닫힘 트리거 — 스케줄러가 실행 시점을 정하는 데 쓴다 (무활동=즉시, 리셋=지연). */
+    /**
+     * 닫힘 트리거 — 진단·로그용 구분이다. 실행 시점은 트리거와 무관하게 전부 턴 종료 후 드레인이다
+     * (EpisodeSummarizeScheduler [WHY] — 계획의 "무활동=즉시"는 사용자 턴과 경합해 버렸다).
+     */
     enum class CloseTrigger { IDLE, RESET }
 
     data class ClosedEpisode(val episodeId: String, val trigger: CloseTrigger)
@@ -58,8 +61,15 @@ class EpisodeBoundaryManager @Inject constructor(
     // [WHY] 리셋 구독은 프로세스 수명 스코프가 필요하다. GemmaModelRunner 의 watchdogScope 와
     // 같은 전례 — @Singleton 이므로 이 스코프도 프로세스와 함께 산다.
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val started = java.util.concurrent.atomic.AtomicBoolean(false)
 
-    init {
+    /**
+     * 런타임 리셋 구독을 시작합니다 — KosmosApp.onCreate 가 부른다 (멱등).
+     *
+     * [WHY] init 구독을 옮겼다(AGENTS §2-④) — 주입만으로 백그라운드 구독이 생기지 않게.
+     */
+    fun start() {
+        if (!started.compareAndSet(false, true)) return
         scope.launch {
             modelRunner.conversationResets.collect { event ->
                 // [WHY] TOKEN_BUDGET 만 경계다. 나머지 사유는 대화 주제와 무관한 설정 변경이다.
@@ -93,10 +103,10 @@ class EpisodeBoundaryManager @Inject constructor(
             val lastAt = lastMessageAt(sessionId)
 
             if (open != null && lastAt != null && now - lastAt > IDLE_BOUNDARY_MS) {
-                close(open, endAt = lastAt, trigger = CloseTrigger.IDLE)
-                return@withLock newEpisode(sessionId, startAt = now).id
+                close(open, endAt = lastAt, trigger = CloseTrigger.IDLE, now = now)
+                return@withLock newEpisode(sessionId, startAt = now, now = now).id
             }
-            (open ?: newEpisode(sessionId, startAt = now)).id
+            (open ?: newEpisode(sessionId, startAt = now, now = now)).id
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -105,13 +115,13 @@ class EpisodeBoundaryManager @Inject constructor(
         }
     }
 
-    private suspend fun onBudgetReset(sessionId: String) = mutex.withLock {
+    private suspend fun onBudgetReset(sessionId: String, now: Long = System.currentTimeMillis()) = mutex.withLock {
         try {
             val open = openEpisodeOf(sessionId) ?: return@withLock
             // [WHY] endAt 은 마지막 메시지 시각 — 리셋 시각(지금)이 아니다. 리셋은 다음 턴의
             // 프리필 시점에 일어나므로 "지금"은 이미 새 주제의 시작일 수 있다.
             val endAt = lastMessageAt(sessionId) ?: open.startAt
-            close(open, endAt = endAt, trigger = CloseTrigger.RESET)
+            close(open, endAt = endAt, trigger = CloseTrigger.RESET, now = now)
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -127,21 +137,22 @@ class EpisodeBoundaryManager @Inject constructor(
         (conversationRepository.getRecentBySession(sessionId, 1) as? AppResult.Success)
             ?.data?.lastOrNull()?.createdAt
 
-    private suspend fun close(episode: Episode, endAt: Long, trigger: CloseTrigger) {
+    // [WHY] updatedAt·createdAt 도 호출자의 now 를 쓴다 — 판정은 now 로 하면서 기록만 벽시계로
+    // 하면 fake clock 테스트에서 시각이 뒤섞인다(AGENTS §2-④).
+    private suspend fun close(episode: Episode, endAt: Long, trigger: CloseTrigger, now: Long) {
         val messages = (conversationRepository.getByEpisode(episode.id) as? AppResult.Success)
             ?.data.orEmpty()
         val closed = episode.copy(
             status = EpisodeStatus.CLOSED,
             endAt = endAt,
             messageCount = messages.size,
-            updatedAt = System.currentTimeMillis()
+            updatedAt = now
         )
         episodeRepository.update(closed)
         _closedEpisodes.tryEmit(ClosedEpisode(episode.id, trigger))
     }
 
-    private suspend fun newEpisode(sessionId: String, startAt: Long): Episode {
-        val now = System.currentTimeMillis()
+    private suspend fun newEpisode(sessionId: String, startAt: Long, now: Long): Episode {
         val episode = Episode(
             id = UUID.randomUUID().toString(),
             sessionId = sessionId,

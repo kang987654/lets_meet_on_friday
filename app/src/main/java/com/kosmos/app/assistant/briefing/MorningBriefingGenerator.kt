@@ -1,7 +1,6 @@
 package com.kosmos.app.assistant.briefing
 
 import com.kosmos.app.core.common.AppResult
-import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.assistant.episode.EpisodeBoundaryManager
 import com.kosmos.app.data.local.prefs.SessionStore
@@ -19,6 +18,7 @@ import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.usecase.GenerateBriefingUseCase
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
+import com.kosmos.app.runtime.metrics.shouldDeferBackgroundInference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -127,7 +127,7 @@ class MorningBriefingGenerator @Inject constructor(
 
         // [WHY] 발열 게이트 — 브리핑은 급하지 않은 추론이다. 경고 온도면 다음 Ready 로 미룬다
         // (EpisodeSummarizeScheduler 와 같은 기준. 같은 Ready 세션 안 재시도는 과설계로 기각).
-        if (metricsCollector.getCurrentTemp() >= Constants.THERMAL_WARNING_CELSIUS) {
+        if (metricsCollector.shouldDeferBackgroundInference()) {
             AppLogger.w(TAG, "발열로 브리핑 연기")
             return@withLock
         }

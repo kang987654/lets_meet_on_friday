@@ -1,7 +1,9 @@
 package com.kosmos.app.runtime.gemma
 
 import android.content.Context
+import com.kosmos.app.core.common.AppError
 import com.kosmos.app.domain.modelrunner.ModelInfo
+import com.kosmos.app.domain.modelrunner.ModelLoadManager
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,8 +26,6 @@ import javax.inject.Singleton
  * 2. 파일 발견 시 모델 경로, 버전, 양자화 정보 등을 담은 [ModelInfo] 생성
  * 3. 전체 시스템에 모델 로드 상태([ModelLoadState])를 Flow로 브로드캐스트
  */
-import com.kosmos.app.domain.modelrunner.ModelLoadManager
-
 @Singleton
 class GemmaRuntimeManager @Inject constructor(
     @param:ApplicationContext private val context: Context
@@ -51,6 +51,10 @@ class GemmaRuntimeManager @Inject constructor(
 
     override fun setReady(modelInfo: ModelInfo) {
         _loadState.value = ModelLoadState.Ready(modelInfo)
+    }
+
+    override fun setError(error: AppError) {
+        _loadState.value = ModelLoadState.Error(error)
     }
 
     override fun checkModelFile() {

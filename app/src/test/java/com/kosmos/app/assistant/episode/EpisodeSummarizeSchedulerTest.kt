@@ -76,7 +76,7 @@ class EpisodeSummarizeSchedulerTest {
     private fun scheduler(): EpisodeSummarizeScheduler = EpisodeSummarizeScheduler(
         episodeRepository, conversationRepository, summarize,
         metricsCollector, boundaryManager, modelRunner, factExtractor
-    )
+    ).also { it.start() }
 
     private fun closedEpisode(id: String = "e1") = Episode(
         id = id, sessionId = "s1", status = EpisodeStatus.CLOSED, title = null, summary = null,

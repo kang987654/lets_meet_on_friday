@@ -1,7 +1,6 @@
 package com.kosmos.app.assistant.episode
 
 import com.kosmos.app.core.common.AppResult
-import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.data.local.prefs.SettingsDataStore
 import com.kosmos.app.domain.audit.AuditTrailService
@@ -16,6 +15,7 @@ import com.kosmos.app.domain.model.ProfileSuggestionStatus
 import com.kosmos.app.domain.usecase.ExtractFactsUseCase
 import com.kosmos.app.domain.usecase.SaveKnowledgeUseCase
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
+import com.kosmos.app.runtime.metrics.shouldDeferBackgroundInference
 import kotlinx.coroutines.flow.first
 import java.util.UUID
 import javax.inject.Inject
@@ -68,7 +68,7 @@ class EpisodeFactExtractor @Inject constructor(
         if (!settingsDataStore.autoExtractEnabledFlow.first()) return null
         // [WHY] 발열 재확인 — 요약이 방금 추론 1회를 썼다. 경고 온도면 이 에피소드는 건너뛴다
         // (미루지 않음: 요약과 달리 재시도 큐가 없고, 다음 에피소드가 곧 온다).
-        if (metricsCollector.getCurrentTemp() >= Constants.THERMAL_WARNING_CELSIUS) {
+        if (metricsCollector.shouldDeferBackgroundInference()) {
             AppLogger.w(TAG, "발열로 자동 추출 건너뜀: ${episode.id}")
             return null
         }

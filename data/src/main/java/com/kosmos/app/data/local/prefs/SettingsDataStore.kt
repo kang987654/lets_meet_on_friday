@@ -1,5 +1,6 @@
 package com.kosmos.app.data.local.prefs
 
+import com.kosmos.app.core.common.ResponseStyle
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -91,7 +92,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     val responseStyleFlow: Flow<String> = dataStore.data.map {
-        it[RESPONSE_STYLE_KEY] ?: "DEFAULT"
+        it[RESPONSE_STYLE_KEY] ?: ResponseStyle.DEFAULT
     }
 
     /**

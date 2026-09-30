@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.settings
 
+import com.kosmos.app.core.common.ResponseStyle
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -186,7 +187,7 @@ fun SettingsScreen(
         // 3. Response Style Section
         SectionBox(title = "응답 스타일") {
             // 저장값(영문 키)은 그대로 두고 표시만 한글화한다 — 키를 바꾸면 기존 설정이 깨진다.
-            val styles = listOf("CONCISE" to "간결", "DEFAULT" to "기본", "DETAILED" to "자세히")
+            val styles = listOf(ResponseStyle.CONCISE to "간결", ResponseStyle.DEFAULT to "기본", ResponseStyle.DETAILED to "자세히")
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

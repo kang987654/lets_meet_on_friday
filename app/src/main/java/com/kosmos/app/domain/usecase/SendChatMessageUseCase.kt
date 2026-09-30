@@ -72,21 +72,26 @@ class SendChatMessageUseCase @Inject constructor(
         return try {
             val result = assistantOrchestrator.processRequest(request)
             AppResult.Success(result)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // [WHY] 취소는 오류가 아니다 — 예전에는 catch(Exception) 이 취소까지 잡아 "알 수 없는
+            // 오류" 말풍선을 DB 에 저장했다(화면을 떠나 viewModelScope 가 취소되는 경우).
+            throw e
         } catch (e: Exception) {
-            val errorMsg = "알 수 없는 오류가 발생했습니다: ${e.message}"
-            
-            // 시스템 에러 메시지(Assistant 역할)를 DB에 강제로 저장하여 턴 동기화 보장
+            val error = AppError.ModelInferenceError(e.message ?: "unknown")
+
+            // 시스템 에러 메시지(Assistant 역할)를 DB에 강제로 저장하여 턴 동기화 보장.
+            // [WHY] 문구는 ErrorMessages 가 단일 출처다 — 예외 원문(e.message)을 말풍선에 싣지 않는다.
             val errorMessageToSave = com.kosmos.app.domain.model.ChatMessage(
                 id = java.util.UUID.randomUUID().toString(),
                 sessionId = sessionId,
                 role = com.kosmos.app.domain.model.ChatMessage.Role.ASSISTANT,
-                content = errorMsg,
+                content = com.kosmos.app.core.mapper.ErrorMessages.userMessage(error),
                 inputType = com.kosmos.app.domain.model.InputType.TEXT,
                 createdAt = System.currentTimeMillis()
             )
             conversationRepository.save(errorMessageToSave)
 
-            AppResult.Failure(AppError.ModelInferenceError(e.message ?: "알 수 없는 오류가 발생했습니다."))
+            AppResult.Failure(error)
         }
     }
 }

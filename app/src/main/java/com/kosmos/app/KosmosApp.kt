@@ -7,15 +7,11 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import androidx.work.Configuration
 import com.kosmos.app.platform.notification.NotificationChannels
-import com.kosmos.app.runtime.gemma.GemmaRuntimeManager
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
 @HiltAndroidApp
 class KosmosApp : Application(), Configuration.Provider {
-
-    @Inject
-    lateinit var runtimeManager: GemmaRuntimeManager
 
     @Inject
     lateinit var modelRunner: com.kosmos.app.domain.modelrunner.ModelRunner
@@ -24,12 +20,19 @@ class KosmosApp : Application(), Configuration.Provider {
     lateinit var workerFactory: HiltWorkerFactory
 
     /**
-     * [WHY] 브리핑 생성기는 아무도 참조하지 않으면 인스턴스화되지 않는다 — Orchestrator 주입으로
-     * 살아나는 EpisodeSummarizeScheduler 와 달리, Ready 편승 구독(init)을 깨우려면 여기서
-     * eager 주입이 필요하다.
+     * [WHY] 백그라운드 상주 컴포넌트 3종은 여기서 eager 주입하고 onCreate 에서 명시적으로
+     * `start()` 한다(멱등). 구독을 init 에 두면 Hilt 테스트가 주입만으로 백그라운드 추론을
+     * 일으키고(AGENTS §2-④), 반대로 아무도 참조하지 않으면 인스턴스화조차 되지 않는다.
+     * HiltTestApplication 에서는 onCreate 가 불리지 않아 테스트는 자동 격리된다.
      */
     @Inject
     lateinit var briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+
+    @Inject
+    lateinit var episodeBoundaryManager: com.kosmos.app.assistant.episode.EpisodeBoundaryManager
+
+    @Inject
+    lateinit var episodeSummarizeScheduler: com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
 
     /**
      * [WHY] @HiltWorker 로 만든 Worker 에 의존성을 주입하려면 WorkManager 의 기본 초기화를
@@ -47,6 +50,8 @@ class KosmosApp : Application(), Configuration.Provider {
         super.onCreate()
         NotificationChannels.ensureCreated(this)
         briefingGenerator.start()
+        episodeBoundaryManager.start()
+        episodeSummarizeScheduler.start()
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
             // [WHY] "FileFound 를 보면 warmUp" 반응이 스플래시 뷰모델에만 있으면, 프로세스가
             // 살아남은 재진입에서 구멍이 난다 — 아주 빠른 재진입은 close() 의 비동기 정리

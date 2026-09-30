@@ -46,7 +46,7 @@ class EpisodeBoundaryManagerTest {
         coEvery { episodeRepository.update(any()) } answers {
             savedEpisodes += firstArg<Episode>(); AppResult.Success(Unit)
         }
-        return EpisodeBoundaryManager(episodeRepository, conversationRepository, modelRunner)
+        return EpisodeBoundaryManager(episodeRepository, conversationRepository, modelRunner).also { it.start() }
     }
 
     private fun openEpisode(id: String = "e-open", startAt: Long = 0) = Episode(

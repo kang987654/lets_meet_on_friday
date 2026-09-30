@@ -6,6 +6,7 @@ import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.Message
@@ -14,6 +15,8 @@ import android.util.Log
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
+import com.kosmos.app.core.common.runCatchingCancellable
+import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ConversationResetEvent
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
@@ -21,18 +24,25 @@ import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelToolCall
 import com.kosmos.app.domain.modelrunner.ModelTurn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.buffer
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
-import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.withLock
 import com.kosmos.app.di.LLMDispatcher
-
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 
 /**
@@ -125,19 +135,27 @@ class GemmaModelRunner @Inject constructor(
         // [WHY] logcat 한 줄의 실용 한계보다 넉넉히 아래로 잡는다. 프리페이스 전체(툴 선언 포함)를
         // 남기려면 자르지 않고 **나눠서** 찍어야 한다.
         private const val PREFACE_CHUNK = 1500
+
+        // [WHY] 방출 지점(getOrCreateConversation)이 suspend 가 아니라 tryEmit 이 수신자 유무와
+        // 무관하게 성공할 여유가 필요하다. 넘쳐 유실되면 catch-up 이 DB 상태로 복원한다.
+        private const val RESET_EVENT_BUFFER = 16
+
+        // [WHY] 무활동 감시의 점검 주기. 타임아웃(INFERENCE_INACTIVITY_TIMEOUT_MS)보다 충분히
+        // 짧기만 하면 되고, 짧을수록 Default 디스패처를 자주 깨운다.
+        private const val WATCHDOG_TICK_MS = 1_000L
+
+        /**
+         * greedy(topK=1) 샘플러 — 채팅과 oneShot 이 같은 값을 쓴다 (근거는 getOrCreateConversation).
+         * topK=1 에서 temperature/topP 는 효력이 없지만, 샘플링을 열 때의 출발점으로 남긴다.
+         */
+        private val GREEDY_SAMPLER = SamplerConfig(temperature = 1.0, topK = 1, topP = 0.95)
     }
 
     override val loadState: StateFlow<ModelLoadState> = runtimeManager.loadState
 
-    // [WHY] extraBufferCapacity 가 있어야 tryEmit 이 수신자 유무와 무관하게 성공한다 —
-    // 방출 지점(getOrCreateConversation)은 suspend 가 아니다.
     private val _conversationResets =
-        kotlinx.coroutines.flow.MutableSharedFlow<com.kosmos.app.domain.modelrunner.ConversationResetEvent>(
-            extraBufferCapacity = 16
-        )
-    override val conversationResets:
-        kotlinx.coroutines.flow.SharedFlow<com.kosmos.app.domain.modelrunner.ConversationResetEvent> =
-        _conversationResets
+        MutableSharedFlow<ConversationResetEvent>(extraBufferCapacity = RESET_EVENT_BUFFER)
+    override val conversationResets: SharedFlow<ConversationResetEvent> = _conversationResets
 
     private var engine: Engine? = null
     private var conversation: Conversation? = null
@@ -145,18 +163,19 @@ class GemmaModelRunner @Inject constructor(
     private var currentSystemInstruction: String? = null
     private var currentEnabledTools: List<String>? = null
 
+    // [WHY] 지금 send 중인 대화(캐시 채팅이든 oneShot 이든). cancel() 은 뮤텍스 밖에서 불리므로
+    // @Volatile 로 가시성을 보장한다.
+    @Volatile
+    private var activeConversation: Conversation? = null
+
     // [WHY] llmDispatcher(limitedParallelism(1))는 suspension point에서 코루틴이 교차될 수 있어
     // 단독으로는 상호배제가 아니다. 엔진/대화 수명주기(초기화·생성·해제)는 뮤텍스로 직렬화한다.
-    private val lifecycleMutex = kotlinx.coroutines.sync.Mutex()
-    private val closeScope = kotlinx.coroutines.CoroutineScope(
-        kotlinx.coroutines.SupervisorJob() + llmDispatcher
-    )
+    private val lifecycleMutex = Mutex()
+    private val closeScope = CoroutineScope(SupervisorJob() + llmDispatcher)
 
     // [WHY] 감시는 llmDispatcher 에 둘 수 없다 — limitedParallelism(1)이라 네이티브 호출이
     // 그 스레드를 점유하면(정확히 우리가 감시하려는 상황) 감시 코루틴이 영영 실행되지 않는다.
-    private val watchdogScope = kotlinx.coroutines.CoroutineScope(
-        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default
-    )
+    private val watchdogScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /**
      * 추론 무활동 감시 — [Constants.INFERENCE_INACTIVITY_TIMEOUT_MS] 동안 토큰이 오지 않으면
@@ -181,7 +200,7 @@ class GemmaModelRunner @Inject constructor(
             private set
         private val job = watchdogScope.launch {
             while (true) {
-                kotlinx.coroutines.delay(1_000)
+                delay(WATCHDOG_TICK_MS)
                 val idleMs = System.currentTimeMillis() - lastActivity.get()
                 if (idleMs > Constants.INFERENCE_INACTIVITY_TIMEOUT_MS) {
                     timedOut = true
@@ -211,8 +230,8 @@ class GemmaModelRunner @Inject constructor(
     ): AppResult<ModelTurn> = runTurn(prompt, onToken, "멀티모달 추론 중 오류 발생") {
         // [WHY] 이미지를 텍스트보다 앞에 넣는다 — 마지막 토큰이 텍스트여야 응답 품질이 안정적이다.
         listOf(
-            com.google.ai.edge.litertlm.Content.ImageBytes(imageBytes),
-            com.google.ai.edge.litertlm.Content.Text(prompt.currentInput)
+            Content.ImageBytes(imageBytes),
+            Content.Text(prompt.currentInput)
         )
     }
 
@@ -232,9 +251,9 @@ class GemmaModelRunner @Inject constructor(
         onToken: ((String) -> Unit)?
     ): AppResult<ModelTurn> = runTurn(prompt, onToken, "음성 추론 중 오류 발생") {
         buildList {
-            add(com.google.ai.edge.litertlm.Content.AudioFile(audioPath))
+            add(Content.AudioFile(audioPath))
             if (prompt.currentInput.isNotBlank()) {
-                add(com.google.ai.edge.litertlm.Content.Text(prompt.currentInput))
+                add(Content.Text(prompt.currentInput))
             }
         }
     }
@@ -252,16 +271,22 @@ class GemmaModelRunner @Inject constructor(
         prompt: ChatPrompt,
         onToken: ((String) -> Unit)?,
         failureMessage: String,
-        extraContents: () -> List<com.google.ai.edge.litertlm.Content>
+        extraContents: () -> List<Content>
     ): AppResult<ModelTurn> = withContext(llmDispatcher) {
-        val currentState = loadState.value
-        if (currentState !is ModelLoadState.Ready) {
+        if (loadState.value !is ModelLoadState.Ready) {
             return@withContext AppResult.Failure(AppError.ModelNotReady("Model is not ready"))
         }
 
         try {
             lifecycleMutex.withLock {
-                ensureInferenceInitialized(currentState.modelInfo.modelPath)
+                // [WHY] 상태 검사를 뮤텍스 **안에서** 다시 한다. 밖에서 Ready 를 본 뒤 뮤텍스를
+                // 기다리는 사이 close()(onStop)가 먼저 엔진을 해제할 수 있고, 예전에는 그 턴이
+                // 뮤텍스를 얻자마자 엔진을 다시 로드했다 — 백그라운드에서 3.6GB 로드(AGENTS §2-⑥
+                // 위반, 요약 드레인이 onStop 직후 도는 경로). 엔진 초기화는 warmUp 만 맡는다.
+                val readyEngine = engine
+                if (loadState.value !is ModelLoadState.Ready || readyEngine == null) {
+                    return@withLock AppResult.Failure(AppError.ModelNotReady("Engine released"))
+                }
 
                 // [WHY] 임계 발열(≥48°C) 시 추론을 진행하면서 감사 로그만 남기던 문제 수정 —
                 // 사전 조건 실패면 실제로 추론을 중단하고 오류를 반환한다.
@@ -273,8 +298,9 @@ class GemmaModelRunner @Inject constructor(
                 metricsCollector.recordStart()
                 val startTime = System.currentTimeMillis()
 
-                val currentConversation = getOrCreateConversation(prompt)
+                val currentConversation = getOrCreateConversation(readyEngine, prompt)
                 val outgoing = buildMessage(prompt, extraContents())
+                activeConversation = currentConversation
 
                 // [WHY] 툴 회신 턴은 재생성이 금지된 턴이라(0.8.5 가드) 어떤 예산 검사도 거치지
                 // 않고 KV 에 얹힌다 — 초과가 일어난다면 바로 이 지점이다. 직전 값을 남겨야
@@ -287,7 +313,7 @@ class GemmaModelRunner @Inject constructor(
                 // 시점을 놓치면 네이티브 자원이 그대로 샌다.
                 try {
                 if (onToken != null) {
-                    var finalResponse = ""
+                    val finalResponse = StringBuilder()
                     val toolCalls = mutableListOf<ModelToolCall>()
                     var error: Throwable? = null
                     // [WHY] 네이티브가 토큰 하나당 메시지 하나를 보내므로, 이 수가 곧 생성 토큰
@@ -312,16 +338,20 @@ class GemmaModelRunner @Inject constructor(
                                 yield() // CPU 점유율 양보 (UI 스레드 기아 방지)
                                 watchdog.beat()
                                 collectToolCalls(message, toolCalls)
-                                val token = message.contents.contents
-                                    .filterIsInstance<com.google.ai.edge.litertlm.Content.Text>()
-                                    .joinToString("") { it.text }
+                                val token = message.textContent()
                                 if (token.isNotEmpty()) {
                                     onToken.invoke(token)
-                                    finalResponse += token
+                                    finalResponse.append(token)
                                     tokenCount++
                                 }
                             }
                     } catch (e: Exception) {
+                        // [WHY] **이 코루틴 자신이 취소된 경우만** 되던진다. 사용자 취소는
+                        // cancelProcess 로 네이티브 스트림을 끊는 것이라(부분 응답 보존, ChatViewModel
+                        // .cancelGeneration) 그 끝남이 어떤 예외로 오든 여기서 오류로 흡수해야 한다 —
+                        // 반면 viewModelScope 취소 같은 진짜 코루틴 취소를 Failure 로 바꾸면 호출자가
+                        // 취소된 줄 모르고 오류 말풍선을 DB 에 쓴다.
+                        currentCoroutineContext().ensureActive()
                         error = e
                     }
 
@@ -336,8 +366,12 @@ class GemmaModelRunner @Inject constructor(
                     } else if (error != null) {
                         AppResult.Failure(AppError.ModelInferenceError(error.message ?: "스트리밍 중 에러 발생"))
                     } else {
-                        logTurn(prompt, finalResponse, toolCalls)
-                        AppResult.Success(ModelTurn(finalResponse, toolCalls))
+                        // [WHY] 비스트리밍과 달리 빈 결과를 실패로 바꾸지 않는다 — 사용자 취소가
+                        // 첫 토큰 전에 끊으면 정상적으로 빈 부분 응답이 되고, 그 처리(빈 말풍선을
+                        // 안 남김)는 BaseAgent 의 몫이다.
+                        val text = finalResponse.toString()
+                        logTurn(prompt, text, toolCalls)
+                        AppResult.Success(ModelTurn(text, toolCalls))
                     }
                 } else {
                     // [WHY] runCatching 인 이유 — 감시가 cancelProcess 를 부르면 이 블로킹 호출이
@@ -355,9 +389,7 @@ class GemmaModelRunner @Inject constructor(
                     val message = sendResult.getOrThrow()
                     val toolCalls = mutableListOf<ModelToolCall>()
                     collectToolCalls(message, toolCalls)
-                    val messageText = message.contents.contents
-                        .filterIsInstance<com.google.ai.edge.litertlm.Content.Text>()
-                        .joinToString("") { it.text }
+                    val messageText = message.textContent()
 
                     metricsCollector.recordEnd(System.currentTimeMillis() - startTime)
                     if (!prompt.oneShot) logKvUsage("턴 종료", currentConversation)
@@ -373,17 +405,24 @@ class GemmaModelRunner @Inject constructor(
                 }
                 } finally {
                     watchdog.stop()
+                    activeConversation = null
                     if (prompt.oneShot) runCatching { currentConversation.close() }
                 }
             }
         } catch (e: Exception) {
+            currentCoroutineContext().ensureActive()
             AppResult.Failure(AppError.ModelInferenceError("$failureMessage: ${e.message}"))
         }
     }
 
+    private fun Message.textContent(): String =
+        contents.contents
+            .filterIsInstance<Content.Text>()
+            .joinToString("") { it.text }
+
     private fun buildMessage(
         prompt: ChatPrompt,
-        extras: List<com.google.ai.edge.litertlm.Content>
+        extras: List<Content>
     ): Message {
         // [WHY] 툴 실행 결과는 사용자 발화가 아니라 **TOOL 역할 메시지**로 보내야 모델 템플릿의
         // 역할과 맞는다. Contents 오버로드는 무조건 Message.user 로 감싸므로(바이트코드 확인)
@@ -391,7 +430,7 @@ class GemmaModelRunner @Inject constructor(
         prompt.toolResponse?.let { response ->
             return Message.tool(
                 Contents.of(
-                    com.google.ai.edge.litertlm.Content.ToolResponse(response.name, response.resultJson)
+                    Content.ToolResponse(response.name, response.resultJson)
                 )
             )
         }
@@ -399,7 +438,7 @@ class GemmaModelRunner @Inject constructor(
             return Message.user(Contents.of(*extras.toTypedArray()))
         }
         return Message.user(
-            Contents.of(com.google.ai.edge.litertlm.Content.Text(prompt.currentInput))
+            Contents.of(Content.Text(prompt.currentInput))
         )
     }
 
@@ -408,7 +447,7 @@ class GemmaModelRunner @Inject constructor(
      * 중복을 제거한다.
      */
     private fun collectToolCalls(
-        message: com.google.ai.edge.litertlm.Message,
+        message: Message,
         into: MutableList<ModelToolCall>
     ) {
         message.toolCalls.forEach { call ->
@@ -437,14 +476,16 @@ class GemmaModelRunner @Inject constructor(
     override suspend fun cancel() {
         // [WHY] cancelProcess는 진행 중 스트리밍을 중단시키기 위한 호출이므로 뮤텍스를 잡지 않는다
         // (생성 본문이 뮤텍스를 보유 중이어도 취소가 가능해야 함).
-        conversation?.cancelProcess()
+        // [WHY] 지금 돌고 있는 대화를 끊는다 — 예전에는 캐시된 채팅 대화만 끊어서, 진행 중인
+        // oneShot(음성 전사 등 임시 대화)에는 취소가 닿지 않았다.
+        runCatching { (activeConversation ?: conversation)?.cancelProcess() }
     }
 
     override fun close() {
         // [WHY] 메인 스레드에서 네이티브 close를 직접 부르면 진행 중 추론과 경합(use-after-free)하고
         // blocking으로 ANR 위험이 있다. 진행 중 생성에 취소를 요청한 뒤, LLM 디스패처에서
         // 뮤텍스로 직렬화하여(현재 생성 종료 후) 해제한다.
-        runCatching { conversation?.cancelProcess() }
+        runCatching { (activeConversation ?: conversation)?.cancelProcess() }
         closeScope.launch {
             lifecycleMutex.withLock {
                 runCatching { conversation?.close() }
@@ -471,12 +512,23 @@ class GemmaModelRunner @Inject constructor(
             runtimeManager.setInitializing()
             // [WHY] Dispatchers.IO에서 초기화하면 llmDispatcher의 첫 generate와 이중 초기화 경합이
             // 발생해 Engine이 누수된다. 동일 디스패처 + 뮤텍스로 직렬화한다.
-            withContext(llmDispatcher) {
-                lifecycleMutex.withLock {
-                    ensureInferenceInitialized(currentState.modelInfo.modelPath)
+            // [WHY] 실패를 상태로 내린다. 예전에는 GPU·CPU 가 둘 다 실패하면 예외가 호출자
+            // (KosmosApp.onStart 의 lifecycleScope)로 새어 앱이 죽고, 상태는 InitializingEngine 에
+            // 고정됐다 — ModelLoadState.Error 를 만드는 곳이 0곳이라 스플래시의 "다시 시도"
+            // 경로가 성립하지 않았다. retry 는 checkModelFile 이 FileFound 로 되돌려 다시 탄다.
+            val initialized = runCatchingCancellable {
+                withContext(llmDispatcher) {
+                    lifecycleMutex.withLock {
+                        ensureInferenceInitialized(currentState.modelInfo.modelPath)
+                    }
                 }
             }
-            runtimeManager.setReady(currentState.modelInfo)
+            initialized
+                .onSuccess { runtimeManager.setReady(currentState.modelInfo) }
+                .onFailure { e ->
+                    Log.e("GemmaModelRunner", "Engine initialization failed on every backend", e)
+                    runtimeManager.setError(AppError.ModelNotReady("엔진 초기화 실패: ${e.message}"))
+                }
         }
     }
 
@@ -494,14 +546,17 @@ class GemmaModelRunner @Inject constructor(
             }
             runCatching { Engine.setNativeMinLogSeverity(severity) }
             val cacheDir = context.cacheDir.absolutePath
+            // S25 Ultra 등 GPU Delegate 활성화로 최적화
+            var gpuEngine: Engine? = null
             try {
-                // S25 Ultra 등 GPU Delegate 활성화로 최적화
-                val newEngine = Engine(buildEngineConfig(modelPath, Backend.GPU(), cacheDir))
-                newEngine.initialize()
-                engine = newEngine
+                gpuEngine = Engine(buildEngineConfig(modelPath, Backend.GPU(), cacheDir))
+                gpuEngine.initialize()
+                engine = gpuEngine
                 Log.d("GemmaModelRunner", "Engine initialized with GPU backend")
             } catch (e: Exception) {
                 Log.e("GemmaModelRunner", "Failed to initialize GPU backend, falling back to CPU", e)
+                // [WHY] 초기화에 실패한 GPU 엔진도 네이티브 핸들을 쥐고 있을 수 있다 — 버리기 전에 닫는다.
+                runCatching { gpuEngine?.close() }
                 val fallbackEngine = Engine(buildEngineConfig(modelPath, Backend.CPU(), cacheDir))
                 fallbackEngine.initialize()
                 engine = fallbackEngine
@@ -517,9 +572,7 @@ class GemmaModelRunner @Inject constructor(
     // 되짚어야 할 것: 예전 근거는 "gallery 도 같은 플래그를 쓴다"였다 — gallery 는 근거 등급에서
     // 제외됐으므로(.agents/04_MODEL_EVIDENCE.md) 위 이유로 교체했다.
     @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
-    private fun getOrCreateConversation(prompt: ChatPrompt): Conversation {
-        val currentEngine = engine ?: throw IllegalStateException("Engine is not initialized")
-
+    private fun getOrCreateConversation(currentEngine: Engine, prompt: ChatPrompt): Conversation {
         // [WHY] 부수 계산(음성 전사, 일정 요약)은 시스템 지시와 sessionId 가 채팅과 다르므로,
         // 캐시된 대화에 섞으면 재사용 판정이 깨져 채팅 전체가 다시 프리필된다(ADR-010).
         // 캐시를 **건드리지 않고** 임시 대화를 만들어 돌려준다 — 호출자가 닫는다.
@@ -588,7 +641,14 @@ class GemmaModelRunner @Inject constructor(
             _conversationResets.tryEmit(ConversationResetEvent(prompt.sessionId, reason))
         }
 
-        existing?.close()
+        // [WHY] 닫기 **전에** 캐시를 비운다. 예전에는 close 뒤 createConversation 이 던지면 필드가
+        // 닫힌 네이티브 객체를 계속 가리켜, 다음 턴이 getTokenCount 를 부르거나 툴 회신 경로가
+        // 그 객체를 재사용했다(use-after-free).
+        conversation = null
+        currentSessionId = null
+        currentSystemInstruction = null
+        currentEnabledTools = null
+        existing?.let { runCatching { it.close() } }
 
         // [WHY] few-shot 시범(104토큰)은 0.23.0 에서 제거했다 — 도입 진단(ADR-010 시절
         // "시범이 없으면 호출 안 함")은 ADR-017 이 철회했고(진짜 원인은 지침 거리 → 턴
@@ -596,7 +656,7 @@ class GemmaModelRunner @Inject constructor(
         // 104토큰은 프로필 상시 주입(C′1, PROFILE_MAX_TOKENS)의 재원이다. 시범의 예시
         // 숫자("8282")가 조회 턴에 새던 실해(ADR-010)도 구조적으로 소멸한다.
         val initialMessages = prompt.history.map {
-            if (it.role.name == "USER") Message.user(it.content) else Message.model(it.content)
+            if (it.role == ChatMessage.Role.USER) Message.user(it.content) else Message.model(it.content)
         }
 
         val config = ConversationConfig(
@@ -617,11 +677,7 @@ class GemmaModelRunner @Inject constructor(
             // 실측이다 — 반복 2회가 완전히 동일했고 자릿수도 36/36 온전했다(exp15·exp22).
             // gallery 도 agent chat 에서 greedy 를 강제하지만 그것은 가설의 출처일 뿐이다
             // (`.agents/04_MODEL_EVIDENCE.md`).
-            samplerConfig = SamplerConfig(
-                temperature = 1.0,
-                topK = 1,
-                topP = 0.95
-            )
+            samplerConfig = GREEDY_SAMPLER
         )
         // [WHY] 이 플래그가 툴 스키마로부터 FST 문법을 만들어 모델 출력을 호출 구문으로 강제한다.
         // 근거는 **우리 실측**이다 — 선언만으로는 4B 모델이 호출 형식을 지키지 못해 `toolCalls` 가
@@ -653,7 +709,7 @@ class GemmaModelRunner @Inject constructor(
             ConversationConfig(
                 systemInstruction = Contents.of(prompt.systemInstruction),
                 automaticToolCalling = false,
-                samplerConfig = SamplerConfig(temperature = 1.0, topK = 1, topP = 0.95)
+                samplerConfig = GREEDY_SAMPLER
             )
         )
 

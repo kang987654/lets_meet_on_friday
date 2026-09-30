@@ -1,7 +1,7 @@
 package com.kosmos.app.assistant.episode
 
 import com.kosmos.app.core.common.AppResult
-import com.kosmos.app.core.common.Constants
+import com.kosmos.app.core.common.runCatchingCancellable
 import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.memory.EpisodeRepository
@@ -12,6 +12,7 @@ import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.usecase.SummarizeEpisodeUseCase
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
+import com.kosmos.app.runtime.metrics.shouldDeferBackgroundInference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -52,8 +53,8 @@ class EpisodeSummarizeScheduler @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val summarizeEpisode: SummarizeEpisodeUseCase,
     private val metricsCollector: RuntimeMetricsCollector,
-    boundaryManager: EpisodeBoundaryManager,
-    modelRunner: ModelRunner,
+    private val boundaryManager: EpisodeBoundaryManager,
+    private val modelRunner: ModelRunner,
     private val factExtractor: EpisodeFactExtractor
 ) {
 
@@ -63,8 +64,16 @@ class EpisodeSummarizeScheduler @Inject constructor(
     // 두 번 요약할 수 있다 (요약 = 추론 1회라 중복이 비싸다).
     private val drainMutex = Mutex()
     private val deferred = ArrayDeque<String>()
+    private val started = java.util.concurrent.atomic.AtomicBoolean(false)
 
-    init {
+    /**
+     * 닫힘 방출과 Ready 편승 구독을 시작합니다 — KosmosApp.onCreate 가 부른다 (멱등).
+     *
+     * [WHY] init 에서 구독하던 것을 옮겼다(AGENTS §2-④) — Orchestrator 를 주입받는 Hilt 테스트가
+     * 주입만으로 catch-up·요약 추론을 돌렸다. MorningBriefingGenerator.start() 와 같은 형태.
+     */
+    fun start() {
+        if (!started.compareAndSet(false, true)) return
         scope.launch {
             boundaryManager.closedEpisodes.collect { closed ->
                 synchronized(deferred) { deferred.addLast(closed.episodeId) }
@@ -73,9 +82,11 @@ class EpisodeSummarizeScheduler @Inject constructor(
         scope.launch {
             modelRunner.loadState.collect { state ->
                 if (state is ModelLoadState.Ready) {
-                    runCatching { catchUp() }
+                    runCatchingCancellable { catchUp() }
                         .onFailure { AppLogger.e(TAG, "catch-up 실패", it) }
-                    drain()
+                    // [WHY] drain 도 감싼다 — 예외 한 번이 이 collect 코루틴을 죽이면 이후 모든
+                    // Ready catch-up 이 프로세스 수명 내내 멈춘다.
+                    drainSafely()
                 }
             }
         }
@@ -83,10 +94,15 @@ class EpisodeSummarizeScheduler @Inject constructor(
 
     /** 오케스트레이터가 턴 종료 후 호출 — 지연 큐를 백그라운드로 비운다 (fire-and-forget). */
     fun onTurnCompleted() {
-        scope.launch { drain() }
+        scope.launch { drainSafely() }
     }
 
-    private suspend fun drain() = drainMutex.withLock {
+    private suspend fun drainSafely() {
+        runCatchingCancellable { drain() }
+            .onFailure { AppLogger.e(TAG, "드레인 실패", it) }
+    }
+
+    private suspend fun drain(now: Long = System.currentTimeMillis()) = drainMutex.withLock {
         // [WHY] 스냅샷 배치 — 지금 큐에 있는 것만 처리한다. removeFirst 루프로 돌리면 발열
         // 게이트가 되돌려 넣은(addLast) 항목을 같은 루프가 즉시 다시 꺼내 **발열이 식을 때까지
         // 무한 회전**한다(테스트가 잡은 결함 — 뮤텍스를 쥔 채라 이후 드레인도 전부 막힌다).
@@ -96,13 +112,13 @@ class EpisodeSummarizeScheduler @Inject constructor(
             deferred.clear()
             b
         }
-        for (id in batch) process(id)
+        for (id in batch) process(id, now)
     }
 
-    private suspend fun process(episodeId: String) {
+    private suspend fun process(episodeId: String, now: Long) {
         // [WHY] 발열 게이트 — 경고 온도(43°C) 이상이면 미룬다. 요약은 급하지 않은 추론이고,
         // 다음 드레인(턴 종료/Ready)에서 재시도된다.
-        if (metricsCollector.getCurrentTemp() >= Constants.THERMAL_WARNING_CELSIUS) {
+        if (metricsCollector.shouldDeferBackgroundInference()) {
             synchronized(deferred) { deferred.addLast(episodeId) }
             return
         }
@@ -121,11 +137,11 @@ class EpisodeSummarizeScheduler @Inject constructor(
 
         when (val result = summarizeEpisode(messages)) {
             is AppResult.Success -> {
-                applyDocs(episode, result.data)
+                applyDocs(episode, result.data, now)
                 // [WHY] 자동 추출(C′2)은 요약 **성공 직후 같은 드레인**에서 1회 — 발열 게이트를
                 // 이미 지났고 llmDispatcher 경합도 없는 자리다. 실패·재시도 경로에서는 부르지
                 // 않는다(재시도마다 중복 추출 방지). 추출 실패는 요약 상태에 영향을 주지 않는다.
-                runCatching { factExtractor.extract(episode.copy(tags = result.data.first().tags), messages) }
+                runCatchingCancellable { factExtractor.extract(episode.copy(tags = result.data.first().tags), messages) }
                     .onFailure { AppLogger.w(TAG, "자동 추출 예외(${episode.id}): ${it.message}") }
             }
             is AppResult.Failure -> {
@@ -135,7 +151,7 @@ class EpisodeSummarizeScheduler @Inject constructor(
                     // 타임라인에 그대로다(요약 실패 ≠ 데이터 손실).
                     status = if (episode.retryCount + 1 >= MAX_RETRY) EpisodeStatus.FAILED
                     else EpisodeStatus.CLOSED,
-                    updatedAt = System.currentTimeMillis()
+                    updatedAt = now
                 )
                 episodeRepository.update(retried)
                 AppLogger.w(TAG, "에피소드 요약 실패(${retried.retryCount}/${MAX_RETRY}): ${result.error}")
@@ -147,8 +163,7 @@ class EpisodeSummarizeScheduler @Inject constructor(
      * 요약 문서를 반영합니다. 다중 주제면 첫 문서가 기존 행을, 나머지가 추가 행을 차지한다
      * (메시지 episodeId 는 그대로 — 원문 이동은 시간 범위가 같으므로 충분하다, M0 게이트).
      */
-    private suspend fun applyDocs(episode: Episode, docs: List<SummarizeEpisodeUseCase.EpisodeDoc>) {
-        val now = System.currentTimeMillis()
+    private suspend fun applyDocs(episode: Episode, docs: List<SummarizeEpisodeUseCase.EpisodeDoc>, now: Long) {
         docs.forEachIndexed { index, doc ->
             val row = if (index == 0) {
                 episode.copy(
@@ -179,8 +194,7 @@ class EpisodeSummarizeScheduler @Inject constructor(
      * ② 미배정(episodeId NULL) 메시지 → 시간 간격으로 소급 에피소드 생성·배정
      * ③ 미요약 CLOSED → 큐 투입 (drain 이 이어서 처리)
      */
-    internal suspend fun catchUp() {
-        val now = System.currentTimeMillis()
+    internal suspend fun catchUp(now: Long = System.currentTimeMillis()) {
 
         // ① 낡은 OPEN 닫기
         val open = (episodeRepository.getByStatus(EpisodeStatus.OPEN) as? AppResult.Success)

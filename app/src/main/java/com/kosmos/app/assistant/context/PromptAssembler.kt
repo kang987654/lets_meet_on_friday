@@ -1,5 +1,6 @@
 package com.kosmos.app.assistant.context
 
+import com.kosmos.app.core.common.ResponseStyle
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ChatPrompt
 import javax.inject.Inject
@@ -138,10 +139,10 @@ class PromptAssembler @Inject constructor() {
      * 지시문으로 풀어 주고, 그 밖의 값(사용자가 직접 넣은 문장)은 그대로 전달한다.
      */
     private fun styleInstruction(responseStyle: String): String? = when {
-        responseStyle.isBlank() || responseStyle == "DEFAULT" -> null
-        responseStyle == "CONCISE" ->
+        responseStyle.isBlank() || responseStyle == ResponseStyle.DEFAULT -> null
+        responseStyle == ResponseStyle.CONCISE ->
             "Answer in one or two short sentences. Do not restate the question or add a preamble."
-        responseStyle == "DETAILED" ->
+        responseStyle == ResponseStyle.DETAILED ->
             "Answer thoroughly: give the reasoning and the relevant context, not just the conclusion."
         else -> "[Style: $responseStyle]"
     }
