@@ -17,7 +17,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,9 +47,9 @@ fun ProfileSheet(
     onDismiss: () -> Unit,
     viewModel: ProfileSheetViewModel = hiltViewModel()
 ) {
-    val entries by viewModel.entries.collectAsState()
-    val tokenUsage by viewModel.tokenUsage.collectAsState()
-    val error by viewModel.error.collectAsState()
+    val entries by viewModel.entries.collectAsStateWithLifecycle()
+    val tokenUsage by viewModel.tokenUsage.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
     var keyInput by remember { mutableStateOf("") }
     var valueInput by remember { mutableStateOf("") }
 

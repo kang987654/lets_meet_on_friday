@@ -31,6 +31,8 @@ fun CalendarScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedRange by viewModel.selectedRange.collectAsStateWithLifecycle()
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
+    // [WHY] 헤더 월·날짜 띠·"오늘" 판정이 같은 today 를 본다 — 화면 복귀마다 갱신(rememberToday).
+    val today = com.kosmos.app.ui.component.rememberToday()
 
     // [WHY] 기기 캘린더 병합 조회(ADR-004)를 위해 화면 진입 시 READ_CALENDAR를 요청한다.
     // 거부 시 로컬 일정만 표시되며, 권한 승인 직후 재조회한다.
@@ -60,44 +62,31 @@ fun CalendarScreen(
         // Header
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Text("일정", style = MaterialTheme.typography.headlineMedium, color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold)
-            val headerMonth = java.time.LocalDate.now()
-                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy년 M월", java.util.Locale.KOREAN))
+            val headerMonth = "${today.year}년 ${today.monthValue}월"
             Text(headerMonth, color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
         }
 
         // Range Segment (오늘 / 이번 주)
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 20.dp)
-                .fillMaxWidth()
-                .glassEffect(shape = RoundedCornerShape(16.dp)),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            RangeSegment(
-                label = "오늘",
-                isSelected = selectedRange == ScheduleData.RangeType.TODAY,
-                onClick = { viewModel.onRangeSelected(ScheduleData.RangeType.TODAY) },
-                modifier = Modifier.weight(1f)
-            )
-            RangeSegment(
-                label = "이번 주",
-                isSelected = selectedRange == ScheduleData.RangeType.WEEK,
-                onClick = { viewModel.onRangeSelected(ScheduleData.RangeType.WEEK) },
-                modifier = Modifier.weight(1f)
-            )
-        }
+        com.kosmos.app.ui.component.GlassSegmentedControl(
+            options = listOf(ScheduleData.RangeType.TODAY to "오늘", ScheduleData.RangeType.WEEK to "이번 주"),
+            selected = selectedRange,
+            onSelect = viewModel::onRangeSelected,
+            modifier = Modifier.padding(horizontal = 20.dp),
+            cornerRadius = 16.dp,
+            verticalPadding = 10.dp,
+            textStyle = MaterialTheme.typography.bodyMedium
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Date Strip — 탭하면 해당 날짜만 필터링, 같은 날짜 재탭 시 해제
-        val today = java.time.LocalDate.now()
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             val days = (0..6).map { i -> today.plusDays(i.toLong()) }
-            items(days.size) { i ->
+            items(days.size, key = { days[it].toEpochDay() }) { i ->
                 val date = days[i]
                 DatePill(
                     dayOfWeek = date.dayOfWeek.getDisplayName(
@@ -162,9 +151,7 @@ fun CalendarScreen(
                 } else {
                     val sectionLabel = when {
                         selectedDate != null && selectedDate == today -> "오늘"
-                        selectedDate != null -> selectedDate?.format(
-                            java.time.format.DateTimeFormatter.ofPattern("M월 d일", java.util.Locale.KOREAN)
-                        ).orEmpty()
+                        selectedDate != null -> selectedDate?.let { com.kosmos.app.domain.util.IsoDateTimeParser.dayLabelKorean(it, today) }.orEmpty()
                         selectedRange == ScheduleData.RangeType.WEEK -> "이번 주"
                         else -> "오늘"
                     }
@@ -230,33 +217,6 @@ private fun DeviceCalendarNotice(
                 Text("권한 설정 열기", color = KosmosTheme.colors.accent, style = MaterialTheme.typography.labelLarge)
             }
         }
-    }
-}
-
-/** 조회 범위 세그먼트 버튼 (오늘 / 이번 주) */
-@Composable
-private fun RangeSegment(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .background(
-                if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.2f) else Color.Transparent,
-                shape = RoundedCornerShape(16.dp)
-            )
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = label,
-            color = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            style = MaterialTheme.typography.bodyMedium
-        )
     }
 }
 
@@ -339,13 +299,16 @@ fun ScheduleContent(data: ScheduleData, sectionLabel: String = "오늘") {
             }
         }
 
-        items(data.events.size) { index ->
+        // [WHY] 키에 인덱스를 붙인다 — 앱 일정(UUID)과 기기 캘린더 일정(숫자 id)이 섞이는 목록이라
+        // id 충돌이 이론상 없어도, 중복 키는 LazyColumn 을 즉시 죽이므로 방어적으로 유일성을 보장한다.
+        items(data.events.size, key = { "${data.events[it].id}_$it" }) { index ->
             val event = data.events[index]
             val color = eventAccents[index % eventAccents.size]
             TodayEventCard(event, color)
         }
 
-        item { Spacer(modifier = Modifier.height(80.dp)) } // padding for bottom nav
+        // 마지막 일정이 제스처 바·화면 끝에 붙지 않게 두는 스크롤 여유(하단 내비는 M2-2 에서 제거됐다).
+        item { Spacer(modifier = Modifier.height(80.dp)) }
     }
 }
 

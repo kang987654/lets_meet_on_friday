@@ -1,6 +1,5 @@
 package com.kosmos.app.feature.approval
 
-import com.kosmos.app.domain.model.CalendarDraft
 
 sealed class ApprovalUiState {
     object Idle : ApprovalUiState()

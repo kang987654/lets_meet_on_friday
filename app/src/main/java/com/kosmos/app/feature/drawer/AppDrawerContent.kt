@@ -16,7 +16,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import com.kosmos.app.domain.model.Episode
@@ -57,10 +57,10 @@ fun AppDrawerContent(
     viewModel: DrawerViewModel = hiltViewModel()
 ) {
     val episodes = viewModel.episodePaging.collectAsLazyPagingItems()
-    val query by viewModel.query.collectAsState()
-    val searchResults by viewModel.searchResults.collectAsState()
-    val profileEntries by viewModel.profileEntries.collectAsState()
-    val pendingSuggestionCount by viewModel.pendingSuggestionCount.collectAsState()
+    val query by viewModel.query.collectAsStateWithLifecycle()
+    val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
+    val profileEntries by viewModel.profileEntries.collectAsStateWithLifecycle()
+    val pendingSuggestionCount by viewModel.pendingSuggestionCount.collectAsStateWithLifecycle()
     var openEpisodeId by remember { mutableStateOf<String?>(null) }
     var showProfileSheet by remember { mutableStateOf(false) }
 
@@ -184,7 +184,11 @@ fun AppDrawerContent(
         EpisodeSheet(
             episodeId = id,
             onDismiss = { openEpisodeId = null },
-            onJumpToTimeline = onJumpToTimeline
+            onJumpToTimeline = onJumpToTimeline,
+            onChanged = {
+                episodes.refresh()
+                viewModel.onEpisodesChanged()
+            }
         )
     }
 
@@ -251,9 +255,7 @@ private fun EpisodeCard(episode: Episode, onClick: () -> Unit) {
             maxLines = 1
         )
         Spacer(modifier = Modifier.height(2.dp))
-        val date = java.time.Instant.ofEpochMilli(episode.startAt)
-            .atZone(java.time.ZoneId.systemDefault())
-            .format(java.time.format.DateTimeFormatter.ofPattern("M월 d일", java.util.Locale.KOREAN))
+        val date = com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt)
         Text(
             text = "$date · ${episode.messageCount}개 대화" +
                 if (episode.tags.isEmpty()) "" else " · ${episode.tags.take(2).joinToString(", ")}",

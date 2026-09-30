@@ -68,6 +68,32 @@ object IsoDateTimeParser {
             "%d월 %d일 (%s)".format(dt.monthValue, dt.dayOfMonth, weekdayKorean(dt.dayOfWeek))
         }
 
+    /**
+     * epoch ms 의 "9월 30일" 표기.
+     * [WHY] 같은 `ofPattern("M월 d일")` 이 채팅 칩·타임라인 구분선·드로어·에피소드 시트에 각자
+     * 복제돼 있었다 — ISO 가 아니라 epoch 을 받을 뿐 표기 규칙은 여기가 단일 출처다(AGENTS §4-7).
+     */
+    fun monthDayKorean(epochMs: Long, zoneId: ZoneId = ZoneId.systemDefault()): String {
+        val dt = Instant.ofEpochMilli(epochMs).atZone(zoneId)
+        return "%d월 %d일".format(dt.monthValue, dt.dayOfMonth)
+    }
+
+    /** epoch ms 의 "오후 4:00" 표기. */
+    fun timeKorean(epochMs: Long, zoneId: ZoneId = ZoneId.systemDefault()): String {
+        val dt = Instant.ofEpochMilli(epochMs).atZone(zoneId)
+        return timeKorean(dt.hour, dt.minute)
+    }
+
+    /**
+     * 날짜 구분 라벨 — 오늘/어제/"9월 28일".
+     * [WHY] [today] 를 인자로 받는다(AGENTS §2-④) — 판정을 벽시계에 묶으면 자정 경계에서 테스트가 갈린다.
+     */
+    fun dayLabelKorean(date: LocalDate, today: LocalDate): String = when (date) {
+        today -> "오늘"
+        today.minusDays(1) -> "어제"
+        else -> "%d월 %d일".format(date.monthValue, date.dayOfMonth)
+    }
+
     /** "수" 처럼 한 글자 요일. */
     fun weekdayKorean(dayOfWeek: java.time.DayOfWeek): String =
         "월화수목금토일"[dayOfWeek.value - 1].toString()

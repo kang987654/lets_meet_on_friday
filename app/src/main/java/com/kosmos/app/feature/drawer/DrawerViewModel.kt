@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -75,9 +76,13 @@ class DrawerViewModel @Inject constructor(
      * 나는 보이는" 불신이 생긴다(ui_a_prime.md 동작 규칙). 모델 확장(C′3)만 없다 — 타이핑 디바운스
      * 300ms 안에 추론을 걸 수 없다.
      */
+    // [WHY] 시트에서 수정·삭제하면 같은 질의라도 결과가 달라진다 — 질의가 안 바뀌어도 다시 돌릴 신호.
+    private val searchRefresh = MutableStateFlow(0)
+
     @OptIn(FlowPreview::class)
     val searchResults: StateFlow<List<Episode>?> = _query
         .debounce(300)
+        .combine(searchRefresh) { q, _ -> q }
         .map { q -> search(q) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -101,6 +106,11 @@ class DrawerViewModel @Inject constructor(
 
     fun onQueryChanged(value: String) {
         _query.value = value
+    }
+
+    /** 에피소드 시트에서 수정·삭제가 성공했다 — 검색 결과를 다시 계산한다(아카이브 목록은 화면이 refresh). */
+    fun onEpisodesChanged() {
+        searchRefresh.value += 1
     }
 
     private companion object {

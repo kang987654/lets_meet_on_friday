@@ -7,7 +7,6 @@ import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.assistant.approval.ApprovalCoordinator
-import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.data.local.prefs.SessionStore
 import com.kosmos.app.domain.model.ChatMessage
@@ -39,12 +38,12 @@ import com.kosmos.app.domain.modelrunner.ModelRunner
  *
  * ### Architecture Context
  * - **Layer**: UI (Presentation)
- * - **Dependencies**: [SendChatMessageUseCase], [ResumeActionUseCase], [ApprovalCoordinator], [SessionStore], [ConversationRepository]
+ * - **Dependencies**: [SendChatMessageUseCase], [ApprovalCoordinator], [SessionStore], [ConversationRepository]
  *
  * ### Key Flow
  * 1. 사용자 텍스트/음성/이미지 입력을 받아 로컬 상태 업데이트 (isInFlight = true)
  * 2. [SendChatMessageUseCase] 호출 및 스트리밍 토큰 수신 시 UI 실시간 반영
- * 3. [AssistantOrchestrator]의 최종 결과(`AgentResult`)에 따라 일반 텍스트, 승인 대기, 에러 상태 처리
+ * 3. 파이프라인의 최종 결과(`AgentResult`)에 따라 일반 텍스트, 승인 대기, 에러 상태 처리
  */
 @HiltViewModel
 class ChatViewModel @Inject constructor(
@@ -122,9 +121,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val episode = (episodeRepository.getById(episodeId) as? AppResult.Success)?.data
                 ?: return@launch
-            val date = java.time.Instant.ofEpochMilli(episode.startAt)
-                .atZone(java.time.ZoneId.systemDefault())
-                .format(java.time.format.DateTimeFormatter.ofPattern("M월 d일", java.util.Locale.KOREAN))
+            val date = com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt)
             val label = "${episode.title ?: "지난 대화"} ($date)"
             _episodeChipLabels.update { it + (episodeId to label) }
         }

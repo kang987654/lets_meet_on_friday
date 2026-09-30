@@ -2,40 +2,23 @@ package com.kosmos.app.feature.chat
 
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
@@ -43,35 +26,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
-import com.halilibo.richtext.commonmark.Markdown
-import com.halilibo.richtext.ui.material3.RichText
 import com.kosmos.app.domain.model.ChatMessage
-import androidx.compose.ui.unit.sp
 import com.kosmos.app.ui.component.glassEffect
 import kotlinx.coroutines.launch
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import com.kosmos.app.platform.share.SharedInput
-import com.kosmos.app.domain.modelrunner.ModelLoadState
 import android.net.Uri
-import android.provider.OpenableColumns
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
@@ -179,7 +146,6 @@ fun ChatScreen(
     }
 
 
-
     val context = LocalContext.current
     val contentResolver = context.contentResolver
     
@@ -187,62 +153,29 @@ fun ChatScreen(
     // 첨부 피커와 권한 런처들이 이 두 값을 쓰므로 먼저 선언한다.
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
     val snackbarScope = androidx.compose.runtime.rememberCoroutineScope()
+    // [WHY] 행마다 새 람다를 만들지 않는다 — 타임라인은 페이징 목록이라 행 수만큼 재할당된다.
+    val copyMessage: (String) -> Unit = remember(clipboard, snackbarHostState) {
+        { content -> copyToClipboard(snackbarScope, clipboard, snackbarHostState, content) }
+    }
+    val today = com.kosmos.app.ui.component.rememberToday()
 
+    val attachmentReader = remember(contentResolver) {
+        com.kosmos.app.platform.share.AttachmentReader(contentResolver)
+    }
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            // [WHY] 콜백은 메인 스레드지만 여기서는 **큰 읽기를 아예 하지 않는다** — 이미지는
-            // SIZE 메타데이터 쿼리(빠름), 문서는 캡(MAX_ATTACHED_DOC_CHARS)만큼만 경계 읽기.
-            // 예전에는 10MB 전체를 읽어 ANR 위험이 있었고, 그것을 IO 코루틴으로 옮기자
-            // 프리뷰 갱신이 비동기가 되어 E2E 와 경합했다(waitForIdle 이 IO 를 기다리지 않는다).
-            // 읽는 양을 줄이는 것이 스레드를 옮기는 것보다 나은 해법이다. 전체 바이트는
-            // 전송 시점에 ChatViewModel 이 IO 에서 읽는다.
-            val shared: SharedInput? = try {
-                val mimeType = contentResolver.getType(uri)
-                if (mimeType?.startsWith("image/") == true) {
-                    val sizeBytes = contentResolver.query(
-                        uri, arrayOf(OpenableColumns.SIZE), null, null, null
-                    )?.use { cursor ->
-                        val idx = cursor.getColumnIndex(OpenableColumns.SIZE)
-                        if (cursor.moveToFirst() && idx != -1 && !cursor.isNull(idx)) cursor.getLong(idx) else null
-                    } ?: contentResolver.openInputStream(uri)?.use { it.available().toLong() }
-                    if (sizeBytes != null) SharedInput.Image(uri = uri, sizeBytes = sizeBytes) else null
-                } else {
-                    contentResolver.openInputStream(uri)?.use { inputStream ->
-                        // [WHY] 캡은 Constants.MAX_ATTACHED_DOC_CHARS 로 예산에서 파생된다.
-                        // 예전 2500 은 예산 6000 시절의 유물 — 그대로 두면 그 턴의 KV 가
-                        // GPU 숫자 깨짐 발병점을 넘고, 다음 턴부터는 슬라이딩 윈도우에서
-                        // 통째로 탈락해 모델이 문서를 본 적 없는 상태가 됐다. +1 은 절단
-                        // 여부 감지용이다.
-                        val cap = com.kosmos.app.core.common.Constants.MAX_ATTACHED_DOC_CHARS
-                        val buffer = CharArray(cap + 1)
-                        val read = inputStream.bufferedReader().read(buffer, 0, buffer.size)
-                        val textContent = if (read <= 0) "" else String(buffer, 0, read)
-                        var fileName = "document.txt"
-                        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                            if (cursor.moveToFirst() && nameIndex != -1) {
-                                fileName = cursor.getString(nameIndex)
-                            }
-                        }
-                        if (textContent.length > cap) {
-                            snackbarScope.launch {
-                                snackbarHostState.showSnackbar(
-                                    "문서가 길어 앞부분만 첨부돼요. 긴 문서 요약은 아직 지원하지 않아요."
-                                )
-                            }
-                        }
-                        SharedInput.Document(
-                            uri = uri,
-                            fileName = fileName,
-                            textContent = textContent.take(cap)
-                        )
-                    }
+            // [WHY] 동기 읽기다 — 큰 읽기를 하지 않는 것이 해법이다(AttachmentReader KDoc).
+            val result = attachmentReader.read(uri)
+            if (result.truncated) {
+                snackbarScope.launch {
+                    snackbarHostState.showSnackbar(
+                        "문서가 길어 앞부분만 첨부돼요. 긴 문서 요약은 아직 지원하지 않아요."
+                    )
                 }
-            } catch (e: Exception) {
-                null
             }
+            val shared = result.input
             if (shared != null) {
                 viewModel.setSharedInput(shared)
             } else {
@@ -413,17 +346,15 @@ fun ChatScreen(
                         // 다음(더 과거) 이웃: 테일 내부 → 없으면 페이징의 첫 항목.
                         val older = liveTail.getOrNull(index + 1)
                             ?: if (history.itemCount > 0) history.peek(0) else null
-                        val chipId = message.recallEpisodeIds.firstOrNull()
-                        if (chipId != null) {
-                            LaunchedEffect(chipId) { viewModel.ensureEpisodeChipLabel(chipId) }
-                        }
-                        MessageWithDate(
+                        TimelineRow(
                             message = message,
                             older = older,
-                            onCopy = { copyToClipboard(snackbarScope, clipboard, snackbarHostState, message.content) },
-                            recallChipLabel = chipId?.let { episodeChipLabels[it] },
-                            onRecallChipClick = { if (chipId != null) openEpisodeId = chipId },
-                            highlighted = isJumpTarget(message, older, highlightStartAt)
+                            today = today,
+                            episodeChipLabels = episodeChipLabels,
+                            highlightStartAt = highlightStartAt,
+                            onEnsureChipLabel = viewModel::ensureEpisodeChipLabel,
+                            onOpenEpisode = { openEpisodeId = it },
+                            onCopy = copyMessage
                         )
                     }
 
@@ -437,17 +368,15 @@ fun ChatScreen(
                             PlaceholderBubble()
                         } else {
                             val older = if (index + 1 < history.itemCount) history.peek(index + 1) else null
-                            val chipId = message.recallEpisodeIds.firstOrNull()
-                            if (chipId != null) {
-                                LaunchedEffect(chipId) { viewModel.ensureEpisodeChipLabel(chipId) }
-                            }
-                            MessageWithDate(
+                            TimelineRow(
                                 message = message,
                                 older = older,
-                                onCopy = { copyToClipboard(snackbarScope, clipboard, snackbarHostState, message.content) },
-                                recallChipLabel = chipId?.let { episodeChipLabels[it] },
-                                onRecallChipClick = { if (chipId != null) openEpisodeId = chipId },
-                                highlighted = isJumpTarget(message, older, highlightStartAt)
+                                today = today,
+                                episodeChipLabels = episodeChipLabels,
+                                highlightStartAt = highlightStartAt,
+                                onEnsureChipLabel = viewModel::ensureEpisodeChipLabel,
+                                onOpenEpisode = { openEpisodeId = it },
+                                onCopy = copyMessage
                             )
                         }
                     }
@@ -472,7 +401,7 @@ fun ChatScreen(
                 ) {
                     androidx.compose.material3.Icon(
                         imageVector = androidx.compose.material.icons.Icons.Default.KeyboardArrowDown,
-                        contentDescription = "ScrollToLatest"
+                        contentDescription = "최신 메시지로"
                     )
                 }
             }
@@ -556,17 +485,50 @@ fun ChatScreen(
  * "구분선이 그 날의 첫 버블 위"가 된다. [older]가 placeholder(null)인 미로드 경계에서는
  * 구분선을 생략한다 — 잘못 그리는 것보다 안 그리는 쪽이 덜 이상하다.
  */
+/**
+ * 타임라인 한 행 — 회수 칩 라벨 요청 + [MessageWithDate].
+ *
+ * [WHY] 라이브 테일과 페이징 과거 두 items 블록이 같은 행 본문(칩 id 계산, 라벨 요청, 버블)을
+ * 복제하고 있었다. 이웃([older]) 계산만 블록마다 다르므로 그것만 밖에서 받는다.
+ */
+@Composable
+private fun TimelineRow(
+    message: ChatMessage,
+    older: ChatMessage?,
+    today: java.time.LocalDate,
+    episodeChipLabels: Map<String, String?>,
+    highlightStartAt: Long?,
+    onEnsureChipLabel: (String) -> Unit,
+    onOpenEpisode: (String) -> Unit,
+    onCopy: (String) -> Unit
+) {
+    val chipId = message.recallEpisodeIds.firstOrNull()
+    if (chipId != null) {
+        LaunchedEffect(chipId) { onEnsureChipLabel(chipId) }
+    }
+    MessageWithDate(
+        message = message,
+        older = older,
+        today = today,
+        onCopy = { onCopy(message.content) },
+        recallChipLabel = chipId?.let { episodeChipLabels[it] },
+        onRecallChipClick = { if (chipId != null) onOpenEpisode(chipId) },
+        highlighted = isJumpTarget(message, older, highlightStartAt)
+    )
+}
+
 @Composable
 private fun MessageWithDate(
     message: ChatMessage,
     older: ChatMessage?,
+    today: java.time.LocalDate,
     onCopy: () -> Unit,
     recallChipLabel: String? = null,
     onRecallChipClick: () -> Unit = {},
     highlighted: Boolean = false
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        val label = dateLabelIfBoundary(message, older)
+        val label = dateLabelIfBoundary(message, older, today)
         if (label != null) DateSeparator(label)
 
         // 점프 도착 하이라이트 — 배경 은은한 강조 1회성 (jumpToTimeline 후 2.5초).
@@ -639,20 +601,19 @@ private fun copyToClipboard(
     }
 }
 
-/** [message]가 [older]와 다른 날이면(그 날의 첫 메시지) 구분선 라벨을 돌려줍니다. */
-private fun dateLabelIfBoundary(message: ChatMessage, older: ChatMessage?): String? {
+/**
+ * [message]가 [older]와 다른 날이면(그 날의 첫 메시지) 구분선 라벨을 돌려줍니다.
+ * [WHY] [today] 는 인자다 — 예전에는 여기서 벽시계를 읽어 판정이 실행 시각에 묶였다(AGENTS §2-④).
+ */
+internal fun dateLabelIfBoundary(
+    message: ChatMessage,
+    older: ChatMessage?,
+    today: java.time.LocalDate,
+    zone: java.time.ZoneId = java.time.ZoneId.systemDefault()
+): String? {
     if (older == null) return null
-    val zone = java.time.ZoneId.systemDefault()
     val date = java.time.Instant.ofEpochMilli(message.createdAt).atZone(zone).toLocalDate()
     val olderDate = java.time.Instant.ofEpochMilli(older.createdAt).atZone(zone).toLocalDate()
     if (date == olderDate) return null
-
-    val today = java.time.LocalDate.now(zone)
-    return when (date) {
-        today -> "오늘"
-        today.minusDays(1) -> "어제"
-        else -> date.format(
-            java.time.format.DateTimeFormatter.ofPattern("M월 d일", java.util.Locale.KOREAN)
-        )
-    }
+    return com.kosmos.app.domain.util.IsoDateTimeParser.dayLabelKorean(date, today)
 }

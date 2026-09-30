@@ -1,7 +1,6 @@
 package com.kosmos.app.domain.memory
 
 import com.kosmos.app.core.common.AppResult
-import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.InputType
 

@@ -3,8 +3,6 @@ package com.kosmos.app.feature.settings
 import com.kosmos.app.core.common.ResponseStyle
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -19,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.platform.LocalContext
 import com.kosmos.app.ui.component.glassEffect
 import com.kosmos.app.domain.modelrunner.ModelLoadState
@@ -155,66 +152,22 @@ fun SettingsScreen(
 
         // 2. Appearance Section (ADR-005: 라이트/다크 테마 전환)
         SectionBox(title = "화면 테마") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                com.kosmos.app.ui.theme.ThemeMode.entries.forEach { mode ->
-                    val isSelected = themeMode == mode
-                    val bgColor = if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.2f) else androidx.compose.ui.graphics.Color.Transparent
-                    val textColor = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(bgColor, shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
-                            .clickable { themeViewModel.setThemeMode(mode) }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = mode.label,
-                            color = textColor,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-                }
-            }
+            com.kosmos.app.ui.component.GlassSegmentedControl(
+                options = com.kosmos.app.ui.theme.ThemeMode.entries.map { it to it.label },
+                selected = themeMode,
+                onSelect = themeViewModel::setThemeMode
+            )
         }
 
         // 3. Response Style Section
         SectionBox(title = "응답 스타일") {
             // 저장값(영문 키)은 그대로 두고 표시만 한글화한다 — 키를 바꾸면 기존 설정이 깨진다.
             val styles = listOf(ResponseStyle.CONCISE to "간결", ResponseStyle.DEFAULT to "기본", ResponseStyle.DETAILED to "자세히")
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                styles.forEach { (style, label) ->
-                    val isSelected = uiState.responseStyle == style
-                    val bgColor = if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.2f) else androidx.compose.ui.graphics.Color.Transparent
-                    val textColor = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(bgColor, shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
-                            .clickable { viewModel.onResponseStyleChanged(style) }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = label,
-                            color = textColor,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-                }
-            }
+            com.kosmos.app.ui.component.GlassSegmentedControl(
+                options = styles,
+                selected = uiState.responseStyle,
+                onSelect = viewModel::onResponseStyleChanged
+            )
         }
         
         // 3. Prefill Budget Section

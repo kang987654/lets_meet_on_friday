@@ -8,38 +8,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,35 +32,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.halilibo.richtext.commonmark.Markdown
-import com.halilibo.richtext.ui.material3.RichText
-import com.kosmos.app.domain.model.ChatMessage
-import androidx.compose.ui.unit.sp
 import com.kosmos.app.ui.component.glassEffect
-import kotlinx.coroutines.launch
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import com.kosmos.app.platform.share.SharedInput
-import com.kosmos.app.domain.modelrunner.ModelLoadState
-import android.net.Uri
-import android.provider.OpenableColumns
-import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
-import android.content.pm.PackageManager
-import android.Manifest
 // [WHY] ChatScreen.kt(1,200여 줄, 12개 컴포저블 동거)를 응집 단위로 분리했다
 // (2026-08-15, MVP 감사 refactor-ui) — 순수 이동이며 동작 변경이 없다. 이 파일: 입력바(텍스트·마이크·첨부 프리뷰).
 
@@ -116,72 +81,23 @@ fun ChatInputBar(
             .navigationBarsPadding()
             .imePadding()
     ) {
-        if (sharedInput is com.kosmos.app.platform.share.SharedInput.Image) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .glassEffect(shape = RoundedCornerShape(12.dp))
-                    .padding(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        AttachmentThumbnail(uri = sharedInput.uri)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.image_attached), color = KosmosTheme.colors.accent, style = MaterialTheme.typography.bodyMedium)
-                            Text(androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.image_size_kb, sharedInput.sizeBytes / 1024), color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodySmall)
-                            // [WHY] 첨부만으로는 전송할 수 없다 — 텍스트가 비면 전송 버튼 자리에
-                            // 마이크가 떠서 보낼 방법이 없는데 그 이유를 알 길이 없었다(AC3 감사).
-                            if (textState.text.isBlank()) {
-                                Text(
-                                    androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.attachment_needs_text),
-                                    color = KosmosTheme.colors.accent,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-                    }
-                    IconButton(onClick = { onClearSharedInput() }) {
-                        Text("X", color = KosmosTheme.colors.textMuted)
-                    }
-                }
-            }
-        } else if (sharedInput is com.kosmos.app.platform.share.SharedInput.Document) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .glassEffect(shape = RoundedCornerShape(12.dp))
-                    .padding(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        // [WHY] "Document Attached" 는 E2E 셀렉터다(MultimodalChatE2ETest) —
-                        // "Attach"/"Send" contentDescription 과 같은 불변 계약이라 한글화에서 제외.
-                        Text("Document Attached", color = KosmosTheme.colors.accent, style = MaterialTheme.typography.bodyMedium)
-                        Text(sharedInput.fileName, color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodySmall)
-                        if (textState.text.isBlank()) {
-                            Text(
-                                androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.attachment_needs_text),
-                                color = KosmosTheme.colors.accent,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                    IconButton(onClick = { onClearSharedInput() }) {
-                        Text("X", color = KosmosTheme.colors.textMuted)
-                    }
-                }
-            }
+        when (sharedInput) {
+            is com.kosmos.app.platform.share.SharedInput.Image -> AttachmentPreview(
+                needsText = textState.text.isBlank(),
+                onClear = onClearSharedInput,
+                leading = { AttachmentThumbnail(uri = sharedInput.uri) },
+                title = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.image_attached),
+                subtitle = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.image_size_kb, sharedInput.sizeBytes / 1024)
+            )
+            // [WHY] "Document Attached" 는 E2E 셀렉터다(MultimodalChatE2ETest) —
+            // "Attach"/"Send" contentDescription 과 같은 불변 계약이라 한글화에서 제외.
+            is com.kosmos.app.platform.share.SharedInput.Document -> AttachmentPreview(
+                needsText = textState.text.isBlank(),
+                onClear = onClearSharedInput,
+                title = "Document Attached",
+                subtitle = sharedInput.fileName
+            )
+            else -> Unit
         }
 
         Row(
@@ -215,7 +131,7 @@ fun ChatInputBar(
             ) {
                 Icon(
                     imageVector = Icons.Default.Language,
-                    contentDescription = "WebSearchToggle",
+                    contentDescription = "웹 검색",
                     tint = if (webSearchEnabled) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted,
                     modifier = Modifier.size(22.dp)
                 )
@@ -244,8 +160,9 @@ fun ChatInputBar(
                 )
             }
             
-            // [WHY] 생성 중에는 전송/마이크 대신 정지 버튼을 노출한다 (E2E의 "Send"/"Stop"
-            // 셀렉터와 겹치지 않도록 정지 버튼은 "StopGeneration"을 쓴다).
+            // [WHY] 생성 중에는 전송/마이크 대신 정지 버튼을 노출한다. 설명 문자열은 E2E 계약인
+            // "Attach"/"Send" 만 영어로 두고 나머지는 한국어다(TalkBack 이 그대로 읽는다) — 정지
+            // 버튼 "응답 중단"과 녹음 버튼 "녹음 중지"는 서로 겹치지 않게 다른 말을 쓴다.
             val inputAction = when {
                 isLoading -> InputAction.STOP
                 textState.text.isNotBlank() -> InputAction.SEND
@@ -270,7 +187,7 @@ fun ChatInputBar(
                     ) {
                         Icon(
                             painter = painterResource(id = com.kosmos.app.R.drawable.ic_stop),
-                            contentDescription = "StopGeneration",
+                            contentDescription = "응답 중단",
                             tint = KosmosTheme.colors.accent,
                             modifier = Modifier.size(20.dp)
                         )
@@ -313,12 +230,71 @@ fun ChatInputBar(
                     ) {
                         Icon(
                             painter = painterResource(id = if (isRecording) com.kosmos.app.R.drawable.ic_stop else com.kosmos.app.R.drawable.ic_mic),
-                            contentDescription = if (isRecording) "Stop" else "Microphone",
+                            contentDescription = if (isRecording) "녹음 중지" else "음성 입력",
                             tint = micIconColor,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * 입력바 위의 첨부 미리보기 한 줄 — 이미지·문서가 같은 뼈대를 쓴다.
+ *
+ * [WHY] 두 분기가 같은 글래스 박스·닫기 버튼·"글도 적어 주세요" 안내를 복제하고 있었다.
+ * [WHY] 첨부만으로는 전송할 수 없다 — 텍스트가 비면 전송 버튼 자리에 마이크가 떠서 보낼 방법이
+ * 없는데 그 이유를 알 길이 없었다(AC3 감사). 그래서 [needsText] 일 때 안내를 붙인다.
+ * 닫기는 "X" 글자 대신 아이콘 + 한국어 설명이다(TalkBack 이 "엑스"로 읽었다).
+ */
+@Composable
+private fun AttachmentPreview(
+    needsText: Boolean,
+    onClear: () -> Unit,
+    title: String,
+    subtitle: String,
+    leading: (@Composable () -> Unit)? = null
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .glassEffect(shape = RoundedCornerShape(12.dp))
+            .padding(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (leading != null) {
+                    leading()
+                    Spacer(modifier = Modifier.width(12.dp))
+                }
+                Column {
+                    Text(title, color = KosmosTheme.colors.accent, style = MaterialTheme.typography.bodyMedium)
+                    Text(subtitle, color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodySmall)
+                    if (needsText) {
+                        Text(
+                            androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.attachment_needs_text),
+                            color = KosmosTheme.colors.accent,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+            IconButton(onClick = onClear) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "첨부 취소",
+                    tint = KosmosTheme.colors.textMuted
+                )
             }
         }
     }

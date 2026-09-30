@@ -1,7 +1,6 @@
 package com.kosmos.app.domain.model
 
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * @property deviceCalendarFailed 기기 시스템 캘린더를 읽지 못했는지 여부입니다.

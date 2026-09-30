@@ -18,7 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,10 +47,14 @@ fun EpisodeSheet(
     episodeId: String,
     onDismiss: () -> Unit,
     onJumpToTimeline: (startAt: Long) -> Unit = {},
+    // [WHY] 수정·삭제가 **성공한 뒤** 불린다 — 드로어 아카이브는 무효화하지 않는 PagingSource 라
+    // 호출자가 refresh 를 걸어야 바뀐 제목·삭제가 목록에 반영된다.
+    onChanged: () -> Unit = {},
     viewModel: EpisodeSheetViewModel = hiltViewModel()
 ) {
     LaunchedEffect(episodeId) { viewModel.load(episodeId) }
-    val episode by viewModel.episode.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val actionError by viewModel.actionError.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
@@ -59,11 +63,23 @@ fun EpisodeSheet(
         containerColor = KosmosTheme.colors.surface,
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
-        val current = episode
+        val current = (state as? EpisodeSheetState.Loaded)?.episode
         Column(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+            actionError?.let { message ->
+                Text(
+                    text = message,
+                    color = KosmosTheme.colors.danger,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
             if (current == null) {
                 Text(
-                    text = "기억을 불러오는 중이에요…",
+                    text = when (val s = state) {
+                        EpisodeSheetState.Loading, is EpisodeSheetState.Loaded -> "기억을 불러오는 중이에요…"
+                        EpisodeSheetState.Missing -> "이 기억은 삭제됐어요. 원문 대화는 타임라인에 그대로 있어요."
+                        is EpisodeSheetState.Error -> s.message
+                    },
                     color = KosmosTheme.colors.textMuted,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -72,7 +88,8 @@ fun EpisodeSheet(
                     episode = current,
                     onCancel = { editing = false },
                     onSave = { title, tags, summary ->
-                        viewModel.save(title, tags, summary)
+                        viewModel.dismissActionError()
+                        viewModel.save(title, tags, summary, onSaved = onChanged)
                         editing = false
                     }
                 )
@@ -139,8 +156,11 @@ fun EpisodeSheet(
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
-                    viewModel.delete()
-                    onDismiss()
+                    // [WHY] 성공 후에만 닫는다 — 실패하면 시트에 안내가 남아야 사용자가 안다.
+                    viewModel.delete(onDeleted = {
+                        onChanged()
+                        onDismiss()
+                    })
                 }) { Text("삭제", color = KosmosTheme.colors.danger) }
             },
             dismissButton = {
@@ -175,13 +195,10 @@ private fun EditForm(
     }
 }
 
+// [WHY] 표기는 IsoDateTimeParser 가 단일 출처다 — 예전의 24시간제 "HH:mm" 은 앱의 다른 시각
+// 표기("오후 4:00")와 달랐다(AGENTS §4-7).
 private fun formatRange(episode: Episode): String {
-    val fmt = java.time.format.DateTimeFormatter.ofPattern("M월 d일 HH:mm", java.util.Locale.KOREAN)
-    val zone = java.time.ZoneId.systemDefault()
-    val start = java.time.Instant.ofEpochMilli(episode.startAt).atZone(zone).format(fmt)
-    val end = episode.endAt?.let {
-        java.time.Instant.ofEpochMilli(it).atZone(zone)
-            .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
-    }
+    val start = "${com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt)} ${com.kosmos.app.domain.util.IsoDateTimeParser.timeKorean(episode.startAt)}"
+    val end = episode.endAt?.let { com.kosmos.app.domain.util.IsoDateTimeParser.timeKorean(it) }
     return if (end != null) "$start – $end · ${episode.messageCount}개 대화" else start
 }
