@@ -27,7 +27,7 @@ import javax.inject.Inject
 
 @HiltAndroidTest
 @dagger.hilt.android.testing.UninstallModules(com.kosmos.app.di.ModelModule::class)
-@Config(application = HiltTestApplication::class, sdk = [33])
+@Config(application = HiltTestApplication::class)
 @RunWith(RobolectricTestRunner::class)
 class VoiceChatIntegrationTest {
 

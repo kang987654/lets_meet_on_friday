@@ -61,7 +61,7 @@ import androidx.lifecycle.SavedStateHandle
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(application = HiltTestApplication::class, sdk = [33], instrumentedPackages = ["androidx.loader.content"])
+@Config(application = HiltTestApplication::class, instrumentedPackages = ["androidx.loader.content"])
 @UninstallModules(com.kosmos.app.di.ModelModule::class)
 class MultimodalChatE2ETest {
 

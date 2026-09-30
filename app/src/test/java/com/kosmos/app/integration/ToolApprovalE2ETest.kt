@@ -37,7 +37,7 @@ import javax.inject.Inject
 @HiltAndroidTest
 @UninstallModules(com.kosmos.app.di.ModelModule::class)
 @RunWith(RobolectricTestRunner::class)
-@Config(application = dagger.hilt.android.testing.HiltTestApplication::class, sdk = [34])
+@Config(application = dagger.hilt.android.testing.HiltTestApplication::class)
 class ToolApprovalE2ETest {
 
     @get:Rule(order = 0)
