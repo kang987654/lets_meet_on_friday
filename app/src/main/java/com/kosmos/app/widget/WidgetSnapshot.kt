@@ -3,10 +3,7 @@ package com.kosmos.app.widget
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.model.TaskItem
 import com.kosmos.app.domain.util.IsoDateTimeParser
-import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /**
  * [WidgetSnapshot]
@@ -41,8 +38,7 @@ internal fun buildWidgetSnapshot(
             title = event.title
         )
     }
-    val dateLabel = DateTimeFormatter.ofPattern("M월 d일 EEEE", Locale.KOREAN)
-        .format(Instant.ofEpochMilli(nowMs).atZone(zone))
+    val dateLabel = IsoDateTimeParser.longDateKorean(nowMs, zone)
     return WidgetSnapshot(
         dateLabel = dateLabel,
         eventLines = lines,

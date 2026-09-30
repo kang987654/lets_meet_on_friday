@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -55,13 +57,14 @@ fun MemoryScreen(
         }
     }
 
-    // [WHY] 이 화면에는 Scaffold/SnackbarHost 가 없어 목록 조작 실패를 띄울 통로가 없었다 —
-    // Task 완료 토글이 실패하면 체크했는데 항목이 남아 "탭이 씹힌" 것처럼 보였다. 구조 변경
-    // 없이 토스트로 알린다.
+    // [WHY] 목록 조작 실패(Task 완료·지식 삭제)를 알린다 — 없으면 체크했는데 항목이 남아 "탭이
+    // 씹힌" 것처럼 보였다. 일시 안내는 앱 전체가 Snackbar 로 통일한다(2026-09-30 사용자 결정 —
+    // 예전엔 이 화면만 Toast 였다). 상태 표시(일정 불러오기 실패 등)와 시트 안 안내는 인라인이다.
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
     LaunchedEffect(uiState.actionError) {
         uiState.actionError?.let { message ->
-            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
             viewModel.dismissActionError()
+            snackbarHostState.showSnackbar(message)
         }
     }
 
@@ -90,247 +93,249 @@ fun MemoryScreen(
 
     // [WHY] 불투명 배경을 깔지 않는다 — 채팅·설정은 셸의 오로라 배경 위에 글래스 카드가 뜨는데
     // 이 화면만 bg 로 덮으면 다른 앱처럼 보였다 (2026-08-15 통일 회차).
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            // 드로어 타일("메모 · 할 일")과 같은 이름 — 진입점과 화면 제목이 다르면 길을 잃는다.
-            text = "메모 · 할 일",
-            style = MaterialTheme.typography.headlineMedium,
-            color = KosmosTheme.colors.textPrimary,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 8.dp)
-        )
-        // Top Tabs
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            TabButton(
-                text = "🧠 메모",
-                isSelected = uiState.selectedFilter == MemoryFilterType.KNOWLEDGE,
-                onClick = { viewModel.onFilterSelected(MemoryFilterType.KNOWLEDGE) },
-                modifier = Modifier.weight(1f)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Text(
+                // 드로어 타일("메모 · 할 일")과 같은 이름 — 진입점과 화면 제목이 다르면 길을 잃는다.
+                text = "메모 · 할 일",
+                style = MaterialTheme.typography.headlineMedium,
+                color = KosmosTheme.colors.textPrimary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 8.dp)
             )
-            TabButton(
-                text = "✓ 할 일",
-                isSelected = uiState.selectedFilter == MemoryFilterType.TASK,
-                onClick = { viewModel.onFilterSelected(MemoryFilterType.TASK) },
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (uiState.selectedFilter == MemoryFilterType.TASK) {
-            LaunchedEffect(Unit) { viewModel.refreshTaskCounts() }
-        }
-        val taskCounts = uiState.taskCounts
-        if (uiState.selectedFilter == MemoryFilterType.TASK && taskCounts != null) {
-            // [WHY] 통계는 DB 전체 기준이다 — 예전에는 페이징 스냅샷(미완료만·로드된 페이지만)에서
-            // 세어 "완료 0"과 빈 진행 바가 고정이었다.
-            val pendingCount = taskCounts.pending
-            val doneCount = taskCounts.completed
-            val totalCount = taskCounts.total
-            val progress = if (totalCount > 0) doneCount.toFloat() / totalCount else 0f
-
-            // Stats & Progress
+            // Top Tabs
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "남은 일 $pendingCount  ·  완료 $doneCount",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = KosmosTheme.colors.textSecondary
+                TabButton(
+                    text = "🧠 메모",
+                    isSelected = uiState.selectedFilter == MemoryFilterType.KNOWLEDGE,
+                    onClick = { viewModel.onFilterSelected(MemoryFilterType.KNOWLEDGE) },
+                    modifier = Modifier.weight(1f)
                 )
-                Box(
+                TabButton(
+                    text = "✓ 할 일",
+                    isSelected = uiState.selectedFilter == MemoryFilterType.TASK,
+                    onClick = { viewModel.onFilterSelected(MemoryFilterType.TASK) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (uiState.selectedFilter == MemoryFilterType.TASK) {
+                LaunchedEffect(Unit) { viewModel.refreshTaskCounts() }
+            }
+            val taskCounts = uiState.taskCounts
+            if (uiState.selectedFilter == MemoryFilterType.TASK && taskCounts != null) {
+                // [WHY] 통계는 DB 전체 기준이다 — 예전에는 페이징 스냅샷(미완료만·로드된 페이지만)에서
+                // 세어 "완료 0"과 빈 진행 바가 고정이었다.
+                val pendingCount = taskCounts.pending
+                val doneCount = taskCounts.completed
+                val totalCount = taskCounts.total
+                val progress = if (totalCount > 0) doneCount.toFloat() / totalCount else 0f
+
+                // Stats & Progress
+                Row(
                     modifier = Modifier
-                        .width(60.dp)
-                        .height(4.dp)
-                        .background(KosmosTheme.colors.glass, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Text(
+                        text = "남은 일 $pendingCount  ·  완료 $doneCount",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = KosmosTheme.colors.textSecondary
+                    )
                     Box(
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(progress)
-                            .background(KosmosTheme.colors.success, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
-                    )
-                }
-            }
-        }
-
-        // Lists
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            // 마지막 카드가 화면 끝·제스처 바에 붙지 않게 두는 스크롤 여유(하단 내비 시절 값을 유지).
-            contentPadding = PaddingValues(bottom = 80.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (uiState.selectedFilter == MemoryFilterType.TASK) {
-                items(
-                    count = taskItems.itemCount,
-                    key = taskItems.itemKey { it.id },
-                    contentType = taskItems.itemContentType { "Task" }
-                ) { index ->
-                    val task = taskItems[index]
-                    if (task != null) {
-                        TaskItemRow(
-                            title = task.title,
-                            isCompleted = task.isCompleted,
-                            onToggle = {
-                                viewModel.completeTask(task.id) { taskItems.refresh() }
-                            },
-                            remindAtDisplay = task.remindAtIso?.let {
-                                com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayKorean(it)
-                            }
+                            .width(60.dp)
+                            .height(4.dp)
+                            .background(KosmosTheme.colors.glass, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(progress)
+                                .background(KosmosTheme.colors.success, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
                         )
                     }
                 }
+            }
 
-                item {
-                    // 할 일 인라인 추가 — 예전에는 빈 스텁 버튼이었다 (MemoryViewModel.addTask [WHY]).
-                    var newTaskText by androidx.compose.runtime.remember {
-                        androidx.compose.runtime.mutableStateOf("")
-                    }
-                    fun submitNewTask() {
-                        if (newTaskText.isBlank()) return
-                        viewModel.addTask(newTaskText) { taskItems.refresh() }
-                        newTaskText = ""
-                    }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .border(
-                                width = 1.dp,
-                                color = KosmosTheme.colors.border,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-                            )
-                            .padding(16.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "+",
-                                color = KosmosTheme.colors.textSecondary,
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(end = 12.dp)
-                            )
-                            androidx.compose.foundation.text.BasicTextField(
-                                value = newTaskText,
-                                onValueChange = { newTaskText = it },
-                                singleLine = true,
-                                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                    color = KosmosTheme.colors.textPrimary
-                                ),
-                                cursorBrush = androidx.compose.ui.graphics.SolidColor(KosmosTheme.colors.accent),
-                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                    imeAction = androidx.compose.ui.text.input.ImeAction.Done
-                                ),
-                                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                                    onDone = { submitNewTask() }
-                                ),
-                                modifier = Modifier.weight(1f),
-                                decorationBox = { inner ->
-                                    if (newTaskText.isEmpty()) {
-                                        Text(
-                                            text = "할 일 추가…",
-                                            color = KosmosTheme.colors.textSecondary,
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                    }
-                                    inner()
+            // Lists
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                // 마지막 카드가 화면 끝·제스처 바에 붙지 않게 두는 스크롤 여유(하단 내비 시절 값을 유지).
+                contentPadding = PaddingValues(bottom = 80.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (uiState.selectedFilter == MemoryFilterType.TASK) {
+                    items(
+                        count = taskItems.itemCount,
+                        key = taskItems.itemKey { it.id },
+                        contentType = taskItems.itemContentType { "Task" }
+                    ) { index ->
+                        val task = taskItems[index]
+                        if (task != null) {
+                            TaskItemRow(
+                                title = task.title,
+                                isCompleted = task.isCompleted,
+                                onToggle = {
+                                    viewModel.completeTask(task.id) { taskItems.refresh() }
+                                },
+                                remindAtDisplay = task.remindAtIso?.let {
+                                    com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayKorean(it)
                                 }
                             )
-                            if (newTaskText.isNotBlank()) {
-                                Text(
-                                    text = "추가",
-                                    color = KosmosTheme.colors.accent,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier
-                                        .clickable { submitNewTask() }
-                                        .padding(start = 12.dp)
+                        }
+                    }
+
+                    item {
+                        // 할 일 인라인 추가 — 예전에는 빈 스텁 버튼이었다 (MemoryViewModel.addTask [WHY]).
+                        var newTaskText by androidx.compose.runtime.remember {
+                            androidx.compose.runtime.mutableStateOf("")
+                        }
+                        fun submitNewTask() {
+                            if (newTaskText.isBlank()) return
+                            viewModel.addTask(newTaskText) { taskItems.refresh() }
+                            newTaskText = ""
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .border(
+                                    width = 1.dp,
+                                    color = KosmosTheme.colors.border,
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
                                 )
+                                .padding(16.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "+",
+                                    color = KosmosTheme.colors.textSecondary,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(end = 12.dp)
+                                )
+                                androidx.compose.foundation.text.BasicTextField(
+                                    value = newTaskText,
+                                    onValueChange = { newTaskText = it },
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                        color = KosmosTheme.colors.textPrimary
+                                    ),
+                                    cursorBrush = androidx.compose.ui.graphics.SolidColor(KosmosTheme.colors.accent),
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                        imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                                    ),
+                                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                                        onDone = { submitNewTask() }
+                                    ),
+                                    modifier = Modifier.weight(1f),
+                                    decorationBox = { inner ->
+                                        if (newTaskText.isEmpty()) {
+                                            Text(
+                                                text = "할 일 추가…",
+                                                color = KosmosTheme.colors.textSecondary,
+                                                style = MaterialTheme.typography.bodyLarge
+                                            )
+                                        }
+                                        inner()
+                                    }
+                                )
+                                if (newTaskText.isNotBlank()) {
+                                    Text(
+                                        text = "추가",
+                                        color = KosmosTheme.colors.accent,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier
+                                            .clickable { submitNewTask() }
+                                            .padding(start = 12.dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            if (uiState.selectedFilter == MemoryFilterType.KNOWLEDGE) {
-                items(
-                    count = knowledgeItems.itemCount,
-                    key = knowledgeItems.itemKey { it.id },
-                    contentType = knowledgeItems.itemContentType { "Knowledge" }
-                ) { index ->
-                    val note = knowledgeItems[index]
-                    if (note != null) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .glassEffect(
-                                    backgroundColor = KosmosTheme.colors.glass,
-                                    borderColor = KosmosTheme.colors.borderHigh,
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-                                )
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.Top) {
-                                    Text(
-                                        text = note.content,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = KosmosTheme.colors.textPrimary,
-                                        modifier = Modifier.weight(1f)
+                if (uiState.selectedFilter == MemoryFilterType.KNOWLEDGE) {
+                    items(
+                        count = knowledgeItems.itemCount,
+                        key = knowledgeItems.itemKey { it.id },
+                        contentType = knowledgeItems.itemContentType { "Knowledge" }
+                    ) { index ->
+                        val note = knowledgeItems[index]
+                        if (note != null) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .glassEffect(
+                                        backgroundColor = KosmosTheme.colors.glass,
+                                        borderColor = KosmosTheme.colors.borderHigh,
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
                                     )
-                                    if (note.source == com.kosmos.app.domain.model.KnowledgeNote.SOURCE_AUTO) {
-                                        // 출처 배지 — 자동 추출(C′2) 항목. 수동·툴 콜 저장은 배지 없음.
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.Top) {
                                         Text(
-                                            text = "자동",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = KosmosTheme.colors.textMuted,
+                                            text = note.content,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = KosmosTheme.colors.textPrimary,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        if (note.source == com.kosmos.app.domain.model.KnowledgeNote.SOURCE_AUTO) {
+                                            // 출처 배지 — 자동 추출(C′2) 항목. 수동·툴 콜 저장은 배지 없음.
+                                            Text(
+                                                text = "자동",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = KosmosTheme.colors.textMuted,
+                                                modifier = Modifier
+                                                    .padding(start = 8.dp)
+                                                    .background(
+                                                        color = KosmosTheme.colors.glass,
+                                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
+                                                    )
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                        Text(
+                                            text = "✕",
+                                            color = KosmosTheme.colors.danger,
                                             modifier = Modifier
-                                                .padding(start = 8.dp)
-                                                .background(
-                                                    color = KosmosTheme.colors.glass,
-                                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
-                                                )
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                .clickable { knowledgeToDelete = note }
+                                                .padding(start = 10.dp, end = 2.dp)
                                         )
                                     }
-                                    Text(
-                                        text = "✕",
-                                        color = KosmosTheme.colors.danger,
-                                        modifier = Modifier
-                                            .clickable { knowledgeToDelete = note }
-                                            .padding(start = 10.dp, end = 2.dp)
-                                    )
-                                }
-                                if (note.tags.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-                                    androidx.compose.foundation.layout.FlowRow(
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        note.tags.forEach { tag ->
-                                            Box(
-                                                modifier = Modifier
-                                                    .background(
-                                                        color = KosmosTheme.colors.accent.copy(alpha = 0.15f),
-                                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                    if (note.tags.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                                        androidx.compose.foundation.layout.FlowRow(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            note.tags.forEach { tag ->
+                                                Box(
+                                                    modifier = Modifier
+                                                        .background(
+                                                            color = KosmosTheme.colors.accent.copy(alpha = 0.15f),
+                                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                                        )
+                                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = tag,
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = KosmosTheme.colors.accent
                                                     )
-                                                    .padding(horizontal = 10.dp, vertical = 4.dp)
-                                            ) {
-                                                Text(
-                                                    text = tag,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = KosmosTheme.colors.accent
-                                                )
+                                                }
                                             }
                                         }
                                     }
@@ -339,16 +344,22 @@ fun MemoryScreen(
                         }
                     }
                 }
-            }
 
-            item {
-                BackupSection(
-                    backupState = backupState,
-                    onExportClick = { viewModel.requestExport() },
-                    onImportClick = { viewModel.requestImport() }
-                )
+                item {
+                    BackupSection(
+                        backupState = backupState,
+                        onExportClick = { viewModel.requestExport() },
+                        onImportClick = { viewModel.requestImport() }
+                    )
+                }
             }
         }
+        androidx.compose.material3.SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+        )
     }
 
     BackupDialogs(

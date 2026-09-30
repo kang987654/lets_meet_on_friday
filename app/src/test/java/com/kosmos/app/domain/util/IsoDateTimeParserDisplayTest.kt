@@ -26,6 +26,19 @@ class IsoDateTimeParserDisplayTest {
     }
 
     @Test
+    fun `긴 날짜 표기는 예전 DateTimeFormatter 패턴과 바이트가 같다 - 브리핑 프롬프트 불변`() {
+        // 한 주 7일 전부 — 요일 이름 표를 손으로 적었으므로 모든 요일을 대조한다.
+        val legacy = java.time.format.DateTimeFormatter.ofPattern("M월 d일 EEEE", java.util.Locale.KOREAN)
+        (0L until 7L).forEach { offset ->
+            val instant = java.time.Instant.parse("2026-09-28T03:00:00Z").plusSeconds(offset * 86_400)
+            assertEquals(
+                legacy.format(instant.atZone(seoul)),
+                IsoDateTimeParser.longDateKorean(instant.toEpochMilli(), seoul)
+            )
+        }
+    }
+
+    @Test
     fun `파싱할 수 없으면 null 이다`() {
         assertNull(IsoDateTimeParser.toDisplayDateKorean("내일 오후", seoul))
     }

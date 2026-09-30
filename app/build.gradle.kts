@@ -71,6 +71,17 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            // [WHY] `-Pfast` 빠른 반복용 — 전체(약 2분)의 70%가 Compose/Hilt E2E 와 Robolectric 스트림
+            // 스위트 5개(약 83초)에서 나온다. 나머지 460여 건은 약 40초다. 회차 게이트(§1)는 항상 전체다.
+            if (project.hasProperty("fast")) {
+                all { test ->
+                    test.filter {
+                        excludeTestsMatching("com.kosmos.app.integration.*E2ETest")
+                        excludeTestsMatching("com.kosmos.app.integration.VoiceChatIntegrationTest")
+                        excludeTestsMatching("com.kosmos.app.assistant.agent.BaseAgentStreamTest")
+                    }
+                }
+            }
         }
     }
     lint {

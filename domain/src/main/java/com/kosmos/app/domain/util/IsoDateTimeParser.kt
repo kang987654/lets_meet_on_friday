@@ -94,6 +94,16 @@ object IsoDateTimeParser {
         else -> "%d월 %d일".format(date.monthValue, date.dayOfMonth)
     }
 
+    /**
+     * epoch ms 의 "9월 30일 수요일" 표기 — 아침 브리핑 프롬프트와 홈 위젯 헤더.
+     * [WHY] 두 곳이 `ofPattern("M월 d일 EEEE", Locale.KOREAN)` 을 각자 들고 있었다. 브리핑 쪽은
+     * **모델 입력**이라 출력 바이트가 바뀌면 안 된다 — 결과가 그 패턴과 같다는 것을 테스트가 고정한다.
+     */
+    fun longDateKorean(epochMs: Long, zoneId: ZoneId = ZoneId.systemDefault()): String {
+        val dt = Instant.ofEpochMilli(epochMs).atZone(zoneId)
+        return "%d월 %d일 %s요일".format(dt.monthValue, dt.dayOfMonth, weekdayKorean(dt.dayOfWeek))
+    }
+
     /** "수" 처럼 한 글자 요일. */
     fun weekdayKorean(dayOfWeek: java.time.DayOfWeek): String =
         "월화수목금토일"[dayOfWeek.value - 1].toString()

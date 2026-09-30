@@ -30,8 +30,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -177,8 +175,8 @@ class MorningBriefingGenerator @Inject constructor(
         val episodes = (episodeRepository.getEpisodes(0, MAX_EPISODES) as? AppResult.Success)
             ?.data.orEmpty().filter { it.status == EpisodeStatus.SUMMARIZED }
 
-        val dateLabel = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-            .format(DateTimeFormatter.ofPattern("M월 d일 EEEE", Locale.KOREAN))
+        // [WHY] 모델 입력("오늘은 9월 30일 수요일입니다.")이라 출력 바이트가 고정돼야 한다 — 표기 단일 출처.
+        val dateLabel = com.kosmos.app.domain.util.IsoDateTimeParser.longDateKorean(now, zone)
 
         return GenerateBriefingUseCase.BriefingMaterials(
             dateLabel = dateLabel,
