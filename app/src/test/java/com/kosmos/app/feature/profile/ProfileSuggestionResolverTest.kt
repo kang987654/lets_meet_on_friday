@@ -29,7 +29,7 @@ class ProfileSuggestionResolverTest {
     private val suggestionRepository: ProfileSuggestionRepository = mockk {
         coEvery { updateStatus(any(), any(), any()) } returns AppResult.Success(Unit)
     }
-    private val tokenizer = GemmaTokenizer(mockk(), mockk())
+    private val tokenizer = GemmaTokenizer()
 
     private fun resolver() = ProfileSuggestionResolver(profileRepository, suggestionRepository, tokenizer)
 

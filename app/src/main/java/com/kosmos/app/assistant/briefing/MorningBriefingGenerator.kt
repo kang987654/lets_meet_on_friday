@@ -84,6 +84,8 @@ class MorningBriefingGenerator @Inject constructor(
     private val mutex = Mutex()
 
     private val started = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val messageWriter =
+        com.kosmos.app.assistant.orchestrator.AssistantMessageWriter(conversationRepository, auditTrailService)
 
     /**
      * Ready 편승 구독을 시작합니다 — KosmosApp.onCreate 가 부른다 (멱등).
@@ -148,16 +150,10 @@ class MorningBriefingGenerator @Inject constructor(
             ?: UUID.randomUUID().toString().also { sessionStore.saveActiveSessionId(it) }
 
         val episodeId = boundaryManager.onAssistantInitiatedMessage(sessionId, now)
-        val saved = conversationRepository.save(
-            ChatMessage(
-                id = UUID.randomUUID().toString(),
-                sessionId = sessionId,
-                role = ChatMessage.Role.ASSISTANT,
-                content = briefing,
-                inputType = InputType.BRIEFING,
-                createdAt = now,
-                episodeId = episodeId
-            )
+        val saved = messageWriter.save(
+            sessionId, ChatMessage.Role.ASSISTANT, briefing, InputType.BRIEFING,
+            episodeId = episodeId,
+            now = now
         )
         if (saved is AppResult.Failure) {
             AppLogger.e(TAG, "브리핑 저장 실패: ${saved.error}")
@@ -219,6 +215,5 @@ internal fun shouldGenerateBriefing(
     if (!enabled) return false
     if (todayCount > 0) return false
     val today = Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
-    val triggerMs = today.atStartOfDay(zone).toInstant().toEpochMilli() + briefingMinutes * 60_000L
-    return nowMs >= triggerMs
+    return nowMs >= com.kosmos.app.work.briefingTriggerMs(today, briefingMinutes, zone)
 }

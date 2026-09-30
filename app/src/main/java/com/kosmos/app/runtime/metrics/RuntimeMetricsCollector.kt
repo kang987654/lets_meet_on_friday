@@ -12,12 +12,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-data class InferenceMetrics(
-    val durationMs: Long,
-    val temperatureCelsius: Float,
-    val inferenceCount: Int
-)
-
 /**
  * 채팅 상단에 상시 표시되는 기기 상태입니다.
  *
@@ -129,10 +123,12 @@ class RuntimeMetricsCollector @Inject constructor(
      * @param tokenCount 이번 턴에 생성된 토큰 수. 0 이면 속도를 갱신하지 않습니다.
      *   [WHY] 스트리밍 경로는 네이티브 메시지 1건 = 토큰 1개이므로 정확히 셀 수 있다.
      *   비스트리밍 경로는 셀 방법이 없으므로 0 을 넘기고 직전 값을 유지한다.
+     *
+     * [WHY] 반환값이 없다 — 예전의 `AppResult<InferenceMetrics>` 는 소비자가 0곳이었다. 발열 상태의
+     * 진실은 [thermalWarning] 이고, 사전 차단은 [checkPreconditions] 가 맡는다.
      */
-    fun recordEnd(durationMs: Long, tokenCount: Int = 0): AppResult<InferenceMetrics> {
+    fun recordEnd(durationMs: Long, tokenCount: Int = 0) {
         val temp = temperatureProvider.getCurrentTemperatureCelsius()
-        val metrics = InferenceMetrics(durationMs, temp, continuousInferenceCount.get())
 
         if (tokenCount > 0 && durationMs > 0) {
             _deviceStatus.value = _deviceStatus.value.copy(
@@ -140,27 +136,21 @@ class RuntimeMetricsCollector @Inject constructor(
             )
         }
 
-        return when {
+        when {
             temp >= Constants.THERMAL_SHUTDOWN_CELSIUS -> {
                 scope.launch {
                     auditTrailService.logThermalEvent("system_thermal", "graceful_degradation", temp)
                 }
+                // UI 경고용 — 중단은 다음 턴의 checkPreconditions 가 한다.
                 _thermalWarning.value = AppError.TemperatureCritical(temp)
-                // 기존엔 여기서 중단 요구 이벤트를 보냈으나, 이제는 UI 경고용으로만 쓰임
-                AppResult.Failure(AppError.TemperatureCritical(temp))
             }
             temp >= Constants.THERMAL_WARNING_CELSIUS -> {
                 scope.launch {
                     auditTrailService.logThermalEvent("system_thermal", "warning", temp)
                 }
                 _thermalWarning.value = AppError.TemperatureWarning(temp)
-                // 경고
-                AppResult.Failure(AppError.TemperatureWarning(temp))
             }
-            else -> {
-                _thermalWarning.value = null
-                AppResult.Success(metrics)
-            }
+            else -> _thermalWarning.value = null
         }
     }
 

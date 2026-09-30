@@ -113,11 +113,11 @@ class AndroidCalendarTool @Inject constructor(
             // 파싱 실패도 같은 폴백을 쓰되 경고를 남긴다 — 툴 경로는 실행 전 인자 검증이
             // 거르므로 여기 도달하는 실패는 다른 호출자나 회귀의 신호다.
             val endMs = if (endIso.isNullOrBlank()) {
-                startMs + 3600000L // 1 hour fallback
+                startMs + DEFAULT_EVENT_DURATION_MS
             } else {
                 IsoDateTimeParser.toEpochMillis(endIso) ?: run {
                     AppLogger.w(TAG, "endIso 파싱 실패, 시작 1시간 뒤로 폴백")
-                    startMs + 3600000L
+                    startMs + DEFAULT_EVENT_DURATION_MS
                 }
             }
 
@@ -187,5 +187,8 @@ class AndroidCalendarTool @Inject constructor(
 
     private companion object {
         const val TAG = "AndroidCalendarTool"
+
+        // 종료 시각이 없거나 깨졌을 때의 기본 길이 — 툴 선언 문구("모르면 시작 1시간 뒤")와 같은 규칙.
+        const val DEFAULT_EVENT_DURATION_MS = 60 * 60 * 1000L
     }
 }

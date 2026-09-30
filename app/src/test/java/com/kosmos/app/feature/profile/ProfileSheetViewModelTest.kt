@@ -40,7 +40,7 @@ class ProfileSheetViewModelTest {
         coEvery { upsert(any(), any(), any()) } returns AppResult.Success(Unit)
         coEvery { delete(any()) } returns AppResult.Success(Unit)
     }
-    private val tokenizer = GemmaTokenizer(mockk(), mockk())
+    private val tokenizer = GemmaTokenizer()
     private lateinit var viewModel: ProfileSheetViewModel
 
     @Before

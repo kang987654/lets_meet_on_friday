@@ -7,7 +7,6 @@ import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.InputType
-import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -22,8 +21,8 @@ import javax.inject.Inject
  * 1. 유저 메시지 DB 저장
  * 2. [ContextBuilder]를 통한 대화 기록 로드 (Token Sliding Window 적용)
  * 3. [PromptAssembler]로 최종 프롬프트 조립
- * 4. [ModelRunner] 실행 및 JSON 결과 파싱 (내부 루프를 통해 Tool 재귀 실행)
- * 5. Guard 정책 검사 후 결과 반환
+ * 4. [com.kosmos.app.assistant.agent.KosmosAgent] 에 위임 — 툴 루프·최종 응답 저장은 에이전트 몫
+ * 5. 턴 종료 후 에피소드 요약 드레인을 건다 (fire-and-forget)
  */
 class AssistantOrchestrator @Inject constructor(
     private val conversationRepository: ConversationRepository,
@@ -34,6 +33,7 @@ class AssistantOrchestrator @Inject constructor(
     private val episodeBoundaryManager: com.kosmos.app.assistant.episode.EpisodeBoundaryManager,
     private val episodeSummarizeScheduler: com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
 ) {
+    private val messageWriter = AssistantMessageWriter(conversationRepository, auditTrailService)
 
     suspend fun processRequest(request: ChatRequest): AgentResult {
         // 1. 음성이면 먼저 전사한다.
@@ -71,10 +71,11 @@ class AssistantOrchestrator @Inject constructor(
         // 2. 유저 메시지 저장
         // [WHY] 저장 직전이 에피소드 경계 판정 지점이다 — 여기가 메시지 저장의 단일 지점이고,
         // 직전 메시지의 createdAt 과 지금의 간격(30분)을 여기서만 정확히 알 수 있다 (ADR-022).
-        val episodeId = episodeBoundaryManager.onUserMessage(request.sessionId, System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        val episodeId = episodeBoundaryManager.onUserMessage(request.sessionId, now)
         val content = transcript ?: request.message
         val inputType = if (request.audioFilePath != null) InputType.VOICE else if (request.imageBytes != null) InputType.IMAGE else InputType.TEXT
-        val saveUserResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.USER, content, inputType, episodeId = episodeId)
+        val saveUserResult = messageWriter.save(request.sessionId, ChatMessage.Role.USER, content, inputType, episodeId = episodeId, now = now)
         if (saveUserResult is AppResult.Failure) {
             return AgentResult.Error(saveUserResult.error)
         }
@@ -84,7 +85,7 @@ class AssistantOrchestrator @Inject constructor(
         // 세션 내내 지속되는 프롬프트 인젝션 경로가 된다. USER 역할의 구분된 블록으로 저장한다.
         if (request.documentText != null) {
             val documentBlock = "[Attached Document]\n\"\"\"\n${request.documentText}\n\"\"\""
-            val saveDocResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.USER, documentBlock, InputType.TEXT, episodeId = episodeId)
+            val saveDocResult = messageWriter.save(request.sessionId, ChatMessage.Role.USER, documentBlock, InputType.TEXT, episodeId = episodeId, now = now)
             if (saveDocResult is AppResult.Failure) {
                 return AgentResult.Error(saveDocResult.error)
             }
@@ -94,7 +95,8 @@ class AssistantOrchestrator @Inject constructor(
         val contextResult = contextBuilder.build(request.sessionId)
         val context = when (contextResult) {
             is AppResult.Success -> contextResult.data
-            is AppResult.Failure -> return handleErrorAndReturn(request.sessionId, "대화 문맥을 구성하지 못했습니다: ${contextResult.error}")
+            // [WHY] 감사에는 진단용 원문을, 말풍선에는 사용자 문구를 남긴다(AssistantMessageWriter).
+            is AppResult.Failure -> return messageWriter.saveError(request.sessionId, "대화 문맥을 구성하지 못했습니다: ${contextResult.error}")
         }
 
         // 5. 에이전트 위임
@@ -116,41 +118,4 @@ class AssistantOrchestrator @Inject constructor(
         return result
     }
 
-    // [WHY] 감사에는 진단용 원문을, 말풍선에는 사용자 문구를 남긴다. 0.11.0 에서 `BaseAgent` 쪽은
-    // 이렇게 고쳤는데 여기가 빠져 있었다 — 문맥 구성이 실패하면 말풍선에
-    // `"대화 문맥을 구성하지 못했습니다: DbReadError(...)"` 가 그대로 저장됐다.
-    private suspend fun handleErrorAndReturn(sessionId: String, errorMsg: String): AgentResult.Error {
-        auditTrailService.logError(sessionId, errorMsg)
-        val error = com.kosmos.app.core.common.AppError.ModelInferenceError(errorMsg)
-        createAndSaveMessage(
-            sessionId,
-            ChatMessage.Role.ASSISTANT,
-            com.kosmos.app.core.mapper.ErrorMessages.userMessage(error),
-            InputType.TEXT
-        )
-        return AgentResult.Error(error)
-    }
-
-    private suspend fun createAndSaveMessage(
-        sessionId: String,
-        role: ChatMessage.Role,
-        content: String,
-        inputType: InputType,
-        searchUsed: Boolean = false,
-        thinkingProcess: String? = null,
-        episodeId: String? = null
-    ): AppResult<Unit> {
-        val message = ChatMessage(
-            id = UUID.randomUUID().toString(),
-            sessionId = sessionId,
-            role = role,
-            content = content,
-            inputType = inputType,
-            searchUsed = searchUsed,
-            createdAt = System.currentTimeMillis(),
-            thinkingProcess = thinkingProcess,
-            episodeId = episodeId
-        )
-        return conversationRepository.save(message)
-    }
 }

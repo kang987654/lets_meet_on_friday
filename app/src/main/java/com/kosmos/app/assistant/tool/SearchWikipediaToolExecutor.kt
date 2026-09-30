@@ -1,5 +1,6 @@
 package com.kosmos.app.assistant.tool
 
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.security.ApprovalRules
 import com.kosmos.app.domain.usecase.QueryWikipediaUseCase
@@ -22,7 +23,7 @@ import javax.inject.Inject
 class SearchWikipediaToolExecutor @Inject constructor(
     private val queryWikipediaUseCase: QueryWikipediaUseCase
 ) : ToolExecutor {
-    override val name: String = "SearchWikipedia"
+    override val name: String = ToolNames.SEARCH_WIKIPEDIA
 
     override val actionType: ApprovalRules.ActionType = ApprovalRules.ActionType.WEB_SEARCH
 
@@ -41,12 +42,12 @@ class SearchWikipediaToolExecutor @Inject constructor(
                 // 데이터 옆이 유일한 근거리 주입 지점이다. SearchMemoryToolExecutor 가 같은
                 // 방식으로 실기기에서 검증됐다. 문구는 exp25 픽스처와 문자 단위로 동일해야
                 // 한다 — 바꾸면 그 측정이 무효가 된다.
-                JSONObject().put("status", "success")
+                ToolResultJson.success()
                     .put("data", res.data + GROUNDING_GUIDANCE)
                     .toString()
             }
             is AppResult.Failure -> {
-                JSONObject().put("status", "error").put("message", "검색 중 오류 발생: ${res.error}").toString()
+                ToolResultJson.error("검색 중 오류 발생: ${res.error}")
             }
         }
     }

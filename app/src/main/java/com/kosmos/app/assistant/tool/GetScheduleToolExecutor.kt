@@ -1,5 +1,6 @@
 package com.kosmos.app.assistant.tool
 
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
@@ -22,7 +23,7 @@ class GetScheduleToolExecutor @Inject constructor(
     private val getTodayScheduleUseCase: GetTodayScheduleUseCase,
     private val summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase
 ) : ToolExecutor {
-    override val name: String = "GetSchedule"
+    override val name: String = ToolNames.GET_SCHEDULE
 
     override suspend fun execute(args: ToolArguments, sessionId: String): String {
         // [WHY] date 는 없어도 오늘로 수렴하는 선택 인자다. optString 이 숫자·불린도 문자열로
@@ -56,9 +57,9 @@ class GetScheduleToolExecutor @Inject constructor(
                 }
             }
             // [WHY] 일정 제목에 따옴표/개행이 있어도 JSON이 깨지지 않도록 JSONObject로 조립한다.
-            JSONObject().put("status", "success").put("data", text).toString()
+            ToolResultJson.success().put("data", text).toString()
         } else {
-            JSONObject().put("status", "error").put("message", "일정 조회 실패").toString()
+            ToolResultJson.error("일정 조회 실패")
         }
     }
 }

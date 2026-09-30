@@ -1,5 +1,6 @@
 package com.kosmos.app.assistant.agent
 
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.assistant.context.PromptAssembler
 import com.kosmos.app.assistant.orchestrator.ChatRequest
@@ -61,18 +62,18 @@ class KosmosAgent @Inject constructor(
     // [WHY] 가시성을 public 으로 넓혔다 — 부수효과 없는 조회이고, "표현과 무관하게 일정·메모리
     // 툴이 항상 있다"가 라우터 폐지의 핵심 계약이라 테스트로 고정해야 한다.
     public override fun availableTools(context: ContextBuilder.Context): List<String> = buildList {
-        add("AddSchedule")
-        add("GetSchedule")
-        add("AddMemory")
+        add(ToolNames.ADD_SCHEDULE)
+        add(ToolNames.GET_SCHEDULE)
+        add(ToolNames.ADD_MEMORY)
         // [WHY] 기억 조회는 예전에 매 턴 자동 주입(RAG)이었다. 임베더가 영어 전용이라
         // 한국어 검색이 무작위였고(ADR-013), 무관한 메모 3건이 매 턴 붙어 프리필만 축내고
         // 환각의 재료가 됐다. 모델이 필요할 때 키워드로 찾는 툴로 바꿨다.
-        add("SearchMemory")
+        add(ToolNames.SEARCH_MEMORY)
         // [WHY] 리마인더 쓰기는 로컬 동작(AlarmManager+알림)이므로 상시 노출 — 승인은
         // REMINDER_WRITE 관문이 별도로 지킨다 (B1).
-        add("AddReminder")
+        add(ToolNames.ADD_REMINDER)
         if (context.webSearchEnabled) {
-            add("SearchWikipedia")
+            add(ToolNames.SEARCH_WIKIPEDIA)
         }
     }
 }

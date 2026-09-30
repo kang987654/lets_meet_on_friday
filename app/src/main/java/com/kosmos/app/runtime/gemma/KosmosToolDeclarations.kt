@@ -1,5 +1,6 @@
 package com.kosmos.app.runtime.gemma
 
+import com.kosmos.app.domain.tool.ToolNames
 import com.google.ai.edge.litertlm.Tool
 import com.google.ai.edge.litertlm.ToolParam
 import com.google.ai.edge.litertlm.ToolProvider
@@ -37,21 +38,21 @@ object KosmosToolDeclarations {
 
     /** 런타임이 모델에게 알리는 snake_case 이름 → 우리 `ToolExecutor` 이름. */
     val CANONICAL_NAMES: Map<String, String> = mapOf(
-        "add_schedule" to "AddSchedule",
-        "get_schedule" to "GetSchedule",
-        "add_memory" to "AddMemory",
-        "search_memory" to "SearchMemory",
-        "search_wikipedia" to "SearchWikipedia",
-        "add_reminder" to "AddReminder"
+        "add_schedule" to ToolNames.ADD_SCHEDULE,
+        "get_schedule" to ToolNames.GET_SCHEDULE,
+        "add_memory" to ToolNames.ADD_MEMORY,
+        "search_memory" to ToolNames.SEARCH_MEMORY,
+        "search_wikipedia" to ToolNames.SEARCH_WIKIPEDIA,
+        "add_reminder" to ToolNames.ADD_REMINDER
     )
 
     private val PROVIDERS: Map<String, () -> ToolProvider> = mapOf(
-        "AddSchedule" to { tool(AddScheduleDeclaration()) },
-        "GetSchedule" to { tool(GetScheduleDeclaration()) },
-        "AddMemory" to { tool(AddMemoryDeclaration()) },
-        "SearchMemory" to { tool(SearchMemoryDeclaration()) },
-        "SearchWikipedia" to { tool(SearchWikipediaDeclaration()) },
-        "AddReminder" to { tool(AddReminderDeclaration()) }
+        ToolNames.ADD_SCHEDULE to { tool(AddScheduleDeclaration()) },
+        ToolNames.GET_SCHEDULE to { tool(GetScheduleDeclaration()) },
+        ToolNames.ADD_MEMORY to { tool(AddMemoryDeclaration()) },
+        ToolNames.SEARCH_MEMORY to { tool(SearchMemoryDeclaration()) },
+        ToolNames.SEARCH_WIKIPEDIA to { tool(SearchWikipediaDeclaration()) },
+        ToolNames.ADD_REMINDER to { tool(AddReminderDeclaration()) }
     )
 
     /** 활성화된 툴만 선언 목록으로 만듭니다. 알 수 없는 이름은 무시합니다. */

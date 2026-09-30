@@ -1,10 +1,10 @@
 package com.kosmos.app.assistant.tool
 
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.security.ApprovalRules
 import com.kosmos.app.domain.usecase.SaveKnowledgeUseCase
-import org.json.JSONObject
 import javax.inject.Inject
 
 /**
@@ -22,7 +22,7 @@ import javax.inject.Inject
 class AddMemoryToolExecutor @Inject constructor(
     private val saveKnowledgeUseCase: SaveKnowledgeUseCase
 ) : ToolExecutor {
-    override val name: String = "AddMemory"
+    override val name: String = ToolNames.ADD_MEMORY
 
     // [WHY] 메모리 저장은 영구 상태 변경이자 이후 모든 대화의 컨텍스트를 오염시킬 수 있는
     // 경로이므로(주입된 문서가 가짜 '기억'을 심는 벡터) 사용자 승인을 요구한다.
@@ -50,10 +50,10 @@ class AddMemoryToolExecutor @Inject constructor(
 
         return when (val res = saveKnowledgeUseCase(content, tags)) {
             is AppResult.Success -> {
-                JSONObject().put("status", "success").put("message", "Successfully saved to memory.").toString()
+                ToolResultJson.success().put("message", "Successfully saved to memory.").toString()
             }
             is AppResult.Failure -> {
-                JSONObject().put("status", "error").put("message", "Failed to save memory: ${res.error}").toString()
+                ToolResultJson.error("Failed to save memory: ${res.error}")
             }
         }
     }

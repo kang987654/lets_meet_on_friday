@@ -1,12 +1,15 @@
 package com.kosmos.app.assistant.agent
 
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.assistant.approval.ApprovalCoordinator
 import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.assistant.context.ToolParser
+import com.kosmos.app.assistant.orchestrator.AssistantMessageWriter
 import com.kosmos.app.assistant.orchestrator.ChatRequest
 import com.kosmos.app.assistant.orchestrator.StreamUpdate
 import com.kosmos.app.assistant.tool.ToolArguments
 import com.kosmos.app.assistant.tool.ToolRegistry
+import com.kosmos.app.assistant.tool.ToolResultJson
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.agent.AgentResult
@@ -19,7 +22,6 @@ import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.modelrunner.ModelTurn
 import com.kosmos.app.domain.modelrunner.ToolResponseInput
 import kotlinx.coroutines.coroutineScope
-import java.util.UUID
 
 /**
  * [BaseAgent]
@@ -41,6 +43,8 @@ abstract class BaseAgent(
     protected val conversationRepository: ConversationRepository,
     protected val approvalCoordinator: ApprovalCoordinator
 ) {
+    private val messageWriter = AssistantMessageWriter(conversationRepository, auditTrailService)
+
     abstract suspend fun execute(request: ChatRequest, context: ContextBuilder.Context): AgentResult
 
     /** 이 에이전트가 현재 컨텍스트에서 사용할 수 있는 툴 이름 목록 (프롬프트 노출 + 실행 시점 강제에 공용). */
@@ -69,12 +73,6 @@ abstract class BaseAgent(
         var searchFailed = false
         // [WHY] SearchMemory 가 참조한 에피소드 출처 — 회수 칩(🧠)의 데이터 (ADR-022).
         val recallEpisodeIds = mutableListOf<String>()
-        // [WHY] 3 은 SearchMemory 재조회 프로토콜의 하한이다 — 검색(1) → 재검색어로 재조회(2)
-        // → 최종 답변(3). 줄이면 그 프로토콜이 조용히 끊긴다. 인자 오류 자가수정도 이 상한을
-        // 공유한다(BAD_FORMAT 재시도).
-        val MAX_TOOL_LOOP_COUNT = 3
-        val THINK_TAG_WINDOW = 12 // "<|think|" 태그가 토큰 경계에 걸려도 감지되는 길이
-
         while (true) {
             if (loopCount >= MAX_TOOL_LOOP_COUNT) {
                 // [WHY] 루프 상한 초과는 타임아웃이 아니므로 오해를 부르는 Timeout 대신 추론 오류로 보고한다.
@@ -83,7 +81,7 @@ abstract class BaseAgent(
                 // 화면에 아무 흔적이 없었다. 시각 인자 형식 검증(BAD_FORMAT)이 생기면서 모델이
                 // 같은 깨진 값으로 상한까지 재시도하는 경로가 현실이 됐고(greedy 는 재시도가
                 // 동일할 수 있다), 그 끝이 무반응이면 사용자는 앱이 죽었다고 오해한다.
-                return@coroutineScope handleErrorAndReturn(
+                return@coroutineScope messageWriter.saveError(
                     request.sessionId,
                     "Max tool loop count exceeded",
                     AppError.ModelInferenceError("툴 호출 반복 상한(${MAX_TOOL_LOOP_COUNT}회)을 초과했습니다.")
@@ -93,7 +91,8 @@ abstract class BaseAgent(
 
             var tagSeen = false
             var tailWindow = ""
-            var accumulatedToken = ""
+            // [WHY] StringBuilder — 토큰마다 String += 로 누적하면 긴 응답에서 O(n²) 복사가 된다.
+            val accumulated = StringBuilder()
             // [WHY] 스트리밍 파싱이 여기 한 곳에만 있다. 이 누적기는 루프 안에 선언돼 턴마다
             // 리셋되므로, UI 가 직접 누적하던 시절의 "1턴 문장이 2턴에 이어붙는" 결함이
             // 구조적으로 불가능해진다 (ADR-007).
@@ -102,7 +101,8 @@ abstract class BaseAgent(
             // 돌려주므로 `<tool_call` 윈도우와 조기 취소가 사라졌다. `<|think|>` 처리는 남긴다
             // (모델이 생각 텍스트를 낼 수 있고, 방어 비용이 싸다).
             val wrappedOnToken: (String) -> Unit = { token ->
-                accumulatedToken += token
+                accumulated.append(token)
+                val accumulatedToken = accumulated.toString()
                 // [WHY] 토큰마다 전체 누적 문자열을 정규식 재파싱하면 O(n²) 핫패스가 된다.
                 // 태그가 하나도 없는 구간에서는 누적 문자열이 곧 본문이므로 파싱이 필요 없다.
                 val probe = tailWindow + token
@@ -135,7 +135,7 @@ abstract class BaseAgent(
 
             val turn = when (modelResult) {
                 is AppResult.Success -> modelResult.data
-                is AppResult.Failure -> return@coroutineScope handleErrorAndReturn(
+                is AppResult.Failure -> return@coroutineScope messageWriter.saveError(
                     request.sessionId,
                     "Model inference failed: ${modelResult.error}",
                     // [WHY] 원인을 그대로 넘겨야 발열·모델 미준비 같은 구체적 안내가 나온다.
@@ -171,7 +171,7 @@ abstract class BaseAgent(
                 // [WHY] 웹 검색은 유일한 네트워크 egress 다. `SEARCH_USED` 감사 타입과
                 // 포맷터가 이미 있었지만 호출하는 곳이 없어, 프라이버시상 가장 기록이 필요한
                 // 동작이 감사 로그에 남지 않았다.
-                if (call.name == "SearchWikipedia") {
+                if (call.name == ToolNames.SEARCH_WIKIPEDIA) {
                     // [WHY] 뱃지 기준은 executed 가 아니라 **succeeded** 다. 위키 네트워크 실패는
                     // 예외가 아니라 오류 JSON 으로 돌아오므로(executed=true), 예전 기준으로는
                     // 실패한 검색에도 "참고했어요" 뱃지가 붙었다. 감사 기록은 executed 기준을
@@ -194,7 +194,7 @@ abstract class BaseAgent(
                 // [WHY] SearchMemory 의 meta.episodeIds 는 회수 칩의 출처다 — 여기서 뽑아 두고,
                 // **모델에 되돌리기 전에 meta 를 제거**한다. 남겨 보내면 프롬프트 토큰을 낭비하고
                 // 모델이 id 를 답변에 에코하거나 형식을 모방할 재료가 된다 (ADR-022).
-                if (call.name == "SearchMemory" && outcome.succeeded) {
+                if (call.name == ToolNames.SEARCH_MEMORY && outcome.succeeded) {
                     recallEpisodeIds += extractEpisodeIds(outcome.resultJson)
                 }
 
@@ -229,7 +229,13 @@ abstract class BaseAgent(
         // 바꾸지 않되, 재시작 후 이 턴이 사라진다는 사실을 사용자가 알아야 한다(persistFailed).
         // 감사 로그에는 원인을 남긴다.
         val recalled = recallEpisodeIds.distinct()
-        val saveResult = createAndSaveMessage(request.sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT, searchUsed = searchUsed, thinkingProcess = finalParsed.thinking, episodeId = request.episodeId, recallEpisodeIds = recalled)
+        val saveResult = messageWriter.save(
+            request.sessionId, ChatMessage.Role.ASSISTANT, text, InputType.TEXT,
+            searchUsed = searchUsed,
+            thinkingProcess = finalParsed.thinking,
+            episodeId = request.episodeId,
+            recallEpisodeIds = recalled
+        )
         if (saveResult is AppResult.Failure) {
             auditTrailService.logError(request.sessionId, "비서 응답 저장 실패: ${saveResult.error}")
         }
@@ -265,9 +271,7 @@ abstract class BaseAgent(
     ) {
         companion object {
             fun of(resultJson: String, executed: Boolean): ToolOutcome {
-                val succeeded = executed && runCatching {
-                    org.json.JSONObject(resultJson).optString("status") != "error"
-                }.getOrDefault(true)
+                val succeeded = executed && !ToolResultJson.isError(resultJson)
                 return ToolOutcome(resultJson, executed, succeeded)
             }
         }
@@ -282,23 +286,16 @@ abstract class BaseAgent(
         // 실행되므로, 실행 시점에 반드시 재검증한다.
         if (call.name !in allowedTools) {
             auditTrailService.logError(sessionId, "Blocked tool call outside allowlist: ${call.name}")
-            val message = if (call.name == "SearchWikipedia") {
+            val message = if (call.name == ToolNames.SEARCH_WIKIPEDIA) {
                 "웹 검색이 비활성화되어 있습니다. 사용자에게 채팅 화면 상단의 웹 검색 토글을 켜도록 안내하세요."
             } else {
                 "이 에이전트에서 사용할 수 없는 도구입니다: ${call.name}"
             }
-            return ToolOutcome(
-                org.json.JSONObject().put("status", "error").put("message", message).toString(),
-                executed = false
-            )
+            return ToolOutcome(ToolResultJson.error(message), executed = false)
         }
 
         val executor = toolRegistry.getExecutor(call.name)
-            ?: return ToolOutcome(
-                org.json.JSONObject().put("status", "error")
-                    .put("message", "알 수 없는 Tool입니다: ${call.name}").toString(),
-                executed = false
-            )
+            ?: return ToolOutcome(ToolResultJson.error("알 수 없는 Tool입니다: ${call.name}"), executed = false)
 
         // [WHY] 인자 검증 실패는 승인 전에 걸러야 한다 — 필수 인자가 없는 초안을 승인 카드로
         // 띄우면 사용자가 실행될 수 없는 요청을 승인하게 된다. 또한 누락과 타입 오류를 구분해
@@ -310,11 +307,7 @@ abstract class BaseAgent(
                 val approved = approvalCoordinator.requireApproval(approvalRequest)
                 if (!approved) {
                     auditTrailService.logApprovalRejected(sessionId, "${call.name}: ${approvalRequest.description}")
-                    return ToolOutcome(
-                        org.json.JSONObject().put("status", "error")
-                            .put("message", "사용자가 취소했습니다").toString(),
-                        executed = false
-                    )
+                    return ToolOutcome(ToolResultJson.error("사용자가 취소했습니다"), executed = false)
                 }
                 auditTrailService.logApprovalGranted(sessionId, "${call.name}: ${approvalRequest.description}")
             }
@@ -357,7 +350,7 @@ abstract class BaseAgent(
                 "'${e.field}' 인자가 ISO 8601 일시 형식이 아닙니다. '2026-08-17T15:00:00' 형식으로 다시 보내세요."
         }
         return org.json.JSONObject()
-            .put("status", "error")
+            .put(ToolResultJson.STATUS, ToolResultJson.ERROR)
             .put("tool", toolName)
             .put("field", e.field)
             .put("reason", e.reason.name.lowercase())
@@ -365,51 +358,13 @@ abstract class BaseAgent(
             .toString()
     }
 
-    /**
-     * @param error 사용자에게 보여줄 오류. null 이면 일반 추론 오류로 취급합니다.
-     *
-     * [WHY] 말풍선에 저장되는 문구를 `ErrorMessages` 로 인간화한다. 예전에는
-     * `"Model inference failed: TemperatureCritical(48.3)"` 같은 내부 문자열이 그대로 대화
-     * 기록에 남았다(스낵바만 인간화돼 있었다). 감사 로그에는 원문을 남겨 진단은 유지한다.
-     */
-    private suspend fun handleErrorAndReturn(
-        sessionId: String,
-        errorMsg: String,
-        error: AppError? = null
-    ): AgentResult.Error {
-        auditTrailService.logError(sessionId, errorMsg)
-        val shown = error ?: AppError.ModelInferenceError(errorMsg)
-        createAndSaveMessage(
-            sessionId,
-            ChatMessage.Role.ASSISTANT,
-            com.kosmos.app.core.mapper.ErrorMessages.userMessage(shown),
-            InputType.TEXT
-        )
-        return AgentResult.Error(shown)
-    }
+    private companion object {
+        // [WHY] 3 은 SearchMemory 재조회 프로토콜의 하한이다 — 검색(1) → 재검색어로 재조회(2)
+        // → 최종 답변(3). 줄이면 그 프로토콜이 조용히 끊긴다. 인자 오류 자가수정도 이 상한을
+        // 공유한다(BAD_FORMAT 재시도).
+        const val MAX_TOOL_LOOP_COUNT = 3
 
-    private suspend fun createAndSaveMessage(
-        sessionId: String,
-        role: ChatMessage.Role,
-        content: String,
-        inputType: InputType,
-        searchUsed: Boolean = false,
-        thinkingProcess: String? = null,
-        episodeId: String? = null,
-        recallEpisodeIds: List<String> = emptyList()
-    ): AppResult<Unit> {
-        val message = ChatMessage(
-            id = UUID.randomUUID().toString(),
-            sessionId = sessionId,
-            role = role,
-            content = content,
-            inputType = inputType,
-            searchUsed = searchUsed,
-            createdAt = System.currentTimeMillis(),
-            thinkingProcess = thinkingProcess,
-            episodeId = episodeId,
-            recallEpisodeIds = recallEpisodeIds
-        )
-        return conversationRepository.save(message)
+        // "<|think|" 태그가 토큰 경계에 걸려도 감지되는 길이
+        const val THINK_TAG_WINDOW = 12
     }
 }

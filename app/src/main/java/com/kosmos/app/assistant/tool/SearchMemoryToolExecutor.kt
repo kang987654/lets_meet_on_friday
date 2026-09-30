@@ -1,5 +1,6 @@
 package com.kosmos.app.assistant.tool
 
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.memory.KnowledgeRepository
@@ -44,7 +45,7 @@ class SearchMemoryToolExecutor @Inject constructor(
     private val episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
     private val tokenizer: com.kosmos.app.domain.tool.Tokenizer
 ) : ToolExecutor {
-    override val name: String = "SearchMemory"
+    override val name: String = ToolNames.SEARCH_MEMORY
 
     // [WHY] actionType 은 null — 기억 **읽기**는 승인이 필요 없다(쓰기는 AddMemory 가 받는다).
     // 로컬 조회이고 외부로 나가는 것이 없으므로 캘린더 읽기와 같은 정책이다 (PRD F4/F6).
@@ -214,17 +215,15 @@ class SearchMemoryToolExecutor @Inject constructor(
             tokenizer = tokenizer,
             marker = "\n\n... [TRUNCATED TO SAVE CONTEXT]"
         )
-        val json = JSONObject().put("status", "success").put("data", capped)
+        val json = ToolResultJson.success().put("data", capped)
         if (episodeIds.isNotEmpty()) {
             json.put("meta", JSONObject().put("episodeIds", org.json.JSONArray(episodeIds)))
         }
         return json.toString()
     }
 
-    private fun errorJson(reason: String): String = JSONObject()
-        .put("status", "error")
-        .put("message", "기억 검색 중 오류가 발생했습니다: $reason")
-        .toString()
+    private fun errorJson(reason: String): String =
+        ToolResultJson.error("기억 검색 중 오류가 발생했습니다: $reason")
 
     private companion object {
         val WHITESPACE = Regex("\\s+")

@@ -64,13 +64,20 @@ class BriefingNotificationScheduler @Inject constructor(
  */
 internal fun nextTriggerDelayMillis(nowMs: Long, timeMinutes: Int, zone: ZoneId): Long {
     val today = Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
-    val todayTrigger = today.atStartOfDay(zone).toInstant().toEpochMilli() + timeMinutes * 60_000L
+    val todayTrigger = briefingTriggerMs(today, timeMinutes, zone)
     return if (nowMs < todayTrigger) {
         todayTrigger - nowMs
     } else {
         // [WHY] LocalDate 로 하루를 더한다 — 고정 24시간 덧셈은 DST 전환일에 시각이 밀린다.
-        val tomorrowTrigger = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() +
-            timeMinutes * 60_000L
-        tomorrowTrigger - nowMs
+        briefingTriggerMs(today.plusDays(1), timeMinutes, zone) - nowMs
     }
 }
+
+/**
+ * [date] 의 브리핑 시각(자정 + [timeMinutes]분)을 epoch ms 로 돌려줍니다.
+ *
+ * [WHY] 알림 예약(nextTriggerDelayMillis)과 본문 생성 판정(shouldGenerateBriefing)이 같은 식을 각자
+ * 적고 있었다 — 한쪽만 바뀌면 "알림은 왔는데 브리핑은 아직 안 만들 시각"이 생긴다.
+ */
+internal fun briefingTriggerMs(date: java.time.LocalDate, timeMinutes: Int, zone: ZoneId): Long =
+    date.atStartOfDay(zone).toInstant().toEpochMilli() + timeMinutes * 60_000L

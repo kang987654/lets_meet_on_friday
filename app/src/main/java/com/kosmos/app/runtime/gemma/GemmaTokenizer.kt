@@ -1,8 +1,6 @@
 package com.kosmos.app.runtime.gemma
 
-import android.content.Context
 import com.kosmos.app.domain.tool.Tokenizer
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,10 +34,7 @@ import javax.inject.Singleton
  * 추정기는 윈도우 크기 결정만 맡는다.
  */
 @Singleton
-class GemmaTokenizer @Inject constructor(
-    @param:ApplicationContext private val context: Context,
-    private val runtimeManager: GemmaRuntimeManager
-) : Tokenizer {
+class GemmaTokenizer @Inject constructor() : Tokenizer {
 
     override fun sizeInTokens(text: String): Int = estimateTokens(text)
 

@@ -1,5 +1,6 @@
 package com.kosmos.app.assistant.context
 
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.core.common.ResponseStyle
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ChatPrompt
@@ -45,7 +46,9 @@ class PromptAssembler @Inject constructor() {
         context: ContextBuilder.Context,
         userInput: String,
         availableTools: List<String>,
-        systemRole: String
+        systemRole: String,
+        // [WHY] 날짜는 인자로 받는다(AGENTS §2-④) — 벽시계를 안에서 읽으면 테스트가 실행 날짜에 묶인다.
+        today: java.time.LocalDate = java.time.LocalDate.now(java.time.ZoneId.systemDefault())
     ): ChatPrompt {
         // [WHY] 현재 턴의 사용자 메시지는 이미 DB에 저장된 뒤 컨텍스트로 로드되므로,
         // history 마지막과 currentInput이 중복되지 않도록 마지막 동일 USER 메시지를 제외한다.
@@ -72,7 +75,7 @@ class PromptAssembler @Inject constructor() {
             if (context.profileText.isNotEmpty()) {
                 appendLine(context.profileText)
             }
-            appendLine(buildDateBlock())
+            appendLine(buildDateBlock(today))
             append(buildFormatBlock(availableTools))
         }
 
@@ -157,12 +160,11 @@ class PromptAssembler @Inject constructor() {
      * [WHY] **분 단위 시계(`HH:mm`)를 넣지 않는다.** 넣으면 시스템 지시가 매 턴 달라져 대화가
      * 재생성되고 턴당 3초 이상을 프리필에만 쓴다(PC 실측). 날짜 단위로 만들면 지시가 하루 동안
      * 고정되어 대화가 재사용되고, 일정 등록 정확도는 전혀 떨어지지 않았다(16/16). 대가는
-     * "지금 몇 시야?" 나 "한 시간 뒤" 같은 시계 의존 발화를 다룰 수 없다는 것 — 알림 기능이
-     * 없는 현재로서는 지불할 값이 있는 대가이며, 되돌리려면 이 한 줄에 시각을 넣으면 된다
-     * (그 순간 프리필 비용이 함께 돌아온다).
+     * "지금 몇 시야?" 나 "한 시간 뒤" 같은 시계 의존 발화를 다룰 수 없다는 것이다. 리마인더
+     * (AddReminder, 0.21.0)도 절대 시각("3시에")으로만 동작하고 상대 시각은 여전히 못 다룬다 —
+     * 되돌리려면 이 한 줄에 시각을 넣으면 된다(그 순간 프리필 비용이 함께 돌아온다).
      */
-    private fun buildDateBlock(): String {
-        val today = java.time.LocalDate.now(java.time.ZoneId.systemDefault())
+    private fun buildDateBlock(today: java.time.LocalDate): String {
         val date = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
         val weekday = today.dayOfWeek.getDisplayName(
             java.time.format.TextStyle.FULL,
@@ -207,27 +209,27 @@ class PromptAssembler @Inject constructor() {
             // [WHY] 0.8.5 실기기에서 "add_memory 툴을 사용해서 저장해줘"(툴 이름 직접 지목)는
             // 호출됐지만 "기억해줘"는 호출되지 않았다 — 영어 규칙과 한국어 표현 사이에 다리가
             // 없었다. 실제 한국어 트리거 표현을 규칙 안에 예시로 박아 그 간극을 메운다.
-            if (availableTools.contains("AddMemory")) {
+            if (availableTools.contains(ToolNames.ADD_MEMORY)) {
                 appendLine("- The user asks you to remember something, or shares a fact/preference/password to keep — Korean triggers: \"기억해\", \"기억해줘\", \"저장해줘\", \"메모해줘\", \"잊지 마\": you MUST call `add_memory`.")
             }
             // [WHY] 회상은 저장과 반대 방향인데 트리거 표현이 비슷해서 모델이 `add_memory` 를
             // 잘못 부르는 것이 실측됐다("내 자전거 비밀번호 뭐였지?" → add_memory). 조회 전용
             // 툴을 주고 규칙에서 방향을 못 박는다.
-            if (availableTools.contains("SearchMemory")) {
+            if (availableTools.contains(ToolNames.SEARCH_MEMORY)) {
                 appendLine("- The user asks about something they told you earlier — Korean triggers: \"뭐였지\", \"뭐라고 했지\", \"내가 알려준\", \"기억나\", \"저장한 거\": you MUST call `search_memory` with a short noun keyword. This is a LOOKUP, never call `add_memory` for it.")
             }
-            if (availableTools.contains("AddSchedule")) {
+            if (availableTools.contains(ToolNames.ADD_SCHEDULE)) {
                 appendLine("- The user asks to add an appointment, reservation, or event — Korean triggers: \"예약\", \"약속\", \"일정 잡아줘\", \"일정 추가\", \"~하기로 했어\": you MUST call `add_schedule`.")
             }
-            if (availableTools.contains("GetSchedule")) {
+            if (availableTools.contains(ToolNames.GET_SCHEDULE)) {
                 appendLine("- The user asks what is on their calendar — Korean triggers: \"오늘 일정\", \"내일 일정\", \"스케줄 뭐 있어\": you MUST call `get_schedule`.")
             }
-            if (availableTools.contains("SearchWikipedia")) {
+            if (availableTools.contains(ToolNames.SEARCH_WIKIPEDIA)) {
                 appendLine("- The user asks a factual question you are not sure about — Korean triggers: \"검색해줘\", \"찾아봐\", \"~가 뭐야?\": call `search_wikipedia`.")
             }
             // [WHY] 문구는 exp34b 에서 실측·검증된 원문 그대로다 — 다이어트 예산(순증 52) 안에서
             // 스모크 8/8 을 통과한 조합이므로, 바꾸려면 실험실 재실측이 선행돼야 한다.
-            if (availableTools.contains("AddReminder")) {
+            if (availableTools.contains(ToolNames.ADD_REMINDER)) {
                 appendLine("- The user asks to be reminded at a specific time — Korean triggers: \"3시에 알려줘\", \"리마인드\": you MUST call `add_reminder`.")
             }
         }

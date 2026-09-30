@@ -1,5 +1,6 @@
 package com.kosmos.app.assistant.tool
 
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
@@ -7,7 +8,6 @@ import com.kosmos.app.core.security.ApprovalRules
 import com.kosmos.app.domain.usecase.AddReminderUseCase
 import com.kosmos.app.domain.util.IsoDateTimeParser
 import com.kosmos.app.platform.alarm.ReminderAlarmScheduler
-import org.json.JSONObject
 import javax.inject.Inject
 
 /**
@@ -28,7 +28,7 @@ class AddReminderToolExecutor @Inject constructor(
     private val reminderAlarmScheduler: ReminderAlarmScheduler,
     private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher
 ) : ToolExecutor {
-    override val name: String = "AddReminder"
+    override val name: String = ToolNames.ADD_REMINDER
 
     override val actionType: ApprovalRules.ActionType = ApprovalRules.ActionType.REMINDER_WRITE
 
@@ -54,8 +54,7 @@ class AddReminderToolExecutor @Inject constructor(
                     reminderAlarmScheduler.schedule(res.data.id, triggerAtMs)
                 }
                 widgetRefresher.refresh()
-                JSONObject()
-                    .put("status", "success")
+                ToolResultJson.success()
                     .put("message", "리마인더 등록: ${draft.displayTime}에 '${draft.content}' 알림")
                     .toString()
             }
@@ -67,7 +66,7 @@ class AddReminderToolExecutor @Inject constructor(
                 } else {
                     "리마인더 등록 실패"
                 }
-                JSONObject().put("status", "error").put("message", message).toString()
+                ToolResultJson.error(message)
             }
         }
     }

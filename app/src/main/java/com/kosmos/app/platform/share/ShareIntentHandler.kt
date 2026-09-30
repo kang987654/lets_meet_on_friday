@@ -10,6 +10,7 @@ import com.kosmos.app.core.common.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,6 +27,13 @@ class ShareIntentHandler @Inject constructor(
     // [WHY] replay=1이 없으면 콜드 스타트 시(구독자인 ChatViewModel이 생기기 전) 공유 인텐트가 유실된다.
     // 늦은 구독자도 마지막 공유를 수신하며, 소비 후 clearConsumed()로 재전달을 막는다.
     private val _sharedInputFlow = MutableSharedFlow<AppResult<SharedInput>>(replay = 1, extraBufferCapacity = 1)
+
+    // [WHY] handleIntent 는 MainActivity.onCreate/onNewIntent(메인 스레드)에서 불린다. 이미지 크기
+    // 조회(contentResolver.query)는 다른 앱 프로바이더로 가는 IPC 라 메인에서 돌리면 ANR 후보다.
+    // 결과는 원래도 replay Flow 로 비동기 전달되므로 IO 로 옮겨도 소비 계약이 같다.
+    private val ioScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+    )
     val sharedInputFlow = _sharedInputFlow.asSharedFlow()
 
     /** 공유 입력을 소비한 뒤 호출 — replay 캐시를 비워 재구독 시 중복 처리를 방지합니다. */
@@ -57,7 +65,7 @@ class ShareIntentHandler @Inject constructor(
                     intent.getParcelableExtra(Intent.EXTRA_STREAM)
                 }
                 if (uri != null) {
-                    processImageUri(uri, type)
+                    ioScope.launch { processImageUri(uri, type) }
                 } else {
                     _sharedInputFlow.tryEmit(AppResult.Failure(AppError.ValidationError(com.kosmos.app.core.common.ValidationField.CONTENT, com.kosmos.app.core.common.ValidationReason.BLANK)))
                 }
@@ -92,7 +100,7 @@ class ShareIntentHandler @Inject constructor(
 
             _sharedInputFlow.tryEmit(AppResult.Success(SharedInput.Image(uri, sizeBytes)))
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.kosmos.app.core.logging.AppLogger.e("ShareIntentHandler", "공유 이미지 조회 실패", e)
             // 권한 오류나 기타 파일 시스템 에러 시 크래시 방지 및 에러 반환
             _sharedInputFlow.tryEmit(AppResult.Failure(AppError.UnsupportedImageFormat(mimeType)))
         }

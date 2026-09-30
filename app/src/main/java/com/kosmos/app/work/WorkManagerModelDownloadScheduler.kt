@@ -19,10 +19,14 @@ import com.kosmos.app.domain.tool.ModelDownloadScheduler
 import com.kosmos.app.domain.tool.ModelDownloadStatus
 import com.kosmos.app.domain.tool.ModelDownloader
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -54,6 +58,12 @@ class WorkManagerModelDownloadScheduler @Inject constructor(
 
     /** 부분 파일 크기 조회에 필요한 마지막 요청 URL. */
     private val lastRequest = MutableStateFlow<Pair<String, String?>?>(null)
+
+    // [WHY] cancel·acknowledge 는 UI 에서 직접 불린다(ModelManagementViewModel). 예전에는 그 안에서
+    // `ListenableFuture.get()`(WorkManager DB 조회)과 부분 파일 삭제를 **메인 스레드**에서 돌렸다.
+    // 인터페이스를 suspend 로 바꾸면 호출부·테스트 목이 전부 바뀌므로, 블로킹 부분만 이 IO 스코프로
+    // 넘긴다 — 결과는 status Flow(ackedWorkId)로 반영되므로 호출자가 기다릴 필요가 없다.
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override val status: Flow<ModelDownloadStatus> =
         workManager.getWorkInfosForUniqueWorkFlow(Constants.MODEL_DOWNLOAD_WORK_NAME)
@@ -96,7 +106,8 @@ class WorkManagerModelDownloadScheduler @Inject constructor(
     override fun cancel(deletePartial: Boolean) {
         workManager.cancelUniqueWork(Constants.MODEL_DOWNLOAD_WORK_NAME)
         if (deletePartial) {
-            lastRequest.value?.let { (url, fileName) -> downloader.clearPartial(url, fileName) }
+            val request = lastRequest.value ?: return
+            ioScope.launch { downloader.clearPartial(request.first, request.second) }
         }
     }
 
@@ -107,15 +118,17 @@ class WorkManagerModelDownloadScheduler @Inject constructor(
      * DataStore 로 영속화하면 키와 정리 로직이 늘 뿐 얻는 것이 없다.
      */
     override fun acknowledge() {
-        val terminalId = runCatching {
-            workManager.getWorkInfosForUniqueWork(Constants.MODEL_DOWNLOAD_WORK_NAME)
-                .get()
-                ?.lastOrNull()
-                ?.takeIf { it.state.isFinished }
-                ?.id
-        }.getOrNull()
-        ackedWorkId.value = terminalId
-        workManager.pruneWork()
+        ioScope.launch {
+            val terminalId = runCatching {
+                workManager.getWorkInfosForUniqueWork(Constants.MODEL_DOWNLOAD_WORK_NAME)
+                    .get()
+                    ?.lastOrNull()
+                    ?.takeIf { it.state.isFinished }
+                    ?.id
+            }.getOrNull()
+            ackedWorkId.value = terminalId
+            workManager.pruneWork()
+        }
     }
 
     private fun resumableBytes(): Long =

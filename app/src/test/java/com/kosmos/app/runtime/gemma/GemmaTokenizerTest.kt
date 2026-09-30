@@ -19,7 +19,7 @@ import org.junit.Test
  */
 class GemmaTokenizerTest {
 
-    private val tokenizer = GemmaTokenizer(mockk(), mockk())
+    private val tokenizer = GemmaTokenizer()
 
     // exp26 실측: (텍스트, engine.tokenize 실토큰 수)
     private val measured = listOf(

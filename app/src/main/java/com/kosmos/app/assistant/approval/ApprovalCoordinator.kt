@@ -65,11 +65,6 @@ class ApprovalCoordinator @Inject constructor() {
         return current
     }
 
-    fun clearPending() {
-        currentDecision.getAndSet(null)?.complete(false)
-        _pendingRequest.value = null
-    }
-
     private companion object {
         const val APPROVAL_TIMEOUT_MS = 60_000L
     }

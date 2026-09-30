@@ -220,55 +220,9 @@ internal fun formatStatusCapsule(status: com.kosmos.app.runtime.metrics.DeviceSt
     val parts = mutableListOf<String>()
     if (status.temperatureCelsius > 0f) parts += "🌡%.0f°".format(status.temperatureCelsius)
     // 앱 PSS — 3.6GB 모델이 차지하는 몫. 시스템 전체 사용량은 시트에서 (사용자 요청 2026-08-15).
-    if (status.appMemoryBytes > 0L) parts += "%.1fGB".format(status.appMemoryBytes / 1073741824.0)
+    if (status.appMemoryBytes > 0L) parts += "%.1fGB".format(status.appMemoryBytes.toGigabytes())
     status.tokensPerSecond?.let { parts += "%.1ft/s".format(it) }
     return parts.joinToString(" · ")
-}
-/**
- * 채팅 상단에 상시 표시되는 기기 상태 줄입니다.
- *
- * [WHY] 발열 경고 배너를 따로 두지 않고 여기에 합쳤다. 평소에는 수치만 옅게 보이고, 경고·임계
- * 온도에서는 같은 줄이 `warning` 색으로 승격되며 안내 문구가 붙는다. 배너와 상태 줄이 따로
- * 있으면 발열 상황에서 화면 위쪽이 두 겹으로 밀린다.
- *
- * [WHY] GPU 사용률은 넣지 않는다 — 안드로이드에 공개 API 가 없고 벤더 sysfs 는 SELinux 로
- * 막혀 있다. 그 자리를 토큰 생성 속도가 대신한다 (ADR-015).
- */
-@Composable
-fun DeviceStatusStrip(
-    status: com.kosmos.app.runtime.metrics.DeviceStatus,
-    warningMessage: String?
-) {
-    // 온도가 아직 0 이면(첫 갱신 전) 자리만 차지하지 않도록 접어 둔다.
-    if (status.temperatureCelsius <= 0f && warningMessage == null) return
-
-    val isWarning = warningMessage != null
-    val tint = if (isWarning) KosmosTheme.colors.warning else KosmosTheme.colors.textMuted
-    val background =
-        if (isWarning) KosmosTheme.colors.warning.copy(alpha = 0.15f)
-        else androidx.compose.ui.graphics.Color.Transparent
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(background)
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-    ) {
-        Text(
-            text = formatDeviceStatus(status),
-            color = tint,
-            style = MaterialTheme.typography.labelSmall
-        )
-        if (warningMessage != null) {
-            Text(
-                text = warningMessage,
-                color = KosmosTheme.colors.warning,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-        }
-    }
 }
 
 /** `🌡 41.2°C · RAM 3.4/8.0GB(앱 4.1GB) · 12.4 tok/s` */

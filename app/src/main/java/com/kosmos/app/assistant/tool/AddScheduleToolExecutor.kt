@@ -1,10 +1,10 @@
 package com.kosmos.app.assistant.tool
 
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.security.ApprovalRules
 import com.kosmos.app.domain.usecase.AddScheduleUseCase
-import org.json.JSONObject
 import javax.inject.Inject
 
 /**
@@ -24,7 +24,7 @@ class AddScheduleToolExecutor @Inject constructor(
     private val addScheduleUseCase: AddScheduleUseCase,
     private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher
 ) : ToolExecutor {
-    override val name: String = "AddSchedule"
+    override val name: String = ToolNames.ADD_SCHEDULE
 
     override val actionType: ApprovalRules.ActionType = ApprovalRules.ActionType.CALENDAR_WRITE
 
@@ -52,12 +52,11 @@ class AddScheduleToolExecutor @Inject constructor(
         val res = addScheduleUseCase(draft.title, draft.startTime, draft.endTime, draft.description)
         return if (res is AppResult.Success) {
             widgetRefresher.refresh()
-            JSONObject()
-                .put("status", "success")
+            ToolResultJson.success()
                 .put("message", "일정이 성공적으로 추가되었습니다.")
                 .toString()
         } else {
-            JSONObject().put("status", "error").put("message", "일정 추가 실패").toString()
+            ToolResultJson.error("일정 추가 실패")
         }
     }
 
