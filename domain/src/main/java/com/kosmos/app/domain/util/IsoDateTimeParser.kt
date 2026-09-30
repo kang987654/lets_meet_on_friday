@@ -57,6 +57,21 @@ object IsoDateTimeParser {
             timeKorean(dt.hour, dt.minute)
         }
 
+    /**
+     * 날짜만의 한국어 표기 — "9월 30일 (수)". 파싱 실패 시 null.
+     * [WHY] 일정 승인 카드가 사설 파서로 `LocalDate.toString()`("2026-09-30")을 그대로 띄우고
+     * 있었다 — ISO 노출 금지 규칙(AGENTS §4-7)의 마지막 구멍이었다.
+     */
+    fun toDisplayDateKorean(iso: String, zoneId: ZoneId = ZoneId.systemDefault()): String? =
+        toEpochMillis(iso, zoneId)?.let {
+            val dt = Instant.ofEpochMilli(it).atZone(zoneId)
+            "%d월 %d일 (%s)".format(dt.monthValue, dt.dayOfMonth, weekdayKorean(dt.dayOfWeek))
+        }
+
+    /** "수" 처럼 한 글자 요일. */
+    fun weekdayKorean(dayOfWeek: java.time.DayOfWeek): String =
+        "월화수목금토일"[dayOfWeek.value - 1].toString()
+
     private fun timeKorean(hour: Int, minute: Int): String {
         val amPm = if (hour >= 12) "오후" else "오전"
         val hour12 = if (hour % 12 == 0) 12 else hour % 12

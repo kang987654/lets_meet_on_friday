@@ -11,7 +11,7 @@ class KnowledgeRepositoryImpl @Inject constructor(
     private val dao: KnowledgeDao
 ) : KnowledgeRepository {
 
-    override suspend fun save(note: KnowledgeNote): AppResult<Unit> = com.kosmos.app.core.common.runCatchingCancellable {
+    override suspend fun save(note: KnowledgeNote): AppResult<Unit> = dbWrite(TABLE, "save") {
         dao.insert(
             KnowledgeEntity(
                 id = note.id,
@@ -19,26 +19,20 @@ class KnowledgeRepositoryImpl @Inject constructor(
                 sourceSessionId = null, // 임시: 현재 KnowledgeNote에는 sourceSessionId가 없으므로 필요시 추가 확장
                 // [WHY] 태그에 콤마가 들어오면 이 칼럼 형식이 표현할 수 없다. CSV 인코딩을
                 // 소유한 계층이 그 불변식도 지킨다 (Tags KDoc 참조).
-                tags = com.kosmos.app.core.common.Tags.normalizeAll(note.tags).joinToString(","),
+                tags = com.kosmos.app.core.common.Tags.encode(note.tags),
                 embedding = note.embedding?.let { com.kosmos.app.core.common.FloatBytes.encode(it) },
                 createdAt = note.createdAt,
                 updatedAt = note.updatedAt,
                 source = note.source
             )
         )
-    }.fold(
-        onSuccess = { AppResult.Success(Unit) },
-        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbWriteError("knowledge_note")) }
-    )
+    }
 
-    override suspend fun delete(noteId: String): AppResult<Unit> = com.kosmos.app.core.common.runCatchingCancellable {
+    override suspend fun delete(noteId: String): AppResult<Unit> = dbWrite(TABLE, "delete") {
         dao.delete(noteId)
-    }.fold(
-        onSuccess = { AppResult.Success(Unit) },
-        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbWriteError("knowledge_note")) }
-    )
+    }
 
-    override suspend fun search(query: String, limit: Int): AppResult<List<KnowledgeNote>> = com.kosmos.app.core.common.runCatchingCancellable {
+    override suspend fun search(query: String, limit: Int): AppResult<List<KnowledgeNote>> = dbRead(TABLE, "search") {
         // [WHY] 빈 검색어는 '%%' 패턴이 되어 테이블 전체를 매칭한다. 그 결과 100건이
         // RAG 프롬프트로 쏟아져 컨텍스트 예산을 터뜨리므로 조회 전에 차단한다.
         if (query.isBlank()) {
@@ -46,19 +40,13 @@ class KnowledgeRepositoryImpl @Inject constructor(
         } else {
             dao.search(com.kosmos.app.core.common.SqlLike.escape(query), limit).map { it.toDomain() }
         }
-    }.fold(
-        onSuccess = { AppResult.Success(it) },
-        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.SearchError(it.message ?: "search err")) }
-    )
+    }
 
-    override suspend fun searchRecent(limit: Int): AppResult<List<KnowledgeNote>> = com.kosmos.app.core.common.runCatchingCancellable {
+    override suspend fun searchRecent(limit: Int): AppResult<List<KnowledgeNote>> = dbRead(TABLE, "searchRecent") {
         dao.searchRecent(limit).map { it.toDomain() }
-    }.fold(
-        onSuccess = { AppResult.Success(it) },
-        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.SearchError(it.message ?: "search err")) }
-    )
+    }
 
-    override suspend fun searchByTags(tags: List<String>, limit: Int): AppResult<List<KnowledgeNote>> = com.kosmos.app.core.common.runCatchingCancellable {
+    override suspend fun searchByTags(tags: List<String>, limit: Int): AppResult<List<KnowledgeNote>> = dbRead(TABLE, "searchByTags") {
         // SQLite의 LIKE 검색을 위해 각 태그별로 검색 결과를 모은 후 중복을 제거 (간이 구현)
         // [WHY] Set 이 아니라 List + distinctBy(id) 다 — KnowledgeEntity 는 ByteArray 필드를
         // 가지므로 data class 의 equals 가 참조 비교가 되고, Set 으로는 같은 노트가 태그마다
@@ -73,15 +61,14 @@ class KnowledgeRepositoryImpl @Inject constructor(
             results.addAll(dao.searchByTags(com.kosmos.app.core.common.SqlLike.escape(normalized), limit))
         }
         results.distinctBy { it.id }.map { it.toDomain() }.take(limit)
-    }.fold(
-        onSuccess = { AppResult.Success(it) },
-        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.SearchError(it.message ?: "search err")) }
-    )
+    }
 
     // 코사인 유사도 계산 지원 (RAG)
+    // [WHY] DB 실패는 DbReadError 다 — 예전에는 SearchError 로 분류해 "검색이 지연되고 있어요"가
+    // 떴다. SearchError 는 임베더 부재(DisabledTextEmbedder) 같은 진짜 검색 실패에만 쓴다.
     // [WHY] 최대 1000행의 CSV 파싱+코사인 연산이 호출자 디스패처(메인 가능)에서 돌지 않도록 Default로 이동한다.
     override suspend fun searchByVector(queryEmbedding: FloatArray, limit: Int): AppResult<List<KnowledgeNote>> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-      com.kosmos.app.core.common.runCatchingCancellable {
+      dbRead(TABLE, "searchByVector") {
         val allEntities = dao.searchRecent(1000) // 모두 가져옴 (모바일 특성상 데이터가 많지 않음)
 
         val scoredList = allEntities.mapNotNull { entity ->
@@ -101,10 +88,7 @@ class KnowledgeRepositoryImpl @Inject constructor(
             .sortedByDescending { it.second }
             .take(limit)
             .map { it.first }
-      }.fold(
-        onSuccess = { AppResult.Success(it) },
-        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.SearchError(it.message ?: "vector search err")) }
-      )
+      }
     }
     
     private fun cosineSimilarity(v1: FloatArray, v2: FloatArray): Float {
@@ -119,24 +103,24 @@ class KnowledgeRepositoryImpl @Inject constructor(
         return if (normA == 0f || normB == 0f) 0f else (dotProduct / (Math.sqrt(normA.toDouble()) * Math.sqrt(normB.toDouble()))).toFloat()
     }
 
-    override suspend fun getNotes(offset: Int, limit: Int): AppResult<List<KnowledgeNote>> =
-        com.kosmos.app.core.common.runCatchingCancellable {
+    override suspend fun getNotes(offset: Int, limit: Int): AppResult<List<KnowledgeNote>> = dbRead(TABLE, "getNotes") {
             dao.getNotes(offset, limit).map { it.toDomain() }
-        }.fold(
-            onSuccess = { AppResult.Success(it) },
-            onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbReadError("knowledge_note")) }
-        )
+    }
 
     private fun KnowledgeEntity.toDomain(): KnowledgeNote {
         val floatArr = embedding?.let { com.kosmos.app.core.common.FloatBytes.decode(it) } ?: FloatArray(0)
         return KnowledgeNote(
             id = id,
             content = content,
-            tags = tags.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+            tags = com.kosmos.app.core.common.Tags.decode(tags),
             embedding = if (floatArr.isNotEmpty()) floatArr else null,
             createdAt = createdAt,
             updatedAt = updatedAt,
             source = source
         )
+    }
+
+    private companion object {
+        const val TABLE = "knowledge_note"
     }
 }

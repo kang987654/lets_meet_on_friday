@@ -4,16 +4,10 @@ import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.model.CalendarEvent
 import com.kosmos.app.domain.memory.TaskRepository
-import com.kosmos.app.domain.modelrunner.ModelRunner
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.time.LocalDate
+import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
-import java.time.Instant
-import java.time.LocalDateTime
 import javax.inject.Inject
 
 /**
@@ -25,7 +19,7 @@ import javax.inject.Inject
  * - **Dependencies**: [TaskRepository], [CalendarTool]
  *
  * ### Key Flow
- * 1. 시스템 현재 시각 기준 범위(오늘/주간) 밀리초 타임스탬프 계산.
+ * 1. [now] 기준 범위(오늘/주간) 밀리초 타임스탬프 계산 — 벽시계는 기본값에서만 읽는다(AGENTS §2-④).
  * 2. [TaskRepository]에서 작업 목록 조회 후 해당 범위 내 일정을 [CalendarEvent]로 필터링.
  * 3. 기기 캘린더 이벤트를 병합하고, 읽기 실패는 `deviceCalendarFailed` 로 올린다 (ADR-004).
  *
@@ -38,9 +32,20 @@ class GetTodayScheduleUseCase @Inject constructor(
     private val taskRepository: TaskRepository,
     private val calendarTool: com.kosmos.app.domain.tool.CalendarTool
 ) {
-    suspend operator fun invoke(range: ScheduleData.RangeType): AppResult<ScheduleData> = withContext(Dispatchers.IO) {
-        val zoneId = ZoneId.systemDefault()
-        val today = LocalDate.now(zoneId)
+    // [WHY] withContext(Dispatchers.IO) 를 뺐다 — Room DAO 는 suspend(메인 안전)이고 기기 캘린더
+    // 조회(AndroidCalendarTool)는 스스로 IO 로 옮긴다. domain 이 디스패처를 알 이유가 없다.
+    //
+    // [WHY] 기본 인자가 아니라 오버로드다 — 호출부 테스트들이 `coEvery { useCase(RangeType.TODAY) }`
+    // 로 스텁하는데, 기본 인자면 스텁 시점의 벽시계 값이 인자로 박혀 실제 호출과 매칭되지 않는다.
+    suspend operator fun invoke(range: ScheduleData.RangeType): AppResult<ScheduleData> =
+        invoke(range, System.currentTimeMillis(), ZoneId.systemDefault())
+
+    suspend operator fun invoke(
+        range: ScheduleData.RangeType,
+        now: Long,
+        zoneId: ZoneId
+    ): AppResult<ScheduleData> {
+        val today = Instant.ofEpochMilli(now).atZone(zoneId).toLocalDate()
         val startMs = today.atStartOfDay(zoneId).toInstant().toEpochMilli()
         
         val endMs = when (range) {
@@ -54,7 +59,7 @@ class GetTodayScheduleUseCase @Inject constructor(
         // 1. 내부 DB 일정 조회 및 필터링
         val tasksResult = taskRepository.getPendingTasksData(0, 1000)
         if (tasksResult is AppResult.Failure) {
-            return@withContext AppResult.Failure(tasksResult.error)
+            return AppResult.Failure(tasksResult.error)
         }
         val tasks = (tasksResult as AppResult.Success).data
         val events = tasks.mapNotNull { task ->
@@ -104,7 +109,7 @@ class GetTodayScheduleUseCase @Inject constructor(
         // 예전에는 여기서 요약 추론(~10초)을 **기다린 뒤** 결과를 냈고, 그동안 캘린더 화면은
         // 스피너만 돌았다. 조회와 요약은 수명이 다른 작업이라 한 반환값에 묶으면 느린 쪽이
         // 빠른 쪽을 인질로 잡는다.
-        AppResult.Success(
+        return AppResult.Success(
             ScheduleData(
                 events = sortedEvents.toImmutableList(),
                 summary = null,

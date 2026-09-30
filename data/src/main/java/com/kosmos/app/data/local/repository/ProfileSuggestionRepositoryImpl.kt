@@ -1,7 +1,7 @@
 package com.kosmos.app.data.local.repository
 
-import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.enumOrDefault
 import com.kosmos.app.core.common.runCatchingCancellable
 import com.kosmos.app.data.local.db.dao.ProfileSuggestionDao
 import com.kosmos.app.data.local.db.entity.ProfileSuggestionEntity
@@ -23,7 +23,7 @@ class ProfileSuggestionRepositoryImpl @Inject constructor(
             // [WHY] 채팅 화면이 구독한다 — DB 오류가 채팅을 죽이면 안 된다 (ProfileRepositoryImpl 전례).
             .catch { emit(emptyList()) }
 
-    override suspend fun insert(suggestion: ProfileSuggestion): AppResult<Unit> = runCatchingCancellable {
+    override suspend fun insert(suggestion: ProfileSuggestion): AppResult<Unit> = dbWrite(TABLE, "insert") {
         dao.insert(
             ProfileSuggestionEntity(
                 id = suggestion.id,
@@ -35,21 +35,15 @@ class ProfileSuggestionRepositoryImpl @Inject constructor(
                 updatedAt = suggestion.updatedAt
             )
         )
-    }.fold(
-        onSuccess = { AppResult.Success(Unit) },
-        onFailure = { AppResult.Failure(AppError.DbWriteError("profile_suggestion")) }
-    )
+    }
 
     override suspend fun updateStatus(
         id: String,
         status: ProfileSuggestionStatus,
         updatedAt: Long
-    ): AppResult<Unit> = runCatchingCancellable {
+    ): AppResult<Unit> = dbWrite(TABLE, "updateStatus") {
         dao.updateStatus(id, status.name, updatedAt)
-    }.fold(
-        onSuccess = { AppResult.Success(Unit) },
-        onFailure = { AppResult.Failure(AppError.DbWriteError("profile_suggestion")) }
-    )
+    }
 
     // [WHY] 조회 실패는 "없음"으로 강등한다 — 추출기가 중복 검사 실패로 멈추는 것보다
     // 드물게 한 번 더 묻는 쪽이 낫다.
@@ -63,9 +57,12 @@ class ProfileSuggestionRepositoryImpl @Inject constructor(
         episodeId = episodeId,
         // [WHY] 알 수 없는 상태 문자열은 PENDING 이 아니라 REJECTED 로 읽는다 — 다운그레이드
         // 등으로 깨진 행이 카드로 튀어나오지 않게 한다.
-        status = runCatching { ProfileSuggestionStatus.valueOf(status) }
-            .getOrDefault(ProfileSuggestionStatus.REJECTED),
+        status = enumOrDefault(status, ProfileSuggestionStatus.REJECTED),
         createdAt = createdAt,
         updatedAt = updatedAt
     )
+
+    private companion object {
+        const val TABLE = "profile_suggestion"
+    }
 }

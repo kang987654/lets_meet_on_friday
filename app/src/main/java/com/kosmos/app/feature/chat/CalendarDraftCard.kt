@@ -77,22 +77,14 @@ import android.Manifest
 // [WHY] ChatScreen.kt(1,200여 줄, 12개 컴포저블 동거)를 응집 단위로 분리했다
 // (2026-08-15, MVP 감사 refactor-ui) — 순수 이동이며 동작 변경이 없다. 이 파일: 일정 초안 승인 카드와 표시용 일시 포맷터.
 
-// [WHY] takeLast(5) 등 문자열 슬라이싱은 초/오프셋(Z, +09:00)이 붙은 ISO에서 깨지므로
-// java.time 파서로 기기 시간대 기준 표시 값을 계산한다. 파싱 실패 시 원문 폴백.
-private fun parseDraftDateTime(iso: String): java.time.LocalDateTime? {
-    val zoneId = java.time.ZoneId.systemDefault()
-    return runCatching { java.time.OffsetDateTime.parse(iso).atZoneSameInstant(zoneId).toLocalDateTime() }.getOrNull()
-        ?: runCatching { java.time.Instant.parse(iso).atZone(zoneId).toLocalDateTime() }.getOrNull()
-        ?: runCatching { java.time.LocalDateTime.parse(iso) }.getOrNull()
-}
-
+// [WHY] 표기는 IsoDateTimeParser 가 단일 출처다(AGENTS §4-7). 예전에는 이 파일이 사설 파서 3개로
+// "2026-09-30" / "10:00" 을 만들어 ISO 원문을 그대로 띄웠다. 파싱 실패 시에만 원문 폴백 —
+// 승인 카드는 사용자가 무엇을 승인하는지 확인하는 자리라 빈칸보다 원문이 낫다.
 private fun formatDraftDate(iso: String): String =
-    parseDraftDateTime(iso)?.toLocalDate()?.toString() ?: iso
+    com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayDateKorean(iso) ?: iso
 
 private fun formatDraftTime(iso: String): String =
-    parseDraftDateTime(iso)?.toLocalTime()
-        ?.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
-        ?: iso
+    com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayTimeKorean(iso) ?: iso
 @Composable
 fun CalendarDraftCard(
     draft: com.kosmos.app.domain.model.CalendarDraft,
@@ -123,7 +115,7 @@ fun CalendarDraftCard(
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                "Kosmos suggests an event",
+                "일정을 추가할까요?",
                 color = KosmosTheme.colors.textMuted,
                 style = MaterialTheme.typography.bodySmall
             )

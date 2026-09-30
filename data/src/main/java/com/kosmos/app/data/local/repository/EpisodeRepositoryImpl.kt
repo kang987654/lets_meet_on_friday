@@ -1,10 +1,9 @@
 package com.kosmos.app.data.local.repository
 
-import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.SqlLike
 import com.kosmos.app.core.common.Tags
-import com.kosmos.app.core.logging.AppLogger
+import com.kosmos.app.core.common.enumOrDefault
 import com.kosmos.app.data.local.db.dao.EpisodeDao
 import com.kosmos.app.data.local.db.entity.EpisodeEntity
 import com.kosmos.app.domain.memory.EpisodeRepository
@@ -67,23 +66,12 @@ class EpisodeRepositoryImpl @Inject constructor(
         episodeDao.delete(id)
     }
 
-    private inline fun <T> read(what: String, block: () -> T): AppResult<T> = try {
-        AppResult.Success(block())
-    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        AppLogger.e("EpisodeRepo", "$what 실패", e)
-        AppResult.Failure(AppError.DbReadError("episode"))
-    }
+    private inline fun <T> read(what: String, block: () -> T): AppResult<T> = dbRead(TABLE, what, block)
 
-    private inline fun write(what: String, block: () -> Unit): AppResult<Unit> = try {
-        block()
-        AppResult.Success(Unit)
-    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        AppLogger.e("EpisodeRepo", "$what 실패", e)
-        AppResult.Failure(AppError.DbWriteError("episode"))
+    private inline fun write(what: String, block: () -> Unit): AppResult<Unit> = dbWrite(TABLE, what, block)
+
+    private companion object {
+        const val TABLE = "episode"
     }
 }
 
@@ -93,7 +81,7 @@ internal fun Episode.toEntity(): EpisodeEntity = EpisodeEntity(
     status = status.name,
     title = title,
     summary = summary,
-    tags = tags.joinToString(","),
+    tags = Tags.encode(tags),
     startAt = startAt,
     endAt = endAt,
     messageCount = messageCount,
@@ -105,10 +93,10 @@ internal fun Episode.toEntity(): EpisodeEntity = EpisodeEntity(
 internal fun EpisodeEntity.toDomain(): Episode = Episode(
     id = id,
     sessionId = sessionId,
-    status = try { EpisodeStatus.valueOf(status) } catch (e: Exception) { EpisodeStatus.FAILED },
+    status = enumOrDefault(status, EpisodeStatus.FAILED),
     title = title,
     summary = summary,
-    tags = tags.split(",").mapNotNull { it.trim().ifEmpty { null } },
+    tags = Tags.decode(tags),
     startAt = startAt,
     endAt = endAt,
     messageCount = messageCount,

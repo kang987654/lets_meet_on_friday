@@ -12,14 +12,21 @@ class TaskRepositoryImpl @Inject constructor(
     private val dao: TaskDao
 ) : TaskRepository {
 
-    override suspend fun save(task: TaskItem): AppResult<Unit> = com.kosmos.app.core.common.runCatchingCancellable {
+    override suspend fun save(task: TaskItem): AppResult<Unit> = dbWrite(TABLE, "save") {
+        // [WHY] 도메인 TaskItem 에는 completedAt 이 없다 — 완료된 항목을 다시 save 하면(REPLACE)
+        // 예전에는 완료 시각이 지금으로 덮였다. 기존 행의 값을 보존하고, 처음 완료될 때만 지금을 쓴다.
+        val completedAt = if (task.isCompleted) {
+            dao.getById(task.id)?.completedAt ?: System.currentTimeMillis()
+        } else {
+            null
+        }
         dao.insert(
             TaskEntity(
                 id = task.id,
                 title = task.title,
                 isCompleted = task.isCompleted,
                 createdAt = task.createdAt,
-                completedAt = if (task.isCompleted) System.currentTimeMillis() else null,
+                completedAt = completedAt,
                 dueDateIso = task.dueDateIso,
                 endDateIso = task.endDateIso,
                 description = task.description,
@@ -27,46 +34,32 @@ class TaskRepositoryImpl @Inject constructor(
                 remindedAtMs = task.remindedAtMs
             )
         )
-    }.fold(
-        onSuccess = { AppResult.Success(Unit) },
-        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbWriteError("task_item")) }
-    )
+    }
 
-    override suspend fun updateCompletion(taskId: String, isCompleted: Boolean): AppResult<Unit> = com.kosmos.app.core.common.runCatchingCancellable {
+    override suspend fun updateCompletion(taskId: String, isCompleted: Boolean): AppResult<Unit> = dbWrite(TABLE, "updateCompletion") {
         val completedAt = if (isCompleted) System.currentTimeMillis() else null
         dao.updateCompletion(taskId, isCompleted, completedAt)
-    }.fold(
-        onSuccess = { AppResult.Success(Unit) },
-        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbWriteError("task_item")) }
-    )
+    }
 
-    override suspend fun getPendingTasksData(offset: Int, limit: Int): AppResult<List<TaskItem>> = com.kosmos.app.core.common.runCatchingCancellable {
+    override suspend fun getPendingTasksData(offset: Int, limit: Int): AppResult<List<TaskItem>> = dbRead(TABLE, "getPendingTasksData") {
         dao.getPendingTasks(offset, limit).map { it.toDomain() }
-    }.fold(
-        onSuccess = { AppResult.Success(it) },
-        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbReadError("task_item")) }
-    )
+    }
 
-    override suspend fun getById(taskId: String): AppResult<TaskItem?> = com.kosmos.app.core.common.runCatchingCancellable {
+    override suspend fun getById(taskId: String): AppResult<TaskItem?> = dbRead(TABLE, "getById") {
         dao.getById(taskId)?.toDomain()
-    }.fold(
-        onSuccess = { AppResult.Success(it) },
-        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbReadError("task_item")) }
-    )
+    }
 
-    override suspend fun getActiveReminders(): AppResult<List<TaskItem>> = com.kosmos.app.core.common.runCatchingCancellable {
+    override suspend fun getCounts(): AppResult<com.kosmos.app.domain.memory.TaskCounts> = dbRead(TABLE, "getCounts") {
+        com.kosmos.app.domain.memory.TaskCounts(pending = dao.countPending(), completed = dao.countCompleted())
+    }
+
+    override suspend fun getActiveReminders(): AppResult<List<TaskItem>> = dbRead(TABLE, "getActiveReminders") {
         dao.getActiveReminders().map { it.toDomain() }
-    }.fold(
-        onSuccess = { AppResult.Success(it) },
-        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbReadError("task_item")) }
-    )
+    }
 
-    override suspend fun markReminded(taskId: String, remindedAtMs: Long): AppResult<Unit> = com.kosmos.app.core.common.runCatchingCancellable {
+    override suspend fun markReminded(taskId: String, remindedAtMs: Long): AppResult<Unit> = dbWrite(TABLE, "markReminded") {
         dao.markReminded(taskId, remindedAtMs)
-    }.fold(
-        onSuccess = { AppResult.Success(Unit) },
-        onFailure = { AppResult.Failure(com.kosmos.app.core.common.AppError.DbWriteError("task_item")) }
-    )
+    }
 
     private fun TaskEntity.toDomain(): TaskItem {
         return TaskItem(
@@ -80,5 +73,9 @@ class TaskRepositoryImpl @Inject constructor(
             remindAtIso = remindAtIso,
             remindedAtMs = remindedAtMs
         )
+    }
+
+    private companion object {
+        const val TABLE = "task_item"
     }
 }

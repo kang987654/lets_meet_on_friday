@@ -100,6 +100,7 @@ class MemoryViewModel @Inject constructor(
                 // 저장 전에 refresh 가 돌면 방금 추가한 항목이 목록에 안 보인다.
                 is AppResult.Success -> {
                     widgetRefresher.refresh()
+                    loadTaskCounts()
                     onSaved()
                 }
                 is AppResult.Failure ->
@@ -108,7 +109,11 @@ class MemoryViewModel @Inject constructor(
         }
     }
 
-    fun completeTask(taskId: String) {
+    /**
+     * [WHY] onDone 콜백 — addTask 와 같은 이유다. 호출부가 완료 직후 페이징 refresh 를 걸었는데
+     * DB 쓰기보다 refresh 가 먼저 돌면 완료한 항목이 목록에 남았다.
+     */
+    fun completeTask(taskId: String, onDone: () -> Unit = {}) {
         viewModelScope.launch {
             val result = taskRepository.updateCompletion(taskId, true)
             when (result) {
@@ -117,11 +122,28 @@ class MemoryViewModel @Inject constructor(
                 is AppResult.Success -> {
                     reminderAlarmScheduler.cancel(taskId)
                     widgetRefresher.refresh()
+                    loadTaskCounts()
+                    onDone()
                 }
                 is AppResult.Failure ->
                     _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
             }
         }
+    }
+
+    /**
+     * 할 일 통계를 다시 읽습니다 — 할 일 탭이 보일 때 화면이 부른다.
+     *
+     * [WHY] init 이 아니라 화면 요청으로 읽는다 — 통계는 할 일 탭에서만 쓰이고, 생성 시점 조회는
+     * 이 ViewModel 을 만드는 모든 테스트에 스텁을 강요한다.
+     */
+    fun refreshTaskCounts() {
+        viewModelScope.launch { loadTaskCounts() }
+    }
+
+    private suspend fun loadTaskCounts() {
+        val counts = (taskRepository.getCounts() as? AppResult.Success)?.data
+        _uiState.update { it.copy(taskCounts = counts) }
     }
 
     /**

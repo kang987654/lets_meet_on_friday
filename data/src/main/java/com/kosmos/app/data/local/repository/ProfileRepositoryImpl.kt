@@ -1,8 +1,6 @@
 package com.kosmos.app.data.local.repository
 
-import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
-import com.kosmos.app.core.common.runCatchingCancellable
 import com.kosmos.app.data.local.db.dao.ProfileDao
 import com.kosmos.app.data.local.db.entity.ProfileEntryEntity
 import com.kosmos.app.domain.memory.ProfileRepository
@@ -23,15 +21,11 @@ class ProfileRepositoryImpl @Inject constructor(
             // 빈 목록이면 카드가 "등록해 보세요" 상태로 정직하게 강등된다.
             .catch { emit(emptyList()) }
 
-    override suspend fun getEntries(): AppResult<List<ProfileEntry>> = runCatchingCancellable {
+    override suspend fun getEntries(): AppResult<List<ProfileEntry>> = dbRead(TABLE, "getEntries") {
         dao.getAll().map { it.toDomain() }
-    }.fold(
-        onSuccess = { AppResult.Success(it) },
-        onFailure = { AppResult.Failure(AppError.DbReadError("profile")) }
-    )
+    }
 
-    override suspend fun upsert(key: String, value: String, source: String): AppResult<Unit> =
-        runCatchingCancellable {
+    override suspend fun upsert(key: String, value: String, source: String): AppResult<Unit> = dbWrite(TABLE, "upsert") {
             dao.upsert(
                 ProfileEntryEntity(
                     key = key,
@@ -40,17 +34,11 @@ class ProfileRepositoryImpl @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 )
             )
-        }.fold(
-            onSuccess = { AppResult.Success(Unit) },
-            onFailure = { AppResult.Failure(AppError.DbWriteError("profile")) }
-        )
+    }
 
-    override suspend fun delete(key: String): AppResult<Unit> = runCatchingCancellable {
+    override suspend fun delete(key: String): AppResult<Unit> = dbWrite(TABLE, "delete") {
         dao.delete(key)
-    }.fold(
-        onSuccess = { AppResult.Success(Unit) },
-        onFailure = { AppResult.Failure(AppError.DbWriteError("profile")) }
-    )
+    }
 
     private fun ProfileEntryEntity.toDomain() = ProfileEntry(
         key = key,
@@ -58,4 +46,8 @@ class ProfileRepositoryImpl @Inject constructor(
         source = source,
         updatedAt = updatedAt
     )
+
+    private companion object {
+        const val TABLE = "profile"
+    }
 }

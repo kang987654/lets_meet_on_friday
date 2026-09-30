@@ -125,9 +125,15 @@ fun MemoryScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         if (uiState.selectedFilter == MemoryFilterType.TASK) {
-            val pendingCount = taskItems.itemSnapshotList.count { it?.isCompleted == false }
-            val doneCount = taskItems.itemSnapshotList.count { it?.isCompleted == true }
-            val totalCount = pendingCount + doneCount
+            LaunchedEffect(Unit) { viewModel.refreshTaskCounts() }
+        }
+        val taskCounts = uiState.taskCounts
+        if (uiState.selectedFilter == MemoryFilterType.TASK && taskCounts != null) {
+            // [WHY] 통계는 DB 전체 기준이다 — 예전에는 페이징 스냅샷(미완료만·로드된 페이지만)에서
+            // 세어 "완료 0"과 빈 진행 바가 고정이었다.
+            val pendingCount = taskCounts.pending
+            val doneCount = taskCounts.completed
+            val totalCount = taskCounts.total
             val progress = if (totalCount > 0) doneCount.toFloat() / totalCount else 0f
 
             // Stats & Progress
@@ -179,8 +185,7 @@ fun MemoryScreen(
                             title = task.title,
                             isCompleted = task.isCompleted,
                             onToggle = {
-                                viewModel.completeTask(task.id)
-                                taskItems.refresh()
+                                viewModel.completeTask(task.id) { taskItems.refresh() }
                             },
                             remindAtDisplay = task.remindAtIso?.let {
                                 com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayKorean(it)

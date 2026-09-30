@@ -153,6 +153,18 @@ class ExportImportManager @Inject constructor(
                 return@withContext AppResult.Failure(AppError.ImportSchemaMismatch("Database file not found in the backup."))
             }
 
+            // [WHY] 더 새 앱에서 만든 백업은 거부한다. 그대로 덮어쓰면 다음 실행에서 Room 이
+            // 다운그레이드를 만나 fallbackToDestructiveMigrationOnDowngrade(dropAllTables) 로
+            // 복원한 기억을 **조용히 전부 지운다**. 내보내기는 WAL 을 체크포인트한 뒤 묶으므로
+            // 메인 파일 헤더의 user_version 이 곧 스키마 버전이다.
+            val backupVersion = readSqliteUserVersion(extractedDb)
+                ?: return@withContext AppResult.Failure(AppError.ImportSchemaMismatch("Backup database header is unreadable."))
+            if (backupVersion > KosmosDatabase.SCHEMA_VERSION) {
+                return@withContext AppResult.Failure(
+                    AppError.ImportSchemaMismatch("Backup schema v$backupVersion is newer than app schema v${KosmosDatabase.SCHEMA_VERSION}.")
+                )
+            }
+
             // 3. 열려 있는 연결의 WAL 상태를 플러시한 뒤 파일 교체.
             // [WHY] 복원 직후 프로세스 재시작이 전제이므로 여기서 DB를 닫지 않는다.
             database.query(SimpleSQLiteQuery("PRAGMA wal_checkpoint(TRUNCATE)")).use { cursor ->
@@ -258,3 +270,20 @@ class ExportImportManager @Inject constructor(
         const val MAX_ZIP_TOTAL_BYTES = 512L * 1024 * 1024
     }
 }
+
+/**
+ * SQLite 파일 헤더(오프셋 60, big-endian 4바이트)의 `user_version` 을 읽습니다 — Room 의 스키마 버전.
+ *
+ * [WHY] DB 를 열지 않고 읽는다 — 가져오기 검증 단계에서 낯선 파일을 SQLite 로 여는 것 자체가
+ * 부수효과(저널 생성)를 낼 수 있고, 순수 파일 읽기라 JVM 테스트로 고정할 수 있다.
+ * SQLite 매직 헤더가 아니거나 짧으면 null.
+ */
+fun readSqliteUserVersion(file: File): Int? = runCatching {
+    java.io.RandomAccessFile(file, "r").use { raf ->
+        if (raf.length() < 100) return@use null
+        val magic = ByteArray(16).also { raf.readFully(it) }
+        if (!magic.decodeToString().startsWith("SQLite format 3")) return@use null
+        raf.seek(60)
+        raf.readInt()
+    }
+}.getOrNull()

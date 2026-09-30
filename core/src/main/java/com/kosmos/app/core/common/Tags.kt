@@ -42,4 +42,17 @@ object Tags {
      */
     fun normalizeAll(raw: List<String>): List<String> =
         raw.map { normalize(it) }.filter { it.isNotEmpty() }.distinct()
+
+    /**
+     * 저장용 CSV 로 인코딩합니다 — 정규화를 **반드시** 거친다.
+     *
+     * [WHY] 인코딩 계층이 불변식을 지켜야 한다. 예전에는 지식 저장소만 정규화했고 에피소드
+     * 저장소는 `joinToString(",")` 만 해서, 요약 결과의 연속 공백·콤마 섞인 태그가 호출자
+     * 사정에 따라 그대로 저장됐다.
+     */
+    fun encode(tags: List<String>): String = normalizeAll(tags).joinToString(DELIMITER)
+
+    /** 저장된 CSV 를 태그 목록으로 되돌립니다. 빈 칸은 버린다. */
+    fun decode(csv: String): List<String> =
+        csv.split(DELIMITER).map { it.trim() }.filter { it.isNotEmpty() }
 }

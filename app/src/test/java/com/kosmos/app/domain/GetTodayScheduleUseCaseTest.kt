@@ -32,6 +32,8 @@ class GetTodayScheduleUseCaseTest {
             AppResult.Success(emptyList())
         override suspend fun markReminded(taskId: String, remindedAtMs: Long): AppResult<Unit> =
             AppResult.Success(Unit)
+        override suspend fun getCounts(): AppResult<com.kosmos.app.domain.memory.TaskCounts> =
+            AppResult.Success(com.kosmos.app.domain.memory.TaskCounts(tasks.count { !it.isCompleted }, tasks.count { it.isCompleted }))
     }
 
     private val fakeCalendarTool = object : com.kosmos.app.domain.tool.CalendarTool {
@@ -88,6 +90,20 @@ class GetTodayScheduleUseCaseTest {
 
         assertTrue(result is AppResult.Success)
         assertEquals(listOf("d0", "d6"), (result as AppResult.Success).data.events.map { it.id })
+    }
+
+    @Test
+    fun `fixed clock decides today regardless of wall clock`() = runBlocking {
+        // 2026-09-30T23:30Z — UTC 기준으로는 아직 9/30, 자정 경계 플레이크가 없는 고정 시각.
+        val now = java.time.Instant.parse("2026-09-30T23:30:00Z").toEpochMilli()
+        val utc = ZoneId.of("UTC")
+        val tasks = listOf(task("today", "2026-09-30T10:00:00"), task("tomorrow", "2026-10-01T00:10:00"))
+        val useCase = GetTodayScheduleUseCase(FakeTaskRepository(tasks), fakeCalendarTool)
+
+        val result = useCase(ScheduleData.RangeType.TODAY, now, utc)
+
+        assertTrue(result is AppResult.Success)
+        assertEquals(listOf("today"), (result as AppResult.Success).data.events.map { it.id })
     }
 
     @Test

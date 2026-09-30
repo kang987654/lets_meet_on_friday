@@ -23,7 +23,7 @@ import com.kosmos.app.data.local.db.entity.TaskEntity
         com.kosmos.app.data.local.db.entity.EpisodeEntity::class,
         com.kosmos.app.data.local.db.entity.ProfileSuggestionEntity::class
     ],
-    version = 9,
+    version = KosmosDatabase.SCHEMA_VERSION,
     exportSchema = true
 )
 abstract class KosmosDatabase : RoomDatabase() {
@@ -34,4 +34,12 @@ abstract class KosmosDatabase : RoomDatabase() {
     abstract fun knowledgeDao(): KnowledgeDao
     abstract fun episodeDao(): com.kosmos.app.data.local.db.dao.EpisodeDao
     abstract fun profileSuggestionDao(): com.kosmos.app.data.local.db.dao.ProfileSuggestionDao
+
+    companion object {
+        /**
+         * 현재 스키마 버전 — `@Database(version)` 과 백업 가져오기 검증의 단일 출처.
+         * 올릴 때는 KosmosMigrations 에 경로를 추가하고 `data/schemas/` 에 JSON 이 생기는지 확인한다.
+         */
+        const val SCHEMA_VERSION = 9
+    }
 }
