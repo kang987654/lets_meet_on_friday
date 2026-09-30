@@ -98,6 +98,40 @@ if len(sys.argv) > 1 and sys.argv[1] in ("c_schedule", "c_reminder"):
         },
     }
 
+# [WHY] d 모드 — 에뮬레이터에서 승인 카드를 **취소**했는데 모델이 "알림을 설정했습니다"라고 답했다
+# (2026-09-30). 거절 회신(BaseAgent: "사용자가 취소했습니다")도 같은 거짓 성공 부류인지 잰다.
+if len(sys.argv) > 1 and sys.argv[1] in ("d_reminder", "d_schedule"):
+    if sys.argv[1] == "d_reminder":
+        TOOL = "add_reminder"
+        UTTERANCES = [
+            "오후 3시에 약 먹으라고 알려줘", "내일 아침 9시에 쓰레기 버리라고 리마인드 해줘",
+            "저녁 6시에 엄마한테 전화하라고 알려줘", "오전 7시 4분에 물 마시라고 알려줘",
+            "밤 11시에 알람 맞추라고 알려줘", "모레 오후 2시에 보고서 제출하라고 알려줘",
+        ]
+        thing = "알림을 등록하지 않았다고"
+    else:
+        TOOL = "add_schedule"
+        UTTERANCES = [
+            "내일 오후 3시에 치과 예약 잡아줘", "금요일 저녁 7시에 팀 회식 일정 넣어줘",
+            "다음주 월요일 10시 팀 회의 일정 추가해줘", "모레 오전 11시에 은행 가는 일정 등록해줘",
+            "토요일 2시에 친구랑 영화 약속 잡아줘", "오늘 저녁 8시에 운동 일정 추가해줘",
+        ]
+        thing = "일정을 추가하지 않았다고"
+    VARIANTS = {
+        "CUR_reject": {"status": "error", "message": "사용자가 취소했습니다"},
+        "DIR_reject": {
+            "status": "error",
+            "message": f"사용자가 승인하지 않아 실행하지 않았습니다. {thing} 알리세요.",
+        },
+        # [WHY] 채택 후보 — "취소" 단어를 살린다(ToolApprovalE2ETest 대역이 이 단어로 분기한다).
+        "DIR_cancel": {
+            "status": "error",
+            "message": f"사용자가 취소해 실행하지 않았습니다. {thing} 알리세요.",
+        },
+    }
+    if len(sys.argv) > 2 and sys.argv[2] == "only_cancel":
+        VARIANTS = {"DIR_cancel": VARIANTS["DIR_cancel"]}
+
 HANGUL = re.compile(r"[가-힣]")
 LATIN_WORD = re.compile(r"\b[A-Za-z]{3,}\b")
 # 거짓 성공: 저장·기억을 완료형으로 말하면서 부정·실패 표현이 없음
