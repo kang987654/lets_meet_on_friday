@@ -26,6 +26,18 @@ internal fun renderProfileBlock(entries: List<ProfileEntry>): String {
 }
 
 /**
+ * [entries] 가 시스템 지시에서 차지할 토큰 수 — 시트 게이지와 상한 집행의 단일 출처.
+ *
+ * [WHY] 빈 블록은 0 이다 — 블록 자체가 생략돼 실제 비용이 없다. 추정기는 빈 문자열에도
+ * 최소 1을 돌려주므로(`+ 1` 올림) 그대로 쓰면 빈 프로필이 "1/100토큰"으로 보인다
+ * (2026-09-30 에뮬레이터 확인). 추정기 자체는 윈도우 예산 전반이 기대므로 건드리지 않는다.
+ */
+internal fun profileBlockTokens(entries: List<ProfileEntry>, tokenizer: Tokenizer): Int {
+    val block = renderProfileBlock(entries)
+    return if (block.isEmpty()) 0 else tokenizer.sizeInTokens(block)
+}
+
+/**
  * [key] 를 [value] 로 넣거나 고쳤을 때 프로필 블록 전체가 차지할 토큰 수.
  *
  * [WHY] 상한 집행은 "편집이 반영된 전체"를 렌더해 재야 한다 — 항목 단위 검사는 합계 초과를
@@ -39,5 +51,5 @@ internal fun projectedProfileTokens(
     tokenizer: Tokenizer
 ): Int {
     val projected = current.filterNot { it.key == key } + ProfileEntry(key = key, value = value)
-    return tokenizer.sizeInTokens(renderProfileBlock(projected))
+    return profileBlockTokens(projected, tokenizer)
 }

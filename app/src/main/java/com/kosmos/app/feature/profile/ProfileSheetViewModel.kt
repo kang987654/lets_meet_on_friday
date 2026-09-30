@@ -3,7 +3,7 @@ package com.kosmos.app.feature.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kosmos.app.assistant.context.projectedProfileTokens
-import com.kosmos.app.assistant.context.renderProfileBlock
+import com.kosmos.app.assistant.context.profileBlockTokens
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.mapper.ErrorMessages
@@ -43,7 +43,7 @@ class ProfileSheetViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val tokenUsage: StateFlow<Int> = entries
-        .map { tokenizer.sizeInTokens(renderProfileBlock(it)) }
+        .map { profileBlockTokens(it, tokenizer) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     private val _error = MutableStateFlow<String?>(null)
@@ -64,17 +64,22 @@ class ProfileSheetViewModel @Inject constructor(
                 return@launch
             }
             when (val result = profileRepository.upsert(trimmedKey, trimmedValue)) {
-                is AppResult.Success -> onSaved()
+                is AppResult.Success -> {
+                    _error.value = null
+                    onSaved()
+                }
                 is AppResult.Failure -> _error.value = ErrorMessages.userMessage(result.error)
             }
         }
     }
 
+    // [WHY] 성공한 편집은 직전 안내를 지운다 — 안내는 "지금 상태"에 대한 말이어야 한다. 지우지
+    // 않으면 항목을 전부 삭제한 뒤에도 "너무 길어요 (116/100)" 가 남는다(2026-09-30 에뮬레이터).
     fun delete(key: String) {
         viewModelScope.launch {
-            val result = profileRepository.delete(key)
-            if (result is AppResult.Failure) {
-                _error.value = ErrorMessages.userMessage(result.error)
+            when (val result = profileRepository.delete(key)) {
+                is AppResult.Success -> _error.value = null
+                is AppResult.Failure -> _error.value = ErrorMessages.userMessage(result.error)
             }
         }
     }

@@ -17,6 +17,8 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import kotlinx.coroutines.launch
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -86,6 +88,42 @@ class ProfileSheetViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         coVerify(exactly = 0) { repository.upsert(any(), any(), any()) }
+    }
+
+    @Test
+    fun `상한 초과 안내는 이후 성공한 삭제로 지워진다`() = runTest(dispatcher.scheduler) {
+        viewModel.upsert("자기소개", "가".repeat(300))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertNotNull(viewModel.error.value)
+
+        viewModel.delete("이름")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(viewModel.error.value)
+    }
+
+    @Test
+    fun `상한 초과 안내는 이후 성공한 저장으로 지워진다`() = runTest(dispatcher.scheduler) {
+        viewModel.upsert("자기소개", "가".repeat(300))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertNotNull(viewModel.error.value)
+
+        viewModel.upsert("이름", "진우")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(viewModel.error.value)
+    }
+
+    @Test
+    fun `빈 프로필의 토큰 사용량은 0이다`() = runTest(dispatcher.scheduler) {
+        val collector = backgroundScope.launch { viewModel.tokenUsage.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(0, viewModel.tokenUsage.value)
+
+        entriesFlow.value = listOf(ProfileEntry(key = "이름", value = "진우"))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.tokenUsage.value > 0)
+        collector.cancel()
     }
 
     @Test
