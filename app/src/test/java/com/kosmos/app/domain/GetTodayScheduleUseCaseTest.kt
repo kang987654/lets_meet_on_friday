@@ -118,4 +118,60 @@ class GetTodayScheduleUseCaseTest {
         assertTrue(result is AppResult.Success)
         assertEquals(listOf("ok"), (result as AppResult.Success).data.events.map { it.id })
     }
+
+    // --- 월 조회 (0.28.0 월 캘린더) ---
+
+    @Test
+    fun `month range includes first and last day and excludes neighbors`() = runBlocking {
+        val utc = ZoneId.of("UTC")
+        val tasks = listOf(
+            task("prevLast", "2026-09-30T23:59:00"),
+            task("first", "2026-10-01T00:00:00"),
+            task("last", "2026-10-31T23:59:00"),
+            task("nextFirst", "2026-11-01T00:00:00")
+        )
+        val useCase = GetTodayScheduleUseCase(FakeTaskRepository(tasks), fakeCalendarTool)
+
+        val result = useCase.month(java.time.YearMonth.of(2026, 10), utc)
+
+        assertTrue(result is AppResult.Success)
+        assertEquals(listOf("first", "last"), (result as AppResult.Success).data.events.map { it.id })
+    }
+
+    @Test
+    fun `month query asks device calendar for the whole month and marks device events`() = runBlocking {
+        val utc = ZoneId.of("UTC")
+        var asked: Pair<Long, Long>? = null
+        val device = object : com.kosmos.app.domain.tool.CalendarTool {
+            override suspend fun readEvents(startMs: Long, endMs: Long): AppResult<List<com.kosmos.app.domain.model.CalendarEvent>> {
+                asked = startMs to endMs
+                return AppResult.Success(listOf(com.kosmos.app.domain.model.CalendarEvent("dev", "회식", "2026-10-02T19:00:00", "2026-10-02T21:00:00")))
+            }
+            override suspend fun insert(draft: com.kosmos.app.domain.model.CalendarDraft): AppResult<Long> = AppResult.Success(1L)
+        }
+        val useCase = GetTodayScheduleUseCase(FakeTaskRepository(listOf(task("app", "2026-10-02T15:00:00"))), device)
+
+        val events = (useCase.month(java.time.YearMonth.of(2026, 10), utc) as AppResult.Success).data.events
+
+        assertEquals(java.time.Instant.parse("2026-10-01T00:00:00Z").toEpochMilli(), asked?.first)
+        assertEquals(java.time.Instant.parse("2026-11-01T00:00:00Z").toEpochMilli() - 1, asked?.second)
+        assertEquals(
+            listOf(com.kosmos.app.domain.model.CalendarEvent.Source.APP, com.kosmos.app.domain.model.CalendarEvent.Source.DEVICE),
+            events.map { it.source }
+        )
+    }
+
+    @Test
+    fun `month query keeps device failure flag`() = runBlocking {
+        val failing = object : com.kosmos.app.domain.tool.CalendarTool {
+            override suspend fun readEvents(startMs: Long, endMs: Long): AppResult<List<com.kosmos.app.domain.model.CalendarEvent>> =
+                AppResult.Failure(com.kosmos.app.core.common.AppError.PermissionDenied("android.permission.READ_CALENDAR"))
+            override suspend fun insert(draft: com.kosmos.app.domain.model.CalendarDraft): AppResult<Long> = AppResult.Success(1L)
+        }
+        val useCase = GetTodayScheduleUseCase(FakeTaskRepository(emptyList()), failing)
+
+        val result = useCase.month(java.time.YearMonth.of(2026, 10), ZoneId.of("UTC"))
+
+        assertTrue((result as AppResult.Success).data.deviceCalendarFailed)
+    }
 }

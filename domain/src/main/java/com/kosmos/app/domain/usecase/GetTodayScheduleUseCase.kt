@@ -3,16 +3,18 @@ package com.kosmos.app.domain.usecase
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.model.CalendarEvent
+import com.kosmos.app.domain.model.MonthSchedule
 import com.kosmos.app.domain.memory.TaskRepository
 import kotlinx.collections.immutable.toImmutableList
 import java.time.Instant
 import java.time.LocalTime
+import java.time.YearMonth
 import java.time.ZoneId
 import javax.inject.Inject
 
 /**
  * [GetTodayScheduleUseCase]
- * 지정된 기간(오늘 또는 이번 주)의 일정을 앱 DB와 기기 캘린더에서 조회해 병합하는 유즈케이스입니다.
+ * 지정된 기간(오늘 · 이번 주 · 한 달)의 일정을 앱 DB와 기기 캘린더에서 조회해 병합하는 유즈케이스입니다.
  *
  * ### Architecture Context
  * - **Layer**: Domain (UseCase)
@@ -55,7 +57,45 @@ class GetTodayScheduleUseCase @Inject constructor(
             ScheduleData.RangeType.WEEK ->
                 today.plusDays(6).atTime(LocalTime.MAX).atZone(zoneId).toInstant().toEpochMilli()
         }
+        val (events, deviceCalendarFailed) = when (val loaded = loadRange(startMs, endMs, zoneId)) {
+            is AppResult.Success -> loaded.data
+            is AppResult.Failure -> return AppResult.Failure(loaded.error)
+        }
+        // [WHY] 요약은 이 유스케이스가 만들지 않는다 — `SummarizeScheduleUseCase` 로 분리했다.
+        // 예전에는 여기서 요약 추론(~10초)을 **기다린 뒤** 결과를 냈고, 그동안 캘린더 화면은
+        // 스피너만 돌았다. 조회와 요약은 수명이 다른 작업이라 한 반환값에 묶으면 느린 쪽이
+        // 빠른 쪽을 인질로 잡는다.
+        return AppResult.Success(
+            ScheduleData(
+                events = events.toImmutableList(),
+                summary = null,
+                rangeType = range,
+                deviceCalendarFailed = deviceCalendarFailed
+            )
+        )
+    }
 
+    /**
+     * 한 달(1일 00:00 ~ 말일 23:59:59.999)의 일정을 조회합니다 — 월 캘린더(0.28.0).
+     * 범위가 달력 자체로 정해지므로 `now` 가 필요 없다.
+     */
+    suspend fun month(yearMonth: YearMonth, zoneId: ZoneId): AppResult<MonthSchedule> {
+        val startMs = yearMonth.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val endMs = yearMonth.atEndOfMonth().atTime(LocalTime.MAX).atZone(zoneId).toInstant().toEpochMilli()
+        return when (val loaded = loadRange(startMs, endMs, zoneId)) {
+            is AppResult.Success -> AppResult.Success(
+                MonthSchedule(yearMonth, loaded.data.first.toImmutableList(), loaded.data.second)
+            )
+            is AppResult.Failure -> AppResult.Failure(loaded.error)
+        }
+    }
+
+    /** 앱 일정과 기기 일정을 [startMs]..[endMs] 로 조회·병합·정렬합니다. 두 번째 값은 기기 캘린더 실패 여부. */
+    private suspend fun loadRange(
+        startMs: Long,
+        endMs: Long,
+        zoneId: ZoneId
+    ): AppResult<Pair<List<CalendarEvent>, Boolean>> {
         // 1. 내부 DB 일정 조회 및 필터링
         val tasksResult = taskRepository.getPendingTasksData(0, 1000)
         if (tasksResult is AppResult.Failure) {
@@ -88,7 +128,7 @@ class GetTodayScheduleUseCase @Inject constructor(
         val deviceEvents = when (val deviceResult = calendarTool.readEvents(startMs, endMs)) {
             is AppResult.Success -> deviceResult.data.mapNotNull { event ->
                 val ms = parseIsoToMs(event.startIso, zoneId) ?: return@mapNotNull null
-                event to ms
+                event.copy(source = CalendarEvent.Source.DEVICE) to ms
             }
             is AppResult.Failure -> {
                 deviceCalendarFailed = true
@@ -104,19 +144,7 @@ class GetTodayScheduleUseCase @Inject constructor(
         // [WHY] ISO 문자열 사전순 정렬은 오프셋/로컬 포맷이 섞이면 시간 순서를 보장하지 못하므로
         // 파싱된 epoch ms 기준으로 정렬한다.
         val sortedEvents = mergedEvents.sortedBy { it.second }.map { it.first }
-
-        // [WHY] 요약은 이 유스케이스가 만들지 않는다 — `SummarizeScheduleUseCase` 로 분리했다.
-        // 예전에는 여기서 요약 추론(~10초)을 **기다린 뒤** 결과를 냈고, 그동안 캘린더 화면은
-        // 스피너만 돌았다. 조회와 요약은 수명이 다른 작업이라 한 반환값에 묶으면 느린 쪽이
-        // 빠른 쪽을 인질로 잡는다.
-        return AppResult.Success(
-            ScheduleData(
-                events = sortedEvents.toImmutableList(),
-                summary = null,
-                rangeType = range,
-                deviceCalendarFailed = deviceCalendarFailed
-            )
-        )
+        return AppResult.Success(sortedEvents to deviceCalendarFailed)
     }
 
     /**
