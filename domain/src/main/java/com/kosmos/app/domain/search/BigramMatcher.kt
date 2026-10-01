@@ -60,6 +60,19 @@ object BigramMatcher {
     fun bestTermOverlap(terms: List<String>, docText: String): Double =
         bestTermOverlap(terms, bigrams(docText))
 
+    /**
+     * 두 텍스트의 대칭 겹침 `|A∩B| / min(|A|,|B|)` (0~1) — 기억 중복 후보 판정용(0.30.0).
+     *
+     * [WHY] Jaccard 가 아니라 containment 다 — 같은 사실을 짧게/길게 적은 쌍("여동생 생일 5월 3일" vs "여동생 생일은
+     * 5월 3일")에서 Jaccard 는 길이 차이만큼 깎인다. exp42: containment 0.3 이 참 중복 8/8, Jaccard 0.3 은 7/8.
+     */
+    fun containment(a: String, b: String): Double {
+        val x = bigrams(a)
+        val y = bigrams(b)
+        if (x.isEmpty() || y.isEmpty()) return 0.0
+        return x.count { it in y }.toDouble() / minOf(x.size, y.size)
+    }
+
     fun bestTermOverlap(terms: List<String>, docBigrams: Set<String>): Double {
         var best = 0.0
         for (term in terms) {
