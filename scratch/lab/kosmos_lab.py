@@ -63,7 +63,7 @@ def add_memory(content: str, tags: list[str]) -> dict:
     """사용자에 관한 사실·선호·비밀번호 등을 영구 기억으로 저장한다.
 
     Args:
-        content: 기억할 내용. 사용자가 말한 숫자와 고유명사는 절대 바꾸지 말고 그대로 적는다.
+        content: 기억할 내용
         tags: 분류 태그 목록. 예: ['비밀번호', '자전거']
     """
     raise NotImplementedError("툴 실행은 하네스 밖에서 주입한다")

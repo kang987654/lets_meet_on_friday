@@ -120,8 +120,10 @@ object KosmosToolDeclarations {
 
     private class AddMemoryDeclaration : ToolSet {
         @Tool(description = "사용자에 관한 사실·선호·비밀번호 등을 영구 기억으로 저장한다.")
+        // [WHY] content 설명의 "숫자와 고유명사는 그대로 적는다"는 시스템 지시의 "Never alter numbers…"
+        // 와 중복이라 뺐다(exp41, −18토큰 — 비밀번호 4936·kosmos123·5521 원문 보존 스모크 통과).
         fun addMemory(
-            @ToolParam(description = "기억할 내용. 사용자가 말한 숫자와 고유명사는 절대 바꾸지 말고 그대로 적는다.") content: String,
+            @ToolParam(description = "기억할 내용") content: String,
             @ToolParam(description = "분류 태그 목록. 예: ['비밀번호', '자전거']") tags: List<String>
         ): Map<String, Any> = notExecutedHere()
     }

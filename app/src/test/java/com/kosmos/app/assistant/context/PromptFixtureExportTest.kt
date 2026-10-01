@@ -42,7 +42,7 @@ class PromptFixtureExportTest {
         )
 
         // 표류 감시 — 아래 단언이 깨지면 프롬프트가 바뀐 것이고, 픽스처를 다시 내보내야 한다.
-        assertTrue("날짜 블록이 시스템 지시에 있어야 한다 (ADR-010)", prompt.systemInstruction.contains("[System Data] Today:"))
+        assertTrue("날짜 블록이 시스템 지시에 있어야 한다 (ADR-010)", prompt.systemInstruction.contains("[System Data] 오늘="))
         assertTrue("다음주 월요일 파생값이 있어야 한다", prompt.systemInstruction.contains("다음주 월요일="))
         assertTrue(prompt.systemInstruction.contains("[Tool Usage Guidelines]"))
         ALL_SNAKE_NAMES.forEach { name ->

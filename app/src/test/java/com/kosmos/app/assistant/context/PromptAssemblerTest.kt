@@ -160,7 +160,8 @@ class PromptAssemblerTest {
         // [WHY] 규칙은 "the [System Data] values above" 라고 같은 시스템 지시 안을 가리킨다.
         // 블록이 이 문구보다 뒤에 오거나 아예 다른 메시지로 옮겨지면 규칙이 무력해진다.
         val instruction = prompt().systemInstruction
-        val blockAt = instruction.indexOf("[System Data] Today:")
+        // [WHY] 표지 글자만 바꿨다 — exp41 에서 Today 줄을 오늘= 줄로 합쳤다(사용자 확인 후 단언 수정).
+        val blockAt = instruction.indexOf("[System Data] 오늘=")
         val ruleAt = instruction.indexOf("[System Data] values above")
 
         assertTrue("날짜 블록이 없다", blockAt >= 0)
