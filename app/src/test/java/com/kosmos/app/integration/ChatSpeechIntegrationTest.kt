@@ -29,7 +29,12 @@ import javax.inject.Inject
 @dagger.hilt.android.testing.UninstallModules(com.kosmos.app.di.ModelModule::class)
 @Config(application = HiltTestApplication::class)
 @RunWith(RobolectricTestRunner::class)
-class VoiceChatIntegrationTest {
+/**
+ * [ChatSpeechIntegrationTest]
+ * 답변 낭독 연동(0.29.0): 자동 낭독 켜짐/꺼짐, 녹음 시작 시 정지, 말풍선 재생 토글을 고정합니다.
+ * [WHY] VoiceChatIntegrationTest 와 같은 Hilt 셋업(가짜 모델이 "Audio processed." 로 답한다)을 쓰고 낭독기만 대역으로 바꾼다.
+ */
+class ChatSpeechIntegrationTest {
 
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
@@ -94,6 +99,12 @@ class VoiceChatIntegrationTest {
     }
 
 
+    private val speaking = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    private val speech: com.kosmos.app.platform.speech.SpeechOutput = io.mockk.mockk(relaxed = true) {
+        io.mockk.every { speakingMessageId } returns speaking
+        io.mockk.coEvery { autoReadEnabled() } returns false
+    }
+
     private lateinit var viewModel: ChatViewModel
 
     @Before
@@ -120,85 +131,65 @@ class VoiceChatIntegrationTest {
             },
             suggestionResolver = io.mockk.mockk(relaxed = true),
             // 0.29.0 생성부 추가 — 낭독은 E2E 범위 밖(자동 낭독 꺼짐).
-            speechOutput = io.mockk.mockk(relaxed = true) {
-                io.mockk.every { speakingMessageId } returns kotlinx.coroutines.flow.MutableStateFlow(null)
-                io.mockk.coEvery { autoReadEnabled() } returns false
-            }
+            speechOutput = speech
         )
     }
 
-    @Test
-    fun `마이크 토글 시 녹음 시작 및 종료 후 음성 메시지 전송 로직 검증`() = runBlocking {
-        // Wait for ChatViewModel init (loadMessages) to finish by waiting for sessionId
-        val initStartTime = System.currentTimeMillis()
-        while (viewModel.uiState.value.sessionId.isEmpty() && System.currentTimeMillis() - initStartTime < 3000) {
-            org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
-            Thread.sleep(50)
-        }
-
-        // 1. 녹음 시작 요청
-        viewModel.toggleRecording()
-        
-        assertTrue("녹음 상태가 true여야 합니다.", viewModel.uiState.value.isRecording)
-
-        // 2. 녹음 종료 요청
-        viewModel.toggleRecording()
-        
-        assertTrue("녹음 상태가 false여야 합니다.", !viewModel.uiState.value.isRecording)
-        assertTrue("메시지 전송이 시작되어야 합니다. 에러: ${viewModel.uiState.value.error}", viewModel.uiState.value.isInFlight)
-
-        // 3. 메시지 전송 대기(isInFlight가 false가 될때까지)
-        val startTime = System.currentTimeMillis()
-        while (viewModel.uiState.value.isInFlight && System.currentTimeMillis() - startTime < 3000) {
+    private fun pump(timeoutMs: Long = 3000, until: () -> Boolean) {
+        val start = System.currentTimeMillis()
+        while (!until() && System.currentTimeMillis() - start < timeoutMs) {
             org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
             Thread.sleep(50)
         }
         org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
-        
-        val finalState = viewModel.uiState.value
-        
-        // Wait for DB to flush user message
-        var dbMessages: List<com.kosmos.app.domain.model.ChatMessage> = emptyList()
-        val dbStartTime = System.currentTimeMillis()
-        while (System.currentTimeMillis() - dbStartTime < 3000) {
-            val res = conversationRepository.getRecentBySession(finalState.sessionId, limit = 50)
-            dbMessages = if (res is com.kosmos.app.core.common.AppResult.Success) res.data else emptyList()
-            if (dbMessages.any { it.role == com.kosmos.app.domain.model.ChatMessage.Role.USER }) break
-            Thread.sleep(100)
-        }
+    }
 
-        val assistantMessages = finalState.messages.filter { it.role == com.kosmos.app.domain.model.ChatMessage.Role.ASSISTANT }
-        val userMessages = dbMessages.filter { it.role == com.kosmos.app.domain.model.ChatMessage.Role.USER }
+    private fun sendAndWait(text: String) {
+        pump { viewModel.uiState.value.sessionId.isNotEmpty() }
+        viewModel.sendMessage(text)
+        pump { !viewModel.uiState.value.isInFlight && viewModel.uiState.value.messages.any { it.role == com.kosmos.app.domain.model.ChatMessage.Role.ASSISTANT } }
+    }
 
-        // [WHY] 예전 기대값은 `"(음성 메시지)"` 였다. 그러면 대화를 다시 열었을 때 사용자가
-        // 무슨 말을 했는지 기록에 남지 않는다. 이제 전사문이 그대로 사용자 메시지가 된다.
-        assertTrue(
-            "전사문이 사용자 메시지로 저장돼야 한다. 현재: ${dbMessages.map { "${it.role}:${it.content}" }}",
-            userMessages.any { it.content == TRANSCRIPT }
-        )
-        assertTrue(
-            "음성 입력 타입이 유지돼야 한다",
-            userMessages.any { it.inputType == com.kosmos.app.domain.model.InputType.VOICE }
-        )
-        assertTrue("Assistant response should be saved. Error: ${finalState.error}", assistantMessages.any { it.content.contains("Audio processed") })
+    @Test
+    fun `자동 낭독이 켜져 있으면 확정된 답변을 읽는다`() {
+        io.mockk.coEvery { speech.autoReadEnabled() } returns true
 
-        // [WHY] 음성 턴의 화면 말풍선은 전사 전 자리표시자("(음성 메시지)")로 뜨므로, 턴 종료 후
-        // DB 의 전사문으로 교체되어야 한다 — 교체가 없으면 사용자가 화면에서 전사 결과를 확인할
-        // 수 없다(2026-08-14 실기기 관측: 자리표시자가 세션 내내 남았다).
-        val uiStartTime = System.currentTimeMillis()
-        while (viewModel.uiState.value.messages.none {
-                it.role == com.kosmos.app.domain.model.ChatMessage.Role.USER && it.content == TRANSCRIPT
-            } && System.currentTimeMillis() - uiStartTime < 3000
-        ) {
-            org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
-            Thread.sleep(50)
-        }
-        assertTrue(
-            "화면 말풍선이 자리표시자 대신 전사문이어야 한다. 현재: ${viewModel.uiState.value.messages.map { "${it.role}:${it.content}" }}",
-            viewModel.uiState.value.messages.any {
-                it.role == com.kosmos.app.domain.model.ChatMessage.Role.USER && it.content == TRANSCRIPT
-            }
+        sendAndWait("안녕")
+
+        val answer = viewModel.uiState.value.messages.last { it.role == com.kosmos.app.domain.model.ChatMessage.Role.ASSISTANT }
+        io.mockk.coVerify(timeout = 3000, exactly = 1) { speech.speak(answer.id, answer.content) }
+    }
+
+    @Test
+    fun `자동 낭독이 꺼져 있으면 읽지 않는다`() {
+        sendAndWait("안녕")
+
+        io.mockk.coVerify(exactly = 0) { speech.speak(any(), any()) }
+    }
+
+    @Test
+    fun `녹음을 시작하면 낭독을 멈춘다`() {
+        pump { viewModel.uiState.value.sessionId.isNotEmpty() }
+
+        viewModel.toggleRecording()
+
+        io.mockk.verify(atLeast = 1) { speech.stop() }
+        assertTrue(viewModel.uiState.value.isRecording)
+    }
+
+    @Test
+    fun `재생 버튼은 읽던 메시지면 멈추고 아니면 그 메시지를 읽는다`() {
+        val message = com.kosmos.app.domain.model.ChatMessage(
+            id = "m1", sessionId = "s", role = com.kosmos.app.domain.model.ChatMessage.Role.ASSISTANT,
+            content = "답변", inputType = com.kosmos.app.domain.model.InputType.TEXT, createdAt = 0L
         )
+
+        viewModel.toggleSpeak(message)
+        io.mockk.coVerify(timeout = 3000, exactly = 1) { speech.speak("m1", "답변") }
+
+        speaking.value = "m1"
+        viewModel.toggleSpeak(message)
+        io.mockk.verify(atLeast = 1) { speech.stop() }
     }
 
     private companion object {

@@ -78,6 +78,7 @@ android {
                     test.filter {
                         excludeTestsMatching("com.kosmos.app.integration.*E2ETest")
                         excludeTestsMatching("com.kosmos.app.integration.VoiceChatIntegrationTest")
+                        excludeTestsMatching("com.kosmos.app.integration.ChatSpeechIntegrationTest")
                         excludeTestsMatching("com.kosmos.app.assistant.agent.BaseAgentStreamTest")
                     }
                 }

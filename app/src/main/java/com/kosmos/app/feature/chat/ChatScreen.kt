@@ -77,6 +77,7 @@ fun ChatScreen(
     onJumpConsumed: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val speakingMessageId by viewModel.speakingMessageId.collectAsStateWithLifecycle()
     var showStatusSheet by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val clipboard = androidx.compose.ui.platform.LocalClipboard.current
@@ -358,7 +359,9 @@ fun ChatScreen(
                             highlightStartAt = highlightStartAt,
                             onEnsureChipLabel = viewModel::ensureEpisodeChipLabel,
                             onOpenEpisode = { openEpisodeId = it },
-                            onCopy = copyMessage
+                            onCopy = copyMessage,
+                            speakingMessageId = speakingMessageId,
+                            onToggleSpeak = viewModel::toggleSpeak
                         )
                     }
 
@@ -380,7 +383,9 @@ fun ChatScreen(
                                 highlightStartAt = highlightStartAt,
                                 onEnsureChipLabel = viewModel::ensureEpisodeChipLabel,
                                 onOpenEpisode = { openEpisodeId = it },
-                                onCopy = copyMessage
+                                onCopy = copyMessage,
+                                speakingMessageId = speakingMessageId,
+                                onToggleSpeak = viewModel::toggleSpeak
                             )
                         }
                     }
@@ -504,7 +509,9 @@ private fun TimelineRow(
     highlightStartAt: Long?,
     onEnsureChipLabel: (String) -> Unit,
     onOpenEpisode: (String) -> Unit,
-    onCopy: (String) -> Unit
+    onCopy: (String) -> Unit,
+    speakingMessageId: String? = null,
+    onToggleSpeak: (ChatMessage) -> Unit = {}
 ) {
     val chipId = message.recallEpisodeIds.firstOrNull()
     if (chipId != null) {
@@ -517,7 +524,9 @@ private fun TimelineRow(
         onCopy = { onCopy(message.content) },
         recallChipLabel = chipId?.let { episodeChipLabels[it] },
         onRecallChipClick = { if (chipId != null) onOpenEpisode(chipId) },
-        highlighted = isJumpTarget(message, older, highlightStartAt)
+        highlighted = isJumpTarget(message, older, highlightStartAt),
+        isSpeaking = message.id == speakingMessageId,
+        onToggleSpeak = { onToggleSpeak(message) }
     )
 }
 
@@ -529,7 +538,9 @@ private fun MessageWithDate(
     onCopy: () -> Unit,
     recallChipLabel: String? = null,
     onRecallChipClick: () -> Unit = {},
-    highlighted: Boolean = false
+    highlighted: Boolean = false,
+    isSpeaking: Boolean = false,
+    onToggleSpeak: () -> Unit = {}
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         val label = dateLabelIfBoundary(message, older, today)
@@ -559,7 +570,9 @@ private fun MessageWithDate(
                     searchUsed = message.searchUsed,
                     recallChipLabel = recallChipLabel,
                     onRecallChipClick = onRecallChipClick,
-                    onLongPress = onCopy
+                    onLongPress = onCopy,
+                    isSpeaking = isSpeaking,
+                    onToggleSpeak = onToggleSpeak
                 )
             }
         }

@@ -84,6 +84,9 @@ open class SpeechOutput @Inject constructor(
         return true
     }
 
+    /** 자동 낭독 설정(기본 꺼짐) — 채팅이 답변 확정 시 묻는다. */
+    open suspend fun autoReadEnabled(): Boolean = settings.ttsAutoReadFlow.first()
+
     /** 설정의 엔진을 준비하고 음성 상태를 확인합니다 — 설정 화면이 안내를 띄우려고 부른다. */
     open suspend fun prepare(): VoiceStatus {
         ensureEngine(settings.ttsEngineFlow.first())

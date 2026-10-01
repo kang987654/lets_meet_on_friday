@@ -61,8 +61,12 @@ class ChatViewModel @Inject constructor(
     private val briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator,
     private val voiceLaunchHandler: com.kosmos.app.platform.launch.VoiceLaunchHandler,
     private val suggestionRepository: com.kosmos.app.domain.memory.ProfileSuggestionRepository,
-    private val suggestionResolver: com.kosmos.app.feature.profile.ProfileSuggestionResolver
+    private val suggestionResolver: com.kosmos.app.feature.profile.ProfileSuggestionResolver,
+    private val speechOutput: com.kosmos.app.platform.speech.SpeechOutput
 ) : ViewModel() {
+
+    /** 지금 읽고 있는 메시지 id — 말풍선 재생/정지 아이콘 (0.29.0). */
+    val speakingMessageId: StateFlow<String?> = speechOutput.speakingMessageId
 
     // [WHY] 녹음 자동 종료 타이머. 사용자가 먼저 멈추면 취소해야 한다 — 남겨 두면 다음 녹음
     // 도중에 깨어나 남의 녹음을 끊는다.
@@ -358,6 +362,8 @@ class ChatViewModel @Inject constructor(
 
     fun sendMessage(text: String, audioFilePath: String? = null) {
         if ((text.isBlank() && audioFilePath == null) || _uiState.value.isInFlight) return
+        // [WHY] 새 질문을 보내면 이전 답변 낭독은 멈춘다 — 답이 오면 그 답을 읽는다.
+        speechOutput.stop()
 
         val currentSharedInput = _uiState.value.sharedInput
         val isImageAttached = currentSharedInput is com.kosmos.app.platform.share.SharedInput.Image
@@ -501,6 +507,10 @@ class ChatViewModel @Inject constructor(
                             // 화면의 낙관적 메시지에도 실어야 재로드 없이 칩이 보인다 (M2-5 렌더).
                             recallEpisodeIds = agentResult.recallEpisodeIds
                         )
+                        // [WHY] 자동 낭독(0.29.0, 기본 꺼짐) — 대상은 모든 답변(사용자 결정 D2). 오류 턴은 읽지 않는다.
+                        viewModelScope.launch {
+                            if (speechOutput.autoReadEnabled()) speechOutput.speak(assistantMessage.id, assistantMessage.content)
+                        }
                         _uiState.update {
                             it.copy(
                                 messages = (it.messages + assistantMessage).toImmutableList(),
@@ -546,6 +556,8 @@ class ChatViewModel @Inject constructor(
         if (_uiState.value.isRecording) {
             stopRecordingAndSend()
         } else {
+            // [WHY] 녹음 전에 낭독을 멈춘다 — 안 그러면 마이크가 TTS 소리를 받아 전사한다.
+            speechOutput.stop()
             val result = audioRecorder.startRecording()
             if (result is com.kosmos.app.core.common.AppResult.Success) {
                 _uiState.update { it.copy(isRecording = true) }
@@ -576,6 +588,20 @@ class ChatViewModel @Inject constructor(
                 _uiState.update { it.copy(error = result.error) }
             }
         }
+    }
+
+    /** 말풍선 재생 버튼 — 읽고 있던 메시지면 멈추고, 아니면 그 메시지를 읽는다. */
+    fun toggleSpeak(message: ChatMessage) {
+        if (speechOutput.speakingMessageId.value == message.id) {
+            speechOutput.stop()
+        } else {
+            viewModelScope.launch { speechOutput.speak(message.id, message.content) }
+        }
+    }
+
+    override fun onCleared() {
+        speechOutput.stop()
+        super.onCleared()
     }
 
     companion object {

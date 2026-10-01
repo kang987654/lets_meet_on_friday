@@ -18,6 +18,10 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
@@ -137,7 +141,10 @@ fun ChatBubbleAssistant(
     // 기본값 null = 미렌더 — E2E(단독 compose)와 기존 버블 어서션이 그대로 유지된다.
     recallChipLabel: String? = null,
     onRecallChipClick: () -> Unit = {},
-    onLongPress: () -> Unit = {}
+    onLongPress: () -> Unit = {},
+    // [WHY] 말풍선 재생 버튼(0.29.0 D3) — null 이면 미렌더. 스트리밍 중 말풍선·E2E 단독 compose 는 기본값 그대로.
+    isSpeaking: Boolean = false,
+    onToggleSpeak: (() -> Unit)? = null
 ) {
     var isThinkingExpanded by remember { mutableStateOf(false) }
 
@@ -238,6 +245,21 @@ fun ChatBubbleAssistant(
                         .clickable(onClick = onRecallChipClick)
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 )
+            }
+
+            if (onToggleSpeak != null) {
+                IconButton(onClick = onToggleSpeak, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = if (isSpeaking) {
+                            androidx.compose.material.icons.Icons.Filled.Stop
+                        } else {
+                            androidx.compose.material.icons.Icons.AutoMirrored.Filled.VolumeUp
+                        },
+                        contentDescription = if (isSpeaking) "읽기 멈추기" else "답변 읽기",
+                        tint = if (isSpeaking) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }

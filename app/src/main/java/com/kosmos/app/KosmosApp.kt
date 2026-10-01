@@ -34,6 +34,9 @@ class KosmosApp : Application(), Configuration.Provider {
     @Inject
     lateinit var episodeSummarizeScheduler: com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
 
+    @Inject
+    lateinit var speechOutput: com.kosmos.app.platform.speech.SpeechOutput
+
     /**
      * [WHY] @HiltWorker 로 만든 Worker 에 의존성을 주입하려면 WorkManager 의 기본 초기화를
      * 매니페스트에서 제거하고(WorkManagerInitializer node:remove) HiltWorkerFactory 를 물려야 한다.
@@ -72,6 +75,8 @@ class KosmosApp : Application(), Configuration.Provider {
                 // 앱 백그라운드 전환 시 즉시 모델 리소스를 해제하여 메모리(RAM) 및 GPU 반환
                 android.util.Log.d("KosmosApp", "App entered background, releasing model resources.")
                 modelRunner.close()
+                // [WHY] 백그라운드 낭독은 하지 않는다(0.29.0) — 엔진 바인딩도 함께 놓고, 다음 낭독이 다시 만든다.
+                speechOutput.release()
             }
         })
     }

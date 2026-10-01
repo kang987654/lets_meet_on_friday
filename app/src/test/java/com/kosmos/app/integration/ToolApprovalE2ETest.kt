@@ -170,7 +170,12 @@ class ToolApprovalE2ETest {
             suggestionRepository = io.mockk.mockk {
                 io.mockk.every { observePending() } returns kotlinx.coroutines.flow.flowOf(emptyList())
             },
-            suggestionResolver = io.mockk.mockk(relaxed = true)
+            suggestionResolver = io.mockk.mockk(relaxed = true),
+            // 0.29.0 생성부 추가 — 낭독은 E2E 범위 밖(자동 낭독 꺼짐).
+            speechOutput = io.mockk.mockk(relaxed = true) {
+                io.mockk.every { speakingMessageId } returns kotlinx.coroutines.flow.MutableStateFlow(null)
+                io.mockk.coEvery { autoReadEnabled() } returns false
+            }
         )
     }
 
