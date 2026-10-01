@@ -28,9 +28,7 @@ import androidx.compose.foundation.clickable
 fun CalendarScreen(
     viewModel: CalendarViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val selectedRange by viewModel.selectedRange.collectAsStateWithLifecycle()
-    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
+    val tab by viewModel.tab.collectAsStateWithLifecycle()
     // [WHY] 헤더 월·날짜 띠·"오늘" 판정이 같은 today 를 본다 — 화면 복귀마다 갱신(rememberToday).
     val today = com.kosmos.app.ui.component.rememberToday()
 
@@ -40,11 +38,15 @@ fun CalendarScreen(
     val readCalendarLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) viewModel.loadSchedule()
+        if (granted) {
+            viewModel.loadSchedule()
+            viewModel.showMonth(viewModel.visibleMonth.value, force = true)
+        }
     }
 
     LaunchedEffect(Unit) {
         viewModel.loadSchedule()
+        viewModel.showMonth(java.time.YearMonth.from(today))
         if (androidx.core.content.ContextCompat.checkSelfPermission(
                 context, android.Manifest.permission.READ_CALENDAR
             ) != android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -59,13 +61,59 @@ fun CalendarScreen(
             .fillMaxSize()
             .padding(top = 16.dp)
     ) {
-        // Header
-        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-            Text("일정", style = MaterialTheme.typography.headlineMedium, color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold)
-            val headerMonth = "${today.year}년 ${today.monthValue}월"
-            Text(headerMonth, color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
-        }
+        Text(
+            "일정",
+            style = MaterialTheme.typography.headlineMedium,
+            color = KosmosTheme.colors.textPrimary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
+        )
 
+        // [WHY] 월 / 목록 탭(사용자 결정, 0.28.0) — 목록 탭은 기존 화면(오늘·이번 주 + 날짜 띠)을 그대로 옮겼다.
+        com.kosmos.app.ui.component.GlassSegmentedControl(
+            options = listOf(CalendarTab.MONTH to "월", CalendarTab.LIST to "목록"),
+            selected = tab,
+            onSelect = viewModel::onTabSelected,
+            modifier = Modifier.padding(horizontal = 20.dp),
+            cornerRadius = 16.dp,
+            verticalPadding = 10.dp,
+            textStyle = MaterialTheme.typography.bodyMedium
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        val openSettings = {
+            context.startActivity(
+                android.content.Intent(
+                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.fromParts("package", context.packageName, null)
+                )
+            )
+        }
+        when (tab) {
+            CalendarTab.MONTH -> {
+                val monthState by viewModel.monthState.collectAsStateWithLifecycle()
+                if ((monthState as? MonthUiState.Success)?.schedule?.deviceCalendarFailed == true) {
+                    DeviceCalendarNotice(
+                        onRetry = { viewModel.showMonth(viewModel.visibleMonth.value, force = true) },
+                        onOpenSettings = openSettings
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                MonthCalendarTab(viewModel = viewModel, today = today)
+            }
+            CalendarTab.LIST -> ListTab(viewModel = viewModel, today = today, onOpenSettings = openSettings)
+        }
+    }
+}
+
+/** 목록 탭 — 0.27.x 까지의 일정 화면 본문(오늘 / 이번 주 세그먼트, 7일 날짜 띠, 목록·이번 주 요약). */
+@Composable
+private fun ListTab(viewModel: CalendarViewModel, today: java.time.LocalDate, onOpenSettings: () -> Unit) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val selectedRange by viewModel.selectedRange.collectAsStateWithLifecycle()
+    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
+    Column(modifier = Modifier.fillMaxSize()) {
         // Range Segment (오늘 / 이번 주)
         com.kosmos.app.ui.component.GlassSegmentedControl(
             options = listOf(ScheduleData.RangeType.TODAY to "오늘", ScheduleData.RangeType.WEEK to "이번 주"),
@@ -115,14 +163,7 @@ fun CalendarScreen(
         if (deviceCalendarFailed) {
             DeviceCalendarNotice(
                 onRetry = { viewModel.loadSchedule() },
-                onOpenSettings = {
-                    context.startActivity(
-                        android.content.Intent(
-                            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            android.net.Uri.fromParts("package", context.packageName, null)
-                        )
-                    )
-                }
+                onOpenSettings = onOpenSettings
             )
         }
 
@@ -287,15 +328,22 @@ fun ScheduleContent(data: ScheduleData, sectionLabel: String = "오늘") {
         // 그리면 목록이 아래로 밀려 내려가는 레이아웃 점프가 생긴다.
         data.summary?.takeIf { it.isNotBlank() }?.let { summary ->
             item {
-                Text(
-                    text = summary,
-                    color = KosmosTheme.colors.textSecondary,
-                    style = MaterialTheme.typography.bodyMedium,
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .glassEffect(shape = RoundedCornerShape(16.dp))
                         .padding(16.dp)
-                )
+                ) {
+                    // [WHY] 요약은 이번 주에만 만든다(0.28.0) — 날짜 띠로 하루를 골라도 요약은 7일 전체라 라벨로 범위를 밝힌다.
+                    Text(
+                        text = "이번 주 요약",
+                        color = KosmosTheme.colors.textMuted,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    Text(text = summary, color = KosmosTheme.colors.textSecondary, style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
 
