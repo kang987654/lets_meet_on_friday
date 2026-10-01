@@ -165,4 +165,31 @@ class EpisodeRepositoryTest {
         assertEquals(listOf("m1"), conversations.getByEpisode("e9").get().map { it.id })
         assertEquals(listOf("m2"), conversations.getUnassigned().get().map { it.id })
     }
+
+    // --- 에피소드 통합 (0.31.0) ---
+
+    @Test
+    fun `통합은 메시지를 옮기고 회수 칩을 경계 일치로 바꾸며 원본을 지운다`() = runBlocking {
+        episodes.insert(episode("ep1"))
+        episodes.insert(episode("ep2"))
+        conversations.save(message("m1", 1, episodeId = "ep1"))
+        conversations.save(message("m2", 2, episodeId = "ep2"))
+        conversations.save(message("m3", 3, episodeId = "ep2"))
+        // 회수 칩: ep2 를 가리키는 답변, 비슷한 id(ep20)를 가리키는 답변, 이미 ep1 도 가리키던 답변
+        conversations.save(message("r1", 4, recall = listOf("ep2")))
+        conversations.save(message("r2", 5, recall = listOf("ep20")))
+        conversations.save(message("r3", 6, recall = listOf("ep1", "ep2")))
+
+        val merged = episode("ep1", title = "합친 제목", summary = "합친 요약")
+        assertTrue(episodes.mergeInto("ep2", merged) is AppResult.Success)
+
+        assertEquals(listOf("m1", "m2", "m3"), conversations.getByEpisode("ep1").get().map { it.id })
+        assertTrue(conversations.getByEpisode("ep2").get().isEmpty())
+        assertEquals(null, episodes.getById("ep2").get())
+        assertEquals("합친 제목", episodes.getById("ep1").get()?.title)
+        val byId = conversations.getRecentBySession("s1", 50).get().associateBy { it.id }
+        assertEquals(listOf("ep1"), byId.getValue("r1").recallEpisodeIds)
+        assertEquals("다른 id 의 부분 문자열은 그대로", listOf("ep20"), byId.getValue("r2").recallEpisodeIds)
+        assertEquals("이미 있던 id 와 겹치면 하나로", listOf("ep1"), byId.getValue("r3").recallEpisodeIds)
+    }
 }

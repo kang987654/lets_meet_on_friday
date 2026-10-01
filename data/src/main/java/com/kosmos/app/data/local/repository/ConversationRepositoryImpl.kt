@@ -83,7 +83,7 @@ fun ConversationEntity.toDomain(): ChatMessage {
         // [WHY] 저장과 대칭 — NULL/빈 문자열 모두 빈 목록으로. 여기서 빠뜨리면 thinkingProcess
         // 처럼 "저장은 되는데 재로드에서 소실"되는 결함이 재현된다 (매퍼 왕복 테스트가 고정).
         recallEpisodeIds = this.recallEpisodeIds
-            ?.split(",")?.mapNotNull { it.trim().ifEmpty { null } } ?: emptyList()
+            ?.split(",")?.mapNotNull { it.trim().ifEmpty { null } }?.distinct() ?: emptyList()
     )
 }
 

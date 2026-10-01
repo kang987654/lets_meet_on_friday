@@ -35,4 +35,9 @@ interface EpisodeRepository {
     suspend fun searchByTags(tag: String, limit: Int = 10): AppResult<List<Episode>>
 
     suspend fun delete(id: String): AppResult<Unit>
+
+    /**
+     * [fromId] 를 [into] 로 합칩니다 — 메시지 재배정·회수 칩 재매핑·원본 삭제·[into] 저장이 한 트랜잭션(0.31.0 기억 정리 2차).
+     */
+    suspend fun mergeInto(fromId: String, into: Episode): AppResult<Unit>
 }

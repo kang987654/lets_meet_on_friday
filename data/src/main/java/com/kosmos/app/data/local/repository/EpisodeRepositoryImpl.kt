@@ -31,6 +31,10 @@ class EpisodeRepositoryImpl @Inject constructor(
         episodeDao.insert(episode.toEntity())
     }
 
+    override suspend fun mergeInto(fromId: String, into: Episode): AppResult<Unit> = write("에피소드 통합") {
+        episodeDao.mergeInto(fromId, into.toEntity())
+    }
+
     override suspend fun update(episode: Episode): AppResult<Unit> = write("에피소드 갱신") {
         // [WHY] REPLACE insert 라 update 와 같다 — id 가 PK 이므로 별도 UPDATE 쿼리가 필요 없다.
         episodeDao.insert(episode.toEntity())
