@@ -595,7 +595,20 @@ class ChatViewModel @Inject constructor(
         if (speechOutput.speakingMessageId.value == message.id) {
             speechOutput.stop()
         } else {
-            viewModelScope.launch { speechOutput.speak(message.id, message.content) }
+            viewModelScope.launch {
+                if (speechOutput.speak(message.id, message.content)) return@launch
+                // [WHY] 눌렀는데 아무 일도 없으면 고장으로 보인다(0.29.0 에뮬레이터 — 한국어 음성 데이터 없는 구글 엔진).
+                // 사용자가 직접 누른 경우만 알린다 — 자동 낭독은 답변마다 같은 안내를 반복하게 되므로 조용히 넘긴다.
+                // 일시 안내 스낵바 채널(suggestionNotice)을 같이 쓴다.
+                val notice = when (speechOutput.voiceStatus.value) {
+                    com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE ->
+                        "기기에 한국어 음성이 없어 읽을 수 없어요. 설정 > 음성에서 확인해 주세요."
+                    com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.INIT_FAILED ->
+                        "음성 엔진을 시작하지 못했어요. 설정 > 음성에서 다른 엔진을 골라 주세요."
+                    else -> null
+                }
+                if (notice != null) _uiState.update { it.copy(suggestionNotice = notice) }
+            }
         }
     }
 

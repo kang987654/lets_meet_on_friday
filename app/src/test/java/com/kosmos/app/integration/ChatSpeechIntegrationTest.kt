@@ -100,8 +100,10 @@ class ChatSpeechIntegrationTest {
 
 
     private val speaking = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    private val voiceStatusFlow = kotlinx.coroutines.flow.MutableStateFlow(com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.READY)
     private val speech: com.kosmos.app.platform.speech.SpeechOutput = io.mockk.mockk(relaxed = true) {
         io.mockk.every { speakingMessageId } returns speaking
+        io.mockk.every { voiceStatus } returns voiceStatusFlow
         io.mockk.coEvery { autoReadEnabled() } returns false
     }
 
@@ -190,6 +192,21 @@ class ChatSpeechIntegrationTest {
         speaking.value = "m1"
         viewModel.toggleSpeak(message)
         io.mockk.verify(atLeast = 1) { speech.stop() }
+    }
+
+    @Test
+    fun `재생을 눌렀는데 한국어 음성이 없으면 안내한다`() {
+        voiceStatusFlow.value = com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE
+        io.mockk.coEvery { speech.speak(any(), any()) } returns false
+        val message = com.kosmos.app.domain.model.ChatMessage(
+            id = "m1", sessionId = "s", role = com.kosmos.app.domain.model.ChatMessage.Role.ASSISTANT,
+            content = "답변", inputType = com.kosmos.app.domain.model.InputType.TEXT, createdAt = 0L
+        )
+
+        viewModel.toggleSpeak(message)
+        pump { viewModel.uiState.value.suggestionNotice != null }
+
+        assertTrue(viewModel.uiState.value.suggestionNotice.orEmpty().contains("한국어 음성"))
     }
 
     private companion object {
