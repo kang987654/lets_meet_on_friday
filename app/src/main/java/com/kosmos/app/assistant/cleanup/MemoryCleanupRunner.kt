@@ -2,9 +2,12 @@ package com.kosmos.app.assistant.cleanup
 
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.logging.AppLogger
+import com.kosmos.app.domain.cleanup.ApplyEpisodeMergeUseCase
 import com.kosmos.app.domain.cleanup.ApplyMemoryMergeUseCase
+import com.kosmos.app.domain.cleanup.EpisodeMergeProposal
 import com.kosmos.app.domain.cleanup.GenerateWeeklyReviewUseCase
 import com.kosmos.app.domain.cleanup.MergeProposal
+import com.kosmos.app.domain.cleanup.PlanEpisodeMergeUseCase
 import com.kosmos.app.domain.cleanup.PlanMemoryMergeUseCase
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.modelrunner.ModelLoadState
@@ -33,7 +36,7 @@ import javax.inject.Singleton
  *   [BackgroundInferenceGate](자동 요약과 직렬화), [RuntimeMetricsCollector](발열), [ModelRunner](Ready 확인)
  *
  * ### Key Flow
- * 1. [start] — 발열·엔진 상태를 먼저 본다(아니면 [State.Blocked]). 잠금을 쥐고(드레인 중이면 끝날 때까지 대기) 회고 → 병합 계획.
+ * 1. [start] — 발열·엔진 상태를 먼저 본다(아니면 [State.Blocked]). 잠금을 쥐고(드레인 중이면 끝날 때까지 대기) 회고 → 노트 병합 계획 → 에피소드 통합 계획(0.31.0).
  * 2. 결과는 [State.Review] — 회고 노트와 병합 제안. 적용은 사용자가 체크한 것만 [apply].
  * 3. [cancel] — 사용자 취소 또는 앱 onStop(엔진 해제). 부분 적용은 없다(적용은 Review 이후 별도 단계).
  *
@@ -46,19 +49,33 @@ class MemoryCleanupRunner @Inject constructor(
     private val generateWeeklyReview: GenerateWeeklyReviewUseCase,
     private val planMerge: PlanMemoryMergeUseCase,
     private val applyMerge: ApplyMemoryMergeUseCase,
+    private val planEpisodeMerge: PlanEpisodeMergeUseCase,
+    private val applyEpisodeMerge: ApplyEpisodeMergeUseCase,
     private val metricsCollector: RuntimeMetricsCollector,
     private val modelRunner: ModelRunner
 ) {
     /** 정리 진행 단계. */
-    enum class Step { WEEKLY_REVIEW, MERGE }
+    enum class Step { WEEKLY_REVIEW, MERGE, EPISODE_MERGE }
 
     /** 화면이 그리는 정리 상태. */
     sealed interface State {
         data object Idle : State
         data object Waiting : State
         data class Running(val step: Step, val done: Int, val total: Int) : State
-        data class Review(val weeklyReview: KnowledgeNote?, val proposals: List<MergeProposal>) : State
-        data class Done(val weeklyReview: KnowledgeNote?, val merged: Int) : State
+        data class Review(
+            val weeklyReview: KnowledgeNote?,
+            val proposals: List<MergeProposal>,
+            val episodeProposals: List<EpisodeMergeProposal> = emptyList()
+        ) : State
+        /** 체크한 것을 적용하는 중 — 에피소드 통합은 재요약 추론이 있어 수십 초 걸린다. */
+        data object Applying : State
+        data class Done(
+            val weeklyReview: KnowledgeNote?,
+            val merged: Int,
+            val episodesMerged: Int = 0,
+            /** 체크했지만 재요약이 두 주제로 갈려(또는 실패해) 합치지 않은 대화 묶음 수. */
+            val episodesSkipped: Int = 0
+        ) : State
         data class Blocked(val reason: String) : State
     }
 
@@ -99,16 +116,35 @@ class MemoryCleanupRunner @Inject constructor(
                         emptyList()
                     }
                 }
-                _state.value = State.Review(review, proposals)
+                blockReason()?.let {
+                    _state.value = State.Blocked(it)
+                    return@withLock
+                }
+                _state.value = State.Running(Step.EPISODE_MERGE, 0, 0)
+                val episodeProposals = when (
+                    val result = planEpisodeMerge { done, total -> _state.value = State.Running(Step.EPISODE_MERGE, done, total) }
+                ) {
+                    is AppResult.Success -> result.data
+                    is AppResult.Failure -> {
+                        AppLogger.w(TAG, "에피소드 통합 계획 실패: ${result.error}")
+                        emptyList()
+                    }
+                }
+                _state.value = State.Review(review, proposals, episodeProposals)
             }
         }
     }
 
-    /** 사용자가 체크한 제안만 적용합니다 — Review 상태에서만. */
-    suspend fun apply(selected: List<MergeProposal>) {
+    /**
+     * 사용자가 체크한 제안만 적용합니다 — Review 상태에서만.
+     * [WHY] 에피소드 통합은 재요약 추론을 하므로 자동 요약 드레인과 같은 잠금 안에서 돈다(같은 에피소드를 동시에 쓰지 않게).
+     */
+    suspend fun apply(selected: List<MergeProposal>, selectedEpisodes: List<EpisodeMergeProposal> = emptyList()) {
         val review = _state.value as? State.Review ?: return
+        _state.value = State.Applying
         val merged = if (selected.isEmpty()) 0 else applyMerge(selected)
-        _state.value = State.Done(review.weeklyReview, merged)
+        val episodesMerged = if (selectedEpisodes.isEmpty()) 0 else gate.mutex.withLock { applyEpisodeMerge(selectedEpisodes) }
+        _state.value = State.Done(review.weeklyReview, merged, episodesMerged, selectedEpisodes.size - episodesMerged)
     }
 
     /** 취소합니다 — 사용자 취소·앱 onStop. 아직 적용 전이라 데이터는 그대로다. */

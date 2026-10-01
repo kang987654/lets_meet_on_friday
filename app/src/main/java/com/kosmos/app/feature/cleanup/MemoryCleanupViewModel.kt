@@ -3,6 +3,7 @@ package com.kosmos.app.feature.cleanup
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
+import com.kosmos.app.domain.cleanup.EpisodeMergeProposal
 import com.kosmos.app.domain.cleanup.MergeProposal
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,8 +34,13 @@ class MemoryCleanupViewModel @Inject constructor(
     /** 체크한 제안의 [MergeProposal.key]. */
     val checked: StateFlow<Set<String>> = _checked.asStateFlow()
 
+    private val _checkedEpisodes = MutableStateFlow<Set<String>>(emptySet())
+    /** 체크한 대화 통합 제안의 [EpisodeMergeProposal.key] — 노트 병합과 같은 이유로 기본 해제(0.31.0 D3). */
+    val checkedEpisodes: StateFlow<Set<String>> = _checkedEpisodes.asStateFlow()
+
     fun start() {
         _checked.value = emptySet()
+        _checkedEpisodes.value = emptySet()
         runner.start()
     }
 
@@ -44,16 +50,22 @@ class MemoryCleanupViewModel @Inject constructor(
         _checked.value = _checked.value.let { if (proposal.key in it) it - proposal.key else it + proposal.key }
     }
 
+    fun toggleEpisode(proposal: EpisodeMergeProposal) {
+        _checkedEpisodes.value = _checkedEpisodes.value.let { if (proposal.key in it) it - proposal.key else it + proposal.key }
+    }
+
     /** 체크한 제안만 적용한다. */
     fun applyChecked() {
         val review = state.value as? MemoryCleanupRunner.State.Review ?: return
         val selected = review.proposals.filter { it.key in _checked.value }
-        viewModelScope.launch { runner.apply(selected) }
+        val selectedEpisodes = review.episodeProposals.filter { it.key in _checkedEpisodes.value }
+        viewModelScope.launch { runner.apply(selected, selectedEpisodes) }
     }
 
     /** 결과를 닫는다 — 다음에 들어오면 처음 화면. */
     fun finish() {
         _checked.value = emptySet()
+        _checkedEpisodes.value = emptySet()
         runner.reset()
     }
 }
