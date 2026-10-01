@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kosmos.app.domain.model.CalendarEvent
 import com.kosmos.app.domain.util.IsoDateTimeParser
+import com.kosmos.app.domain.util.KoreanHolidays
 import com.kosmos.app.ui.calendar.eventsByDate
 import com.kosmos.app.ui.calendar.monthGrid
 import com.kosmos.app.ui.theme.KosmosTheme
@@ -207,7 +208,9 @@ private fun DayCell(
     modifier: Modifier = Modifier
 ) {
     val colors = KosmosTheme.colors
-    val dateLabel = "${date.monthValue}월 ${date.dayOfMonth}일" + if (events.isNotEmpty()) ", 일정 ${events.size}건" else ""
+    val dateLabel = "${date.monthValue}월 ${date.dayOfMonth}일" +
+        (KoreanHolidays.nameOf(date)?.let { ", $it" } ?: "") +
+        if (events.isNotEmpty()) ", 일정 ${events.size}건" else ""
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
@@ -229,7 +232,7 @@ private fun DayCell(
                 color = when {
                     isSelected -> colors.onAccent
                     isToday -> colors.accent
-                    else -> weekdayColor(date.dayOfWeek, inMonth)
+                    else -> weekdayColor(date.dayOfWeek, inMonth, holiday = KoreanHolidays.nameOf(date) != null)
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal
@@ -251,8 +254,12 @@ private fun SelectedDayEvents(date: LocalDate, events: List<CalendarEvent>, zone
             color = KosmosTheme.colors.textPrimary,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 12.dp)
+            modifier = Modifier.padding(bottom = if (KoreanHolidays.nameOf(date) != null) 4.dp else 12.dp)
         )
+        // [WHY] 공휴일 이름 한 줄(사용자 결정 D-B2) — 빨간 날짜만으로는 무슨 날인지 모른다.
+        KoreanHolidays.nameOf(date)?.let { holiday ->
+            Text(holiday, color = KosmosTheme.colors.danger, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(bottom = 12.dp))
+        }
         if (events.isEmpty()) {
             Text("일정이 없어요.", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
         } else {
@@ -270,14 +277,17 @@ internal fun sourceColor(source: CalendarEvent.Source): Color = when (source) {
     CalendarEvent.Source.DEVICE -> KosmosTheme.colors.accentAlt
 }
 
-/** 일요일 빨강·토요일 accent(D3 — 공휴일은 이번 회차 범위 밖), 이웃 달 날짜는 흐리게. */
+/** 일요일·공휴일 빨강(0.33.0 내장 표), 토요일 accent, 이웃 달 날짜는 흐리게. */
 @Composable
-private fun weekdayColor(day: DayOfWeek, inMonth: Boolean): Color {
+private fun weekdayColor(day: DayOfWeek, inMonth: Boolean, holiday: Boolean = false): Color {
     val colors = KosmosTheme.colors
-    val base = when (day) {
-        DayOfWeek.SUNDAY -> colors.danger
-        DayOfWeek.SATURDAY -> colors.accent
-        else -> colors.textPrimary
+    val base = when {
+        holiday -> colors.danger
+        else -> when (day) {
+            DayOfWeek.SUNDAY -> colors.danger
+            DayOfWeek.SATURDAY -> colors.accent
+            else -> colors.textPrimary
+        }
     }
     return if (inMonth) base else base.copy(alpha = 0.35f)
 }
