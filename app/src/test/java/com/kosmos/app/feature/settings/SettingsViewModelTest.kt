@@ -35,8 +35,14 @@ class SettingsViewModelTest {
     private val briefingScheduler: com.kosmos.app.work.BriefingNotificationScheduler =
         mockk(relaxed = true)
 
+    private val speechOutput: com.kosmos.app.platform.speech.SpeechOutput = mockk(relaxed = true) {
+        io.mockk.every { voiceStatus } returns kotlinx.coroutines.flow.MutableStateFlow(
+            com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.UNKNOWN
+        )
+    }
+
     private fun viewModel() =
-        SettingsViewModel(settingsDataStore, runtimeManager, modelRunner, briefingScheduler)
+        SettingsViewModel(settingsDataStore, runtimeManager, modelRunner, briefingScheduler, speechOutput)
 
     @Before
     fun setUp() {
@@ -99,5 +105,41 @@ class SettingsViewModelTest {
         viewModel().onAutoExtractEnabledChanged(false)
 
         coVerify(exactly = 1) { settingsDataStore.saveAutoExtractEnabled(false) }
+    }
+
+    // --- 음성 출력 (0.29.0) ---
+
+    @Test
+    fun `자동 낭독을 끄면 저장하고 읽던 것도 멈춘다`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onTtsAutoReadChanged(false)
+
+        coVerify(exactly = 1) { settingsDataStore.saveTtsAutoRead(false) }
+        io.mockk.verify(exactly = 1) { speechOutput.stop() }
+    }
+
+    @Test
+    fun `엔진을 고르면 저장한 뒤 그 엔진을 준비한다`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onTtsEngineChanged("com.samsung.SMT")
+
+        io.mockk.coVerifyOrder {
+            settingsDataStore.saveTtsEngine("com.samsung.SMT")
+            speechOutput.prepare()
+        }
+    }
+
+    @Test
+    fun `엔진 목록을 읽어 노출한다`() = runTest {
+        io.mockk.every { speechOutput.availableEngines() } returns listOf(
+            com.kosmos.app.platform.speech.SpeechOutput.Engine("com.google.android.tts", "Google 음성 인식 및 합성")
+        )
+        val viewModel = viewModel()
+
+        viewModel.loadTtsEngines()
+
+        org.junit.Assert.assertEquals(listOf("com.google.android.tts"), viewModel.ttsEngines.value.map { it.packageName })
     }
 }

@@ -315,6 +315,73 @@ fun SettingsScreen(
             )
         }
 
+        // 5-c. 음성 출력 (0.29.0, A2) — 내장 TTS 엔진으로 답변 낭독
+        val ttsEngines by viewModel.ttsEngines.collectAsStateWithLifecycle()
+        LaunchedEffect(Unit) { viewModel.loadTtsEngines() }
+        val ttsContext = LocalContext.current
+        SectionBox(title = "음성") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("답변을 소리로 읽어 주기", color = KosmosTheme.colors.textPrimary)
+                Switch(
+                    checked = uiState.ttsAutoRead,
+                    onCheckedChange = { viewModel.onTtsAutoReadChanged(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = KosmosTheme.colors.onAccent,
+                        checkedTrackColor = KosmosTheme.colors.accent
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "켜면 답변이 끝날 때마다 읽어 드려요. 꺼 두어도 말풍선의 재생 버튼으로 들을 수 있고, 녹음을 시작하면 바로 멈춰요.",
+                style = MaterialTheme.typography.bodySmall,
+                color = KosmosTheme.colors.textMuted
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("음성 엔진", color = KosmosTheme.colors.textSecondary, style = MaterialTheme.typography.labelLarge)
+            // [WHY] "시스템 기본" + 설치된 엔진(삼성·구글 등) — 목록이 비면 매니페스트 TTS_SERVICE queries 누락을 의심한다.
+            (listOf(com.kosmos.app.platform.speech.SpeechOutput.Engine("", "시스템 기본")) + ttsEngines).forEach { engine ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.onTtsEngineChanged(engine.packageName) }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = uiState.ttsEngine == engine.packageName,
+                        onClick = { viewModel.onTtsEngineChanged(engine.packageName) },
+                        colors = RadioButtonDefaults.colors(selectedColor = KosmosTheme.colors.accent)
+                    )
+                    Text(engine.label, color = KosmosTheme.colors.textPrimary)
+                }
+            }
+            val voiceNotice = when (uiState.voiceStatus) {
+                com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE ->
+                    "이 엔진에는 기기 안에서 쓸 수 있는 한국어 음성이 없어요. 음성 데이터를 내려받거나 다른 엔진을 골라 주세요."
+                com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.INIT_FAILED ->
+                    "이 음성 엔진을 시작하지 못했어요. 다른 엔진을 골라 주세요."
+                else -> null
+            }
+            voiceNotice?.let { notice ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(notice, style = MaterialTheme.typography.bodySmall, color = KosmosTheme.colors.warning)
+                if (uiState.voiceStatus == com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE) {
+                    TextButton(onClick = {
+                        val intent = android.content.Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                            .apply { if (uiState.ttsEngine.isNotBlank()) setPackage(uiState.ttsEngine) }
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        // [WHY] 엔진이 설치 화면을 제공하지 않을 수 있다 — 실패는 조용히 무시(안내 문구는 이미 보이고 있다).
+                        runCatching { ttsContext.startActivity(intent) }
+                    }) { Text("음성 데이터 설치", color = KosmosTheme.colors.accent) }
+                }
+            }
+        }
+
         // 6. 리마인더 정확 알람 안내 (B1) — 권한이 없을 때만 노출
         val context = LocalContext.current
         var exactAlarmAllowed by remember { mutableStateOf(true) }

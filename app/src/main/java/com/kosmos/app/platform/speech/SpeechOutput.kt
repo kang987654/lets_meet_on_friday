@@ -84,6 +84,13 @@ open class SpeechOutput @Inject constructor(
         return true
     }
 
+    /** 설정의 엔진을 준비하고 음성 상태를 확인합니다 — 설정 화면이 안내를 띄우려고 부른다. */
+    open suspend fun prepare(): VoiceStatus {
+        ensureEngine(settings.ttsEngineFlow.first())
+        withTimeoutOrNull(INIT_TIMEOUT_MS) { initialized.await() }
+        return _voiceStatus.value
+    }
+
     /** 낭독을 멈춥니다. 읽고 있지 않으면 아무 일도 없다. */
     open fun stop() {
         if (_speakingMessageId.value == null) return

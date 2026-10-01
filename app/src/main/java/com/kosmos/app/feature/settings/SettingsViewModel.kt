@@ -18,12 +18,18 @@ class SettingsViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val runtimeManager: GemmaRuntimeManager,
     private val modelRunner: com.kosmos.app.domain.modelrunner.ModelRunner,
-    private val briefingScheduler: com.kosmos.app.work.BriefingNotificationScheduler
+    private val briefingScheduler: com.kosmos.app.work.BriefingNotificationScheduler,
+    private val speechOutput: com.kosmos.app.platform.speech.SpeechOutput
 ) : ViewModel() {
+
+    private val _ttsEngines = kotlinx.coroutines.flow.MutableStateFlow<List<com.kosmos.app.platform.speech.SpeechOutput.Engine>>(emptyList())
+    /** 설치된 TTS 엔진 — 화면 진입 시 [loadTtsEngines] 가 채운다. */
+    val ttsEngines: StateFlow<List<com.kosmos.app.platform.speech.SpeechOutput.Engine>> = _ttsEngines
 
     // [WHY] combine 은 vararg 없는 오버로드가 5개까지다 — 0.20.0 에서 상한에 닿았고, 여섯째
     // 설정(자동 추출, C′2)부터는 **모델·응답 묶음 / 비서 동작 묶음** 두 그룹의 중첩 combine 으로
     // 간다. 그룹 경계가 설정 화면의 섹션 경계와 같아 다음 설정도 자기 그룹에 붙이면 된다.
+    // 음성(0.29.0)은 셋째 그룹이다.
     val uiState: StateFlow<SettingsUiState> = combine(
         combine(
             settingsDataStore.responseStyleFlow,
@@ -36,15 +42,24 @@ class SettingsViewModel @Inject constructor(
             settingsDataStore.autoExtractEnabledFlow
         ) { briefingEnabled, briefingTimeMinutes, autoExtractEnabled ->
             Triple(briefingEnabled, briefingTimeMinutes, autoExtractEnabled)
-        }
-    ) { (responseStyle, maxTokens, loadState), (briefingEnabled, briefingTimeMinutes, autoExtractEnabled) ->
+        },
+        combine(
+            settingsDataStore.ttsAutoReadFlow,
+            settingsDataStore.ttsEngineFlow,
+            speechOutput.voiceStatus
+        ) { autoRead, engine, voiceStatus -> Triple(autoRead, engine, voiceStatus) }
+    ) { (responseStyle, maxTokens, loadState), (briefingEnabled, briefingTimeMinutes, autoExtractEnabled),
+        (ttsAutoRead, ttsEngine, voiceStatus) ->
         SettingsUiState(
             responseStyle = responseStyle,
             maxTokens = maxTokens,
             modelLoadState = loadState,
             briefingEnabled = briefingEnabled,
             briefingTimeMinutes = briefingTimeMinutes,
-            autoExtractEnabled = autoExtractEnabled
+            autoExtractEnabled = autoExtractEnabled,
+            ttsAutoRead = ttsAutoRead,
+            ttsEngine = ttsEngine,
+            voiceStatus = voiceStatus
         )
     }.stateIn(
         scope = viewModelScope,
@@ -81,6 +96,30 @@ class SettingsViewModel @Inject constructor(
     fun onAutoExtractEnabledChanged(enabled: Boolean) {
         viewModelScope.launch {
             settingsDataStore.saveAutoExtractEnabled(enabled)
+        }
+    }
+
+    /** 답변 자동 낭독 토글. 끄면 읽던 것도 멈춘다. */
+    fun onTtsAutoReadChanged(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsDataStore.saveTtsAutoRead(enabled)
+            if (!enabled) speechOutput.stop()
+        }
+    }
+
+    /** TTS 엔진 선택 — 저장 후 그 엔진을 준비해 한국어 오프라인 음성 여부를 바로 보여 준다. */
+    fun onTtsEngineChanged(enginePackage: String) {
+        viewModelScope.launch {
+            settingsDataStore.saveTtsEngine(enginePackage)
+            speechOutput.prepare()
+        }
+    }
+
+    /** 설정 화면 진입 시 — 엔진 목록과 현재 엔진의 음성 상태를 읽는다. */
+    fun loadTtsEngines() {
+        viewModelScope.launch {
+            speechOutput.prepare()
+            _ttsEngines.value = speechOutput.availableEngines()
         }
     }
 
