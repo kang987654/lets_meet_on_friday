@@ -120,7 +120,8 @@ class CalendarViewModelTest {
         val viewModel = CalendarViewModel(useCase, summarize)
         val states = collect(viewModel)
 
-        viewModel.loadSchedule()
+        // [WHY] 0.28.0 에서 오늘 요약을 없앴다(사용자 결정) — 요약이 도는 이번 주 범위로 호출한다(사용자 확인 후 수정, 단언 불변).
+        viewModel.loadSchedule(ScheduleData.RangeType.WEEK)
 
         val beforeSummary = states.filterIsInstance<CalendarUiState.Success>().last()
         assertEquals("요약이 오기 전에 이미 목록이 있어야 한다", 1, beforeSummary.scheduleData.events.size)
@@ -142,6 +143,69 @@ class CalendarViewModelTest {
         viewModel.loadSchedule()
 
         io.mockk.coVerify(exactly = 0) { summarize(any(), any()) }
+    }
+
+    @Test
+    fun `오늘 범위는 요약하지 않는다`() = runTest {
+        givenSchedule(events = listOf(event("2026-08-12T20:00")).toImmutableList(), deviceCalendarFailed = false)
+        val viewModel = CalendarViewModel(useCase, summarize)
+        collect(viewModel)
+
+        viewModel.loadSchedule(ScheduleData.RangeType.TODAY)
+
+        io.mockk.coVerify(exactly = 0) { summarize(any(), any()) }
+    }
+
+    // --- 월 탭 (0.28.0) ---
+
+    @Test
+    fun `월 조회는 그 달을 읽고 요약하지 않는다`() = runTest {
+        val october = java.time.YearMonth.of(2026, 10)
+        givenMonth(october)
+        val viewModel = CalendarViewModel(useCase, summarize)
+
+        viewModel.showMonth(october, zoneId = java.time.ZoneId.of("UTC"))
+
+        val state = viewModel.monthState.value as MonthUiState.Success
+        assertEquals(october, state.schedule.month)
+        io.mockk.coVerify(exactly = 1) { useCase.month(october, any()) }
+        io.mockk.coVerify(exactly = 0) { summarize(any(), any()) }
+    }
+
+    @Test
+    fun `같은 달을 다시 보이면 재조회하지 않고 force 면 다시 읽는다`() = runTest {
+        val october = java.time.YearMonth.of(2026, 10)
+        givenMonth(october)
+        val viewModel = CalendarViewModel(useCase, summarize)
+
+        viewModel.showMonth(october)
+        viewModel.showMonth(october)
+        io.mockk.coVerify(exactly = 1) { useCase.month(october, any()) }
+
+        viewModel.showMonth(october, force = true)
+        io.mockk.coVerify(exactly = 2) { useCase.month(october, any()) }
+    }
+
+    @Test
+    fun `이웃 달 칸을 고르면 그 달로 넘어가고 날짜가 선택된다`() = runTest {
+        val october = java.time.YearMonth.of(2026, 10)
+        val september = java.time.YearMonth.of(2026, 9)
+        givenMonth(october)
+        givenMonth(september)
+        val viewModel = CalendarViewModel(useCase, summarize)
+        viewModel.showMonth(october)
+
+        viewModel.selectMonthDate(LocalDate.of(2026, 9, 30))
+
+        assertEquals(september, viewModel.visibleMonth.value)
+        assertEquals(LocalDate.of(2026, 9, 30), viewModel.monthSelectedDate.value)
+        io.mockk.coVerify(exactly = 1) { useCase.month(september, any()) }
+    }
+
+    private fun givenMonth(month: java.time.YearMonth) {
+        coEvery { useCase.month(month, any()) } returns AppResult.Success(
+            com.kosmos.app.domain.model.MonthSchedule(month, persistentListOf())
+        )
     }
 
     private fun givenSchedule(

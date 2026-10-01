@@ -1,6 +1,7 @@
 package com.kosmos.app.feature.calendar
 
 import com.kosmos.app.core.common.AppError
+import com.kosmos.app.domain.model.MonthSchedule
 import com.kosmos.app.domain.model.ScheduleData
 
 /**
@@ -17,4 +18,14 @@ sealed class CalendarUiState {
     object Loading : CalendarUiState()
     data class Success(val scheduleData: ScheduleData) : CalendarUiState()
     data class Error(val error: AppError) : CalendarUiState()
+}
+
+/** 일정 화면 상단 탭 — 월 그리드 / 기존 목록(오늘·이번 주). 사용자 결정(0.28.0): 둘 다 두고 월이 기본. */
+enum class CalendarTab { MONTH, LIST }
+
+/** 월 탭의 조회 상태. 요약은 없다(사용자 결정 — 월 단위 AI 요약 불필요). */
+sealed class MonthUiState {
+    object Loading : MonthUiState()
+    data class Success(val schedule: MonthSchedule) : MonthUiState()
+    data class Error(val error: AppError) : MonthUiState()
 }

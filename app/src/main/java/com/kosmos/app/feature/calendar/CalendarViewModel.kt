@@ -16,11 +16,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
 import javax.inject.Inject
 
 /**
  * [CalendarViewModel]
- * 캘린더 화면의 일정 조회 범위(오늘/이번 주)와 날짜 선택 필터를 관리하는 뷰모델입니다.
+ * 캘린더 화면의 탭(월/목록), 월 그리드 조회, 목록 탭의 조회 범위(오늘/이번 주)와 날짜 선택 필터를 관리하는 뷰모델입니다.
  *
  * ### Architecture Context
  * - **Layer**: Feature / Presentation (Calendar)
@@ -30,6 +32,7 @@ import javax.inject.Inject
  * 1. [loadSchedule]이 선택된 범위의 일정을 조회해 내부 상태에 보관합니다(로컬 DB + 기기 캘린더 병합, ADR-004).
  * 2. [onDateSelected]로 특정 날짜를 고르면 해당 일자만 남기고, 같은 날짜를 다시 누르면 필터가 해제됩니다.
  * 3. [uiState]는 조회 결과와 날짜 필터를 합성해 화면에 노출할 최종 상태를 만듭니다.
+ * 4. 월 탭: [showMonth]가 그 달 1일~말일을 조회해 [monthState]로 내보내고, [selectMonthDate]로 고른 날의 일정을 화면이 보여 준다.
  */
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
@@ -38,6 +41,20 @@ class CalendarViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _loadedState = MutableStateFlow<CalendarUiState>(CalendarUiState.Idle)
+
+    private val _tab = MutableStateFlow(CalendarTab.MONTH)
+    val tab: StateFlow<CalendarTab> = _tab.asStateFlow()
+
+    private val _visibleMonth = MutableStateFlow(YearMonth.now())
+    val visibleMonth: StateFlow<YearMonth> = _visibleMonth.asStateFlow()
+
+    private val _monthState = MutableStateFlow<MonthUiState>(MonthUiState.Loading)
+    val monthState: StateFlow<MonthUiState> = _monthState.asStateFlow()
+
+    private val _monthSelectedDate = MutableStateFlow<LocalDate?>(LocalDate.now())
+    val monthSelectedDate: StateFlow<LocalDate?> = _monthSelectedDate.asStateFlow()
+
+    private var monthJob: kotlinx.coroutines.Job? = null
 
     private val _selectedRange = MutableStateFlow(ScheduleData.RangeType.TODAY)
     val selectedRange: StateFlow<ScheduleData.RangeType> = _selectedRange.asStateFlow()
@@ -80,7 +97,10 @@ class CalendarViewModel @Inject constructor(
             }
             _loadedState.value = loaded
 
-            if (loaded is CalendarUiState.Success && loaded.scheduleData.events.isNotEmpty()) {
+            // [WHY] 요약은 이번 주(오늘부터 7일)만 — 오늘 요약은 목록만 봐도 충분해 ~10초 추론 값을 못 한다(사용자 결정, 0.28.0).
+            if (rangeType == ScheduleData.RangeType.WEEK &&
+                loaded is CalendarUiState.Success && loaded.scheduleData.events.isNotEmpty()
+            ) {
                 val summary = summarizeScheduleUseCase(loaded.scheduleData.events, rangeType)
                 if (summary is AppResult.Success && summary.data.isNotBlank()) {
                     // [WHY] 요약이 도착하는 동안 사용자가 범위를 바꿨을 수 있다. 그때 낡은 요약을
@@ -116,6 +136,41 @@ class CalendarViewModel @Inject constructor(
         if (date != LocalDate.now() && _selectedRange.value != ScheduleData.RangeType.WEEK) {
             loadSchedule(ScheduleData.RangeType.WEEK)
         }
+    }
+
+    /** 상단 탭을 바꿉니다. */
+    fun onTabSelected(tab: CalendarTab) {
+        _tab.value = tab
+    }
+
+    /**
+     * [yearMonth] 를 보여 주고 그 달을 조회합니다. 같은 달이 이미 성공 상태면 다시 읽지 않는다 — [force] 는
+     * 권한 승인 직후처럼 데이터가 바뀌었을 때만.
+     *
+     * [WHY] 이전 달 조회가 늦게 끝나 새 달 상태를 덮지 않도록 진행 중인 조회를 취소한다(빠른 스와이프).
+     */
+    fun showMonth(yearMonth: YearMonth, force: Boolean = false, zoneId: ZoneId = ZoneId.systemDefault()) {
+        val current = _monthState.value
+        if (!force && yearMonth == _visibleMonth.value &&
+            current is MonthUiState.Success && current.schedule.month == yearMonth
+        ) return
+        if (yearMonth != _visibleMonth.value) _monthSelectedDate.value = null
+        _visibleMonth.value = yearMonth
+        monthJob?.cancel()
+        monthJob = viewModelScope.launch {
+            _monthState.value = MonthUiState.Loading
+            _monthState.value = when (val result = getTodayScheduleUseCase.month(yearMonth, zoneId)) {
+                is AppResult.Success -> MonthUiState.Success(result.data)
+                is AppResult.Failure -> MonthUiState.Error(result.error)
+            }
+        }
+    }
+
+    /** 월 그리드에서 날짜를 고릅니다. 다른 달의 날짜(앞뒤 채움 칸)면 그 달로 넘어간다. */
+    fun selectMonthDate(date: LocalDate) {
+        val month = YearMonth.from(date)
+        if (month != _visibleMonth.value) showMonth(month)
+        _monthSelectedDate.value = date
     }
 
     private fun applyDateFilter(state: CalendarUiState, date: LocalDate?): CalendarUiState {
