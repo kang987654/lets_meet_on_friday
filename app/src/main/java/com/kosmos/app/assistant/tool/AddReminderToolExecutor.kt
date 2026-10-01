@@ -19,21 +19,37 @@ import javax.inject.Inject
  * - **Dependencies**: [AddReminderUseCase], [ReminderAlarmScheduler]
  *
  * ### Key Flow
- * 1. 인자 검증([parse] — 승인·실행 공유, AddSchedule 규약)
+ * 1. 인자 검증([parse] — 승인·실행 공유, AddSchedule 규약). 지난 시각은 승인 요청 단계에서 PAST
  * 2. 사용자 승인(BaseAgent 공통 경로, REMINDER_WRITE → 기본 ApprovalSheet)
  * 3. 저장 → 알람 예약 → 한국어 표기로 결과 반환
  */
-class AddReminderToolExecutor @Inject constructor(
+class AddReminderToolExecutor internal constructor(
     private val addReminderUseCase: AddReminderUseCase,
     private val reminderAlarmScheduler: ReminderAlarmScheduler,
-    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher
+    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
+    private val now: () -> Long
 ) : ToolExecutor {
+
+    /** Hilt 진입점 — 벽시계를 쓴다. 테스트는 내부 생성자로 시각을 고정한다(§2-④). */
+    @Inject constructor(
+        addReminderUseCase: AddReminderUseCase,
+        reminderAlarmScheduler: ReminderAlarmScheduler,
+        widgetRefresher: com.kosmos.app.widget.WidgetRefresher
+    ) : this(addReminderUseCase, reminderAlarmScheduler, widgetRefresher, System::currentTimeMillis)
+
     override val name: String = ToolNames.ADD_REMINDER
 
     override val actionType: ApprovalRules.ActionType = ApprovalRules.ActionType.REMINDER_WRITE
 
     override fun buildApprovalRequest(args: ToolArguments, sessionId: String): ApprovalRequest {
         val draft = parse(args)
+        // [WHY] 지난 시각은 카드를 띄우기 전에 되돌린다 — 예전에는 사용자가 승인한 뒤에야
+        // UseCase 가 거절했다. 실행 쪽 검사(UseCase)는 그대로 둔다: 카드가 떠 있는 동안 시각이
+        // 지나갈 수 있어 최종 판정은 실행 시점이어야 한다.
+        val triggerAtMs = IsoDateTimeParser.toEpochMillis(draft.time)
+        if (triggerAtMs != null && triggerAtMs <= now()) {
+            throw ToolArgumentException("time", ToolArgumentException.Reason.PAST)
+        }
         return ApprovalRequest(
             sessionId = sessionId,
             title = "리마인더 등록",

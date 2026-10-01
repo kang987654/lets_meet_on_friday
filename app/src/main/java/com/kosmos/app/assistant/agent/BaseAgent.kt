@@ -366,6 +366,10 @@ abstract class BaseAgent(
             // 형태를 따라 쓸 재료만 는다. 올바른 예시 형식만 제시한다.
             com.kosmos.app.assistant.tool.ToolArgumentException.Reason.BAD_FORMAT ->
                 "'${e.field}' 인자가 ISO 8601 일시 형식이 아닙니다. '2026-08-17T15:00:00' 형식으로 다시 보내세요."
+            // [WHY] AddReminderToolExecutor 의 실행 오류 문구와 같은 원문 — 승인 전으로 당겼을 뿐
+            // 모델이 받는 지시는 같아야 한다(exp40).
+            com.kosmos.app.assistant.tool.ToolArgumentException.Reason.PAST ->
+                "이미 지난 시각입니다. 미래의 시각으로 다시 호출하세요."
         }
         return org.json.JSONObject()
             .put(ToolResultJson.STATUS, ToolResultJson.ERROR)

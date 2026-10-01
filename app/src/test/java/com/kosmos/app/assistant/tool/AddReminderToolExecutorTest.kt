@@ -30,7 +30,9 @@ class AddReminderToolExecutorTest {
     private val useCase: AddReminderUseCase = mockk()
     private val scheduler: ReminderAlarmScheduler = mockk(relaxed = true)
     private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher = mockk(relaxed = true)
-    private val executor = AddReminderToolExecutor(useCase, scheduler, widgetRefresher)
+    // [WHY] 고정 시각 — 픽스처 날짜(2026-08-29)가 벽시계 기준 과거가 되어도 승인 요청이 만들어지게.
+    private val fixedNow = requireNotNull(IsoDateTimeParser.toEpochMillis("2026-08-29T09:00:00"))
+    private val executor = AddReminderToolExecutor(useCase, scheduler, widgetRefresher) { fixedNow }
 
     private fun args(json: String) = ToolArguments(JSONObject(json))
 
@@ -70,6 +72,29 @@ class AddReminderToolExecutorTest {
         assertTrue(request.description.contains("약 먹기"))
         assertFalse("ISO 원문이 사용자에게 노출되면 안 된다", request.description.contains("2026-08-29T"))
         assertNull("전용 카드 없음 — 기본 ApprovalSheet 경로", request.calendarDraft)
+    }
+
+    @Test
+    fun `지난 시각으로는 승인 요청이 만들어지지 않는다`() {
+        val e = runCatching {
+            executor.buildApprovalRequest(
+                args("""{"time":"2026-08-29T08:59:00","content":"약 먹기"}"""),
+                sessionId = "s1"
+            )
+        }.exceptionOrNull() as ToolArgumentException
+        assertEquals("time", e.field)
+        assertEquals(ToolArgumentException.Reason.PAST, e.reason)
+    }
+
+    @Test
+    fun `지금과 같은 시각도 지난 시각이다`() {
+        val e = runCatching {
+            executor.buildApprovalRequest(
+                args("""{"time":"2026-08-29T09:00:00","content":"약 먹기"}"""),
+                sessionId = "s1"
+            )
+        }.exceptionOrNull() as ToolArgumentException
+        assertEquals(ToolArgumentException.Reason.PAST, e.reason)
     }
 
     @Test

@@ -16,13 +16,16 @@ import org.json.JSONObject
  * [WHY] BAD_FORMAT 은 "문자열이긴 한데 요구된 형식이 아니다"이다. WRONG_TYPE 과 구분해야
  * 안내가 갈린다 — WRONG_TYPE 의 처방은 "문자열로 보내라"인데, 깨진 타임스탬프는 이미
  * 문자열이므로 그 안내로는 모델이 고칠 수 없다.
+ *
+ * [WHY] PAST 는 형식은 맞지만 이미 지난 일시다 — 실행기가 승인 요청 단계에서 던진다(리마인더).
+ * 승인 뒤에야 실패하면 사용자가 실행될 수 없는 카드를 승인하게 된다.
  */
 class ToolArgumentException(
     val field: String,
     val reason: Reason
 ) : Exception("Tool argument '$field' is ${reason.name.lowercase()}") {
 
-    enum class Reason { MISSING, WRONG_TYPE, BAD_FORMAT }
+    enum class Reason { MISSING, WRONG_TYPE, BAD_FORMAT, PAST }
 }
 
 /**
