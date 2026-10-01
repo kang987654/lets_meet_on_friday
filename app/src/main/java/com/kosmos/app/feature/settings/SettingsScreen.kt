@@ -26,7 +26,8 @@ import com.kosmos.app.domain.modelrunner.ModelLoadState
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
     themeViewModel: com.kosmos.app.ui.theme.ThemeViewModel = hiltViewModel(),
-    onNavigateToModelManagement: () -> Unit = {}
+    onNavigateToModelManagement: () -> Unit = {},
+    onNavigateToMemoryCleanup: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
@@ -313,6 +314,27 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = KosmosTheme.colors.textMuted
             )
+            Spacer(modifier = Modifier.height(16.dp))
+            // [WHY] 수동 정리(0.30.0) — 야간 배치 대신 사용자가 누를 때만 돈다(백그라운드 모델 로드 금지, §2-⑥).
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                    .clickable { onNavigateToMemoryCleanup() }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("기억 정리", color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold)
+                    Text(
+                        "이번 주 회고를 만들고, 같은 내용이 여러 번 저장된 기억을 합쳐요.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = KosmosTheme.colors.textMuted
+                    )
+                }
+                Text("›", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.titleLarge)
+            }
         }
 
         // 5-c. 음성 출력 (0.29.0, A2) — 내장 TTS 엔진으로 답변 낭독

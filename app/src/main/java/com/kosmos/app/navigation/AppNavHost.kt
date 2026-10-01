@@ -90,9 +90,18 @@ fun AppNavHost(
                 com.kosmos.app.feature.settings.SettingsScreen(
                     onNavigateToModelManagement = {
                         navController.navigate(AppDestination.ModelManagement.route)
+                    },
+                    onNavigateToMemoryCleanup = {
+                        navController.navigate(AppDestination.MemoryCleanup.route)
                     }
                 )
             }
+        }
+
+        composable(route = AppDestination.MemoryCleanup.route) {
+            com.kosmos.app.feature.cleanup.MemoryCleanupScreen(
+                onBack = { navigateBack() }
+            )
         }
 
         composable(route = AppDestination.ModelManagement.route) {

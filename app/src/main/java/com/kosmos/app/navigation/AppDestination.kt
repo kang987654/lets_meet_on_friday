@@ -8,4 +8,5 @@ sealed class AppDestination(val route: String) {
     object Settings : AppDestination("settings")
     object ModelManagement : AppDestination("model_management")
     object Audit : AppDestination("audit")
+    object MemoryCleanup : AppDestination("memory_cleanup")
 }
