@@ -25,6 +25,8 @@ class SettingsDataStore @Inject constructor(
         private val BRIEFING_ENABLED_KEY = booleanPreferencesKey("briefing_enabled")
         private val BRIEFING_TIME_MINUTES_KEY = intPreferencesKey("briefing_time_minutes")
         private val AUTO_EXTRACT_ENABLED_KEY = booleanPreferencesKey("auto_extract_enabled")
+        private val TTS_AUTO_READ_KEY = booleanPreferencesKey("tts_auto_read")
+        private val TTS_ENGINE_KEY = stringPreferencesKey("tts_engine")
 
         // [WHY] 557 = 09:17 (사용자 지정 기본, 2026-08-21). 자정 기준 분 단위 int 하나가
         // 단일 출처다 — 시/분을 따로 저장하면 갱신이 반쪽만 될 수 있다.
@@ -53,6 +55,28 @@ class SettingsDataStore @Inject constructor(
     suspend fun saveAutoExtractEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[AUTO_EXTRACT_ENABLED_KEY] = enabled
+        }
+    }
+
+    // [WHY] 자동 낭독은 기본 꺼짐(사용자 결정, 0.29.0) — 켜 두면 첫 실행부터 소리가 나 당황스럽다.
+    val ttsAutoReadFlow: Flow<Boolean> = dataStore.data.map {
+        it[TTS_AUTO_READ_KEY] ?: false
+    }
+
+    suspend fun saveTtsAutoRead(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[TTS_AUTO_READ_KEY] = enabled
+        }
+    }
+
+    /** TTS 엔진 패키지. 빈 문자열 = 시스템 기본 엔진. */
+    val ttsEngineFlow: Flow<String> = dataStore.data.map {
+        it[TTS_ENGINE_KEY] ?: ""
+    }
+
+    suspend fun saveTtsEngine(enginePackage: String) {
+        dataStore.edit { prefs ->
+            prefs[TTS_ENGINE_KEY] = enginePackage
         }
     }
 
