@@ -235,11 +235,14 @@ class PromptAssembler @Inject constructor() {
         }
         // [WHY] "above" 는 같은 시스템 지시 안의 [System Data] 날짜 블록을 가리킨다. 그 블록의
         // 위치를 옮기면 이 문구도 함께 옮겨야 한다 — 가리키는 곳이 틀리면 규칙이 무력해진다.
+        // [WHY] 마지막 문장(exp39c, 오버헤드 +16토큰): 직전 턴에 "내일"이 나오면 날짜 없는 시각도 내일로
+        // 끌려갔다(exp39b 2/3). 이 문장으로 12/12, 툴 스모크 무손상.
         appendLine(
             "Resolve relative dates and times yourself from the [System Data] values above — " +
                 "\"내일\", \"모레\", \"다음주 월요일\", \"오후 3시\" are NOT missing information. " +
                 "Compute the absolute ISO 8601 value and call the tool. " +
-                "Never ask the user to restate a date you can compute."
+                "Never ask the user to restate a date you can compute. " +
+                "A time with no date word means today."
         )
         // [WHY] 이전 문구는 "If you lack mandatory information … DO NOT guess. Ask the user
         // first." 였다. PC 실험에서 이 한 줄이 **일정 등록을 막는 주범**이었다 — 모델이 상대

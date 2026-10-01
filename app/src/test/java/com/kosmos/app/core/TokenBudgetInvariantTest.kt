@@ -160,9 +160,10 @@ class TokenBudgetInvariantTest {
         /**
          * `Conversation.token_count` 실측 — 시스템 지시 + 툴 6종 선언 합계. 이력:
          * 1,329(5종+few-shot) → +52(add_reminder 다이어트 후, exp34b) → −104(few-shot 제거,
-         * `scratch/lab/exp35_profile_budget.py` 2026-08-28) = **1,277**.
+         * `scratch/lab/exp35_profile_budget.py` 2026-08-28) = 1,277 → +16(날짜 없는 시각 = 오늘,
+         * `scratch/lab/exp39c_date_carryover.py` 2026-10-01) = **1,293**.
          * 프로필 블록은 여기 없고 [Constants.PROFILE_MAX_TOKENS] 상한으로 따로 계상된다.
          */
-        const val MEASURED_OVERHEAD = 1277
+        const val MEASURED_OVERHEAD = 1293
     }
 }
