@@ -37,6 +37,9 @@ class KosmosApp : Application(), Configuration.Provider {
     @Inject
     lateinit var speechOutput: com.kosmos.app.platform.speech.SpeechOutput
 
+    @Inject
+    lateinit var memoryCleanupRunner: com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
+
     /**
      * [WHY] @HiltWorker 로 만든 Worker 에 의존성을 주입하려면 WorkManager 의 기본 초기화를
      * 매니페스트에서 제거하고(WorkManagerInitializer node:remove) HiltWorkerFactory 를 물려야 한다.
@@ -77,6 +80,8 @@ class KosmosApp : Application(), Configuration.Provider {
                 modelRunner.close()
                 // [WHY] 백그라운드 낭독은 하지 않는다(0.29.0) — 엔진 바인딩도 함께 놓고, 다음 낭독이 다시 만든다.
                 speechOutput.release()
+                // [WHY] 엔진이 방금 해제됐다 — 정리를 이어 가면 3.6GB 를 백그라운드에서 다시 올린다(§2-⑥). 다음 버튼이 처음부터.
+                memoryCleanupRunner.cancel()
             }
         })
     }

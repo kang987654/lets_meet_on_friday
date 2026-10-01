@@ -17,7 +17,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 import javax.inject.Inject
@@ -55,14 +54,16 @@ class EpisodeSummarizeScheduler @Inject constructor(
     private val metricsCollector: RuntimeMetricsCollector,
     private val boundaryManager: EpisodeBoundaryManager,
     private val modelRunner: ModelRunner,
-    private val factExtractor: EpisodeFactExtractor
+    private val factExtractor: EpisodeFactExtractor,
+    private val inferenceGate: com.kosmos.app.assistant.cleanup.BackgroundInferenceGate
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // [WHY] 드레인과 catch-up 을 직렬화한다 — Ready 와 턴 종료가 겹치면 같은 에피소드를
     // 두 번 요약할 수 있다 (요약 = 추론 1회라 중복이 비싸다).
-    private val drainMutex = Mutex()
+    // [WHY] 0.30.0: 수동 기억 정리와 같은 뮤텍스를 쓴다 — 정리 중 드레인은 정리가 끝난 뒤로 미뤄진다(BackgroundInferenceGate).
+    private val drainMutex = inferenceGate.mutex
     private val deferred = ArrayDeque<String>()
     private val started = java.util.concurrent.atomic.AtomicBoolean(false)
 

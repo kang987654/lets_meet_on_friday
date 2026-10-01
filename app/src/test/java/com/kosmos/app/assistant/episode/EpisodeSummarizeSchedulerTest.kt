@@ -75,7 +75,8 @@ class EpisodeSummarizeSchedulerTest {
 
     private fun scheduler(): EpisodeSummarizeScheduler = EpisodeSummarizeScheduler(
         episodeRepository, conversationRepository, summarize,
-        metricsCollector, boundaryManager, modelRunner, factExtractor
+        metricsCollector, boundaryManager, modelRunner, factExtractor,
+        com.kosmos.app.assistant.cleanup.BackgroundInferenceGate()
     ).also { it.start() }
 
     private fun closedEpisode(id: String = "e1") = Episode(
