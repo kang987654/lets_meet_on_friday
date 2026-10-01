@@ -59,7 +59,7 @@
 
 | # | 툴 | 해소하는 것 | 정책 | 크기 |
 |---|---|---|---|---|
-| B1 | ~~AddReminder / ListReminders~~ → **AddReminder 구현 완료 (0.21.0)** — 정확 알람(권한 없으면 ±10분 창)+BOOT 복원, 승인 카드 경량화는 검토 후 **기각**(G3 예외 없음). **ListReminders 는 잔여**: 선언 예산(다이어트로도 71토큰 초과)으로 제외, 조회는 드로어+브리핑이 대행 — 수요가 기록되면 재검토 | Task Memory(v1 스키마)의 실사용처. "3시에 알려줘" | AlarmManager + 알림. 선언 비용은 기존 선언 다이어트로 상쇄(exp34b, 순증 52) | M |
+| B1 | ~~AddReminder / ListReminders~~ → **AddReminder 구현 완료 (0.21.0)** — 정확 알람(권한 없으면 ±10분 창)+BOOT 복원, 승인 카드 경량화는 검토 후 **기각**(G3 예외 없음). **ListReminders 는 보류**: 0.32.0 exp45b 에서 게이트 통과(스모크 21/21·목록 6/6)했지만 +50~68토큰으로 여유 74 → 6 — TD-3 해소 또는 수요 기록 시 계획서 0.32.0 M2 대로 구현 | Task Memory(v1 스키마)의 실사용처. "3시에 알려줘" | AlarmManager + 알림. 선언 비용은 기존 선언 다이어트로 상쇄(exp34b, 순증 52) | M |
 | B2 | **UpdateSchedule / DeleteSchedule** | 현재 일정은 생성만 가능 — 수정하려면 캘린더 앱으로 이동(P3 재발) | 승인 필수 + 변경 전/후 diff 를 승인 카드에 표시. 삭제는 PRD "추후 검토" 항목의 재검토 — **승인+감사 전제로 허용** 제안 | M |
 | B3 | **SaveNote / SearchNote 강화** | Knowledge Memory 의 쓰기 경로가 대화에서 자연스럽지 않음 | 기존 SearchMemory 와 통합 설계 (Track C 와 연동) | S |
 | B4 | **알림 요약 (ReadNotifications)** | 쌓인 알림을 "요약해줘" 한 마디로 | NotificationListenerService — **민감 권한**: 설정에서 명시 활성 + 원문 로그 금지(F9 선례) + 읽기 전용 | L |
