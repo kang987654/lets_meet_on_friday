@@ -55,4 +55,28 @@ class MonthGridTest {
         assertEquals(listOf("c"), map[LocalDate.of(2026, 10, 3)]?.map { it.id })
         assertEquals(2, map.size)
     }
+
+    // --- 여러 날 일정 (0.33.0) ---
+
+    @Test
+    fun `일정이 걸친 날짜 표`() {
+        val utc = ZoneId.of("UTC")
+        fun span(start: String, end: String) = spanDays(CalendarEvent("x", "x", start, end), utc).map { it.toString() }
+        val cases = listOf(
+            Triple("2026-10-03T10:00:00", "2026-10-05T18:00:00", listOf("2026-10-03", "2026-10-04", "2026-10-05")),
+            Triple("2026-10-03T18:00:00", "2026-10-04T00:00:00", listOf("2026-10-03")),          // 자정에 끝나면 다음 날 제외
+            Triple("2026-10-03", "2026-10-04", listOf("2026-10-03", "2026-10-04")),             // 종일: 끝은 포함 날짜
+            Triple("2026-10-03", "2026-10-03", listOf("2026-10-03")),
+            Triple("2026-10-05T10:00:00", "2026-10-03T10:00:00", listOf("2026-10-05")),          // 끝이 앞이면 하루
+            Triple("2026-10-03T10:00:00", "끝 모름", listOf("2026-10-03")),
+        )
+        cases.forEach { (start, end, expected) -> assertEquals("$start ~ $end", expected, span(start, end)) }
+        assertEquals("잘못된 끝 날짜로 31일을 넘기지 않는다", 31, span("2026-01-01", "2026-12-31").size)
+    }
+
+    @Test
+    fun `여러 날 일정은 걸친 날마다 묶인다`() {
+        val map = eventsByDate(listOf(CalendarEvent("trip", "제주 여행", "2026-10-03", "2026-10-05")), ZoneId.of("UTC"))
+        assertEquals(listOf("2026-10-03", "2026-10-04", "2026-10-05"), map.keys.map { it.toString() }.sorted())
+    }
 }

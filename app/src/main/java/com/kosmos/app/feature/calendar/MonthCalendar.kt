@@ -264,7 +264,16 @@ private fun SelectedDayEvents(date: LocalDate, events: List<CalendarEvent>, zone
             Text("일정이 없어요.", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                events.forEach { event -> TodayEventCard(event, sourceColor(event.source)) }
+                events.forEach { event ->
+                    val days = com.kosmos.app.ui.calendar.spanDays(event, zoneId)
+                    // [WHY] 여러 날 일정은 시각 대신 기간 — "10월 3일 ~ 10월 5일"(D-C1). 하루짜리는 기존 시각 표기.
+                    val label = if (days.size > 1) {
+                        "${days.first().monthValue}월 ${days.first().dayOfMonth}일 ~ ${days.last().monthValue}월 ${days.last().dayOfMonth}일"
+                    } else {
+                        null
+                    }
+                    TodayEventCard(event, sourceColor(event.source), timeLabel = label)
+                }
             }
         }
     }

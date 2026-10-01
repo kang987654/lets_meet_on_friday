@@ -25,14 +25,32 @@ fun monthGrid(yearMonth: YearMonth, firstDayOfWeek: DayOfWeek = DayOfWeek.SUNDAY
         .toList()
 }
 
+/** 여러 날 일정을 펼칠 최대 일수 — 잘못된 끝 날짜로 한 달을 통째로 칠하지 않게(0.33.0 계획 M-C1). */
+const val MAX_EVENT_SPAN_DAYS = 31L
+
 /**
- * 일정을 시작 날짜별로 묶습니다. 시작 시각을 해석하지 못한 일정은 빠진다.
+ * 일정이 걸친 날짜들(시작일 ~ 마지막 날, 포함). 시작을 해석하지 못하면 빈 목록.
  *
- * [WHY] 여러 날에 걸친 일정도 이번 회차는 **시작일에만** 표시한다(계획서 0.28.0 M2) — 기간 막대 표시는 범위 밖.
+ * [WHY] 끝 시각이 정확히 자정이면 그날은 포함하지 않는다 — "10/3 18:00 ~ 10/4 00:00"은 10/3 하루 일정이다. 날짜만 있는 끝(종일 일정)은
+ * 이미 포함 날짜다(AndroidCalendarTool 이 DTEND − 1일로 낸다). 끝이 없거나 시작보다 앞이면 시작일 하루.
+ */
+fun spanDays(event: CalendarEvent, zoneId: ZoneId): List<LocalDate> {
+    val start = IsoDateTimeParser.toLocalDate(event.startIso, zoneId) ?: return emptyList()
+    val endMs = IsoDateTimeParser.toEpochMillis(event.endIso, zoneId)
+    var end = IsoDateTimeParser.toLocalDate(event.endIso, zoneId) ?: start
+    if (endMs != null && !IsoDateTimeParser.isDateOnly(event.endIso)) {
+        val endTime = java.time.Instant.ofEpochMilli(endMs).atZone(zoneId).toLocalTime()
+        if (endTime == java.time.LocalTime.MIDNIGHT && end.isAfter(start)) end = end.minusDays(1)
+    }
+    if (end.isBefore(start)) end = start
+    val last = minOf(end, start.plusDays(MAX_EVENT_SPAN_DAYS - 1))
+    return generateSequence(start) { it.plusDays(1) }.takeWhile { !it.isAfter(last) }.toList()
+}
+
+/**
+ * 일정을 걸친 날짜마다 묶습니다(0.33.0 — 이전에는 시작일에만). 시작 시각을 해석하지 못한 일정은 빠진다.
+ * 기간 막대 표시는 범위 밖이다 — 걸친 날마다 점과 목록으로 보인다(사용자 결정 D-C1).
  */
 fun eventsByDate(events: List<CalendarEvent>, zoneId: ZoneId): Map<LocalDate, List<CalendarEvent>> =
-    events.mapNotNull { event ->
-        IsoDateTimeParser.toEpochMillis(event.startIso, zoneId)?.let { ms ->
-            java.time.Instant.ofEpochMilli(ms).atZone(zoneId).toLocalDate() to event
-        }
-    }.groupBy({ it.first }, { it.second })
+    events.flatMap { event -> spanDays(event, zoneId).map { it to event } }
+        .groupBy({ it.first }, { it.second })

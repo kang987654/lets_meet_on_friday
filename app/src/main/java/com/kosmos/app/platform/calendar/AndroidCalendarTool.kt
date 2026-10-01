@@ -42,7 +42,8 @@ class AndroidCalendarTool @Inject constructor(
                 CalendarContract.Events.DTSTART,
                 CalendarContract.Events.DTEND,
                 CalendarContract.Events.EVENT_LOCATION,
-                CalendarContract.Events.DESCRIPTION
+                CalendarContract.Events.DESCRIPTION,
+                CalendarContract.Events.ALL_DAY
             )
             // [WHY] 겹침 판정이다 — 예전 `DTSTART >= ? AND DTEND <= ?`(완전 포함)는 조회 창을
             // 조금이라도 벗어나는 일정을 통째로 걸렀다. 종일 일정은 UTC 자정 기준이라 KST 에서
@@ -67,14 +68,27 @@ class AndroidCalendarTool @Inject constructor(
                 val endIdx = it.getColumnIndexOrThrow(CalendarContract.Events.DTEND)
                 val locationIdx = it.getColumnIndexOrThrow(CalendarContract.Events.EVENT_LOCATION)
                 val descIdx = it.getColumnIndexOrThrow(CalendarContract.Events.DESCRIPTION)
+                val allDayIdx = it.getColumnIndexOrThrow(CalendarContract.Events.ALL_DAY)
 
                 while (it.moveToNext()) {
+                    val startMsRow = it.getLong(startIdx)
+                    val endMsRow = it.getLong(endIdx)
+                    // [WHY] 종일 일정은 UTC 자정 기준 [DTSTART, DTEND) 다 — 기기 시간대로 바꾸면 KST 에서 "8/15 오전 9:00 ~ 8/16 오전 9:00"이
+                    // 되어 시각이 붙고 이틀에 걸친다(0.33.0 여러 날 일정 작업 중 발견). UTC 날짜로 읽고 끝은 포함 날짜(DTEND − 1일)로 낸다.
+                    val allDay = it.getInt(allDayIdx) == 1
+                    val (startIso, endIso) = if (allDay) {
+                        val startDate = utcDate(startMsRow)
+                        val endDate = utcDate(endMsRow).minusDays(1).takeIf { d -> !d.isBefore(startDate) } ?: startDate
+                        startDate.toString() to endDate.toString()
+                    } else {
+                        msToIso(startMsRow) to msToIso(endMsRow)
+                    }
                     events.add(
                         CalendarEvent(
                             id = it.getLong(idIdx).toString(),
                             title = it.getString(titleIdx) ?: "",
-                            startIso = msToIso(it.getLong(startIdx)),
-                            endIso = msToIso(it.getLong(endIdx)),
+                            startIso = startIso,
+                            endIso = endIso,
                             location = it.getString(locationIdx),
                             description = it.getString(descIdx)
                         )
@@ -154,6 +168,9 @@ class AndroidCalendarTool @Inject constructor(
 
     // [WHY] Instant.toString()은 UTC 고정이라 KST 19:00 이벤트가 10:00으로 표시된다.
     // 기기 시간대의 오프셋을 포함한 ISO 문자열로 변환한다.
+    private fun utcDate(ms: Long): java.time.LocalDate =
+        Instant.ofEpochMilli(ms).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+
     private fun msToIso(ms: Long): String {
         return Instant.ofEpochMilli(ms)
             .atZone(java.time.ZoneId.systemDefault())

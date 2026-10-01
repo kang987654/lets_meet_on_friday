@@ -29,6 +29,11 @@ object IsoDateTimeParser {
             ?: runCatching { LocalDateTime.parse(iso).atZone(zoneId).toInstant().toEpochMilli() }.getOrNull()
             ?: runCatching { LocalDate.parse(iso).atStartOfDay(zoneId).toInstant().toEpochMilli() }.getOrNull()
 
+    /**
+     * 시각 없이 날짜만 있는 ISO("2026-08-15")인가 — 종일 일정의 표기 규약(0.33.0, AndroidCalendarTool 이 종일 일정을 이 형식으로 낸다).
+     */
+    fun isDateOnly(iso: String): Boolean = runCatching { LocalDate.parse(iso) }.isSuccess
+
     /** 기기 시간대 기준 달력 날짜를 반환합니다. 날짜 단위 필터링에 사용합니다. */
     fun toLocalDate(iso: String, zoneId: ZoneId = ZoneId.systemDefault()): LocalDate? =
         toEpochMillis(iso, zoneId)?.let {
@@ -43,7 +48,9 @@ object IsoDateTimeParser {
     fun toDisplayKorean(iso: String, zoneId: ZoneId = ZoneId.systemDefault()): String? =
         toEpochMillis(iso, zoneId)?.let {
             val dt = Instant.ofEpochMilli(it).atZone(zoneId)
-            "%d월 %d일 %s".format(dt.monthValue, dt.dayOfMonth, timeKorean(dt.hour, dt.minute))
+            // [WHY] 종일 일정은 시각이 없다 — "오전 12:00"으로 읽히면 자정 일정으로 오해된다(0.33.0).
+            val time = if (isDateOnly(iso)) ALL_DAY else timeKorean(dt.hour, dt.minute)
+            "%d월 %d일 %s".format(dt.monthValue, dt.dayOfMonth, time)
         }
 
     /**
@@ -54,7 +61,7 @@ object IsoDateTimeParser {
     fun toDisplayTimeKorean(iso: String, zoneId: ZoneId = ZoneId.systemDefault()): String? =
         toEpochMillis(iso, zoneId)?.let {
             val dt = Instant.ofEpochMilli(it).atZone(zoneId)
-            timeKorean(dt.hour, dt.minute)
+            if (isDateOnly(iso)) ALL_DAY else timeKorean(dt.hour, dt.minute)
         }
 
     /**
@@ -113,4 +120,6 @@ object IsoDateTimeParser {
         val hour12 = if (hour % 12 == 0) 12 else hour % 12
         return "%s %d:%02d".format(amPm, hour12, minute)
     }
+
+    private const val ALL_DAY = "종일"
 }

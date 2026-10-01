@@ -42,4 +42,12 @@ class IsoDateTimeParserDisplayTest {
     fun `파싱할 수 없으면 null 이다`() {
         assertNull(IsoDateTimeParser.toDisplayDateKorean("내일 오후", seoul))
     }
+
+    @Test
+    fun `날짜만 있는 종일 일정은 시각 대신 종일로 표기한다`() {
+        val seoul = java.time.ZoneId.of("Asia/Seoul")
+        assertEquals("종일", IsoDateTimeParser.toDisplayTimeKorean("2026-08-15", seoul))
+        assertEquals("8월 15일 종일", IsoDateTimeParser.toDisplayKorean("2026-08-15", seoul))
+        assertEquals("시각이 있으면 그대로", "오후 3:00", IsoDateTimeParser.toDisplayTimeKorean("2026-08-15T15:00:00", seoul))
+    }
 }

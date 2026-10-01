@@ -361,7 +361,7 @@ fun ScheduleContent(data: ScheduleData, sectionLabel: String = "오늘") {
 }
 
 @Composable
-fun TodayEventCard(event: CalendarEvent, stripColor: Color) {
+fun TodayEventCard(event: CalendarEvent, stripColor: Color, timeLabel: String? = null) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -381,7 +381,7 @@ fun TodayEventCard(event: CalendarEvent, stripColor: Color) {
             )
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp).weight(1f)) {
                 Text(
-                    text = formatIsoString(event.startIso),
+                    text = timeLabel ?: formatIsoString(event.startIso),
                     color = stripColor,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
