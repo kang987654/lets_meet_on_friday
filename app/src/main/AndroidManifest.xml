@@ -55,11 +55,13 @@
         <!-- [WHY] 문서 뷰어(0.34.0) — 다른 앱의 "연결 프로그램"에 뜨고, 모델 없이 열린다(MainActivity 와 분리).
              documentLaunchMode=intoExisting: 문서마다 최근 앱 목록에 따로 뜨고 같은 파일은 그 창을 다시 쓴다 — 채팅 태스크 위에
              쌓이지 않는다. MIME 목록은 DocumentType.VIEWABLE_MIME_TYPES 와 같게 유지한다. octet-stream 은 넣지 않는다
-             (모든 바이너리에 뜨는 스팸 방지 — 계획서 D4). -->
+             (모든 바이너리에 뜨는 스팸 방지 — 계획서 D4).
+             taskAffinity="" (0.35.0): "채팅으로 보내기"가 NEW_TASK 로 채팅을 열 때 뷰어 태스크 안에 MainActivity 가 하나 더 생기지 않게. -->
         <activity
             android:name=".feature.document.DocumentViewerActivity"
             android:exported="true"
             android:documentLaunchMode="intoExisting"
+            android:taskAffinity=""
             android:autoRemoveFromRecents="true"
             android:label="문서 보기"
             android:theme="@android:style/Theme.NoTitleBar">

@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kosmos.app.ui.component.glassEffect
 
 import com.kosmos.app.platform.share.SharedInput
@@ -60,7 +61,9 @@ fun ChatInputBar(
     // 자연스럽고, 헤더의 토글·설정 겹침 문제가 원천 소멸한다. 기본값은 E2E 계약(ChatScreen
     // 기본 인자 단독 compose) 때문에 필수다.
     webSearchEnabled: Boolean = false,
-    onToggleWebSearch: (Boolean) -> Unit = {}
+    onToggleWebSearch: (Boolean) -> Unit = {},
+    // 문서 파일(xlsx·docx·hwpx·PDF)을 읽는 중 — 기본값은 E2E 계약(단독 compose) 때문에 필수다(0.35.0 M4).
+    attachmentExtracting: Boolean = false
 ) {
     var textState by remember { mutableStateOf(TextFieldValue("")) }
 
@@ -95,9 +98,16 @@ fun ChatInputBar(
                 needsText = textState.text.isBlank(),
                 onClear = onClearSharedInput,
                 title = "Document Attached",
-                subtitle = sharedInput.fileName
+                subtitle = if (sharedInput.truncated) "${sharedInput.fileName} · 앞부분만" else sharedInput.fileName
             )
-            else -> Unit
+            else -> if (attachmentExtracting) {
+                androidx.compose.material3.Text(
+                    text = "문서를 읽는 중…",
+                    color = KosmosTheme.colors.textSecondary,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 24.dp, top = 8.dp)
+                )
+            }
         }
 
         Row(

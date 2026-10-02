@@ -47,6 +47,7 @@ class DocumentViewerActivity : ComponentActivity() {
             val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
             val state by viewModel.state.collectAsStateWithLifecycle()
             val textScaleStep by viewModel.textScaleStep.collectAsStateWithLifecycle()
+            val selection by viewModel.selection.collectAsStateWithLifecycle()
             LaunchedEffect(uri) { viewModel.load(uri, intent?.type) }
             KosmosTheme(themeMode = themeMode) {
                 DocumentViewerScreen(
@@ -54,10 +55,29 @@ class DocumentViewerActivity : ComponentActivity() {
                     onSelectSheet = viewModel::selectSheet,
                     onClose = ::finish,
                     textScaleStep = textScaleStep,
-                    onTextScale = viewModel::changeTextScale
+                    onTextScale = viewModel::changeTextScale,
+                    selection = selection,
+                    selectionActions = SelectionActions(
+                        start = viewModel::startSelection,
+                        cancel = viewModel::cancelSelection,
+                        row = viewModel::tapRow,
+                        block = viewModel::tapBlock,
+                        pdfPage = viewModel::onPdfPage,
+                        send = { if (viewModel.sendToChat()) openChat() }
+                    )
                 )
             }
         }
+    }
+
+    /**
+     * 채팅 화면을 앞으로 가져온다 — 이때 MainActivity 의 onStart 가 모델을 데운다(ADR-027).
+     *
+     * [WHY] NEW_TASK 는 채팅 태스크를 찾아 앞으로 가져오고, 없으면 새로 만든다. 뷰어 태스크는 친화도가 비어 있어
+     * (`taskAffinity=""`) 채팅 화면이 뷰어 태스크 안에 하나 더 생기지 않는다. 뷰어는 닫지 않는다 — 다른 범위를 또 보낼 수 있다.
+     */
+    private fun openChat() {
+        startActivity(Intent(this, com.kosmos.app.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     companion object {

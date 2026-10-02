@@ -78,6 +78,7 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val speakingMessageId by viewModel.speakingMessageId.collectAsStateWithLifecycle()
+    val attachmentExtracting by viewModel.attachmentExtracting.collectAsStateWithLifecycle()
     var showStatusSheet by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val clipboard = androidx.compose.ui.platform.LocalClipboard.current
@@ -169,6 +170,17 @@ fun ChatScreen(
         if (uri != null) {
             // [WHY] 동기 읽기다 — 큰 읽기를 하지 않는 것이 해법이다(AttachmentReader KDoc).
             val result = attachmentReader.read(uri)
+            if (result.documentFile) {
+                // 문서 파일은 IO 에서 읽는다 — 끝나면 공유 입력 흐름으로 프리뷰가 채워진다(0.35.0 M4).
+                viewModel.attachDocumentFile(uri)
+                return@rememberLauncherForActivityResult
+            }
+            if (result.rejected) {
+                snackbarScope.launch {
+                    snackbarHostState.showSnackbar("이 파일은 글자로 첨부할 수 없어요. PDF·엑셀·워드·한글(hwpx)·텍스트 파일을 첨부해 주세요.")
+                }
+                return@rememberLauncherForActivityResult
+            }
             if (result.truncated) {
                 snackbarScope.launch {
                     snackbarHostState.showSnackbar(
@@ -284,6 +296,7 @@ fun ChatScreen(
                 isRecording = uiState.isRecording,
                 sharedInput = uiState.sharedInput,
                 onClearSharedInput = { viewModel.clearSharedInput() },
+                attachmentExtracting = attachmentExtracting,
                 onSend = { text ->
                     if (text.isNotBlank()) {
                         viewModel.sendMessage(text)

@@ -60,7 +60,9 @@ fun DocumentViewerScreen(
     onSelectSheet: (Int) -> Unit,
     onClose: () -> Unit,
     textScaleStep: Int = 1,
-    onTextScale: (delta: Int) -> Unit = {}
+    onTextScale: (delta: Int) -> Unit = {},
+    selection: ChatSelection? = null,
+    selectionActions: SelectionActions = SelectionActions()
 ) {
     val colors = KosmosTheme.colors
     var zoom by rememberSaveable { mutableFloatStateOf(MIN_ZOOM) }
@@ -82,6 +84,11 @@ fun DocumentViewerScreen(
                 },
                 navigationIcon = { TextButton(onClick = onClose) { Text("닫기", color = colors.accent) } },
                 actions = {
+                    val ready = state is DocumentViewerState.Pdf || state is DocumentViewerState.Flow ||
+                        (state is DocumentViewerState.Spreadsheet && state.sheet != null)
+                    if (selection == null && ready) {
+                        TextButton(onClick = selectionActions.start) { Text("채팅으로", color = colors.accent) }
+                    }
                     if (state is DocumentViewerState.Flow) {
                         TextButton(onClick = { onTextScale(-1) }, enabled = textScaleStep > 0) { Text("가−", color = colors.accent, fontSize = 13.sp) }
                         TextButton(onClick = { onTextScale(1) }, enabled = textScaleStep < 2) { Text("가+", color = colors.accent, fontSize = 17.sp) }
@@ -97,8 +104,9 @@ fun DocumentViewerScreen(
             )
         },
         bottomBar = {
-            if (state is DocumentViewerState.Spreadsheet && state.sheetNames.size > 1) {
-                SheetTabs(state.sheetNames, state.selected, onSelectSheet)
+            when {
+                selection != null -> SelectionBar(selection, selectionActions)
+                state is DocumentViewerState.Spreadsheet && state.sheetNames.size > 1 -> SheetTabs(state.sheetNames, state.selected, onSelectSheet)
             }
         }
     ) { padding ->
@@ -106,22 +114,74 @@ fun DocumentViewerScreen(
             when (state) {
                 DocumentViewerState.Loading -> Centered { Loading("여는 중…") }
                 is DocumentViewerState.Failed -> Centered { Message(documentErrorMessage(state.error)) }
-                is DocumentViewerState.Pdf -> PdfView(state.pages, zoom, onZoomChange = { zoom = it })
+                is DocumentViewerState.Pdf -> PdfView(state.pages, zoom, onZoomChange = { zoom = it }, onPageChange = selectionActions.pdfPage)
                 is DocumentViewerState.Flow -> when {
                     state.document.blocks.isEmpty() -> Centered { Message("내용이 없는 문서예요") }
-                    else -> FlowView(state.document, state.images, textScaleOf(textScaleStep))
+                    else -> FlowView(
+                        state.document,
+                        state.images,
+                        textScaleOf(textScaleStep),
+                        selectedBlocks = (selection as? ChatSelection.Blocks)?.indices,
+                        onBlockClick = selectionActions.block
+                    )
                 }
                 is DocumentViewerState.Spreadsheet -> when {
                     state.sheetError != null -> Centered { Message(documentErrorMessage(state.sheetError)) }
                     state.sheet == null -> Centered { Loading("시트를 읽는 중…") }
                     state.sheet.rows.isEmpty() -> Centered { Message("빈 시트예요") }
-                    else -> SheetView(state.sheet, onCellLongPress = { detailText = it })
+                    else -> SheetView(
+                        state.sheet,
+                        onCellLongPress = { detailText = it },
+                        selectedRows = (selection as? ChatSelection.Rows)?.let { it.range ?: it.anchor?.let { a -> a..a } },
+                        onRowNumberClick = if (selection is ChatSelection.Rows) selectionActions.row else null
+                    )
                 }
             }
         }
     }
 
     detailText?.let { text -> CellDetailDialog(text, onDismiss = { detailText = null }) }
+}
+
+/** "채팅으로 보내기" 화면 동작 — 기본값은 아무것도 하지 않는다(테스트·미리보기에서 화면만 그릴 때). */
+data class SelectionActions(
+    val start: () -> Unit = {},
+    val cancel: () -> Unit = {},
+    val row: (Int) -> Unit = {},
+    val block: (Int) -> Unit = {},
+    val pdfPage: (Int) -> Unit = {},
+    val send: () -> Unit = {}
+)
+
+/** 고르는 중 하단 막대 — 안내 또는 "n / 300자", 취소·보내기. */
+@Composable
+private fun SelectionBar(selection: ChatSelection, actions: SelectionActions) {
+    val colors = KosmosTheme.colors
+    val preview = selection.preview
+    val message = when {
+        preview != null -> buildString {
+            append("${preview.text.length} / ${CHAT_CAP}자")
+            if (preview.truncated) append(" · 앞부분만 보내요(전체 ${preview.fullLength}자)")
+        }
+        selection is ChatSelection.Rows && selection.anchor == null -> "보낼 시작 행의 번호를 누르세요"
+        selection is ChatSelection.Rows -> "끝 행의 번호를 누르세요"
+        selection is ChatSelection.Blocks -> "보낼 문단·표를 누르세요"
+        selection is ChatSelection.PdfPage && selection.unsupported -> "이 기기에서는 PDF 글자를 꺼낼 수 없어요(안드로이드 15 이상)"
+        else -> "이 페이지에서 보낼 글자를 찾는 중이에요"
+    }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(colors.glassMid)
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Text(message, color = if (preview?.truncated == true) colors.warning else colors.textSecondary, fontSize = 12.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = actions.cancel) { Text("취소", color = colors.textSecondary) }
+            TextButton(onClick = actions.send, enabled = preview != null) { Text("채팅으로 보내기", color = if (preview != null) colors.accent else colors.textMuted) }
+        }
+    }
 }
 
 @Composable
@@ -212,3 +272,5 @@ internal fun nextZoom(zoom: Float): Float = when {
     zoom < 2f -> 2f
     else -> MIN_ZOOM
 }
+
+private val CHAT_CAP = com.kosmos.app.core.common.Constants.MAX_ATTACHED_DOC_CHARS

@@ -17,12 +17,14 @@ import javax.inject.Singleton
 sealed class SharedInput {
     data class Text(val content: String) : SharedInput()
     data class Image(val uri: Uri, val sizeBytes: Long) : SharedInput()
-    data class Document(val uri: Uri, val fileName: String, val textContent: String) : SharedInput()
+    /** @property truncated 문서가 길어 앞부분만 담았다(입력바 안내용, 0.35.0). */
+    data class Document(val uri: Uri, val fileName: String, val textContent: String, val truncated: Boolean = false) : SharedInput()
 }
 
 @Singleton
 class ShareIntentHandler @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
+    private val documentExtractor: com.kosmos.app.platform.document.DocumentTextExtractor
 ) {
     // [WHY] replay=1이 없으면 콜드 스타트 시(구독자인 ChatViewModel이 생기기 전) 공유 인텐트가 유실된다.
     // 늦은 구독자도 마지막 공유를 수신하며, 소비 후 clearConsumed()로 재전달을 막는다.
@@ -35,6 +37,40 @@ class ShareIntentHandler @Inject constructor(
         kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
     )
     val sharedInputFlow = _sharedInputFlow.asSharedFlow()
+
+    /**
+     * 앱 안에서 만든 첨부를 넘긴다 — 문서 뷰어의 "채팅으로 보내기"(0.35.0). 같은 replay 계약이라 채팅 화면이 늦게 떠도 받는다.
+     */
+    fun offer(input: SharedInput) {
+        _sharedInputFlow.tryEmit(AppResult.Success(input))
+    }
+
+    private val _extracting = kotlinx.coroutines.flow.MutableStateFlow(false)
+
+    /** 입력바에서 고른 문서 파일을 읽는 중 — 입력바가 "읽는 중…"을 보인다. */
+    val extracting: kotlinx.coroutines.flow.StateFlow<Boolean> = _extracting
+
+    /**
+     * 입력바에서 고른 문서 파일(xlsx·docx·hwpx·PDF)을 IO 에서 글자로 바꿔 첨부로 넘긴다 (0.35.0 M4).
+     *
+     * [WHY] 텍스트 파일 첨부는 E2E waitForIdle 경합 때문에 동기다(AttachmentReader KDoc). 문서 파일은 압축을 풀고 파싱해야 해 메인에서
+     * 할 수 없다 — 이 경로만 비동기로 두고 결과는 같은 replay 흐름으로 보낸다. 실패는 "지원하지 않는 파일 형식" 안내로.
+     */
+    fun offerDocumentFile(uri: Uri, mimeType: String?) {
+        _extracting.value = true
+        ioScope.launch {
+            val result = documentExtractor.extract(uri, mimeType)
+            _extracting.value = false
+            when (result) {
+                is com.kosmos.app.domain.document.DocumentResult.Ok -> {
+                    val (name, text) = result.value
+                    _sharedInputFlow.tryEmit(AppResult.Success(SharedInput.Document(uri, name, text.text, text.truncated)))
+                }
+                is com.kosmos.app.domain.document.DocumentResult.Fail ->
+                    _sharedInputFlow.tryEmit(AppResult.Failure(AppError.UnsupportedImageFormat("문서 첨부 실패: ${result.error}")))
+            }
+        }
+    }
 
     /** 공유 입력을 소비한 뒤 호출 — replay 캐시를 비워 재구독 시 중복 처리를 방지합니다. */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)

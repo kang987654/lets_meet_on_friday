@@ -54,7 +54,9 @@ import com.kosmos.app.ui.theme.KosmosTheme
 fun SheetView(
     sheet: Sheet,
     modifier: Modifier = Modifier,
-    onCellLongPress: (String) -> Unit = {}
+    onCellLongPress: (String) -> Unit = {},
+    selectedRows: IntRange? = null,
+    onRowNumberClick: ((Int) -> Unit)? = null
 ) {
     val layout = remember(sheet) { SheetLayout.of(sheet) }
     val horizontal = rememberScrollState()
@@ -90,11 +92,13 @@ fun SheetView(
                 stickyHeader(key = "header") {
                     Column(Modifier.background(colors.surface)) {
                         HeaderRow(layout, frozenRange, scrollRange, horizontal)
-                        frozenRows.forEach { row -> DataRow(row, layout, frozenRange, scrollRange, horizontal, onCellLongPress) }
+                        frozenRows.forEach { row ->
+                            DataRow(row, layout, frozenRange, scrollRange, horizontal, onCellLongPress, selectedRows?.contains(row.index) == true, onRowNumberClick)
+                        }
                     }
                 }
                 items(bodyRows, key = { it.index }) { row ->
-                    DataRow(row, layout, frozenRange, scrollRange, horizontal, onCellLongPress)
+                    DataRow(row, layout, frozenRange, scrollRange, horizontal, onCellLongPress, selectedRows?.contains(row.index) == true, onRowNumberClick)
                 }
             }
         }
@@ -120,12 +124,19 @@ private fun DataRow(
     frozen: IntRange,
     scroll: IntRange,
     horizontal: ScrollState,
-    onCellLongPress: (String) -> Unit
+    onCellLongPress: (String) -> Unit,
+    selected: Boolean,
+    onRowNumberClick: ((Int) -> Unit)?
 ) {
     val texts = remember(row) { row.cells.associate { it.column to it.text } }
     val merges = layout.mergesAt(row.index)
-    Row {
-        GridCell((row.index + 1).toString(), ROW_NUMBER_WIDTH, header = true)
+    Row(if (selected) Modifier.background(KosmosTheme.colors.accentDim) else Modifier) {
+        GridCell(
+            (row.index + 1).toString(),
+            ROW_NUMBER_WIDTH,
+            header = true,
+            onClick = onRowNumberClick?.let { click -> { click(row.index) } }
+        )
         Segment(row.index, texts, merges, frozen, layout, onCellLongPress)
         Row(Modifier.horizontalScroll(horizontal)) {
             Segment(row.index, texts, merges, scroll, layout, onCellLongPress)
@@ -165,7 +176,8 @@ private fun GridCell(
     width: Dp,
     header: Boolean = false,
     centered: Boolean = false,
-    onLongPress: ((String) -> Unit)? = null
+    onLongPress: ((String) -> Unit)? = null,
+    onClick: (() -> Unit)? = null
 ) {
     val colors = KosmosTheme.colors
     val line = colors.border
@@ -180,9 +192,11 @@ private fun GridCell(
                 drawLine(line, Offset(0f, size.height - stroke / 2), Offset(size.width, size.height - stroke / 2), stroke)
             }
             .then(
-                if (onLongPress != null && text.isNotEmpty()) {
-                    Modifier.combinedClickable(onClick = {}, onLongClick = { onLongPress(text) })
-                } else Modifier
+                when {
+                    onClick != null -> Modifier.combinedClickable(onClick = onClick)
+                    onLongPress != null && text.isNotEmpty() -> Modifier.combinedClickable(onClick = {}, onLongClick = { onLongPress(text) })
+                    else -> Modifier
+                }
             )
             .padding(horizontal = 6.dp),
         contentAlignment = when {

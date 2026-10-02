@@ -280,6 +280,14 @@ class ChatViewModel @Inject constructor(
         _uiState.update { it.copy(sharedInput = input) }
     }
 
+    /** 입력바에서 고른 문서 파일 — 글자 추출은 IO 에서, 결과는 공유 입력 흐름으로 돌아온다(0.35.0 M4). */
+    fun attachDocumentFile(uri: Uri) {
+        shareIntentHandler.offerDocumentFile(uri, runCatching { context.contentResolver.getType(uri) }.getOrNull())
+    }
+
+    /** 문서 파일을 읽는 중 — 입력바 안내. */
+    val attachmentExtracting: StateFlow<Boolean> = shareIntentHandler.extracting
+
     private fun observeThermalWarning() {
         viewModelScope.launch {
             runtimeMetricsCollector.thermalWarning.collectLatest { warning ->

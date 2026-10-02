@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -65,12 +66,15 @@ fun FlowView(
     document: FlowDocument,
     images: suspend (entryName: String, widthPx: Int) -> Bitmap?,
     scale: Float,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selectedBlocks: Set<Int>? = null,
+    onBlockClick: (Int) -> Unit = {}
 ) {
     val colors = KosmosTheme.colors
     BoxWithConstraints(modifier.fillMaxSize().background(colors.surface)) {
         val widthPx = with(LocalDensity.current) { maxWidth.roundToPx() }
-        SelectionContainer {
+        // [WHY] 고르는 중에는 글자 선택을 끈다 — 길게 눌러 선택과 탭으로 블록 고르기가 같은 제스처를 다툰다.
+        OptionalSelection(enabled = selectedBlocks == null) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().testTag(FLOW_LIST_TAG),
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
@@ -81,8 +85,20 @@ fun FlowView(
                         Text("문서가 길어서 앞부분만 보여요", color = colors.warning, fontSize = 12.sp)
                     }
                 }
-                itemsIndexed(document.blocks, key = { index, _ -> index }) { _, block ->
-                    FlowBlockView(block, images, widthPx, scale)
+                itemsIndexed(document.blocks, key = { index, _ -> index }) { index, block ->
+                    if (selectedBlocks == null) {
+                        FlowBlockView(block, images, widthPx, scale)
+                    } else {
+                        val picked = index in selectedBlocks
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(if (picked) colors.accentDim else androidx.compose.ui.graphics.Color.Transparent)
+                                .border(1.dp, if (picked) colors.accent else colors.border)
+                                .clickable { onBlockClick(index) }
+                                .padding(6.dp)
+                        ) { FlowBlockView(block, images, widthPx, scale) }
+                    }
                 }
             }
         }
@@ -159,6 +175,11 @@ private fun FlowImage(entryName: String, images: suspend (String, Int) -> Bitmap
             modifier = Modifier.fillMaxWidth().aspectRatio(image.width.toFloat() / image.height)
         )
     }
+}
+
+@Composable
+private fun OptionalSelection(enabled: Boolean, content: @Composable () -> Unit) {
+    if (enabled) SelectionContainer { content() } else content()
 }
 
 private fun annotated(spans: List<Span>): AnnotatedString = buildAnnotatedString {

@@ -12,6 +12,7 @@ import com.kosmos.app.domain.document.Sheet
 import com.kosmos.app.platform.document.DocumentOpener
 import com.kosmos.app.platform.document.OpenedDocument
 import com.kosmos.app.testing.InMemoryPreferences
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -56,6 +57,11 @@ class DocumentViewerViewModelTest {
         }
     }
 
+    private val offered = mutableListOf<com.kosmos.app.platform.share.SharedInput>()
+    private val shareHandler: com.kosmos.app.platform.share.ShareIntentHandler = mockk {
+        every { offer(any()) } answers { offered += firstArg<com.kosmos.app.platform.share.SharedInput>() }
+    }
+
     private val store = ViewModelStore()
     private lateinit var viewModel: DocumentViewerViewModel
 
@@ -64,7 +70,7 @@ class DocumentViewerViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T = DocumentViewerViewModel(opener, SettingsDataStore(InMemoryPreferences())) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T = DocumentViewerViewModel(opener, SettingsDataStore(InMemoryPreferences()), shareHandler) as T
         }
         viewModel = ViewModelProvider.create(store, factory)[DocumentViewerViewModel::class]
     }
@@ -104,6 +110,63 @@ class DocumentViewerViewModelTest {
         viewModel.changeTextScale(1)
         viewModel.changeTextScale(1)
         assertEquals("크게(2)에서 멈춘다", 2, viewModel.textScaleStep.value)
+    }
+
+    @Test
+    fun `행 번호 두 번으로 범위를 고르고 채팅으로 넘긴다`() {
+        val sheet = com.kosmos.app.domain.document.Sheet(
+            name = "1월",
+            rows = (0..5).map { r -> com.kosmos.app.domain.document.SheetRow(r, listOf(com.kosmos.app.domain.document.SheetCell(0, if (r == 0) "항목" else "값$r"))) },
+            columnCount = 1
+        )
+        result = DocumentResult.Ok(OpenedDocument.Spreadsheet("가계부.xlsx", listOf("1월"), { _, _ -> DocumentResult.Ok(sheet) }))
+        viewModel.load(uri)
+        assertEquals("고르기 전에는 보낼 것이 없다", false, viewModel.sendToChat())
+
+        viewModel.startSelection()
+        viewModel.tapRow(2)
+        viewModel.tapRow(4)
+        val rows = viewModel.selection.value as ChatSelection.Rows
+        assertEquals(2..4, rows.range)
+        assertTrue("머리 행이 앞에 붙는다", rows.preview!!.text.startsWith("| 항목 |"))
+
+        viewModel.tapRow(1)
+        assertEquals("범위가 정해진 뒤의 탭은 새로 시작", 1..1, (viewModel.selection.value as ChatSelection.Rows).range)
+        viewModel.tapRow(3)
+
+        assertTrue(viewModel.sendToChat())
+        val doc = offered.single() as com.kosmos.app.platform.share.SharedInput.Document
+        assertEquals("가계부.xlsx", doc.fileName)
+        assertTrue(doc.textContent.contains("값1") && doc.textContent.contains("값3") && !doc.textContent.contains("값4"))
+        assertEquals("보낸 뒤에는 고르기를 끝낸다", null, viewModel.selection.value)
+    }
+
+    @Test
+    fun `읽기 모드 블록은 눌러서 넣고 빼고, PDF 글자를 못 꺼내는 기기는 알린다`() {
+        val doc = com.kosmos.app.domain.document.FlowDocument(
+            listOf("첫 문단", "둘째 문단", "셋째 문단").map { com.kosmos.app.domain.document.FlowBlock.Paragraph(listOf(com.kosmos.app.domain.document.Span(it))) }
+        )
+        result = DocumentResult.Ok(OpenedDocument.Flow("회의록.docx", doc))
+        viewModel.load(uri)
+        viewModel.startSelection()
+        viewModel.tapBlock(2)
+        viewModel.tapBlock(0)
+        viewModel.tapBlock(2)
+        val blocks = viewModel.selection.value as ChatSelection.Blocks
+        assertEquals(setOf(0), blocks.indices)
+        assertEquals("첫 문단", blocks.preview?.text)
+
+        val pages = object : com.kosmos.app.platform.document.PdfPages {
+            override val pageCount = 3
+            override fun aspectRatio(index: Int) = 1.4f
+            override suspend fun render(index: Int, widthPx: Int) = null
+            override fun close() = Unit
+        }
+        result = DocumentResult.Ok(OpenedDocument.Pdf("보고서.pdf", pages))
+        viewModel.load(mockk())
+        viewModel.startSelection()
+        assertTrue((viewModel.selection.value as ChatSelection.PdfPage).unsupported)
+        assertEquals(false, viewModel.sendToChat())
     }
 
     @Test

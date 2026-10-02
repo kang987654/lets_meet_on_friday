@@ -75,6 +75,9 @@ interface PdfPages : Closeable {
 
     /** 화면 폭 [widthPx] 로 그린 페이지. 실패하면 null. */
     suspend fun render(index: Int, widthPx: Int): Bitmap?
+
+    /** 페이지 글자(채팅으로 보내기). 이 기기에서 꺼낼 수 없으면 null — 안드로이드 15(SDK 확장 13) 이상에서만 된다. */
+    suspend fun text(index: Int): String? = null
 }
 
 /**
@@ -320,6 +323,17 @@ private class AndroidPdfPages(
         }?.also { cache.put(index, it) }
     }
 
+    override suspend fun text(index: Int): String? = lock.withLock {
+        if (closed || index !in 0 until pageCount || !pdfTextSupported()) return@withLock null
+        withContext(Dispatchers.IO) { pageText(index) }
+    }
+
+    // [WHY] 글자 추출 API(PdfRenderer.Page.getTextContents)는 안드로이드 15 + SDK 확장 13 부터다(0.35.0 M0 확인).
+    @android.annotation.SuppressLint("NewApi")
+    private fun pageText(index: Int): String? = runCatching {
+        renderer.openPage(index).use { page -> page.textContents.joinToString("\n") { it.text } }
+    }.onFailure { AppLogger.w("PdfPages", "페이지 $index 글자 추출 실패: ${it.message}") }.getOrNull()
+
     override fun close() {
         // [WHY] 렌더 중에 닫으면 네이티브 크래시 — 렌더와 같은 잠금 뒤에서 닫는다(뷰모델 onCleared 는 비중단 문맥이라 별도 코루틴).
         CoroutineScope(Dispatchers.IO).launch { lock.withLock { closeNow() } }
@@ -373,3 +387,8 @@ private class FlowImages(private val source: ZipSource) {
         const val MAX_IMAGE_BYTES = 20 * 1024 * 1024
     }
 }
+
+/** 이 기기가 PDF 글자 추출 API 를 가졌는가 — 안드로이드 15 이상 + S 확장 13 이상. */
+internal fun pdfTextSupported(): Boolean =
+    android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.VANILLA_ICE_CREAM &&
+        android.os.ext.SdkExtensions.getExtensionVersion(android.os.Build.VERSION_CODES.S) >= 13
