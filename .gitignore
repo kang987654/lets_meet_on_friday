@@ -64,6 +64,19 @@ scratch/lab/exp33_summaries.json
 scratch/lab/exp33_summaries_single.json
 scratch/lab/exp36_facts.json
 scratch/lab/exp37_results.json
+# 실험 실행 출력 — 판정 수치는 CHANGELOG 에 옮긴다. 스크립트(exp*.py)만 추적한다
+scratch/lab/exp*_out*.txt
+scratch/lab/exp*_err*.txt
+# 테스트(PromptFixtureExportTest 등)가 앱의 실제 프롬프트를 매번 다시 내보내는 픽스처 — 추적하면 테스트마다 "수정됨"이 된다.
+# 새 클론에서는 ./gradlew test 를 한 번 돌리면 생긴다. 손으로 만든 픽스처(음성·이미지·위키)는 계속 추적한다
+scratch/lab/fixtures/system_instruction.txt
+scratch/lab/fixtures/tools.txt
+scratch/lab/fixtures/turn_reminder.txt
+scratch/lab/fixtures/doc_turn_reminder.txt
+scratch/lab/fixtures/extract_system.txt
+scratch/lab/fixtures/extract_user.txt
+scratch/lab/fixtures/transcribe_system.txt
+scratch/lab/fixtures/transcribe_user.txt
 scratch/lab/__pycache__/
 __pycache__/
 *.pyc

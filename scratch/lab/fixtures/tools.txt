@@ -1,6 +1,0 @@
-add_schedule
-get_schedule
-add_memory
-search_memory
-search_wikipedia
-add_reminder

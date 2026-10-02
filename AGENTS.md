@@ -24,8 +24,9 @@
 
 ### 커밋 규칙
 - **커밋 메시지는 한 줄 제목만** — 본문/불릿 없음 (사용자 결정).
-- **`git add -A` 전에 staged 목록을 확인할 것** — `./gradlew test` 가 `scratch/lab/fixtures/*` 를
-  재생성한다(PromptFixtureExport). 의도치 않은 픽스처 갱신이 기능 커밋에 딸려 들어간 전례가 있다.
+- **`git add -A` 전에 staged 목록을 확인할 것.** `./gradlew test` 가 다시 만드는 프롬프트 픽스처
+  (`scratch/lab/fixtures/system_instruction.txt` 등)와 실험 출력(`exp*_out*.txt`·`exp*_err*.txt`)은 `.gitignore`
+  대상이다(0.35.1 — 추적하면 테스트마다 "수정됨"이 됐다). 새 클론에서는 테스트를 한 번 돌려야 픽스처가 생긴다.
 - `scratch/` 에서 **실제 대화 파생 데이터**(kosmos_db, exp33 출력 등)는 절대 커밋하지 않는다 —
   `.gitignore` 의 명시 규칙 참조. 스크립트(코드)는 `scratch/lab/` 으로 추적된다.
 - **파일은 UTF-8(No BOM)** — 한글 주석·KDoc 이 많다. Windows PowerShell 의 기본 인코딩(ANSI)으로
