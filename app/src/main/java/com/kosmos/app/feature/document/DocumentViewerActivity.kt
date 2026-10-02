@@ -46,9 +46,16 @@ class DocumentViewerActivity : ComponentActivity() {
         setContent {
             val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
             val state by viewModel.state.collectAsStateWithLifecycle()
+            val textScaleStep by viewModel.textScaleStep.collectAsStateWithLifecycle()
             LaunchedEffect(uri) { viewModel.load(uri, intent?.type) }
             KosmosTheme(themeMode = themeMode) {
-                DocumentViewerScreen(state = state, onSelectSheet = viewModel::selectSheet, onClose = ::finish)
+                DocumentViewerScreen(
+                    state = state,
+                    onSelectSheet = viewModel::selectSheet,
+                    onClose = ::finish,
+                    textScaleStep = textScaleStep,
+                    onTextScale = viewModel::changeTextScale
+                )
             }
         }
     }

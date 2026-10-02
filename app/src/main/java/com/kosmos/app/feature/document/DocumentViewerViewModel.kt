@@ -1,10 +1,13 @@
 package com.kosmos.app.feature.document
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kosmos.app.core.logging.AppLogger
+import com.kosmos.app.data.local.prefs.SettingsDataStore
 import com.kosmos.app.domain.document.DocumentError
+import com.kosmos.app.domain.document.FlowDocument
 import com.kosmos.app.domain.document.DocumentResult
 import com.kosmos.app.domain.document.Sheet
 import com.kosmos.app.platform.document.DocumentOpener
@@ -13,8 +16,10 @@ import com.kosmos.app.platform.document.PdfPages
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -37,6 +42,13 @@ sealed interface DocumentViewerState {
 
     data class Pdf(val fileName: String, val pages: PdfPages) : DocumentViewerState
 
+    /** docx·hwpx 읽기 모드. [images] 는 zip 안 이미지를 화면 폭에 맞춰 읽는다. */
+    data class Flow(
+        val fileName: String,
+        val document: FlowDocument,
+        val images: suspend (entryName: String, widthPx: Int) -> Bitmap?
+    ) : DocumentViewerState
+
     data class Failed(val error: DocumentError) : DocumentViewerState
 }
 
@@ -46,7 +58,7 @@ sealed interface DocumentViewerState {
  *
  * ### Architecture Context
  * - **Layer**: Feature (Document)
- * - **Dependencies**: [DocumentOpener] 하나 — **모델·DB 를 주입하지 않는다**(뷰어는 모델 없이 열린다, 계획서 고정 제약)
+ * - **Dependencies**: [DocumentOpener], [SettingsDataStore](글자 크기) — **모델·DB 를 주입하지 않는다**(뷰어는 모델 없이 열린다, 계획서 고정 제약)
  *
  * ### Key Flow
  * 1. [load] — 같은 URI 면 다시 열지 않는다(화면 회전·재구성).
@@ -55,8 +67,17 @@ sealed interface DocumentViewerState {
  */
 @HiltViewModel
 class DocumentViewerViewModel @Inject constructor(
-    private val opener: DocumentOpener
+    private val opener: DocumentOpener,
+    private val settings: SettingsDataStore
 ) : ViewModel() {
+
+    /** 읽기 모드 글자 크기 단계(0~2) — 기기에 기억한다(설정 DataStore, DB 아님). */
+    val textScaleStep: StateFlow<Int> = settings.docTextScaleStepFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 1)
+
+    fun changeTextScale(delta: Int) {
+        viewModelScope.launch { settings.saveDocTextScaleStep(textScaleStep.value + delta) }
+    }
 
     private val _state = MutableStateFlow<DocumentViewerState>(DocumentViewerState.Loading)
     val state: StateFlow<DocumentViewerState> = _state.asStateFlow()
@@ -83,6 +104,7 @@ class DocumentViewerViewModel @Inject constructor(
                     document = opened
                     when (opened) {
                         is OpenedDocument.Pdf -> _state.value = DocumentViewerState.Pdf(opened.fileName, opened.pages)
+                        is OpenedDocument.Flow -> _state.value = DocumentViewerState.Flow(opened.fileName, opened.document, opened::image)
                         is OpenedDocument.Spreadsheet -> {
                             _state.value = DocumentViewerState.Spreadsheet(opened.fileName, opened.sheetNames)
                             readSheet(opened, 0)

@@ -102,7 +102,7 @@ fun DocumentHomeScreen(
                 ) {
                     Text("📂  파일 열기", color = colors.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        "PDF · 엑셀(xlsx) · CSV — AI 를 켜지 않고 가볍게 열어요",
+                        "PDF · 엑셀(xlsx) · CSV · 워드(docx) · 한글(hwpx) — AI 를 켜지 않고 가볍게 열어요",
                         color = colors.textSecondary,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(top = 4.dp)
@@ -178,5 +178,7 @@ internal fun documentIcon(document: RecentDocument): String = when (DocumentType
     DocumentType.PDF -> "📕"
     DocumentType.XLSX -> "📊"
     DocumentType.CSV -> "📋"
+    DocumentType.DOCX -> "📘"
+    DocumentType.HWPX -> "📗"
     DocumentType.UNSUPPORTED -> "📄"
 }

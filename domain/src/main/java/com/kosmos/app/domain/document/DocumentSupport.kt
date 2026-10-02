@@ -42,12 +42,14 @@ sealed interface DocumentResult<out T> {
  * @property maxRows 시트 하나에서 읽는 행 상한 — 넘으면 앞부분만 보이고 `truncated`.
  * @property maxCells 시트 하나의 셀 상한(넓은 시트 대비).
  * @property maxCsvBytes csv 읽기 상한.
+ * @property maxBlocks 읽기 모드 문서(docx·hwpx)의 블록(문단·표·이미지) 상한.
  */
 data class DocumentLimits(
     val maxEntryBytes: Long = 50L * 1024 * 1024,
     val maxRows: Int = 20_000,
     val maxCells: Int = 400_000,
-    val maxCsvBytes: Long = 20L * 1024 * 1024
+    val maxCsvBytes: Long = 20L * 1024 * 1024,
+    val maxBlocks: Int = 20_000
 )
 
 /**

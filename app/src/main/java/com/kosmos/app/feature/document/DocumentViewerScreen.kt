@@ -58,7 +58,9 @@ import kotlinx.coroutines.launch
 fun DocumentViewerScreen(
     state: DocumentViewerState,
     onSelectSheet: (Int) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    textScaleStep: Int = 1,
+    onTextScale: (delta: Int) -> Unit = {}
 ) {
     val colors = KosmosTheme.colors
     var zoom by rememberSaveable { mutableFloatStateOf(MIN_ZOOM) }
@@ -67,6 +69,7 @@ fun DocumentViewerScreen(
     val title = when (state) {
         is DocumentViewerState.Spreadsheet -> state.fileName
         is DocumentViewerState.Pdf -> state.fileName
+        is DocumentViewerState.Flow -> state.fileName
         else -> "문서"
     }
 
@@ -79,6 +82,10 @@ fun DocumentViewerScreen(
                 },
                 navigationIcon = { TextButton(onClick = onClose) { Text("닫기", color = colors.accent) } },
                 actions = {
+                    if (state is DocumentViewerState.Flow) {
+                        TextButton(onClick = { onTextScale(-1) }, enabled = textScaleStep > 0) { Text("가−", color = colors.accent, fontSize = 13.sp) }
+                        TextButton(onClick = { onTextScale(1) }, enabled = textScaleStep < 2) { Text("가+", color = colors.accent, fontSize = 17.sp) }
+                    }
                     if (state is DocumentViewerState.Pdf) {
                         // 버튼은 1배 → 1.5배 → 2배 → 1배로 돈다(두 손가락 확대와 같은 값을 쓴다).
                         TextButton(onClick = { zoom = nextZoom(zoom) }) {
@@ -100,6 +107,10 @@ fun DocumentViewerScreen(
                 DocumentViewerState.Loading -> Centered { Loading("여는 중…") }
                 is DocumentViewerState.Failed -> Centered { Message(documentErrorMessage(state.error)) }
                 is DocumentViewerState.Pdf -> PdfView(state.pages, zoom, onZoomChange = { zoom = it })
+                is DocumentViewerState.Flow -> when {
+                    state.document.blocks.isEmpty() -> Centered { Message("내용이 없는 문서예요") }
+                    else -> FlowView(state.document, state.images, textScaleOf(textScaleStep))
+                }
                 is DocumentViewerState.Spreadsheet -> when {
                     state.sheetError != null -> Centered { Message(documentErrorMessage(state.sheetError)) }
                     state.sheet == null -> Centered { Loading("시트를 읽는 중…") }
@@ -189,11 +200,11 @@ private fun Message(text: String) {
 
 /** 읽기 실패 사유 → 사용자 안내. */
 internal fun documentErrorMessage(error: DocumentError): String = when (error) {
-    DocumentError.UNSUPPORTED -> "이 형식은 아직 열 수 없어요.\nPDF · 엑셀(xlsx) · CSV 를 열 수 있어요."
+    DocumentError.UNSUPPORTED -> "이 형식은 아직 열 수 없어요.\nPDF · 엑셀(xlsx) · CSV · 워드(docx) · 한글(hwpx)을 열 수 있어요."
     DocumentError.UNREADABLE -> "파일을 열 수 없어요.\n권한이 만료됐거나 파일이 옮겨졌을 수 있어요."
     DocumentError.TOO_LARGE -> "파일이 너무 커서 열 수 없어요."
     DocumentError.CORRUPT -> "파일이 손상됐거나 내용이 형식과 달라요."
-    DocumentError.ENCRYPTED -> "암호가 걸린 문서이거나 지원하지 않는 옛 형식(xls)이에요."
+    DocumentError.ENCRYPTED -> "암호가 걸린 문서이거나 지원하지 않는 옛 형식(xls · doc · hwp)이에요."
 }
 
 internal fun nextZoom(zoom: Float): Float = when {

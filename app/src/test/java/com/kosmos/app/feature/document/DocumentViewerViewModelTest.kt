@@ -5,11 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewmodel.CreationExtras
+import com.kosmos.app.data.local.prefs.SettingsDataStore
 import com.kosmos.app.domain.document.DocumentError
 import com.kosmos.app.domain.document.DocumentResult
 import com.kosmos.app.domain.document.Sheet
 import com.kosmos.app.platform.document.DocumentOpener
 import com.kosmos.app.platform.document.OpenedDocument
+import com.kosmos.app.testing.InMemoryPreferences
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -62,7 +64,7 @@ class DocumentViewerViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T = DocumentViewerViewModel(opener) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T = DocumentViewerViewModel(opener, SettingsDataStore(InMemoryPreferences())) as T
         }
         viewModel = ViewModelProvider.create(store, factory)[DocumentViewerViewModel::class]
     }
@@ -88,6 +90,20 @@ class DocumentViewerViewModelTest {
         viewModel.selectSheet(1)
         viewModel.selectSheet(5)
         assertEquals("같은 탭·없는 탭은 읽지 않는다", listOf(0, 1), sheetReads)
+    }
+
+    @Test
+    fun `읽기 모드 문서와 글자 크기 단계`() {
+        val doc = com.kosmos.app.domain.document.FlowDocument(emptyList())
+        result = DocumentResult.Ok(OpenedDocument.Flow("보고서.hwpx", doc))
+        viewModel.load(uri)
+        val state = viewModel.state.value as DocumentViewerState.Flow
+        assertEquals("보고서.hwpx", state.fileName)
+
+        assertEquals(1, viewModel.textScaleStep.value)
+        viewModel.changeTextScale(1)
+        viewModel.changeTextScale(1)
+        assertEquals("크게(2)에서 멈춘다", 2, viewModel.textScaleStep.value)
     }
 
     @Test

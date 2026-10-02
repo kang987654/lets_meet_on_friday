@@ -16,6 +16,9 @@ import com.kosmos.app.domain.document.DocumentLimits
 import com.kosmos.app.domain.document.DocumentResult
 import com.kosmos.app.domain.document.DocumentSniffer
 import com.kosmos.app.domain.document.DocumentType
+import com.kosmos.app.domain.document.DocxReader
+import com.kosmos.app.domain.document.FlowDocument
+import com.kosmos.app.domain.document.HwpxReader
 import com.kosmos.app.domain.document.Sheet
 import com.kosmos.app.domain.document.XlsxReader
 import com.kosmos.app.domain.document.ZipSource
@@ -49,6 +52,17 @@ sealed interface OpenedDocument : Closeable {
 
     class Pdf(override val fileName: String, val pages: PdfPages) : OpenedDocument {
         override fun close() = pages.close()
+    }
+
+    /** docx·hwpx 읽기 모드. 이미지는 화면이 필요할 때 [image] 로 읽는다(화면 폭에 맞춰 줄여 디코드). */
+    class Flow(
+        override val fileName: String,
+        val document: FlowDocument,
+        private val imageLoader: suspend (entryName: String, widthPx: Int) -> Bitmap? = { _, _ -> null },
+        private val onClose: () -> Unit = {}
+    ) : OpenedDocument {
+        suspend fun image(entryName: String, widthPx: Int): Bitmap? = imageLoader(entryName, widthPx)
+        override fun close() = onClose()
     }
 }
 
@@ -105,6 +119,8 @@ class AndroidDocumentOpener @Inject constructor(
                 DocumentType.XLSX -> openXlsx(uri, name)
                 DocumentType.CSV -> openCsv(uri, name)
                 DocumentType.PDF -> openPdf(uri, name)
+                DocumentType.DOCX -> openFlow(uri, name) { DocxReader(it, limits).read() }
+                DocumentType.HWPX -> openFlow(uri, name) { HwpxReader(it, limits).read() }
                 DocumentType.UNSUPPORTED -> DocumentResult.Fail(DocumentError.UNSUPPORTED)
             }
         } catch (e: DocumentException) {
@@ -136,23 +152,52 @@ class AndroidDocumentOpener @Inject constructor(
         }
     }
 
-    private fun openXlsx(uri: Uri, name: String): DocumentResult<OpenedDocument> {
+    /** 캐시 복사본을 zip 으로 연다. 닫기는 [close] 하나로 zip 과 복사본을 함께 놓는다. */
+    private class OpenZip(val zip: ZipFile, val file: File) {
+        val source = ZipSource { entry -> zip.getEntry(entry)?.let { zip.getInputStream(it) } }
+        fun close() {
+            runCatching { zip.close() }
+            file.delete()
+        }
+    }
+
+    private fun openZip(uri: Uri): DocumentResult<OpenZip> {
         val file = copyToCache(uri)
         val head = file.inputStream().use { it.readNBytesCompat(8) }
         if (!DocumentSniffer.isZip(head)) {
             file.delete()
-            // [WHY] 암호 걸린 xlsx 는 OLE 복합 파일로 저장된다(옛 xls 와 같은 겉모양) — "손상됨"이 아니라 원인을 알려 준다.
+            // [WHY] 암호 걸린 xlsx·docx 는 OLE 복합 파일로 저장된다(옛 xls·doc·hwp 와 같은 겉모양) — "손상됨"이 아니라 원인을 알려 준다.
             return DocumentResult.Fail(if (DocumentSniffer.isOleCompound(head)) DocumentError.ENCRYPTED else DocumentError.CORRUPT)
         }
-        val zip = try {
-            ZipFile(file)
+        return try {
+            DocumentResult.Ok(OpenZip(ZipFile(file), file))
         } catch (e: java.io.IOException) {
             file.delete()
-            return DocumentResult.Fail(DocumentError.CORRUPT)
+            DocumentResult.Fail(DocumentError.CORRUPT)
         }
-        val close = { runCatching { zip.close() }; file.delete(); Unit }
-        val source = ZipSource { entry -> zip.getEntry(entry)?.let { zip.getInputStream(it) } }
-        val reader = XlsxReader(source, limits)
+    }
+
+    private fun openFlow(uri: Uri, name: String, read: (ZipSource) -> DocumentResult<FlowDocument>): DocumentResult<OpenedDocument> {
+        val opened = when (val z = openZip(uri)) {
+            is DocumentResult.Fail -> return z
+            is DocumentResult.Ok -> z.value
+        }
+        return when (val doc = read(opened.source)) {
+            is DocumentResult.Fail -> { opened.close(); doc }
+            is DocumentResult.Ok -> {
+                val images = FlowImages(opened.source)
+                DocumentResult.Ok(OpenedDocument.Flow(name, doc.value, images::load) { images.clear(); opened.close() })
+            }
+        }
+    }
+
+    private fun openXlsx(uri: Uri, name: String): DocumentResult<OpenedDocument> {
+        val opened = when (val z = openZip(uri)) {
+            is DocumentResult.Fail -> return z
+            is DocumentResult.Ok -> z.value
+        }
+        val close = { opened.close() }
+        val reader = XlsxReader(opened.source, limits)
         return when (val workbook = reader.open()) {
             is DocumentResult.Fail -> { close(); workbook }
             is DocumentResult.Ok -> {
@@ -292,5 +337,39 @@ private class AndroidPdfPages(
     private companion object {
         const val A4 = 1.4142f
         const val MAX_MEASURED_PAGES = 2000
+    }
+}
+
+/**
+ * [FlowImages]
+ * 읽기 모드 문서의 이미지 — zip 엔트리를 화면 폭에 맞춰 줄여 디코드하고(`inSampleSize`), 앱 힙의 1/16 까지 캐시한다.
+ *
+ * [WHY] 원본 그대로 디코드하면 휴대폰 사진(4000px)이 장당 60MB 를 넘는다. 2의 거듭제곱 표본화로 화면 폭 이상 중 가장 작은 크기를 고른다.
+ */
+private class FlowImages(private val source: ZipSource) {
+    private val lock = Mutex()
+    private val cache = object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 16 / 1024).toInt()) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount / 1024
+    }
+
+    suspend fun load(entryName: String, widthPx: Int): Bitmap? = lock.withLock {
+        cache.get(entryName)?.let { return@withLock it }
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val bytes = source.open(entryName)?.use { it.readBytes() } ?: return@runCatching null
+                if (bytes.size > MAX_IMAGE_BYTES) return@runCatching null
+                val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                var sample = 1
+                while (bounds.outWidth / (sample * 2) >= widthPx.coerceAtLeast(1)) sample *= 2
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+            }.getOrNull()
+        }?.also { cache.put(entryName, it) }
+    }
+
+    fun clear() = cache.evictAll()
+
+    private companion object {
+        const val MAX_IMAGE_BYTES = 20 * 1024 * 1024
     }
 }

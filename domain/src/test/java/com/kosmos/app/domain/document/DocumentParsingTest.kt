@@ -25,7 +25,11 @@ class DocumentParsingTest {
             Triple("application/vnd.ms-excel", "옛날.xls", DocumentType.UNSUPPORTED),
             Triple(null, "보고서.pdf", DocumentType.PDF),
             Triple(null, "확장자없음", DocumentType.UNSUPPORTED),
-            Triple("application/msword", "a.doc", DocumentType.UNSUPPORTED)
+            Triple("application/msword", "a.doc", DocumentType.UNSUPPORTED),
+            Triple("application/vnd.openxmlformats-officedocument.wordprocessingml.document", null, DocumentType.DOCX),
+            Triple("application/haansofthwpx", null, DocumentType.HWPX),
+            Triple("application/octet-stream", "공문.hwpx", DocumentType.HWPX),
+            Triple("application/x-hwp", "옛한글.hwp", DocumentType.UNSUPPORTED)
         )
         cases.forEach { (mime, name, expected) -> assertEquals("$mime / $name", expected, DocumentType.detect(mime, name)) }
     }

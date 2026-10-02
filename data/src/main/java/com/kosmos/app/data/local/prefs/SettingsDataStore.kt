@@ -27,6 +27,7 @@ class SettingsDataStore @Inject constructor(
         private val AUTO_EXTRACT_ENABLED_KEY = booleanPreferencesKey("auto_extract_enabled")
         private val TTS_AUTO_READ_KEY = booleanPreferencesKey("tts_auto_read")
         private val TTS_ENGINE_KEY = stringPreferencesKey("tts_engine")
+        private val DOC_TEXT_SCALE_KEY = intPreferencesKey("doc_text_scale_step")
 
         // [WHY] 557 = 09:17 (사용자 지정 기본, 2026-08-21). 자정 기준 분 단위 int 하나가
         // 단일 출처다 — 시/분을 따로 저장하면 갱신이 반쪽만 될 수 있다.
@@ -150,5 +151,13 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { prefs ->
             prefs[MAX_TOKENS_KEY] = tokens
         }
+    }
+
+    // [WHY] 문서 읽기 모드 글자 크기(0.35.0) — 단계 번호 하나만 저장한다(0=작게, 1=보통, 2=크게 — 계획서 3단계). 배율 값을 저장하면
+    // 단계 표를 바꿀 때 옛 값이 표에 없는 배율로 남는다.
+    val docTextScaleStepFlow: Flow<Int> = dataStore.data.map { (it[DOC_TEXT_SCALE_KEY] ?: 1).coerceIn(0, 2) }
+
+    suspend fun saveDocTextScaleStep(step: Int) {
+        dataStore.edit { prefs -> prefs[DOC_TEXT_SCALE_KEY] = step.coerceIn(0, 2) }
     }
 }

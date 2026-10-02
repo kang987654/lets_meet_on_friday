@@ -12,7 +12,7 @@ package com.kosmos.app.domain.document
  * Windows 관례대로 `application/vnd.ms-excel` 로 보내는 경우가 흔하다. MIME 만 믿으면 열 수 있는 파일을 거부한다.
  */
 enum class DocumentType {
-    PDF, XLSX, CSV, UNSUPPORTED;
+    PDF, XLSX, CSV, DOCX, HWPX, UNSUPPORTED;
 
     companion object {
         /** 뷰어 "연결 프로그램" 필터·파일 선택기에 쓰는 MIME 목록 — 매니페스트와 같게 유지한다. */
@@ -20,7 +20,12 @@ enum class DocumentType {
             "application/pdf",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "text/csv",
-            "text/comma-separated-values"
+            "text/comma-separated-values",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            // [WHY] hwpx MIME 은 표준이 하나로 정해지지 않았다 — 한컴 등록값과 기기·앱별 변종을 함께 받는다(0.35.0, 실기기 확인 항목).
+            "application/hwp+zip",
+            "application/haansofthwpx",
+            "application/vnd.hancom.hwpx"
         )
 
         private val BY_MIME = mapOf(
@@ -28,10 +33,14 @@ enum class DocumentType {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" to XLSX,
             "text/csv" to CSV,
             "text/comma-separated-values" to CSV,
-            "application/csv" to CSV
+            "application/csv" to CSV,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" to DOCX,
+            "application/hwp+zip" to HWPX,
+            "application/haansofthwpx" to HWPX,
+            "application/vnd.hancom.hwpx" to HWPX
         )
 
-        private val BY_EXTENSION = mapOf("pdf" to PDF, "xlsx" to XLSX, "csv" to CSV)
+        private val BY_EXTENSION = mapOf("pdf" to PDF, "xlsx" to XLSX, "csv" to CSV, "docx" to DOCX, "hwpx" to HWPX)
 
         fun detect(mimeType: String?, fileName: String?): DocumentType {
             mimeType?.lowercase()?.substringBefore(';')?.trim()?.let { mime -> BY_MIME[mime]?.let { return it } }
