@@ -34,6 +34,11 @@ abstract class PlatformModule {
     ): com.kosmos.app.platform.document.DocumentOpener
 
     @Binds
+    abstract fun bindDocumentAccess(
+        impl: com.kosmos.app.platform.document.AndroidDocumentAccess
+    ): com.kosmos.app.platform.document.DocumentAccess
+
+    @Binds
     abstract fun bindDownloadNotifier(
         impl: AndroidDownloadNotifier
     ): DownloadNotifier

@@ -67,6 +67,7 @@ fun MainScreen() {
                     onNavigateToAudit = { navigateFromDrawer(AppDestination.Audit.route) },
                     onNavigateToSettings = { navigateFromDrawer(AppDestination.Settings.route) },
                     onNavigateToMemory = { navigateFromDrawer(AppDestination.Memory.route) },
+                    onNavigateToDocuments = { navigateFromDrawer(AppDestination.Documents.route) },
                     onJumpToTimeline = { startAt ->
                         pendingJumpTimestamp = startAt
                         scope.launch { drawerState.close() }

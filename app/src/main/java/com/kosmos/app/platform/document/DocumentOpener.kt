@@ -96,7 +96,10 @@ class AndroidDocumentOpener @Inject constructor(
 
     override suspend fun open(uri: Uri, mimeTypeHint: String?): DocumentResult<OpenedDocument> = withContext(Dispatchers.IO) {
         try {
-            val name = displayName(uri) ?: uri.lastPathSegment?.substringAfterLast('/') ?: "문서"
+            // [WHY] 표시 이름이 없는 file:// URI 는 마지막 경로 조각을 쓰는데, 경로 구분자가 섞여 오는 경우(백슬래시 경로 등)가
+            // 있어 마지막 조각만 남긴다 — 상단 바에 전체 경로가 보이지 않게.
+            val name = (displayName(uri) ?: uri.lastPathSegment)
+                ?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() } ?: "문서"
             val mime = runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: mimeTypeHint
             when (DocumentType.detect(mime, name)) {
                 DocumentType.XLSX -> openXlsx(uri, name)

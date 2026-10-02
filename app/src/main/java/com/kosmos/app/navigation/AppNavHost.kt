@@ -98,6 +98,12 @@ fun AppNavHost(
             }
         }
 
+        composable(route = AppDestination.Documents.route) {
+            com.kosmos.app.feature.document.DocumentHomeScreen(
+                onBack = { navigateBack() }
+            )
+        }
+
         composable(route = AppDestination.MemoryCleanup.route) {
             com.kosmos.app.feature.cleanup.MemoryCleanupScreen(
                 onBack = { navigateBack() }

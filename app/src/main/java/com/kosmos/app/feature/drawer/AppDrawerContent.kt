@@ -53,6 +53,7 @@ fun AppDrawerContent(
     onNavigateToAudit: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToMemory: () -> Unit = {},
+    onNavigateToDocuments: () -> Unit = {},
     onJumpToTimeline: (startAt: Long) -> Unit = {},
     viewModel: DrawerViewModel = hiltViewModel()
 ) {
@@ -167,6 +168,9 @@ fun AppDrawerContent(
 
         Spacer(modifier = Modifier.height(12.dp))
         DrawerListItem(icon = "🧠", label = "메모 · 할 일", onClick = onNavigateToMemory)
+        // [WHY] 문서는 목록 줄로 둔다 — 최근 문서·파일 열기가 있는 "앱 속 앱" 화면으로 가는 입구다(0.34.0 사용자 결정, 타일 2×2 안 기각).
+        Spacer(modifier = Modifier.height(8.dp))
+        DrawerListItem(icon = "📄", label = "문서", onClick = onNavigateToDocuments)
         Spacer(modifier = Modifier.height(12.dp))
 
         // [WHY] 아이콘 크게(20sp)·라벨 작게 — 시안 A′ 검토에서의 사용자 결정 (2026-08-15).
