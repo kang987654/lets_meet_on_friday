@@ -189,9 +189,9 @@ class XlsxReaderTest {
 
     @Test
     fun `관계 파일 Target 경로 해석`() {
-        assertEquals("xl/worksheets/sheet1.xml", XlsxReader.resolve("xl", "worksheets/sheet1.xml"))
-        assertEquals("xl/worksheets/sheet1.xml", XlsxReader.resolve("xl", "/xl/worksheets/sheet1.xml"))
-        assertEquals("media/a.png", XlsxReader.resolve("xl/worksheets", "../../media/a.png"))
-        assertEquals("xl/workbook.xml", XlsxReader.resolve("", "xl/workbook.xml"))
+        assertEquals("xl/worksheets/sheet1.xml", resolvePartPath("xl", "worksheets/sheet1.xml"))
+        assertEquals("xl/worksheets/sheet1.xml", resolvePartPath("xl", "/xl/worksheets/sheet1.xml"))
+        assertEquals("media/a.png", resolvePartPath("xl/worksheets", "../../media/a.png"))
+        assertEquals("xl/workbook.xml", resolvePartPath("", "xl/workbook.xml"))
     }
 }

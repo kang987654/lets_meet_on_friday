@@ -20,46 +20,18 @@ import org.xml.sax.helpers.DefaultHandler
  * 변경 추적의 삭제 글자는 `w:delText` 라 자연히 빠진다. 제목은 스타일 id 가 아니라 **스타일 이름("heading N")·개요 수준**으로
  * 판별한다 — 한국어 워드는 제목 스타일 id 가 "1", "2" 같은 숫자다.
  */
-class DocxReader(private val zip: ZipSource, private val limits: DocumentLimits = DocumentLimits()) {
+class DocxReader(zip: ZipSource, private val limits: DocumentLimits = DocumentLimits()) {
 
-    fun read(): DocumentResult<FlowDocument> = try {
-        val documentPath = rootRels().byType("/officeDocument") ?: "word/document.xml"
+    private val pkg = XmlPackage(zip, limits)
+
+    fun read(): DocumentResult<FlowDocument> = readDocument {
+        val documentPath = pkg.mainPart(default = "word/document.xml")
         val dir = documentPath.substringBeforeLast('/', missingDelimiterValue = "")
-        val rels = RelsHandler().also { parse(XlsxReader.resolve(dir, "_rels/" + documentPath.substringAfterLast('/') + ".rels"), it, required = false) }
-        val styles = StylesHandler().also { parse(rels.byType("/styles")?.let { XlsxReader.resolve(dir, it) } ?: XlsxReader.resolve(dir, "styles.xml"), it, required = false) }
-        val body = BodyHandler(limits, styles.headingLevels, styles.listStyles) { id -> rels.byId[id]?.let { XlsxReader.resolve(dir, it) } }
-        parse(documentPath, body, required = true)
-        DocumentResult.Ok(body.sink.finish())
-    } catch (e: DocumentException) {
-        DocumentResult.Fail(e.error)
-    } catch (e: java.io.IOException) {
-        DocumentResult.Fail(DocumentError.CORRUPT)
-    }
-
-    private fun rootRels() = RelsHandler().also { parse("_rels/.rels", it, required = false) }
-
-    private fun parse(path: String, handler: DefaultHandler, required: Boolean) {
-        val input = zip.open(path)
-        if (input == null) {
-            if (required) throw DocumentException(DocumentError.CORRUPT)
-            return
-        }
-        LimitedInputStream(input, limits.maxEntryBytes).use { parseXml(it, handler) }
-    }
-
-    private class RelsHandler : DefaultHandler() {
-        val byId = mutableMapOf<String, String>()
-        private val types = mutableListOf<Pair<String, String>>()
-
-        fun byType(suffix: String): String? = types.firstOrNull { it.first.endsWith(suffix) }?.second
-
-        override fun startElement(uri: String?, localName: String, qName: String?, attributes: Attributes) {
-            if (localName != "Relationship") return
-            if (attributes.getValue("TargetMode") == "External") return // 하이퍼링크 등 — zip 안 파일이 아니다
-            val target = attributes.getValue("Target") ?: return
-            attributes.getValue("Id")?.let { byId[it] = target }
-            attributes.getValue("Type")?.let { types += it to target }
-        }
+        val rels = pkg.relationshipsOf(documentPath)
+        val styles = StylesHandler().also { pkg.parse(rels.byType("/styles") ?: resolvePartPath(dir, "styles.xml"), it, required = false) }
+        val body = BodyHandler(limits, styles.headingLevels, styles.listStyles, rels::target)
+        pkg.parse(documentPath, body, required = true)
+        body.sink.finish()
     }
 
     /** 스타일 id → 제목 수준, 그리고 목록 스타일 id. */

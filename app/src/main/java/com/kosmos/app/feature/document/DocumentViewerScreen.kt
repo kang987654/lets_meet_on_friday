@@ -68,12 +68,7 @@ fun DocumentViewerScreen(
     var zoom by rememberSaveable { mutableFloatStateOf(MIN_ZOOM) }
     var detailText by remember { mutableStateOf<String?>(null) }
 
-    val title = when (state) {
-        is DocumentViewerState.Spreadsheet -> state.fileName
-        is DocumentViewerState.Pdf -> state.fileName
-        is DocumentViewerState.Flow -> state.fileName
-        else -> "문서"
-    }
+    val title = state.fileName ?: "문서"
 
     Scaffold(
         containerColor = colors.bg,

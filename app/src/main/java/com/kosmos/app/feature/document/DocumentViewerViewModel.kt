@@ -57,6 +57,15 @@ sealed interface DocumentViewerState {
     data class Failed(val error: DocumentError) : DocumentViewerState
 }
 
+/** 연 문서의 파일 이름 — 읽는 중·실패면 null. */
+val DocumentViewerState.fileName: String?
+    get() = when (this) {
+        is DocumentViewerState.Spreadsheet -> fileName
+        is DocumentViewerState.Pdf -> fileName
+        is DocumentViewerState.Flow -> fileName
+        DocumentViewerState.Loading, is DocumentViewerState.Failed -> null
+    }
+
 /**
  * "채팅으로 보내기" 고르는 중의 상태 (0.35.0 M3).
  *
@@ -165,12 +174,7 @@ class DocumentViewerViewModel @Inject constructor(
     fun sendToChat(): Boolean {
         val uri = loadedUri ?: return false
         val text = _selection.value?.preview?.text?.takeIf { it.isNotBlank() } ?: return false
-        val name = when (val s = _state.value) {
-            is DocumentViewerState.Spreadsheet -> s.fileName
-            is DocumentViewerState.Flow -> s.fileName
-            is DocumentViewerState.Pdf -> s.fileName
-            else -> return false
-        }
+        val name = _state.value.fileName ?: return false
         shareHandler.offer(SharedInput.Document(uri = uri, fileName = name, textContent = text))
         _selection.value = null
         return true

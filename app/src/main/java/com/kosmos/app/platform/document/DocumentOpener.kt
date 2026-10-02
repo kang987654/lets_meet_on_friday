@@ -6,7 +6,6 @@ import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
-import android.provider.OpenableColumns
 import android.util.LruCache
 import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.domain.document.CsvReader
@@ -115,7 +114,7 @@ class AndroidDocumentOpener @Inject constructor(
         try {
             // [WHY] 표시 이름이 없는 file:// URI 는 마지막 경로 조각을 쓰는데, 경로 구분자가 섞여 오는 경우(백슬래시 경로 등)가
             // 있어 마지막 조각만 남긴다 — 상단 바에 전체 경로가 보이지 않게.
-            val name = (displayName(uri) ?: uri.lastPathSegment)
+            val name = (context.contentResolver.displayName(uri) ?: uri.lastPathSegment)
                 ?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() } ?: "문서"
             val mime = runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: mimeTypeHint
             when (DocumentType.detect(mime, name)) {
@@ -138,14 +137,6 @@ class AndroidDocumentOpener @Inject constructor(
             DocumentResult.Fail(DocumentError.CORRUPT)
         }
     }
-
-    private fun displayName(uri: Uri): String? =
-        runCatching {
-            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (cursor.moveToFirst() && idx != -1) cursor.getString(idx) else null
-            }
-        }.getOrNull()
 
     private fun openCsv(uri: Uri, name: String): DocumentResult<OpenedDocument> {
         val input = context.contentResolver.openInputStream(uri) ?: return DocumentResult.Fail(DocumentError.UNREADABLE)

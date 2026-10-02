@@ -20,7 +20,9 @@ import org.xml.sax.helpers.DefaultHandler
  * [WHY] 시트는 탭을 누를 때 하나씩 읽는다 — 첫 화면에 필요 없는 시트까지 읽으면 큰 통합 문서의 첫 표시가 늦어진다.
  * 차트·이미지·조건부 서식·숨김 행은 다루지 않는다(보기 전용 범위, 계획서 결정 3).
  */
-class XlsxReader(private val zip: ZipSource, private val limits: DocumentLimits = DocumentLimits()) {
+class XlsxReader(zip: ZipSource, private val limits: DocumentLimits = DocumentLimits()) {
+
+    private val pkg = XmlPackage(zip, limits)
 
     /** 열린 통합 문서 — 시트 이름 목록과, 시트를 읽는 데 필요한 공유 표들. */
     class Workbook internal constructor(
@@ -31,25 +33,21 @@ class XlsxReader(private val zip: ZipSource, private val limits: DocumentLimits 
         internal val date1904: Boolean
     )
 
-    fun open(): DocumentResult<Workbook> = guard {
-        val workbookPath = officeDocumentPath()
+    fun open(): DocumentResult<Workbook> = readDocument {
+        val workbookPath = pkg.mainPart(default = "xl/workbook.xml")
         val workbookDir = workbookPath.substringBeforeLast('/', missingDelimiterValue = "")
-        val relsPath = (if (workbookDir.isEmpty()) "" else "$workbookDir/") + "_rels/" + workbookPath.substringAfterLast('/') + ".rels"
-
-        val workbook = WorkbookHandler().also { parse(workbookPath, it, required = true) }
-        val rels = RelsHandler().also { parse(relsPath, it, required = false) }
-        val strings = SharedStringsHandler().also { handler ->
-            val target = rels.byType("/sharedStrings")?.let { resolve(workbookDir, it) } ?: resolve(workbookDir, "sharedStrings.xml")
-            parse(target, handler, required = false)
+        val workbook = WorkbookHandler().also { pkg.parse(workbookPath, it, required = true) }
+        val rels = pkg.relationshipsOf(workbookPath)
+        val strings = SharedStringsHandler().also {
+            pkg.parse(rels.byType("/sharedStrings") ?: resolvePartPath(workbookDir, "sharedStrings.xml"), it, required = false)
         }
-        val styles = StylesHandler().also { handler ->
-            val target = rels.byType("/styles")?.let { resolve(workbookDir, it) } ?: resolve(workbookDir, "styles.xml")
-            parse(target, handler, required = false)
+        val styles = StylesHandler().also {
+            pkg.parse(rels.byType("/styles") ?: resolvePartPath(workbookDir, "styles.xml"), it, required = false)
         }
         if (workbook.sheets.isEmpty()) throw DocumentException(DocumentError.CORRUPT)
         Workbook(
             sheetNames = workbook.sheets.map { it.first },
-            sheetPaths = workbook.sheets.map { (_, relId) -> rels.byId[relId]?.let { resolve(workbookDir, it) } },
+            sheetPaths = workbook.sheets.map { (_, relId) -> rels.target(relId) },
             sharedStrings = strings.items,
             cellFormats = styles.cellFormatIds.map { id -> XlsxNumberFormat.spec(id, styles.customFormats[id]) },
             date1904 = workbook.date1904
@@ -60,53 +58,17 @@ class XlsxReader(private val zip: ZipSource, private val limits: DocumentLimits 
      * @param onFirstRows 앞 [FIRST_BATCH_ROWS] 행을 읽은 순간 한 번 불린다(`complete = false` 인 부분 시트) — 큰 시트도 첫 화면을
      * 바로 그리게 한다. 시트가 그보다 짧으면 불리지 않는다.
      */
-    fun readSheet(workbook: Workbook, index: Int, onFirstRows: (Sheet) -> Unit = {}): DocumentResult<Sheet> = guard {
+    fun readSheet(workbook: Workbook, index: Int, onFirstRows: (Sheet) -> Unit = {}): DocumentResult<Sheet> = readDocument {
         val name = workbook.sheetNames.getOrNull(index) ?: throw DocumentException(DocumentError.CORRUPT)
         val path = workbook.sheetPaths.getOrNull(index) ?: throw DocumentException(DocumentError.CORRUPT)
         val handler = SheetHandler(workbook, limits) { rows -> onFirstRows(rows.toSheet(name, complete = false)) }
-        parse(path, handler, required = true)
+        pkg.parse(path, handler, required = true)
         handler.toSheet(name)
-    }
-
-    private fun officeDocumentPath(): String {
-        val root = RelsHandler().also { parse("_rels/.rels", it, required = false) }
-        return root.byType("/officeDocument")?.let { resolve("", it) } ?: "xl/workbook.xml"
-    }
-
-    private fun parse(path: String, handler: DefaultHandler, required: Boolean) {
-        val input = zip.open(path)
-        if (input == null) {
-            if (required) throw DocumentException(DocumentError.CORRUPT)
-            return
-        }
-        LimitedInputStream(input, limits.maxEntryBytes).use { parseXml(it, handler) }
-    }
-
-    private inline fun <T> guard(block: () -> T): DocumentResult<T> = try {
-        DocumentResult.Ok(block())
-    } catch (e: DocumentException) {
-        DocumentResult.Fail(e.error)
-    } catch (e: java.io.IOException) {
-        DocumentResult.Fail(DocumentError.CORRUPT)
     }
 
     internal companion object {
         /** 부분 시트를 먼저 내보내는 행 수 — 휴대폰 한 화면(20~30행)의 몇 배. */
         const val FIRST_BATCH_ROWS = 200
-
-        /** 관계 파일의 Target 을 zip 엔트리 경로로 — 절대("/xl/…")와 상대("worksheets/…", "../…") 둘 다. */
-        fun resolve(baseDir: String, target: String): String {
-            if (target.startsWith("/")) return target.removePrefix("/")
-            val parts = (if (baseDir.isEmpty()) emptyList() else baseDir.split('/')).toMutableList()
-            target.split('/').forEach { part ->
-                when (part) {
-                    "", "." -> Unit
-                    ".." -> if (parts.isNotEmpty()) parts.removeAt(parts.lastIndex)
-                    else -> parts.add(part)
-                }
-            }
-            return parts.joinToString("/")
-        }
 
         /** 엑셀이 제어 문자를 `_x000D_` 처럼 이스케이프한 것을 되돌린다. */
         fun unescape(text: String): String {
@@ -116,20 +78,6 @@ class XlsxReader(private val zip: ZipSource, private val limits: DocumentLimits 
     }
 
     // --- SAX 핸들러들 ---
-
-    private class RelsHandler : DefaultHandler() {
-        val byId = mutableMapOf<String, String>()
-        private val byTypeSuffix = mutableListOf<Pair<String, String>>()
-
-        fun byType(suffix: String): String? = byTypeSuffix.firstOrNull { it.first.endsWith(suffix) }?.second
-
-        override fun startElement(uri: String?, localName: String, qName: String?, attributes: Attributes) {
-            if (localName != "Relationship") return
-            val target = attributes.getValue("Target") ?: return
-            attributes.getValue("Id")?.let { byId[it] = target }
-            attributes.getValue("Type")?.let { byTypeSuffix += it to target }
-        }
-    }
 
     private class WorkbookHandler : DefaultHandler() {
         val sheets = mutableListOf<Pair<String, String>>() // 이름, 관계 id

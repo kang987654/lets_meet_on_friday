@@ -6,6 +6,7 @@ import android.provider.OpenableColumns
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.domain.document.DocumentType
+import com.kosmos.app.platform.document.displayName
 
 /**
  * [AttachmentReader]
@@ -43,10 +44,11 @@ class AttachmentReader(private val contentResolver: ContentResolver) {
 
     fun read(uri: Uri): Result = try {
         val mime = contentResolver.getType(uri)
+        val name = contentResolver.displayName(uri)
         when {
             mime?.startsWith("image/") == true -> readImage(uri)
-            isDocumentFile(mime, uri) -> Result(input = null, documentFile = true)
-            else -> readDocument(uri)
+            DocumentType.detect(mime, name ?: uri.lastPathSegment) in DOCUMENT_FILES -> Result(input = null, documentFile = true)
+            else -> readDocument(uri, name ?: DEFAULT_DOCUMENT_NAME)
         }
     } catch (e: Exception) {
         AppLogger.e(TAG, "첨부 읽기 실패", e)
@@ -63,10 +65,8 @@ class AttachmentReader(private val contentResolver: ContentResolver) {
         return Result(sizeBytes?.let { SharedInput.Image(uri = uri, sizeBytes = it) })
     }
 
-    private fun readDocument(uri: Uri): Result {
-        // [WHY] 캡은 Constants.MAX_ATTACHED_DOC_CHARS 로 예산에서 파생된다. 예전 2500 은 예산 6000
-        // 시절의 유물 — 그대로 두면 그 턴의 KV 가 GPU 숫자 깨짐 발병점을 넘고, 다음 턴부터는 슬라이딩
-        // 윈도우에서 통째로 탈락해 모델이 문서를 본 적 없는 상태가 됐다. +1 은 절단 여부 감지용이다.
+    private fun readDocument(uri: Uri, fileName: String): Result {
+        // [WHY] 캡의 근거는 [Constants.MAX_ATTACHED_DOC_CHARS]. +1 은 절단 여부 감지용이다.
         val cap = Constants.MAX_ATTACHED_DOC_CHARS
         val textContent = contentResolver.openInputStream(uri)?.use { inputStream ->
             val buffer = CharArray(cap + 1)
@@ -74,12 +74,7 @@ class AttachmentReader(private val contentResolver: ContentResolver) {
             if (read <= 0) "" else String(buffer, 0, read)
         } ?: return Result(null)
 
-        val fileName = contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (cursor.moveToFirst() && nameIndex != -1) cursor.getString(nameIndex) else null
-        } ?: DEFAULT_DOCUMENT_NAME
-
-        // [WHY] 글자 파일이 아니면 거부한다 — 예전에는 xls·hwp·zip 바이트가 깨진 문자열로 모델에 들어갔다(0.35.0 M4).
+        // [WHY] 글자 파일이 아니면 거부한다 — 깨진 바이트를 모델 입력으로 넣지 않는다.
         if (looksBinary(textContent)) return Result(input = null, rejected = true)
 
         return Result(
@@ -88,21 +83,12 @@ class AttachmentReader(private val contentResolver: ContentResolver) {
         )
     }
 
-    private fun isDocumentFile(mime: String?, uri: Uri): Boolean {
-        val type = DocumentType.detect(mime, displayName(uri))
-        return type == DocumentType.XLSX || type == DocumentType.DOCX || type == DocumentType.HWPX || type == DocumentType.PDF
-    }
-
-    private fun displayName(uri: Uri): String? = runCatching {
-        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-            val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (cursor.moveToFirst() && idx != -1) cursor.getString(idx) else null
-        }
-    }.getOrNull() ?: uri.lastPathSegment
-
     internal companion object {
         const val TAG = "AttachmentReader"
         const val DEFAULT_DOCUMENT_NAME = "document.txt"
+
+        /** 여기서 읽지 않고 비동기 추출로 넘기는 문서 형식. */
+        val DOCUMENT_FILES = setOf(DocumentType.XLSX, DocumentType.DOCX, DocumentType.HWPX, DocumentType.PDF)
 
         /** NUL 이 있거나 깨진 글자(U+FFFD)가 10% 를 넘으면 바이너리로 본다. */
         fun looksBinary(text: String): Boolean {

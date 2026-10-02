@@ -7,12 +7,23 @@ import android.provider.OpenableColumns
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
+import com.kosmos.app.core.common.ValidationField
+import com.kosmos.app.core.common.ValidationReason
+import com.kosmos.app.core.logging.AppLogger
+import com.kosmos.app.domain.document.DocumentResult
+import com.kosmos.app.platform.document.DocumentTextExtractor
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 
 sealed class SharedInput {
     data class Text(val content: String) : SharedInput()
@@ -24,7 +35,7 @@ sealed class SharedInput {
 @Singleton
 class ShareIntentHandler @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val documentExtractor: com.kosmos.app.platform.document.DocumentTextExtractor
+    private val documentExtractor: DocumentTextExtractor
 ) {
     // [WHY] replay=1이 없으면 콜드 스타트 시(구독자인 ChatViewModel이 생기기 전) 공유 인텐트가 유실된다.
     // 늦은 구독자도 마지막 공유를 수신하며, 소비 후 clearConsumed()로 재전달을 막는다.
@@ -33,8 +44,8 @@ class ShareIntentHandler @Inject constructor(
     // [WHY] handleIntent 는 MainActivity.onCreate/onNewIntent(메인 스레드)에서 불린다. 이미지 크기
     // 조회(contentResolver.query)는 다른 앱 프로바이더로 가는 IPC 라 메인에서 돌리면 ANR 후보다.
     // 결과는 원래도 replay Flow 로 비동기 전달되므로 IO 로 옮겨도 소비 계약이 같다.
-    private val ioScope = kotlinx.coroutines.CoroutineScope(
-        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+    private val ioScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO
     )
     val sharedInputFlow = _sharedInputFlow.asSharedFlow()
 
@@ -45,10 +56,10 @@ class ShareIntentHandler @Inject constructor(
         _sharedInputFlow.tryEmit(AppResult.Success(input))
     }
 
-    private val _extracting = kotlinx.coroutines.flow.MutableStateFlow(false)
+    private val _extracting = MutableStateFlow(false)
 
     /** 입력바에서 고른 문서 파일을 읽는 중 — 입력바가 "읽는 중…"을 보인다. */
-    val extracting: kotlinx.coroutines.flow.StateFlow<Boolean> = _extracting
+    val extracting: StateFlow<Boolean> = _extracting
 
     /**
      * 입력바에서 고른 문서 파일(xlsx·docx·hwpx·PDF)을 IO 에서 글자로 바꿔 첨부로 넘긴다 (0.35.0 M4).
@@ -62,18 +73,18 @@ class ShareIntentHandler @Inject constructor(
             val result = documentExtractor.extract(uri, mimeType)
             _extracting.value = false
             when (result) {
-                is com.kosmos.app.domain.document.DocumentResult.Ok -> {
+                is DocumentResult.Ok -> {
                     val (name, text) = result.value
                     _sharedInputFlow.tryEmit(AppResult.Success(SharedInput.Document(uri, name, text.text, text.truncated)))
                 }
-                is com.kosmos.app.domain.document.DocumentResult.Fail ->
+                is DocumentResult.Fail ->
                     _sharedInputFlow.tryEmit(AppResult.Failure(AppError.UnsupportedImageFormat("문서 첨부 실패: ${result.error}")))
             }
         }
     }
 
     /** 공유 입력을 소비한 뒤 호출 — replay 캐시를 비워 재구독 시 중복 처리를 방지합니다. */
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun clearConsumed() {
         _sharedInputFlow.resetReplayCache()
     }
@@ -90,7 +101,7 @@ class ShareIntentHandler @Inject constructor(
                 if (!text.isNullOrBlank()) {
                     _sharedInputFlow.tryEmit(AppResult.Success(SharedInput.Text(text)))
                 } else {
-                    _sharedInputFlow.tryEmit(AppResult.Failure(AppError.ValidationError(com.kosmos.app.core.common.ValidationField.CONTENT, com.kosmos.app.core.common.ValidationReason.BLANK)))
+                    _sharedInputFlow.tryEmit(AppResult.Failure(AppError.ValidationError(ValidationField.CONTENT, ValidationReason.BLANK)))
                 }
             }
             type.startsWith("image/") -> {
@@ -103,7 +114,7 @@ class ShareIntentHandler @Inject constructor(
                 if (uri != null) {
                     ioScope.launch { processImageUri(uri, type) }
                 } else {
-                    _sharedInputFlow.tryEmit(AppResult.Failure(AppError.ValidationError(com.kosmos.app.core.common.ValidationField.CONTENT, com.kosmos.app.core.common.ValidationReason.BLANK)))
+                    _sharedInputFlow.tryEmit(AppResult.Failure(AppError.ValidationError(ValidationField.CONTENT, ValidationReason.BLANK)))
                 }
             }
             else -> {
@@ -136,7 +147,7 @@ class ShareIntentHandler @Inject constructor(
 
             _sharedInputFlow.tryEmit(AppResult.Success(SharedInput.Image(uri, sizeBytes)))
         } catch (e: Exception) {
-            com.kosmos.app.core.logging.AppLogger.e("ShareIntentHandler", "공유 이미지 조회 실패", e)
+            AppLogger.e("ShareIntentHandler", "공유 이미지 조회 실패", e)
             // 권한 오류나 기타 파일 시스템 에러 시 크래시 방지 및 에러 반환
             _sharedInputFlow.tryEmit(AppResult.Failure(AppError.UnsupportedImageFormat(mimeType)))
         }

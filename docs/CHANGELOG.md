@@ -1,8 +1,10 @@
 ## [0.35.1] - 2026-10-02
-> **주석 정리 1단계 — 낡은 숫자 수정 + 이력성 주석 압축.** 코드 줄 변경 0건(주석만), 게이트 녹색.
+> **정리 회차 — 1단계 낡은 숫자 수정·이력성 주석 압축(코드 변경 0), 2단계 문서 기능 중복 제거(동작 변경 없음).** 게이트 녹색.
 - **[Fix] 코드와 어긋난 주석 숫자** — 재설정 임계값 "기본 3000"(실제 1700, `Constants.TOOL_RESULT_MAX_TOKENS` KDoc), 프롬프트 오버헤드 1,329·1,277(실제 `TokenBudgetInvariantTest.MEASURED_OVERHEAD` 1,226 — 0.27.1 에서 기준값을 바꾸며 이 주석들을 갱신하지 않았다), "executor 4개"(실제 6개), 프리필 구성의 "few-shot"(0.23.0 에서 제거), `ToolArguments` Key Flow 의 `<tool_call>` 경로(지금 주 경로는 네이티브 함수호출 `ToolArguments.of`). 쉽게 낡는 수치는 이제 기준 상수·테스트를 링크로 가리킨다
 - **[Refactor] 이력성 주석 압축** — `Constants`·`PromptAssembler`·`GemmaModelRunner`·`ToolArguments`·`SearchMemoryToolExecutor`·`ConversationPolicy` 의 "예전에는…" 경위·실험 점수표를 "[WHY] 한두 문장 + ADR/exp 참조"로 줄였다(주석 −269줄). `Constants`↔`GemmaModelRunner` 의 같은 설명 중복은 상수 쪽 하나로, `[WHY]` 표식 없는 HOW 주석 2건은 삭제. 경위의 진실은 CHANGELOG·ADR(전부 존재 확인)
-- **[Note] 점검 결과 남은 것** — 2단계: 문서 기능(0.34~0.35) 코드 중복(rels 처리기·parse 헬퍼·파일 이름 조회 4곳·상태별 파일 이름 분기), 3단계: 화면 공용 컴포넌트(글래스 버튼·스위치 행·대화상자)와 전체 경로 이름 정리(큰 화면 7개 약 265줄)
+- **[Refactor] 2단계 — 문서 기능 코드 중복 제거** (동작 변경 없음): 리더 3개가 각자 들던 파트 읽기·예외 매핑·관계 파일 처리기·경로 해석을 `XmlPackage`·`Relationships`·`readDocument`·`resolvePartPath`(DocumentSupport)로 모았다 — docx·hwpx 가 `XlsxReader.resolve` 를 빌려 쓰던 의존도 끊김(`XlsxReaderTest` 경로 해석 테스트는 호출 위치만 `resolvePartPath` 로, 단언 불변). 파일 이름 조회 4곳 → `ContentResolver.displayName` 하나(`AttachmentReader` 는 첨부 한 번에 같은 조회를 두 번 하던 것을 한 번으로). 화면 상태별 파일 이름 분기 2곳 → `DocumentViewerState.fileName`. 최근 문서는 밀려난 URI 를 저장소가 같은 트랜잭션에서 돌려준다(전에는 추가 전후로 목록을 두 번 읽어 비교). `ShareIntentHandler` 의 전체 경로 이름 → import
+- **[Docs] AGENTS.md §3 주석 규칙 추가** — 경위는 CHANGELOG·ADR 에, 주석은 이유 한두 문장 + 참조, 바뀔 수 있는 수치는 숫자를 베끼지 말고 기준 상수·테스트를 링크(사용자 결정 2026-10-02)
+- **[Note] 남은 것** — 3단계: 화면 공용 컴포넌트(글래스 버튼·스위치 행·대화상자)와 전체 경로 이름 정리(큰 화면 7개 약 265줄 — 육안 확인 필요)
 
 ## [0.35.0] - 2026-10-02
 > **문서 뷰어 2차 — 워드(docx)·한글(hwpx) 읽기 모드 + 채팅으로 보내기** (계획서 `docs/plans/0.35.0-document-chat.md`). 실측 중 **첨부 문서 질문이 툴로 새는 현행 결함**을 찾아 함께 고쳤다(ADR-028).

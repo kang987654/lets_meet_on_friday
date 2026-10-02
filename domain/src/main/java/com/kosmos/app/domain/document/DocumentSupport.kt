@@ -132,3 +132,73 @@ object DocumentSniffer {
 
     fun isPdf(head: ByteArray): Boolean = head.size >= 5 && String(head, 0, 5, Charsets.US_ASCII) == "%PDF-"
 }
+
+/** 리더 본문을 감싸 실패를 [DocumentResult] 로 바꾼다 — 상한·손상은 [DocumentException], 읽기 오류는 CORRUPT. */
+internal inline fun <T> readDocument(block: () -> T): DocumentResult<T> = try {
+    DocumentResult.Ok(block())
+} catch (e: DocumentException) {
+    DocumentResult.Fail(e.error)
+} catch (e: java.io.IOException) {
+    DocumentResult.Fail(DocumentError.CORRUPT)
+}
+
+/** 파트 경로 해석 — 절대("/xl/…")와 [baseDir] 기준 상대("worksheets/…", "../…") 둘 다 zip 엔트리 경로로. */
+internal fun resolvePartPath(baseDir: String, target: String): String {
+    if (target.startsWith("/")) return target.removePrefix("/")
+    val parts = (if (baseDir.isEmpty()) emptyList() else baseDir.split('/')).toMutableList()
+    target.split('/').forEach { part ->
+        when (part) {
+            "", "." -> Unit
+            ".." -> if (parts.isNotEmpty()) parts.removeAt(parts.lastIndex)
+            else -> parts.add(part)
+        }
+    }
+    return parts.joinToString("/")
+}
+
+/**
+ * [XmlPackage]
+ * zip 안 XML 파트를 상한([DocumentLimits.maxEntryBytes]) 걸어 SAX 로 읽는 공통 부분 — xlsx·docx·hwpx 리더가 같이 쓴다.
+ */
+internal class XmlPackage(private val zip: ZipSource, private val limits: DocumentLimits) {
+
+    /** 파트가 없으면 [required] 일 때만 CORRUPT. */
+    fun parse(path: String, handler: DefaultHandler, required: Boolean) {
+        val input = zip.open(path)
+        if (input == null) {
+            if (required) throw DocumentException(DocumentError.CORRUPT)
+            return
+        }
+        LimitedInputStream(input, limits.maxEntryBytes).use { parseXml(it, handler) }
+    }
+
+    fun exists(path: String): Boolean = zip.open(path)?.also { it.close() } != null
+
+    /** OOXML 본문 파트(`_rels/.rels` 의 officeDocument). 없으면 [default]. */
+    fun mainPart(default: String): String = relationshipsOf("").byType("/officeDocument") ?: default
+
+    /** 파트 하나의 관계 파일(`폴더/_rels/이름.rels`) — 대상 경로는 파트 폴더 기준으로 풀어 둔다. [partPath] 가 ""면 패키지 루트. */
+    fun relationshipsOf(partPath: String): Relationships {
+        val dir = partPath.substringBeforeLast('/', missingDelimiterValue = "")
+        val relsPath = if (partPath.isEmpty()) "_rels/.rels" else resolvePartPath(dir, "_rels/" + partPath.substringAfterLast('/') + ".rels")
+        return Relationships(dir).also { parse(relsPath, it, required = false) }
+    }
+}
+
+/** OOXML 관계 파일(`*.rels`) — id·종류로 대상 파트 경로를 찾는다. 외부 대상(하이퍼링크 등)은 zip 안 파일이 아니라 뺀다. */
+internal class Relationships(private val baseDir: String) : DefaultHandler() {
+    private val byId = mutableMapOf<String, String>()
+    private val types = mutableListOf<Pair<String, String>>()
+
+    fun target(id: String): String? = byId[id]
+
+    /** 종류 URI 가 [suffix] 로 끝나는 첫 관계의 대상. */
+    fun byType(suffix: String): String? = types.firstOrNull { it.first.endsWith(suffix) }?.second
+
+    override fun startElement(uri: String?, localName: String, qName: String?, attributes: org.xml.sax.Attributes) {
+        if (localName != "Relationship" || attributes.getValue("TargetMode") == "External") return
+        val target = attributes.getValue("Target")?.let { resolvePartPath(baseDir, it) } ?: return
+        attributes.getValue("Id")?.let { byId[it] = target }
+        attributes.getValue("Type")?.let { types += it to target }
+    }
+}

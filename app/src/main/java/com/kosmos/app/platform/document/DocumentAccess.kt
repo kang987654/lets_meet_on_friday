@@ -3,7 +3,6 @@ package com.kosmos.app.platform.document
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.provider.OpenableColumns
 import androidx.core.net.toUri
 import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.domain.document.RecentDocument
@@ -43,12 +42,7 @@ class AndroidDocumentAccess @Inject constructor(
             resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }.onFailure { AppLogger.w(TAG, "영구 권한 실패: ${it.message}") }.isSuccess
         if (!persisted) return@withContext null
-        val name = runCatching {
-            resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (cursor.moveToFirst() && idx != -1) cursor.getString(idx) else null
-            }
-        }.getOrNull() ?: "문서"
+        val name = resolver.displayName(uri) ?: "문서"
         RecentDocument(uri.toString(), name, runCatching { resolver.getType(uri) }.getOrNull(), now)
     }
 

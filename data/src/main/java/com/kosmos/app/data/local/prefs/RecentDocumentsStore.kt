@@ -28,8 +28,16 @@ class RecentDocumentsStore @Inject constructor(
 ) {
     val recentFlow: Flow<List<RecentDocument>> = dataStore.data.map { RecentDocuments.decode(it[KEY]) }
 
-    suspend fun add(document: RecentDocument) {
-        dataStore.edit { prefs -> prefs[KEY] = RecentDocuments.encode(RecentDocuments.add(RecentDocuments.decode(prefs[KEY]), document)) }
+    /** 맨 위에 올린다. @return 상한([RecentDocuments.MAX])에 밀려 목록에서 빠진 문서의 URI — 호출자가 권한을 돌려준다. */
+    suspend fun add(document: RecentDocument): List<String> {
+        var dropped = emptyList<String>()
+        dataStore.edit { prefs ->
+            val before = RecentDocuments.decode(prefs[KEY])
+            val after = RecentDocuments.add(before, document)
+            dropped = (before.map { it.uri } - after.map { it.uri }.toSet())
+            prefs[KEY] = RecentDocuments.encode(after)
+        }
+        return dropped
     }
 
     suspend fun remove(uri: String) {

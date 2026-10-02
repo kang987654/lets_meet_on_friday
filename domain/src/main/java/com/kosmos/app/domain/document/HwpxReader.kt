@@ -21,37 +21,26 @@ import org.xml.sax.helpers.DefaultHandler
  * [WHY] **실파일 다양성이 크다**(한글 버전·변환기마다 다르다) — 모르는 요소는 건너뛰고 글자만 건진다. 실패하지 않는 것이 우선이다.
  * 머리말·꼬리말·각주·미주는 본문 흐름이 아니라 건너뛴다(docx 와 같은 결정).
  */
-class HwpxReader(private val zip: ZipSource, private val limits: DocumentLimits = DocumentLimits()) {
+class HwpxReader(zip: ZipSource, private val limits: DocumentLimits = DocumentLimits()) {
 
-    fun read(): DocumentResult<FlowDocument> = try {
-        val manifest = ManifestHandler().also { parse(CONTENT_HPF, it, required = false) }
-        val header = HeaderHandler().also { parse(manifest.path("header") ?: "Contents/header.xml", it, required = false) }
+    private val pkg = XmlPackage(zip, limits)
+
+    fun read(): DocumentResult<FlowDocument> = readDocument {
+        val manifest = ManifestHandler().also { pkg.parse(CONTENT_HPF, it, required = false) }
+        val header = HeaderHandler().also { pkg.parse(manifest.path("header") ?: "Contents/header.xml", it, required = false) }
         val sections = manifest.sectionPaths().ifEmpty { fallbackSections() }
         if (sections.isEmpty()) throw DocumentException(DocumentError.CORRUPT)
         val body = SectionHandler(limits, header) { id -> manifest.path(id) }
         sections.forEach { path ->
-            if (!body.sink.truncated) parse(path, body, required = true)
+            if (!body.sink.truncated) pkg.parse(path, body, required = true)
         }
-        DocumentResult.Ok(body.sink.finish())
-    } catch (e: DocumentException) {
-        DocumentResult.Fail(e.error)
-    } catch (e: java.io.IOException) {
-        DocumentResult.Fail(DocumentError.CORRUPT)
+        body.sink.finish()
     }
 
     private fun fallbackSections(): List<String> =
         generateSequence(0) { it + 1 }.take(MAX_SECTIONS).map { "Contents/section$it.xml" }
-            .takeWhile { path -> zip.open(path)?.also { it.close() } != null }
+            .takeWhile(pkg::exists)
             .toList()
-
-    private fun parse(path: String, handler: DefaultHandler, required: Boolean) {
-        val input = zip.open(path)
-        if (input == null) {
-            if (required) throw DocumentException(DocumentError.CORRUPT)
-            return
-        }
-        LimitedInputStream(input, limits.maxEntryBytes).use { parseXml(it, handler) }
-    }
 
     /** content.hpf — id → 경로, spine 순서. */
     private inner class ManifestHandler : DefaultHandler() {
@@ -69,9 +58,9 @@ class HwpxReader(private val zip: ZipSource, private val limits: DocumentLimits 
         // [WHY] href 는 보통 패키지 루트 기준("Contents/section0.xml")이지만 목차 기준 상대 경로("section0.xml")로 쓴 변환기도 있다.
         private fun normalize(href: String): String {
             val clean = href.removePrefix("/")
-            if (zip.open(clean)?.also { it.close() } != null) return clean
-            val relative = XlsxReader.resolve("Contents", clean)
-            return if (zip.open(relative)?.also { it.close() } != null) relative else clean
+            if (pkg.exists(clean)) return clean
+            val relative = resolvePartPath("Contents", clean)
+            return if (pkg.exists(relative)) relative else clean
         }
 
         private fun sectionNumber(path: String) = SECTION.find(path)?.groupValues?.get(1)?.toIntOrNull() ?: 0
