@@ -128,7 +128,7 @@ class DocumentViewerViewModelTest {
         viewModel.tapRow(4)
         val rows = viewModel.selection.value as ChatSelection.Rows
         assertEquals(2..4, rows.range)
-        assertTrue("머리 행이 앞에 붙는다", rows.preview!!.text.startsWith("| 항목 |"))
+        assertEquals("머리 행이 열 이름으로 붙는다(exp46c 형식)", "항목: 값2\n항목: 값3\n항목: 값4", rows.preview!!.text)
 
         viewModel.tapRow(1)
         assertEquals("범위가 정해진 뒤의 탭은 새로 시작", 1..1, (viewModel.selection.value as ChatSelection.Rows).range)

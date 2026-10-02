@@ -25,8 +25,13 @@ object DocumentText {
     /** 표 형식 후보 — exp46 비교 대상. */
     enum class TableFormat { MARKDOWN, TSV, KEY_VALUE }
 
-    /** 채팅 첨부에 쓰는 표 형식 — exp46(0.35.0 M0) 판정. */
-    val TABLE_FORMAT = TableFormat.MARKDOWN
+    /**
+     * 채팅 첨부에 쓰는 표 형식 — exp46c(0.35.0 M0) 판정: "열이름: 값" 19/20, 탭 17/20, 마크다운 16/20(문서 턴 리마인더 조건, 표 5종×질문 4).
+     *
+     * [WHY] 300자에 드는 행은 1행 적지만(9.8 대 10.8) 칸마다 열 이름이 붙어 합계·세기 질문에서 어느 열인지 덜 헷갈렸다
+     * (합계 3문항 중 2 대 0). 행이 적어 더할 수가 적은 몫도 섞여 있다 — 판정 규칙(정답 수 우선)대로 골랐다.
+     */
+    val TABLE_FORMAT = TableFormat.KEY_VALUE
 
     /**
      * 시트의 [rows] 범위(행 번호, 0부터)를 글자로. 머리 행이 범위 밖이면 앞에 붙인다 — 열 이름 없이는 "금액이 얼마야"를 답할 수 없다.
