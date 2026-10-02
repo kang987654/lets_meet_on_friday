@@ -45,32 +45,12 @@ import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 /**
  * 엔진 설정을 조립합니다. 챗·비전은 넘겨받은 백엔드를 쓰고 **오디오는 CPU 고정**입니다.
  *
- * [WHY] 이 조립을 `ensureInferenceInitialized` 안에 인라인으로 두었을 때 `audioBackend` 가
- * 빠진 것을 **어떤 테스트도 잡지 못했다.** 음성 경로 테스트(`TranscribeAudioUseCaseTest` 7건)는
- * `ModelRunner` 를 목으로 대체했는데, 잘못 설정된 것이 정확히 그 목이 가린 컴포넌트였다 —
- * 통과하는 테스트가 동작할 수 없는 경로를 검증하고 있었다. 순수 함수로 꺼내면 네이티브도 목도
- * 거치지 않고 설정 자체를 단언할 수 있다.
+ * [WHY] 순수 함수로 꺼내 둔다 — 인라인일 때 `audioBackend` 누락을 어떤 테스트도 잡지 못했다(음성 테스트는 ModelRunner 를
+ * 목으로 가려 바로 그 설정을 검증하지 못했다). 이제 설정 자체를 단언할 수 있다.
  *
- * [WHY] 오디오는 **CPU 여야 한다** — GPU 로 주면 엔진 생성 자체가 실패한다(exp23 실측).
- * 비전은 CPU·GPU 양쪽에서 이미지를 정상 인식하므로 넘겨받은 백엔드를 그대로 쓴다(같은 실험).
- *
- * [WHY] 처음에는 gallery 의 `must be CPU for Gemma 3n` 주석을 근거로 댔는데, 그것은 **Gemma 3n**
- * 에 대한 말이고 우리 모델은 Gemma 4 다. 결과적으로 선택은 같았지만 근거를 실측으로 바꿨다
- * (`.agents/04_MODEL_EVIDENCE.md`).
- *
- * [WHY] `cacheDir` 을 CPU 폴백에도 넘긴다. 예전에는 GPU 경로만 받아서, 폴백으로 떨어진 기기는
- * 매 실행마다 커널 캐시를 다시 만들었다.
- *
- * [WHY] `maxNumTokens` 를 **명시 전달한다.** 예전에는 넘기지 않았고 그러면 런타임 기본값(4096)이
- * 되는데, 앱은 프리필 예산을 6000(슬라이더 최대 8000)으로 잡아 **용량을 넘는 프롬프트를 만들고
- * 있었다.** 넘기지 않으면 그 값을 Kotlin 쪽에서 볼 수 없어 예산과의 어긋남이 드러나지도 않는다
- * (자세한 근거는 [Constants.ENGINE_MAX_TOKENS]).
- *
- * [WHY] `maxNumImages` 도 명시한다. 우리는 한 턴에 이미지를 **정확히 한 장** 붙이므로(입력바의
- * 첨부 칩이 하나다) 1 이 사실이다. API 는 null 을 "모델/엔진 기본값 사용" 으로 문서화하지만,
- * 우리가 그 값을 볼 수 없다는 점은 `maxNumTokens` 와 같다 — 이미지 한 장이 시각 토큰 예산만큼
- * KV 를 먹으므로, 기본값이 우리 사용량보다 크면 4096 안에서 쓸 수 있는 히스토리가 조용히 줄어든다.
- * 올릴 때는 [Constants.ENGINE_MAX_TOKENS] 예산 계산을 함께 다시 해야 한다.
+ * [WHY] 오디오는 **CPU 여야 한다** — GPU 면 엔진 생성이 실패한다(exp23). 비전은 양쪽 다 되므로 넘겨받은 백엔드를 쓴다.
+ * `cacheDir` 은 CPU 폴백에도 넘긴다(아니면 폴백 기기가 매번 커널 캐시를 다시 만든다). `maxNumTokens`·`maxNumImages` 를
+ * 명시하는 이유는 [Constants.ENGINE_MAX_TOKENS]·[Constants.MAX_IMAGES_PER_TURN].
  */
 internal fun buildEngineConfig(
     modelPath: String,
@@ -112,20 +92,8 @@ class GemmaModelRunner @Inject constructor(
         /**
          * 생각 모드를 끕니다.
          *
-         * [WHY] 근거는 **우리 실측**이다 — 같은 조건에서 생각 모드만 켜면 툴 호출이 4/4 → 2/4 로
-         * 떨어졌고(exp24), 떨어지는 쪽은 일정 등록이었다(위키는 살아남는다). 툴 호출이 핵심
-         * 기능이므로 끈 상태를 기본으로 둔다.
-         *
-         * [WHY] 예전에는 `extraContext = mapOf("enable_thinking" to false)` 맵으로 껐다. AAR
-         * 0.14.0 에 `ThinkingConfig` 가 없어서 그것이 유일한 방법이었지만, **맵의 키 이름 하나에
-         * 의존하는 상태**였다 — 키가 틀리거나 런타임이 무시하면 조용히 켜진 채로 돌고 우리는
-         * 눈치채지 못한다. `enable_thinking=true` 조건에서도 `<|think|>` 마커가 출력에 한 번도
-         * 나오지 않았기 때문에(exp24) **응답을 봐서는 켜졌는지 알 수 없다.** 0.16.0 이 타입 있는
-         * `ThinkingConfig` 를 추가했으므로 컴파일러가 검증하는 형태로 옮긴다.
-         *
-         * [WHY] 공식 문서(capabilities/thinking)는 E2B·E4B 의 생각 모드가 시스템 턴의 `<|think|>`
-         * 로 켜진다고 적는다. 실기기 렌더 프리페이스에 그 마커가 없었으므로 템플릿 기본값도 꺼져
-         * 있는 것으로 보이지만, 명시로 두어 기본값에 기대지 않는다.
+         * [WHY] 생각 모드만 켜면 툴 호출이 4/4 → 2/4 로 떨어졌다(exp24, 일정 등록 쪽). 켜져도 출력에 `<|think|>` 마커가
+         * 나오지 않아 응답으로는 켜졌는지 알 수 없으므로, 키 이름 맵이 아니라 타입 있는 `ThinkingConfig` 로 명시한다.
          */
         private val THINKING_OFF = com.google.ai.edge.litertlm.ThinkingConfig(enableThinking = false)
 
@@ -166,9 +134,7 @@ class GemmaModelRunner @Inject constructor(
      * 추론 무활동 감시 — [Constants.INFERENCE_INACTIVITY_TIMEOUT_MS] 동안 토큰이 오지 않으면
      * `cancelProcess()` 로 생성을 끊습니다.
      *
-     * [WHY] **PRD EC1(추론 timeout) 의 집행이 없었다.** `ModelInferenceTimeout` 오류 타입과
-     * 사용자 문구까지 준비돼 있었지만 생성하는 곳이 0곳 — 네이티브가 멈추면 lifecycleMutex 를
-     * 쥔 채 영원히 매달려 이후 모든 턴(warmUp·close 포함)이 함께 막혔다.
+     * [WHY] 타임아웃 기준의 근거는 [Constants.INFERENCE_INACTIVITY_TIMEOUT_MS].
      *
      * [WHY] `withTimeout` 이 아니라 감시 + `cancelProcess` 인 이유: 블로킹 JNI 호출은 코루틴
      * 취소에 협조하지 않아 `withTimeout` 은 그 스레드를 풀지 못한다. `cancelProcess` 는 취소
@@ -204,7 +170,6 @@ class GemmaModelRunner @Inject constructor(
         prompt: ChatPrompt,
         onToken: ((String) -> Unit)?
     ): AppResult<ModelTurn> = runTurn(prompt, onToken, "추론 중 알 수 없는 오류 발생") {
-        // 텍스트 전용 턴은 별도 Content 조립이 필요 없다.
         emptyList()
     }
 
@@ -221,14 +186,9 @@ class GemmaModelRunner @Inject constructor(
     }
 
     /**
-     * [WHY] `currentInput` 이 비어 있으면 **텍스트 파트를 아예 붙이지 않는다.** 전사에서 지시
-     * 문장을 함께 보내면, 무음 오디오일 때 모델이 **그 지시문을 그대로 되읊는다** — PC 실험
-     * (exp16)에서 무음 2초에 `"이 오디오를 들리는 그대로 받아써 주세요."` 가 전사문으로 나왔다.
-     * 빈 문자열이 아니므로 `TranscribeAudioUseCase` 의 공백 검사를 통과해, 앱이 그 문장을
-     * **사용자 메시지로 저장하고 그것에 답한다**(PRD EC3 위반).
-     *
-     * 되읊음을 문자열로 걸러내는 대신 되읊을 대상을 없앤다. 오디오만 보내도 전사는 정상이고
-     * 무음에서는 빈 결과가 온다(exp16 실측).
+     * [WHY] `currentInput` 이 비어 있으면 **텍스트 파트를 아예 붙이지 않는다.** 전사에 지시 문장을 함께 보내면 무음
+     * 오디오에서 모델이 그 지시문을 그대로 되읊고, 앱은 그것을 사용자 메시지로 저장해 답한다(exp16, PRD EC3). 되읊을
+     * 대상을 없애면 무음은 빈 결과가 된다.
      */
     override suspend fun generateWithAudio(
         prompt: ChatPrompt,
@@ -246,10 +206,6 @@ class GemmaModelRunner @Inject constructor(
     /**
      * 세 진입점(텍스트/이미지/오디오)의 공통 추론 흐름입니다.
      *
-     * [WHY] 이전에는 같은 60여 줄이 세 번 복제돼 있었다. 툴 호출 수집을 추가하면서 세 곳을
-     * 각각 고치면 어긋날 수밖에 없으므로 한 곳으로 모았다 — 실제로 이미지 경로에는 오디오
-     * 경로에 없는 죽은 try/catch 가 남아 있었다.
-     *
      * @param extraContents 비어 있으면 [ChatPrompt.currentInput] 을 텍스트로 보낸다.
      */
     private suspend fun runTurn(
@@ -264,10 +220,8 @@ class GemmaModelRunner @Inject constructor(
 
         try {
             lifecycleMutex.withLock {
-                // [WHY] 상태 검사를 뮤텍스 **안에서** 다시 한다. 밖에서 Ready 를 본 뒤 뮤텍스를
-                // 기다리는 사이 close()(onStop)가 먼저 엔진을 해제할 수 있고, 예전에는 그 턴이
-                // 뮤텍스를 얻자마자 엔진을 다시 로드했다 — 백그라운드에서 3.6GB 로드(AGENTS §2-⑥
-                // 위반, 요약 드레인이 onStop 직후 도는 경로). 엔진 초기화는 warmUp 만 맡는다.
+                // [WHY] 상태 검사를 뮤텍스 **안에서** 다시 한다 — 밖에서 Ready 를 본 뒤 기다리는 사이 close()(onStop)가
+                // 엔진을 해제할 수 있다. 여기서 다시 로드하면 백그라운드 3.6GB 로드다(AGENTS §2-⑥). 초기화는 warmUp 만.
                 val readyEngine = engine
                 if (loadState.value !is ModelLoadState.Ready || readyEngine == null) {
                     return@withLock AppResult.Failure(AppError.ModelNotReady("Engine released"))
@@ -306,17 +260,9 @@ class GemmaModelRunner @Inject constructor(
                     var tokenCount = 0
 
                     try {
-                        // [WHY] **토큰 유실 방지.** `sendMessageAsync` 는 callbackFlow 이고
-                        // (0.14.0 바이트코드에서 확인 — 0.16.0 상향 후 재검증하지 않았으나
-                        // 무한 버퍼는 사실이 바뀌어도 무해한 방어다),
-                        // 네이티브 콜백(`Conversation$sendMessageAsync$1$1.onMessage`)이
-                        // `ProducerScope.trySend(message)` 를 호출한 뒤 **반환값을 버린다**(바이트코드
-                        // 확인). callbackFlow 의 기본 용량은 64 이고, 가득 차면 `trySend` 는 예외도
-                        // 로그도 없이 실패한다 — 그 토큰은 사라진다. 수집이 조금이라도 느리면
-                        // 답변 중간중간의 글자가 조용히 빠진다("2015년 10월" → "205년 10").
-                        //
-                        // 무한 버퍼를 끼우면 이 Flow 의 소비자는 버퍼 연산자가 되어 즉시 비워 가고,
-                        // 우리 본문이 얼마나 느리든 네이티브 채널이 넘치지 않는다.
+                        // [WHY] **토큰 유실 방지.** `sendMessageAsync` 는 callbackFlow 인데 네이티브 콜백이 `trySend` 의
+                        // 반환값을 버린다(0.14.0 바이트코드 확인). 기본 용량 64 가 차면 토큰이 예외도 로그도 없이 사라져
+                        // 글자가 빠진다("2015년 10월" → "205년 10"). 무한 버퍼를 끼워 네이티브 채널이 넘치지 않게 한다.
                         currentConversation.sendMessageAsync(outgoing, thinkingConfig = THINKING_OFF)
                             .buffer(kotlinx.coroutines.channels.Channel.UNLIMITED)
                             .collect { message ->
@@ -451,8 +397,7 @@ class GemmaModelRunner @Inject constructor(
     override suspend fun cancel() {
         // [WHY] cancelProcess는 진행 중 스트리밍을 중단시키기 위한 호출이므로 뮤텍스를 잡지 않는다
         // (생성 본문이 뮤텍스를 보유 중이어도 취소가 가능해야 함).
-        // [WHY] 지금 돌고 있는 대화를 끊는다 — 예전에는 캐시된 채팅 대화만 끊어서, 진행 중인
-        // oneShot(음성 전사 등 임시 대화)에는 취소가 닿지 않았다.
+        // [WHY] 캐시된 채팅만이 아니라 지금 돌고 있는 대화를 끊는다 — oneShot(음성 전사 등)에도 취소가 닿아야 한다.
         runCatching { (activeConversation ?: conversation)?.cancelProcess() }
     }
 
@@ -468,11 +413,8 @@ class GemmaModelRunner @Inject constructor(
                 runCatching { engine?.close() }
                 engine = null
                 cachedKey = null
-                // [WHY] 엔진을 해제했는데 loadState 를 Ready 로 두면 상태가 거짓이 된다 —
-                // 재진입한 스플래시가 낡은 Ready 를 믿고 warmUp 을 건너뛰고, 이후 설정 화면의
-                // 재탐색(checkModelFile)이 상태를 FileFound 로 되돌리면 warmUp 을 불러줄 곳이
-                // 없어 "엔진 준비 중" 스피너가 영원히 멈춘다(2026-08-14 실기기 스모크).
-                // 해제 직후 상태를 사실(파일은 있고 엔진은 없음 = FileFound)로 되돌린다.
+                // [WHY] 해제 직후 상태를 사실(파일은 있고 엔진은 없음 = FileFound)로 되돌린다 — Ready 로 두면 재진입한
+                // 스플래시가 warmUp 을 건너뛰어 "엔진 준비 중"이 영원히 멈춘다.
                 runtimeManager.checkModelFile()
             }
         }
@@ -485,10 +427,8 @@ class GemmaModelRunner @Inject constructor(
             runtimeManager.setInitializing()
             // [WHY] Dispatchers.IO에서 초기화하면 llmDispatcher의 첫 generate와 이중 초기화 경합이
             // 발생해 Engine이 누수된다. 동일 디스패처 + 뮤텍스로 직렬화한다.
-            // [WHY] 실패를 상태로 내린다. 예전에는 GPU·CPU 가 둘 다 실패하면 예외가 호출자
-            // (KosmosApp.onStart 의 lifecycleScope)로 새어 앱이 죽고, 상태는 InitializingEngine 에
-            // 고정됐다 — ModelLoadState.Error 를 만드는 곳이 0곳이라 스플래시의 "다시 시도"
-            // 경로가 성립하지 않았다. retry 는 checkModelFile 이 FileFound 로 되돌려 다시 탄다.
+            // [WHY] 실패는 예외가 아니라 상태(ModelLoadState.Error)로 내린다 — 호출자(lifecycleScope)로 새면 앱이 죽고
+            // 스플래시의 "다시 시도" 경로가 성립하지 않는다.
             val initialized = runCatchingCancellable {
                 withContext(llmDispatcher) {
                     lifecycleMutex.withLock {
@@ -507,11 +447,8 @@ class GemmaModelRunner @Inject constructor(
 
     private fun ensureInferenceInitialized(modelPath: String) {
         if (engine == null) {
-            // [WHY] 네이티브(liblitertlm_jni)의 로그는 기본적으로 억제되어 있어 constrained
-            // decoding 문법 생성 실패, 데이터 프로세서 선택 같은 결정적 진단이 logcat 에 전혀
-            // 남지 않았다. 툴 호출 디버깅에는 그 노출이 결정적이었으므로 디버그 빌드에서는
-            // 유지하고, 릴리스에서는 네이티브 기본값(억제)으로 되돌린다 — INFO 는 토큰 단위로
-            // 쏟아져 정작 필요한 로그를 밀어낸다(실기기에서 확인).
+            // [WHY] 네이티브 로그는 기본 억제라 제약 디코딩 문법 실패 같은 결정적 진단이 남지 않는다 — 디버그 빌드만 INFO 로
+            // 연다(릴리스는 토큰 단위 INFO 가 필요한 로그를 밀어낸다).
             val severity = if (com.kosmos.app.BuildConfig.DEBUG) {
                 com.google.ai.edge.litertlm.LogSeverity.INFO
             } else {
@@ -519,7 +456,6 @@ class GemmaModelRunner @Inject constructor(
             }
             runCatching { Engine.setNativeMinLogSeverity(severity) }
             val cacheDir = context.cacheDir.absolutePath
-            // S25 Ultra 등 GPU Delegate 활성화로 최적화
             var gpuEngine: Engine? = null
             try {
                 gpuEngine = Engine(buildEngineConfig(modelPath, Backend.GPU(), cacheDir))
@@ -561,9 +497,8 @@ class GemmaModelRunner @Inject constructor(
             _conversationResets.tryEmit(ConversationResetEvent(prompt.sessionId, reason))
         }
 
-        // [WHY] 닫기 **전에** 캐시를 비운다. 예전에는 close 뒤 createConversation 이 던지면 필드가
-        // 닫힌 네이티브 객체를 계속 가리켜, 다음 턴이 getTokenCount 를 부르거나 툴 회신 경로가
-        // 그 객체를 재사용했다(use-after-free).
+        // [WHY] 닫기 **전에** 캐시를 비운다 — close 뒤 생성이 던지면 필드가 닫힌 네이티브 객체를 가리켜 다음 턴이 그것을
+        // 재사용한다(use-after-free).
         conversation = null
         cachedKey = null
         existing?.let { runCatching { it.close() } }

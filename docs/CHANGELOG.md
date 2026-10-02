@@ -1,3 +1,9 @@
+## [0.35.1] - 2026-10-02
+> **주석 정리 1단계 — 낡은 숫자 수정 + 이력성 주석 압축.** 코드 줄 변경 0건(주석만), 게이트 녹색.
+- **[Fix] 코드와 어긋난 주석 숫자** — 재설정 임계값 "기본 3000"(실제 1700, `Constants.TOOL_RESULT_MAX_TOKENS` KDoc), 프롬프트 오버헤드 1,329·1,277(실제 `TokenBudgetInvariantTest.MEASURED_OVERHEAD` 1,226 — 0.27.1 에서 기준값을 바꾸며 이 주석들을 갱신하지 않았다), "executor 4개"(실제 6개), 프리필 구성의 "few-shot"(0.23.0 에서 제거), `ToolArguments` Key Flow 의 `<tool_call>` 경로(지금 주 경로는 네이티브 함수호출 `ToolArguments.of`). 쉽게 낡는 수치는 이제 기준 상수·테스트를 링크로 가리킨다
+- **[Refactor] 이력성 주석 압축** — `Constants`·`PromptAssembler`·`GemmaModelRunner`·`ToolArguments`·`SearchMemoryToolExecutor`·`ConversationPolicy` 의 "예전에는…" 경위·실험 점수표를 "[WHY] 한두 문장 + ADR/exp 참조"로 줄였다(주석 −269줄). `Constants`↔`GemmaModelRunner` 의 같은 설명 중복은 상수 쪽 하나로, `[WHY]` 표식 없는 HOW 주석 2건은 삭제. 경위의 진실은 CHANGELOG·ADR(전부 존재 확인)
+- **[Note] 점검 결과 남은 것** — 2단계: 문서 기능(0.34~0.35) 코드 중복(rels 처리기·parse 헬퍼·파일 이름 조회 4곳·상태별 파일 이름 분기), 3단계: 화면 공용 컴포넌트(글래스 버튼·스위치 행·대화상자)와 전체 경로 이름 정리(큰 화면 7개 약 265줄)
+
 ## [0.35.0] - 2026-10-02
 > **문서 뷰어 2차 — 워드(docx)·한글(hwpx) 읽기 모드 + 채팅으로 보내기** (계획서 `docs/plans/0.35.0-document-chat.md`). 실측 중 **첨부 문서 질문이 툴로 새는 현행 결함**을 찾아 함께 고쳤다(ADR-028).
 - **[Fix] 첨부 문서 질문이 툴로 새던 결함 (M0, exp46·46b, ADR-028)** — 문서를 첨부하고 물으면 모델이 문서를 읽지 않고 툴을 불렀다. 원인: 매 턴 붙는 표준 리마인더("For THIS request … you MUST call the tool")와 트리거 규칙("~가 뭐야", "몇 시")이 문서 질문을 툴 질문으로 끌어간다. 앱 기본(웹 검색 꺼짐) 조건에서 표 질문 20건 중 **4건만 정답, 14건이 `search_memory`·`get_schedule` 호출**, 회의록 요약에는 "첨부 파일을 읽을 수 없다"고 답했다. 대책 4안 비교(exp46b, 표 질문 20 + 행동 요청 3):
