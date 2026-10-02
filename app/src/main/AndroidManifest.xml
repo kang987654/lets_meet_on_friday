@@ -52,6 +52,27 @@
             </intent-filter>
         </activity>
 
+        <!-- [WHY] 문서 뷰어(0.34.0) — 다른 앱의 "연결 프로그램"에 뜨고, 모델 없이 열린다(MainActivity 와 분리).
+             documentLaunchMode=intoExisting: 문서마다 최근 앱 목록에 따로 뜨고 같은 파일은 그 창을 다시 쓴다 — 채팅 태스크 위에
+             쌓이지 않는다. MIME 목록은 DocumentType.VIEWABLE_MIME_TYPES 와 같게 유지한다. octet-stream 은 넣지 않는다
+             (모든 바이너리에 뜨는 스팸 방지 — 계획서 D4). -->
+        <activity
+            android:name=".feature.document.DocumentViewerActivity"
+            android:exported="true"
+            android:documentLaunchMode="intoExisting"
+            android:autoRemoveFromRecents="true"
+            android:label="문서 보기"
+            android:theme="@android:style/Theme.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+                <data android:mimeType="text/csv" />
+                <data android:mimeType="text/comma-separated-values" />
+            </intent-filter>
+        </activity>
+
         <!-- FileProvider for sharing export ZIP files -->
         <provider
             android:name="androidx.core.content.FileProvider"

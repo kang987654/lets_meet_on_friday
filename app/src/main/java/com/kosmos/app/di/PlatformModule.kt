@@ -29,6 +29,11 @@ abstract class PlatformModule {
     ): ModelDownloadScheduler
 
     @Binds
+    abstract fun bindDocumentOpener(
+        impl: com.kosmos.app.platform.document.AndroidDocumentOpener
+    ): com.kosmos.app.platform.document.DocumentOpener
+
+    @Binds
     abstract fun bindDownloadNotifier(
         impl: AndroidDownloadNotifier
     ): DownloadNotifier
