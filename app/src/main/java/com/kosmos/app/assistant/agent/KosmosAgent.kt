@@ -51,7 +51,8 @@ class KosmosAgent @Inject constructor(
             context = context,
             userInput = request.message,
             availableTools = tools,
-            systemRole = "personal assistant named Kosmos"
+            systemRole = "personal assistant named Kosmos",
+            documentAttached = request.documentText != null
         )
         return executeToolLoop(request, initialPrompt, tools)
     }

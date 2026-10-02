@@ -48,7 +48,9 @@ class PromptAssembler @Inject constructor() {
         availableTools: List<String>,
         systemRole: String,
         // [WHY] 날짜는 인자로 받는다(AGENTS §2-④) — 벽시계를 안에서 읽으면 테스트가 실행 날짜에 묶인다.
-        today: java.time.LocalDate = java.time.LocalDate.now(java.time.ZoneId.systemDefault())
+        today: java.time.LocalDate = java.time.LocalDate.now(java.time.ZoneId.systemDefault()),
+        // 이 턴에 문서가 첨부됐다 — 턴 리마인더를 문서용으로 바꾼다(0.35.0, exp46b).
+        documentAttached: Boolean = false
     ): ChatPrompt {
         // [WHY] 현재 턴의 사용자 메시지는 이미 DB에 저장된 뒤 컨텍스트로 로드되므로,
         // history 마지막과 currentInput이 중복되지 않도록 마지막 동일 USER 메시지를 제외한다.
@@ -83,7 +85,7 @@ class PromptAssembler @Inject constructor() {
             sessionId = context.sessionId,
             systemInstruction = systemInstruction,
             history = dialogHistory,
-            currentInput = withTurnToolReminder(userInput, availableTools),
+            currentInput = withTurnToolReminder(userInput, availableTools, documentAttached),
             contextBudgetTokens = context.maxTokens
         )
     }
@@ -113,9 +115,14 @@ class PromptAssembler @Inject constructor() {
      * [WHY] 히스토리 중복 제거 비교는 원문 `userInput` 으로 한다 — 이 함수의 결과로 비교하면
      * 접두사 때문에 절대 일치하지 않아 마지막 사용자 메시지가 두 번 실린다.
      */
-    private fun withTurnToolReminder(userInput: String, availableTools: List<String>): String {
+    private fun withTurnToolReminder(userInput: String, availableTools: List<String>, documentAttached: Boolean = false): String {
         if (availableTools.isEmpty()) return userInput
-        return "$TURN_TOOL_REMINDER\n\n$userInput"
+        // [WHY] 문서가 첨부된 턴에 표준 리마인더("MUST call the tool")를 붙이면 문서 질문이 툴로 샌다 — exp46b 현행 조건에서
+        // 표 질문 20건 중 14건이 search_memory·get_schedule 을 불렀고 회의록 요약은 "첨부 파일을 읽을 수 없다"고 답했다.
+        // 툴을 빼면(B) 문서 답은 맞지만 "일정에 추가해줘"에 툴 없이 "추가했습니다"라고 거짓 답을 냈다 — 툴·시스템 지시는 그대로
+        // 두고 이 턴의 리마인더만 바꾼다(프리픽스 불변이라 대화 KV 재사용도 그대로다).
+        val reminder = if (documentAttached) DOC_TURN_REMINDER else TURN_TOOL_REMINDER
+        return "$reminder\n\n$userInput"
     }
 
     private companion object {
@@ -123,6 +130,11 @@ class PromptAssembler @Inject constructor() {
         const val TURN_TOOL_REMINDER =
             "[Tool Usage Guidelines] For THIS request, first decide if one of your tools applies. " +
                 "If it does, you MUST call the tool — do not answer from memory or merely promise."
+
+        // [WHY] exp46b 실측 원문(조건 D) — 문서 질문은 문서로 답하고, 저장·일정·알림을 명시적으로 요청할 때만 툴.
+        const val DOC_TURN_REMINDER =
+            "[Attached Document] The user attached a document above. Answer questions about it from the document itself, " +
+                "not with tools. Call a tool only if the user explicitly asks to save, schedule, or remind something."
     }
 
     private fun buildSystemBlock(responseStyle: String, systemRole: String): String {
