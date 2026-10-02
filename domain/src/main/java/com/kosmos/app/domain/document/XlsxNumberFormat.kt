@@ -92,12 +92,19 @@ internal object XlsxNumberFormat {
         return if (integerDigits > 15 || rounded.scale() > 10) rounded.toString() else rounded.toPlainString()
     }
 
+    // [WHY] DecimalFormat 생성은 셀 하나 값보다 훨씬 비싸다(패턴 파싱) — 셀마다 만들면 1천 행에 1초 가까이 걸렸다(에뮬레이터 실측,
+    // 0.34.0 M4). 스레드마다 패턴별로 재사용한다(DecimalFormat 은 스레드 안전하지 않다).
+    private val formats = ThreadLocal.withInitial { HashMap<Int, DecimalFormat>() }
+
     private fun fixed(number: BigDecimal, decimals: Int, grouping: Boolean): String {
-        val pattern = buildString {
-            append(if (grouping) "#,##0" else "0")
-            if (decimals > 0) append('.').append("0".repeat(decimals))
+        val key = decimals * 2 + if (grouping) 1 else 0
+        val format = formats.get().getOrPut(key) {
+            val pattern = buildString {
+                append(if (grouping) "#,##0" else "0")
+                if (decimals > 0) append('.').append("0".repeat(decimals))
+            }
+            DecimalFormat(pattern, DecimalFormatSymbols(Locale.ROOT)).apply { roundingMode = RoundingMode.HALF_UP }
         }
-        val format = DecimalFormat(pattern, DecimalFormatSymbols(Locale.ROOT)).apply { roundingMode = RoundingMode.HALF_UP }
         return format.format(number)
     }
 

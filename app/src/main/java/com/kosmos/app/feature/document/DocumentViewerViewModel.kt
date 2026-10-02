@@ -3,6 +3,7 @@ package com.kosmos.app.feature.document
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.domain.document.DocumentError
 import com.kosmos.app.domain.document.DocumentResult
 import com.kosmos.app.domain.document.Sheet
@@ -71,7 +72,11 @@ class DocumentViewerViewModel @Inject constructor(
         document = null
         _state.value = DocumentViewerState.Loading
         viewModelScope.launch {
-            when (val result = opener.open(uri, mimeTypeHint)) {
+            val started = System.nanoTime()
+            val result = opener.open(uri, mimeTypeHint)
+            // [WHY] 첫 표시 시간은 실기기 게이트 항목이다 — 측정용 로그를 남긴다(계획서 M4).
+            AppLogger.d(TAG, "열기 ${(System.nanoTime() - started) / 1_000_000}ms — ${result::class.simpleName}")
+            when (result) {
                 is DocumentResult.Fail -> _state.value = DocumentViewerState.Failed(result.error)
                 is DocumentResult.Ok -> {
                     val opened = result.value
@@ -99,7 +104,12 @@ class DocumentViewerViewModel @Inject constructor(
     private fun readSheet(opened: OpenedDocument.Spreadsheet, index: Int) {
         sheetJob?.cancel()
         sheetJob = viewModelScope.launch {
-            val result = opened.sheet(index)
+            val started = System.nanoTime()
+            val result = opened.sheet(index) { partial ->
+                AppLogger.d(TAG, "시트 $index 앞부분 ${(System.nanoTime() - started) / 1_000_000}ms — ${partial.rows.size}행")
+                _state.update { s -> if (s is DocumentViewerState.Spreadsheet && s.selected == index && s.sheet == null) s.copy(sheet = partial) else s }
+            }
+            AppLogger.d(TAG, "시트 $index 읽기 ${(System.nanoTime() - started) / 1_000_000}ms — ${(result as? DocumentResult.Ok)?.value?.rows?.size ?: result}행")
             _state.update { s ->
                 if (s !is DocumentViewerState.Spreadsheet || s.selected != index) return@update s
                 when (result) {
@@ -113,5 +123,9 @@ class DocumentViewerViewModel @Inject constructor(
     override fun onCleared() {
         document?.close()
         document = null
+    }
+
+    private companion object {
+        const val TAG = "DocumentViewer"
     }
 }

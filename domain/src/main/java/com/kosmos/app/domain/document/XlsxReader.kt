@@ -56,10 +56,14 @@ class XlsxReader(private val zip: ZipSource, private val limits: DocumentLimits 
         )
     }
 
-    fun readSheet(workbook: Workbook, index: Int): DocumentResult<Sheet> = guard {
+    /**
+     * @param onFirstRows 앞 [FIRST_BATCH_ROWS] 행을 읽은 순간 한 번 불린다(`complete = false` 인 부분 시트) — 큰 시트도 첫 화면을
+     * 바로 그리게 한다. 시트가 그보다 짧으면 불리지 않는다.
+     */
+    fun readSheet(workbook: Workbook, index: Int, onFirstRows: (Sheet) -> Unit = {}): DocumentResult<Sheet> = guard {
         val name = workbook.sheetNames.getOrNull(index) ?: throw DocumentException(DocumentError.CORRUPT)
         val path = workbook.sheetPaths.getOrNull(index) ?: throw DocumentException(DocumentError.CORRUPT)
-        val handler = SheetHandler(workbook, limits)
+        val handler = SheetHandler(workbook, limits) { rows -> onFirstRows(rows.toSheet(name, complete = false)) }
         parse(path, handler, required = true)
         handler.toSheet(name)
     }
@@ -87,6 +91,9 @@ class XlsxReader(private val zip: ZipSource, private val limits: DocumentLimits 
     }
 
     internal companion object {
+        /** 부분 시트를 먼저 내보내는 행 수 — 휴대폰 한 화면(20~30행)의 몇 배. */
+        const val FIRST_BATCH_ROWS = 200
+
         /** 관계 파일의 Target 을 zip 엔트리 경로로 — 절대("/xl/…")와 상대("worksheets/…", "../…") 둘 다. */
         fun resolve(baseDir: String, target: String): String {
             if (target.startsWith("/")) return target.removePrefix("/")
@@ -190,7 +197,11 @@ class XlsxReader(private val zip: ZipSource, private val limits: DocumentLimits 
         }
     }
 
-    private class SheetHandler(private val workbook: Workbook, private val limits: DocumentLimits) : DefaultHandler() {
+    private class SheetHandler(
+        private val workbook: Workbook,
+        private val limits: DocumentLimits,
+        private val onFirstRows: (SheetHandler) -> Unit
+    ) : DefaultHandler() {
         private val rows = mutableListOf<SheetRow>()
         private val merges = mutableListOf<CellRange>()
         private val widths = mutableMapOf<Int, Float>()
@@ -282,7 +293,10 @@ class XlsxReader(private val zip: ZipSource, private val limits: DocumentLimits 
         }
 
         private fun flushRow() {
-            if (rowCells.isNotEmpty()) rows += SheetRow(rowIndex, rowCells.toList())
+            if (rowCells.isNotEmpty()) {
+                rows += SheetRow(rowIndex, rowCells.toList())
+                if (rows.size == FIRST_BATCH_ROWS) onFirstRows(this)
+            }
             rowCells = mutableListOf()
         }
 
@@ -301,18 +315,19 @@ class XlsxReader(private val zip: ZipSource, private val limits: DocumentLimits 
             }
         }
 
-        fun toSheet(name: String): Sheet {
-            flushRow()
+        fun toSheet(name: String, complete: Boolean = true): Sheet {
+            if (complete) flushRow()
             val mergeMax = merges.maxOfOrNull { it.lastColumn } ?: -1
             return Sheet(
                 name = name,
-                rows = rows.sortedBy { it.index },
+                rows = if (complete) rows.sortedBy { it.index } else rows.toList(),
                 columnCount = maxOf(maxColumn, mergeMax) + 1,
                 merges = merges.toList(),
                 frozenRows = frozenRows,
                 frozenColumns = frozenColumns,
                 columnWidths = widths.toMap(),
-                truncated = truncated
+                truncated = truncated,
+                complete = complete
             )
         }
 

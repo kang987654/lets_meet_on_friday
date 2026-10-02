@@ -155,6 +155,26 @@ class XlsxReaderTest {
     }
 
     @Test
+    fun `큰 시트는 앞 200행을 먼저 한 번 내보내고 끝까지 읽은 시트를 돌려준다`() {
+        val rows = (1..250).joinToString("") { r -> """<row r="$r"><c r="A$r"><v>$r</v></c></row>""" }
+        val big = """<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>$rows</sheetData></worksheet>"""
+        val reader = XlsxReader(source("xl/worksheets/sheet1.xml" to big))
+        val partials = mutableListOf<Sheet>()
+
+        val sheet = reader.readSheet(reader.open().ok(), 0) { partials += it }.ok()
+
+        assertEquals(1, partials.size)
+        assertEquals(XlsxReader.FIRST_BATCH_ROWS, partials.single().rows.size)
+        assertFalse(partials.single().complete)
+        assertEquals(250, sheet.rows.size)
+        assertTrue(sheet.complete)
+
+        val small = mutableListOf<Sheet>()
+        reader.readSheet(reader.open().ok(), 1) { small += it }
+        assertTrue("짧은 시트는 부분 시트를 내지 않는다", small.isEmpty())
+    }
+
+    @Test
     fun `압축 해제 상한을 넘으면 너무 큼`() {
         assertEquals(DocumentResult.Fail(DocumentError.TOO_LARGE), XlsxReader(source(), DocumentLimits(maxEntryBytes = 100)).open())
     }

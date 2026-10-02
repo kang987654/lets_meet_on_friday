@@ -39,7 +39,7 @@ class DocumentViewerViewModelTest {
     private fun spreadsheet(failSheet: Int? = null) = OpenedDocument.Spreadsheet(
         fileName = "가계부.xlsx",
         sheetNames = listOf("1월", "2월"),
-        loader = { index ->
+        loader = { index, _ ->
             sheetReads += index
             if (index == failSheet) DocumentResult.Fail(DocumentError.TOO_LARGE)
             else DocumentResult.Ok(Sheet(name = "${index + 1}월", rows = emptyList(), columnCount = 0))

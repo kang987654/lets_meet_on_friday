@@ -11,6 +11,7 @@ package com.kosmos.app.domain.document
  * @property frozenColumns 틀 고정 열 수.
  * @property columnWidths 열 번호 → 너비(엑셀 문자 단위). 없으면 기본 너비.
  * @property truncated 상한에 닿아 앞부분만 담았다.
+ * @property complete false 면 아직 읽는 중인 앞부분이다(큰 시트의 첫 화면용) — 끝까지 읽으면 같은 시트가 다시 온다.
  */
 data class Sheet(
     val name: String,
@@ -20,7 +21,8 @@ data class Sheet(
     val frozenRows: Int = 0,
     val frozenColumns: Int = 0,
     val columnWidths: Map<Int, Float> = emptyMap(),
-    val truncated: Boolean = false
+    val truncated: Boolean = false,
+    val complete: Boolean = true
 )
 
 /** @property index 0부터 세는 행 번호(엑셀 표기는 +1). */

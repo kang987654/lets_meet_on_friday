@@ -36,14 +36,14 @@ import javax.inject.Inject
 sealed interface OpenedDocument : Closeable {
     val fileName: String
 
-    /** xlsx·csv. 시트는 [sheet] 를 부를 때 하나씩 읽는다. */
+    /** xlsx·csv. 시트는 [sheet] 를 부를 때 하나씩 읽는다. 큰 시트는 앞부분을 [onFirstRows] 로 먼저 준다. */
     class Spreadsheet(
         override val fileName: String,
         val sheetNames: List<String>,
-        private val loader: suspend (Int) -> DocumentResult<Sheet>,
+        private val loader: suspend (index: Int, onFirstRows: (Sheet) -> Unit) -> DocumentResult<Sheet>,
         private val onClose: () -> Unit = {}
     ) : OpenedDocument {
-        suspend fun sheet(index: Int): DocumentResult<Sheet> = loader(index)
+        suspend fun sheet(index: Int, onFirstRows: (Sheet) -> Unit = {}): DocumentResult<Sheet> = loader(index, onFirstRows)
         override fun close() = onClose()
     }
 
@@ -131,7 +131,7 @@ class AndroidDocumentOpener @Inject constructor(
     private fun openCsv(uri: Uri, name: String): DocumentResult<OpenedDocument> {
         val input = context.contentResolver.openInputStream(uri) ?: return DocumentResult.Fail(DocumentError.UNREADABLE)
         return when (val sheet = CsvReader(limits).read(input, name)) {
-            is DocumentResult.Ok -> DocumentResult.Ok(OpenedDocument.Spreadsheet(name, listOf(name), { DocumentResult.Ok(sheet.value) }))
+            is DocumentResult.Ok -> DocumentResult.Ok(OpenedDocument.Spreadsheet(name, listOf(name), { _, _ -> DocumentResult.Ok(sheet.value) }))
             is DocumentResult.Fail -> sheet
         }
     }
@@ -162,7 +162,9 @@ class AndroidDocumentOpener @Inject constructor(
                     OpenedDocument.Spreadsheet(
                         fileName = name,
                         sheetNames = workbook.value.sheetNames,
-                        loader = { index -> lock.withLock { withContext(Dispatchers.IO) { reader.readSheet(workbook.value, index) } } },
+                        loader = { index, onFirstRows ->
+                            lock.withLock { withContext(Dispatchers.IO) { reader.readSheet(workbook.value, index, onFirstRows) } }
+                        },
                         onClose = close
                     )
                 )

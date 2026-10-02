@@ -70,6 +70,14 @@ fun SheetView(
         val (frozenRows, bodyRows) = sheet.rows.partition { it.index < layout.frozenRows }
 
         Column(Modifier.fillMaxSize()) {
+            if (!sheet.complete) {
+                Text(
+                    text = "나머지 행을 읽는 중…",
+                    color = colors.textMuted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
             if (sheet.truncated) {
                 Text(
                     text = "파일이 커서 앞부분(${sheet.rows.lastOrNull()?.index?.plus(1) ?: 0}행까지)만 보여요",
@@ -195,6 +203,27 @@ private fun GridCell(
     }
 }
 
+/**
+ * 너비 정보가 없는 열(csv 전부, 너비를 안 정한 xlsx 열)을 내용 길이로 맞춘다 — 기본 72dp 면 전화번호·날짜가 잘렸다(0.34.0 M4 에뮬레이터).
+ *
+ * [WHY] 앞 [FIT_SAMPLE_ROWS] 행만 본다 — 큰 시트에서 전부 재면 그리기 전에 지연이 생기고, 앞부분을 먼저 그린 뒤(부분 시트) 끝까지
+ * 읽은 시트로 바뀔 때 같은 표본이어야 열 너비가 튀지 않는다. 글자 폭은 13sp 기준 근사(ASCII 7.5dp, 그 외 13dp).
+ */
+private fun fittedWidths(sheet: Sheet, columnCount: Int): List<Dp> {
+    val longest = FloatArray(columnCount)
+    // 여러 열에 걸친 병합 칸은 넓이를 합쳐 쓰므로 한 열의 너비를 정하는 데 넣지 않는다.
+    val spanning = sheet.merges.filter { it.lastColumn > it.firstColumn }.map { it.firstRow to it.firstColumn }.toSet()
+    sheet.rows.take(FIT_SAMPLE_ROWS).forEach { row ->
+        row.cells.forEach { cell ->
+            if (cell.column < columnCount && (row.index to cell.column) !in spanning) {
+                val width = cell.text.substringBefore('\n').sumOf { ch -> if (ch.code < 128) 75 else 130 }.toFloat() / 10f
+                if (width > longest[cell.column]) longest[cell.column] = width
+            }
+        }
+    }
+    return longest.map { w -> if (w == 0f) DEFAULT_COLUMN_WIDTH else (w + 14f).dp.coerceIn(48.dp, 220.dp) }
+}
+
 /** 시트에서 한 번만 계산해 두는 그리기 정보. */
 private class SheetLayout(
     val columnCount: Int,
@@ -209,9 +238,10 @@ private class SheetLayout(
     companion object {
         fun of(sheet: Sheet): SheetLayout {
             val columnCount = sheet.columnCount.coerceIn(1, MAX_RENDER_COLUMNS)
+            val fitted = fittedWidths(sheet, columnCount)
             val widths = List(columnCount) { c ->
                 // 엑셀 너비는 "기본 글꼴 숫자 몇 개" 단위다 — 대략 7dp/자 + 여백으로 환산하고 극단값은 자른다.
-                sheet.columnWidths[c]?.let { (it * 7f + 10f).dp.coerceIn(36.dp, 320.dp) } ?: DEFAULT_COLUMN_WIDTH
+                sheet.columnWidths[c]?.let { (it * 7f + 10f).dp.coerceIn(36.dp, 320.dp) } ?: fitted[c]
             }
             val mergesByRow = mutableMapOf<Int, MutableList<CellRange>>()
             sheet.merges
@@ -235,6 +265,7 @@ private val DEFAULT_COLUMN_WIDTH = 72.dp
 private const val MAX_RENDER_COLUMNS = 200
 private const val MAX_FROZEN_ROWS = 5
 private const val MAX_MERGE_ROWS = 1000
+private const val FIT_SAMPLE_ROWS = 200
 
 /** 테스트가 격자를 찾는 태그. */
 internal const val SHEET_GRID_TAG = "sheet_grid"
