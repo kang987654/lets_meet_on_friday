@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.settings
 
+import com.kosmos.app.ui.component.GlassButton
 import com.kosmos.app.ui.theme.KosmosTheme
 import android.Manifest
 import android.annotation.SuppressLint
@@ -110,20 +111,7 @@ fun ModelManagementScreen(
                         color = KosmosTheme.colors.textMuted
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .glassEffect(
-                                backgroundColor = KosmosTheme.colors.accent.copy(alpha = 0.15f),
-                                borderColor = KosmosTheme.colors.accent.copy(alpha = 0.3f),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                            )
-                            .clickable { startDownload(defaultModelUrl) }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("내려받기", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
-                    }
+                    GlassButton("내려받기", { startDownload(defaultModelUrl) }, Modifier.fillMaxWidth(), accent = true)
                 }
             }
 
@@ -168,9 +156,7 @@ fun ModelManagementScreen(
                                 backgroundColor = btnBg,
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                             )
-                            .clickable(enabled = canDownload) {
-                                if (canDownload) startDownload(customUrl)
-                            }
+                            .clickable(enabled = canDownload) { startDownload(customUrl) }
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {

@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.calendar
 
+import com.kosmos.app.ui.component.GlassButton
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -233,30 +234,8 @@ private fun DeviceCalendarNotice(
         )
         Spacer(modifier = Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .glassEffect(shape = RoundedCornerShape(12.dp))
-                    .clickable { onRetry() }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("다시 시도", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.labelLarge)
-            }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .glassEffect(
-                        backgroundColor = KosmosTheme.colors.accent.copy(alpha = 0.2f),
-                        borderColor = KosmosTheme.colors.accent.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .clickable { onOpenSettings() }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("권한 설정 열기", color = KosmosTheme.colors.accent, style = MaterialTheme.typography.labelLarge)
-            }
+            GlassButton("다시 시도", onRetry, Modifier.weight(1f))
+            GlassButton("권한 설정 열기", onOpenSettings, Modifier.weight(1f), accent = true)
         }
     }
 }

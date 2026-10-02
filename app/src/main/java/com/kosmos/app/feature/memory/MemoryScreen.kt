@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.memory
 
+import com.kosmos.app.ui.component.GlassButton
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -10,8 +11,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -22,6 +21,10 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
 import com.kosmos.app.ui.component.glassEffect
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
+import com.kosmos.app.ui.component.GlassSegmentedControl
 
 @Composable
 fun MemoryScreen(
@@ -60,7 +63,7 @@ fun MemoryScreen(
     // [WHY] 목록 조작 실패(Task 완료·지식 삭제)를 알린다 — 없으면 체크했는데 항목이 남아 "탭이
     // 씹힌" 것처럼 보였다. 일시 안내는 앱 전체가 Snackbar 로 통일한다(2026-09-30 사용자 결정 —
     // 예전엔 이 화면만 Toast 였다). 상태 표시(일정 불러오기 실패 등)와 시트 안 안내는 인라인이다.
-    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(uiState.actionError) {
         uiState.actionError?.let { message ->
             viewModel.dismissActionError()
@@ -70,24 +73,17 @@ fun MemoryScreen(
 
     // 지식 삭제 확인 (C′2 관리 장치) — 자동 저장 항목을 한 탭으로 되돌릴 수 있어야 G3 예외가 성립한다.
     knowledgeToDelete?.let { note ->
-        AlertDialog(
-            onDismissRequest = { knowledgeToDelete = null },
-            title = { Text("이 기억을 지울까요?") },
-            text = { Text(note.content, maxLines = 4) },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deleteKnowledge(note.id) { knowledgeItems.refresh() }
-                    knowledgeToDelete = null
-                }) { Text("지우기", color = KosmosTheme.colors.danger) }
+        ConfirmDialog(
+            title = "이 기억을 지울까요?",
+            body = note.content,
+            bodyMaxLines = 4,
+            confirmText = "지우기",
+            confirmColor = KosmosTheme.colors.danger,
+            onConfirm = {
+                viewModel.deleteKnowledge(note.id) { knowledgeItems.refresh() }
+                knowledgeToDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { knowledgeToDelete = null }) {
-                    Text("취소", color = KosmosTheme.colors.textMuted)
-                }
-            },
-            containerColor = KosmosTheme.colors.surface,
-            titleContentColor = KosmosTheme.colors.textPrimary,
-            textContentColor = KosmosTheme.colors.textSecondary
+            onDismiss = { knowledgeToDelete = null }
         )
     }
 
@@ -103,26 +99,15 @@ fun MemoryScreen(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 8.dp)
             )
-            // Top Tabs
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                TabButton(
-                    text = "🧠 메모",
-                    isSelected = uiState.selectedFilter == MemoryFilterType.KNOWLEDGE,
-                    onClick = { viewModel.onFilterSelected(MemoryFilterType.KNOWLEDGE) },
-                    modifier = Modifier.weight(1f)
-                )
-                TabButton(
-                    text = "✓ 할 일",
-                    isSelected = uiState.selectedFilter == MemoryFilterType.TASK,
-                    onClick = { viewModel.onFilterSelected(MemoryFilterType.TASK) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            GlassSegmentedControl(
+                options = listOf(MemoryFilterType.KNOWLEDGE to "🧠 메모", MemoryFilterType.TASK to "✓ 할 일"),
+                selected = uiState.selectedFilter,
+                onSelect = viewModel::onFilterSelected,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                cornerRadius = 16.dp,
+                verticalPadding = 12.dp,
+                textStyle = MaterialTheme.typography.bodyMedium
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -155,13 +140,13 @@ fun MemoryScreen(
                         modifier = Modifier
                             .width(60.dp)
                             .height(4.dp)
-                            .background(KosmosTheme.colors.glass, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                            .background(KosmosTheme.colors.glass, RoundedCornerShape(2.dp))
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth(progress)
-                                .background(KosmosTheme.colors.success, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                                .background(KosmosTheme.colors.success, RoundedCornerShape(2.dp))
                         )
                     }
                 }
@@ -200,7 +185,7 @@ fun MemoryScreen(
                     item {
                         // 할 일 인라인 추가 — 예전에는 빈 스텁 버튼이었다 (MemoryViewModel.addTask [WHY]).
                         var newTaskText by androidx.compose.runtime.remember {
-                            androidx.compose.runtime.mutableStateOf("")
+                            mutableStateOf("")
                         }
                         fun submitNewTask() {
                             if (newTaskText.isBlank()) return
@@ -214,7 +199,7 @@ fun MemoryScreen(
                                 .border(
                                     width = 1.dp,
                                     color = KosmosTheme.colors.border,
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                                    shape = RoundedCornerShape(16.dp)
                                 )
                                 .padding(16.dp)
                         ) {
@@ -280,7 +265,7 @@ fun MemoryScreen(
                                     .glassEffect(
                                         backgroundColor = KosmosTheme.colors.glass,
                                         borderColor = KosmosTheme.colors.borderHigh,
-                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                                        shape = RoundedCornerShape(16.dp)
                                     )
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
@@ -301,7 +286,7 @@ fun MemoryScreen(
                                                     .padding(start = 8.dp)
                                                     .background(
                                                         color = KosmosTheme.colors.glass,
-                                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
+                                                        shape = RoundedCornerShape(6.dp)
                                                     )
                                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                                             )
@@ -326,7 +311,7 @@ fun MemoryScreen(
                                                     modifier = Modifier
                                                         .background(
                                                             color = KosmosTheme.colors.accent.copy(alpha = 0.15f),
-                                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                                            shape = RoundedCornerShape(8.dp)
                                                         )
                                                         .padding(horizontal = 10.dp, vertical = 4.dp)
                                                 ) {
@@ -354,7 +339,7 @@ fun MemoryScreen(
                 }
             }
         }
-        androidx.compose.material3.SnackbarHost(
+        SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -394,46 +379,9 @@ private fun BackupSection(
             modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
         )
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            BackupButton(
-                text = if (backupState is BackupState.Exporting) "내보내는 중…" else "내보내기",
-                enabled = !busy,
-                onClick = onExportClick,
-                modifier = Modifier.weight(1f)
-            )
-            BackupButton(
-                text = if (backupState is BackupState.Importing) "복원 중…" else "가져오기",
-                enabled = !busy,
-                onClick = onImportClick,
-                modifier = Modifier.weight(1f)
-            )
+            GlassButton(if (backupState is BackupState.Exporting) "내보내는 중…" else "내보내기", onExportClick, Modifier.weight(1f), enabled = !busy)
+            GlassButton(if (backupState is BackupState.Importing) "복원 중…" else "가져오기", onImportClick, Modifier.weight(1f), enabled = !busy)
         }
-    }
-}
-
-@Composable
-private fun BackupButton(
-    text: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .glassEffect(
-                backgroundColor = KosmosTheme.colors.glass,
-                borderColor = KosmosTheme.colors.border,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-            )
-            .clickable(enabled = enabled) { onClick() }
-            .padding(vertical = 14.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            color = if (enabled) KosmosTheme.colors.textPrimary else KosmosTheme.colors.textMuted,
-            fontWeight = FontWeight.SemiBold,
-            style = MaterialTheme.typography.bodyLarge
-        )
     }
 }
 
@@ -448,7 +396,7 @@ private fun BackupDialogs(
     if (uiState.showExportNotice) {
         // [WHY] prd.md F8 정책 — 백업 파일에 개인정보가 포함됨을 UI에서 명시해야 한다.
         // v1은 암호화를 의도적으로 넣지 않았으므로 이 경고가 유일한 보호막이다.
-        BackupDialog(
+        ConfirmDialog(
             title = "백업에 개인정보가 포함됩니다",
             body = "내보낼 파일에는 대화 내용, 지식 노트, 프로필, 감사 로그가 " +
                 "암호화 없이 그대로 담깁니다. 신뢰할 수 있는 위치에만 저장하세요.",
@@ -460,7 +408,7 @@ private fun BackupDialogs(
     }
 
     if (uiState.showImportWarning) {
-        BackupDialog(
+        ConfirmDialog(
             title = "기존 데이터를 덮어씁니다",
             body = "복원하면 현재 기기의 대화·지식·일정이 백업 파일의 내용으로 " +
                 "완전히 교체되며 되돌릴 수 없습니다. 계속하시겠습니까?",
@@ -476,22 +424,17 @@ private fun BackupDialogs(
         is BackupState.ImportSucceeded -> {
             // [WHY] DB가 이미 교체됐으므로 닫을 수 없는 다이얼로그다. 재시작만이 유효한 출구다.
             // 자동 타이머로 프로세스를 죽이던 기존 방식과 달리, 사용자가 누른 시점에만 죽인다.
-            AlertDialog(
-                onDismissRequest = { },
-                title = { Text("복원 완료") },
-                text = { Text("데이터를 적용하려면 앱을 다시 시작해야 합니다.") },
-                confirmButton = {
-                    TextButton(onClick = onRestartApp) {
-                        Text("재시작", color = KosmosTheme.colors.accent)
-                    }
-                },
-                containerColor = KosmosTheme.colors.surface,
-                titleContentColor = KosmosTheme.colors.textPrimary,
-                textContentColor = KosmosTheme.colors.textSecondary
+            ConfirmDialog(
+                title = "복원 완료",
+                body = "데이터를 적용하려면 앱을 다시 시작해야 합니다.",
+                confirmText = "재시작",
+                onConfirm = onRestartApp,
+                onDismiss = {},
+                showCancel = false
             )
         }
         is BackupState.Failed -> {
-            BackupDialog(
+            ConfirmDialog(
                 title = "백업 처리 실패",
                 titleColor = KosmosTheme.colors.danger,
                 body = state.message,
@@ -505,21 +448,23 @@ private fun BackupDialogs(
     }
 }
 
+/** 확인 대화상자 — 백업·복원·기억 삭제가 같은 모양을 쓴다. */
 @Composable
-private fun BackupDialog(
+private fun ConfirmDialog(
     title: String,
     body: String,
     confirmText: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
-    titleColor: androidx.compose.ui.graphics.Color = KosmosTheme.colors.textPrimary,
-    confirmColor: androidx.compose.ui.graphics.Color = KosmosTheme.colors.accent,
-    showCancel: Boolean = true
+    titleColor: Color = KosmosTheme.colors.textPrimary,
+    confirmColor: Color = KosmosTheme.colors.accent,
+    showCancel: Boolean = true,
+    bodyMaxLines: Int = Int.MAX_VALUE
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title, color = titleColor) },
-        text = { Text(body) },
+        text = { Text(body, maxLines = bodyMaxLines) },
         confirmButton = {
             TextButton(onClick = onConfirm) { Text(confirmText, color = confirmColor) }
         },
@@ -550,27 +495,6 @@ private fun restartApp(context: android.content.Context) {
 }
 
 @Composable
-fun TabButton(text: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val bgColor = if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.1f) else KosmosTheme.colors.glass
-    val borderColor = if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.5f) else KosmosTheme.colors.border
-    val textColor = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textSecondary
-    
-    Box(
-        modifier = modifier
-            .glassEffect(
-                backgroundColor = bgColor,
-                borderColor = borderColor,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-            )
-            .clickable { onClick() }
-            .padding(vertical = 14.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = text, color = textColor, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
-    }
-}
-
-@Composable
 fun TaskItemRow(
     title: String,
     isCompleted: Boolean,
@@ -584,7 +508,7 @@ fun TaskItemRow(
             .glassEffect(
                 backgroundColor = KosmosTheme.colors.glass,
                 borderColor = KosmosTheme.colors.border,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp)
             )
             .clickable { onToggle() }
     ) {
@@ -601,11 +525,11 @@ fun TaskItemRow(
                     .border(
                         width = 1.dp,
                         color = if (isCompleted) KosmosTheme.colors.success else KosmosTheme.colors.textMuted,
-                        shape = androidx.compose.foundation.shape.CircleShape
+                        shape = CircleShape
                     )
                     .background(
-                        color = if (isCompleted) KosmosTheme.colors.success.copy(alpha = 0.1f) else androidx.compose.ui.graphics.Color.Transparent,
-                        shape = androidx.compose.foundation.shape.CircleShape
+                        color = if (isCompleted) KosmosTheme.colors.success.copy(alpha = 0.1f) else Color.Transparent,
+                        shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -617,7 +541,7 @@ fun TaskItemRow(
             Spacer(modifier = Modifier.width(16.dp))
             
             // Text
-            androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge,
@@ -637,7 +561,7 @@ fun TaskItemRow(
             Box(
                 modifier = Modifier
                     .size(6.dp)
-                    .background(KosmosTheme.colors.danger, shape = androidx.compose.foundation.shape.CircleShape)
+                    .background(KosmosTheme.colors.danger, shape = CircleShape)
             )
         }
     }

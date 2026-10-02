@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.cleanup
 
+import com.kosmos.app.ui.component.GlassButton
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -129,7 +130,7 @@ private fun Intro(onStart: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium
         )
     }
-    PrimaryButton("정리 시작", onStart)
+    GlassButton("정리 시작", onStart, Modifier.fillMaxWidth(), accent = true)
 }
 
 @Composable
@@ -150,7 +151,7 @@ private fun Progress(label: String, fraction: Float?, onCancel: (() -> Unit)?) {
 @Composable
 private fun Notice(message: String, action: String, onAction: () -> Unit) {
     Card { Text(message, color = KosmosTheme.colors.textPrimary) }
-    PrimaryButton(action, onAction)
+    GlassButton(action, onAction, Modifier.fillMaxWidth(), accent = true)
 }
 
 @Composable
@@ -200,7 +201,7 @@ private fun ReviewContent(
         }
     }
     val count = proposals.count { it.key in checked } + episodeProposals.count { it.key in checkedEpisodes }
-    PrimaryButton(if (count > 0) "선택한 ${count}건 합치기" else "합치지 않고 마치기", onApply)
+    GlassButton(if (count > 0) "선택한 ${count}건 합치기" else "합치지 않고 마치기", onApply, Modifier.fillMaxWidth(), accent = true)
 }
 
 @Composable
@@ -265,22 +266,4 @@ private fun Card(content: @Composable () -> Unit) {
             .glassEffect(shape = RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) { content() }
-}
-
-@Composable
-private fun PrimaryButton(label: String, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .glassEffect(
-                backgroundColor = KosmosTheme.colors.accent.copy(alpha = 0.2f),
-                borderColor = KosmosTheme.colors.accent.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(12.dp)
-            )
-            .clickable(onClick = onClick)
-            .padding(vertical = 14.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(label, color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
-    }
 }

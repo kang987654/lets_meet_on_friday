@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.settings
 
+import com.kosmos.app.ui.component.GlassButton
 import com.kosmos.app.core.common.ResponseStyle
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.clickable
@@ -51,17 +52,17 @@ fun SettingsScreen(
         // 1. Model Status Section
         SectionBox(title = "로컬 AI 모델 (GEMMA)") {
             when (val state = uiState.modelLoadState) {
-                is ModelLoadState.Loading -> {
+                is ModelLoadState.Loading, is ModelLoadState.FileFound, is ModelLoadState.InitializingEngine -> {
                     CircularProgressIndicator(color = KosmosTheme.colors.accent)
-                    Text("모델 상태 확인 중…", color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 8.dp))
-                }
-                is ModelLoadState.FileFound -> {
-                    CircularProgressIndicator(color = KosmosTheme.colors.accent)
-                    Text("모델 파일 확인, 엔진 준비 중…", color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 8.dp))
-                }
-                is ModelLoadState.InitializingEngine -> {
-                    CircularProgressIndicator(color = KosmosTheme.colors.accent)
-                    Text("AI 엔진 초기화 중…", color = KosmosTheme.colors.textMuted, modifier = Modifier.padding(top = 8.dp))
+                    Text(
+                        text = when (state) {
+                            is ModelLoadState.Loading -> "모델 상태 확인 중…"
+                            is ModelLoadState.FileFound -> "모델 파일 확인, 엔진 준비 중…"
+                            else -> "AI 엔진 초기화 중…"
+                        },
+                        color = KosmosTheme.colors.textMuted,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
                 }
                 is ModelLoadState.Ready -> {
                     Text(
@@ -80,20 +81,7 @@ fun SettingsScreen(
                         modifier = Modifier.padding(top = 4.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .glassEffect(
-                                backgroundColor = KosmosTheme.colors.accent.copy(alpha = 0.15f),
-                                borderColor = KosmosTheme.colors.accent.copy(alpha = 0.3f),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                            )
-                            .clickable { onNavigateToModelManagement() }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("모델 관리", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
-                    }
+                    GlassButton("모델 관리", onNavigateToModelManagement, Modifier.fillMaxWidth(), accent = true)
                 }
                 is ModelLoadState.NotFound -> {
                     Text(
@@ -109,30 +97,8 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                                .clickable { viewModel.refreshModelState() }
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("새로 고침", color = KosmosTheme.colors.textPrimary)
-                        }
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .glassEffect(
-                                    backgroundColor = KosmosTheme.colors.accent.copy(alpha = 0.2f),
-                                    borderColor = KosmosTheme.colors.accent.copy(alpha = 0.5f),
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                                )
-                                .clickable { onNavigateToModelManagement() }
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("내려받기", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
-                        }
+                        GlassButton("새로 고침", viewModel::refreshModelState, Modifier.weight(1f))
+                        GlassButton("내려받기", onNavigateToModelManagement, Modifier.weight(1f), accent = true)
                     }
                 }
                 is ModelLoadState.Error -> {
@@ -220,21 +186,7 @@ fun SettingsScreen(
         // 5. 아침 브리핑 (A4 — 알림은 미리보기, 본문은 앱을 열면 도착)
         SectionBox(title = "아침 브리핑") {
             var showTimePicker by remember { mutableStateOf(false) }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("매일 아침 브리핑 받기", color = KosmosTheme.colors.textPrimary)
-                Switch(
-                    checked = uiState.briefingEnabled,
-                    onCheckedChange = { viewModel.onBriefingEnabledChanged(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = KosmosTheme.colors.onAccent,
-                        checkedTrackColor = KosmosTheme.colors.accent
-                    )
-                )
-            }
+            SettingSwitchRow("매일 아침 브리핑 받기", uiState.briefingEnabled) { viewModel.onBriefingEnabledChanged(it) }
             if (uiState.briefingEnabled) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -293,21 +245,7 @@ fun SettingsScreen(
 
         // 5-b. 자동 기억 (C′2) — 대화가 정리될 때 기억할 사실을 골라 저장
         SectionBox(title = "기억") {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("대화에서 자동으로 기억하기", color = KosmosTheme.colors.textPrimary)
-                Switch(
-                    checked = uiState.autoExtractEnabled,
-                    onCheckedChange = { viewModel.onAutoExtractEnabledChanged(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = KosmosTheme.colors.onAccent,
-                        checkedTrackColor = KosmosTheme.colors.accent
-                    )
-                )
-            }
+            SettingSwitchRow("대화에서 자동으로 기억하기", uiState.autoExtractEnabled) { viewModel.onAutoExtractEnabledChanged(it) }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "대화가 정리될 때 기억할 사실을 골라 저장해요. 이름·호칭 같은 항목은 먼저 물어보고 저장하고, 기억 화면에서 언제든 지울 수 있어요.",
@@ -342,21 +280,7 @@ fun SettingsScreen(
         LaunchedEffect(Unit) { viewModel.loadTtsEngines() }
         val ttsContext = LocalContext.current
         SectionBox(title = "음성") {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("답변을 소리로 읽어 주기", color = KosmosTheme.colors.textPrimary)
-                Switch(
-                    checked = uiState.ttsAutoRead,
-                    onCheckedChange = { viewModel.onTtsAutoReadChanged(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = KosmosTheme.colors.onAccent,
-                        checkedTrackColor = KosmosTheme.colors.accent
-                    )
-                )
-            }
+            SettingSwitchRow("답변을 소리로 읽어 주기", uiState.ttsAutoRead) { viewModel.onTtsAutoReadChanged(it) }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "켜면 답변이 끝날 때마다 읽어 드려요. 꺼 두어도 말풍선의 재생 버튼으로 들을 수 있고, 녹음을 시작하면 바로 멈춰요.",
@@ -496,5 +420,25 @@ private fun SectionBox(
             Spacer(modifier = Modifier.height(16.dp))
             content()
         }
+    }
+}
+
+/** 라벨 + 스위치 한 줄 — 설정의 켜고 끄는 항목들. */
+@Composable
+private fun SettingSwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = KosmosTheme.colors.textPrimary)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = KosmosTheme.colors.onAccent,
+                checkedTrackColor = KosmosTheme.colors.accent
+            )
+        )
     }
 }

@@ -26,6 +26,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.collections.immutable.toImmutableList
 import java.util.UUID
+import com.kosmos.app.core.common.AppError
+import com.kosmos.app.platform.share.SharedInput
+import com.kosmos.app.core.mapper.ErrorMessages
+import com.kosmos.app.domain.model.ProfileSuggestion
 import javax.inject.Inject
 
 import com.kosmos.app.platform.share.ShareIntentHandler
@@ -203,24 +207,24 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun acceptSuggestion(suggestion: com.kosmos.app.domain.model.ProfileSuggestion) {
+    fun acceptSuggestion(suggestion: ProfileSuggestion) {
         viewModelScope.launch {
             val notice = when (val result = suggestionResolver.accept(suggestion)) {
                 is AppResult.Success -> "프로필에 저장했어요 — ${suggestion.key}: ${suggestion.value}"
                 // [WHY] 상한 초과는 ValidationError.reason 에 "N/100토큰" 안내가 담겨 있다 —
                 // 일반 매핑("입력을 확인해주세요")보다 그 문장이 조치 가능하다.
-                is AppResult.Failure -> (result.error as? com.kosmos.app.core.common.AppError.ValidationError)?.reason
-                    ?: com.kosmos.app.core.mapper.ErrorMessages.userMessage(result.error)
+                is AppResult.Failure -> (result.error as? AppError.ValidationError)?.reason
+                    ?: ErrorMessages.userMessage(result.error)
             }
             _uiState.update { it.copy(suggestionNotice = notice) }
         }
     }
 
-    fun rejectSuggestion(suggestion: com.kosmos.app.domain.model.ProfileSuggestion) {
+    fun rejectSuggestion(suggestion: ProfileSuggestion) {
         viewModelScope.launch {
             val result = suggestionResolver.reject(suggestion)
             if (result is AppResult.Failure) {
-                _uiState.update { it.copy(suggestionNotice = com.kosmos.app.core.mapper.ErrorMessages.userMessage(result.error)) }
+                _uiState.update { it.copy(suggestionNotice = ErrorMessages.userMessage(result.error)) }
             }
         }
     }
@@ -276,7 +280,7 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun setSharedInput(input: com.kosmos.app.platform.share.SharedInput?) {
+    fun setSharedInput(input: SharedInput?) {
         _uiState.update { it.copy(sharedInput = input) }
     }
 
@@ -292,8 +296,8 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             runtimeMetricsCollector.thermalWarning.collectLatest { warning ->
                 val warningMessage = when (warning) {
-                    is com.kosmos.app.core.common.AppError.TemperatureCritical -> "발열이 심하여 기기 보호를 위해 성능이 제한됩니다."
-                    is com.kosmos.app.core.common.AppError.TemperatureWarning -> "발열로 인해 추론이 약간 지연될 수 있습니다."
+                    is AppError.TemperatureCritical -> "발열이 심하여 기기 보호를 위해 성능이 제한됩니다."
+                    is AppError.TemperatureWarning -> "발열로 인해 추론이 약간 지연될 수 있습니다."
                     else -> null
                 }
                 _uiState.update { it.copy(warningMessage = warningMessage) }
@@ -374,8 +378,8 @@ class ChatViewModel @Inject constructor(
         speechOutput.stop()
 
         val currentSharedInput = _uiState.value.sharedInput
-        val isImageAttached = currentSharedInput is com.kosmos.app.platform.share.SharedInput.Image
-        val documentText = (currentSharedInput as? com.kosmos.app.platform.share.SharedInput.Document)?.let {
+        val isImageAttached = currentSharedInput is SharedInput.Image
+        val documentText = (currentSharedInput as? SharedInput.Document)?.let {
             "첨부된 문서 내용(${it.fileName}):\n${it.textContent}"
         }
 
@@ -401,7 +405,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 // [WHY] 최대 10MB 이미지 전체 읽기는 메인 스레드 ANR 위험이 있어 IO에서 수행한다.
-                val imageBytes = if (currentSharedInput is com.kosmos.app.platform.share.SharedInput.Image) {
+                val imageBytes = if (currentSharedInput is SharedInput.Image) {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                         extractImageBytes(currentSharedInput.uri)
                     }
@@ -411,11 +415,11 @@ class ChatViewModel @Inject constructor(
                 // 이미지 없이 그대로 진행했다 — 말풍선은 📷 "첨부된 이미지" 를 표시하는데 모델은
                 // 텍스트만 받아, 사용자는 모델이 이미지를 보고 답했다고 오해했다(성공처럼 보이는
                 // 실패). 낙관적 말풍선을 걷어내고 오류를 알린다.
-                if (currentSharedInput is com.kosmos.app.platform.share.SharedInput.Image && imageBytes == null) {
+                if (currentSharedInput is SharedInput.Image && imageBytes == null) {
                     _uiState.update { state ->
                         state.copy(
                             messages = state.messages.filterNot { it.id == tempUserMessage.id }.toImmutableList(),
-                            error = com.kosmos.app.core.common.AppError.UnsupportedImageFormat("첨부 이미지를 읽지 못했습니다")
+                            error = AppError.UnsupportedImageFormat("첨부 이미지를 읽지 못했습니다")
                         )
                     }
                     return@launch
@@ -528,7 +532,7 @@ class ChatViewModel @Inject constructor(
                                 // [WHY] 응답의 DB 저장이 실패한 턴 — 화면에는 있지만 재시작하면
                                 // 사라진다. "저장에 실패했어요" 스낵바로 알린다.
                                 error = if (agentResult.persistFailed) {
-                                    com.kosmos.app.core.common.AppError.DbWriteError("conversation")
+                                    AppError.DbWriteError("conversation")
                                 } else it.error
                             )
                         }
@@ -567,13 +571,13 @@ class ChatViewModel @Inject constructor(
             // [WHY] 녹음 전에 낭독을 멈춘다 — 안 그러면 마이크가 TTS 소리를 받아 전사한다.
             speechOutput.stop()
             val result = audioRecorder.startRecording()
-            if (result is com.kosmos.app.core.common.AppResult.Success) {
+            if (result is AppResult.Success) {
                 _uiState.update { it.copy(isRecording = true) }
                 recordingTimeoutJob = viewModelScope.launch {
                     kotlinx.coroutines.delay(Constants.MAX_AUDIO_SECONDS * 1000L)
                     if (_uiState.value.isRecording) stopRecordingAndSend()
                 }
-            } else if (result is com.kosmos.app.core.common.AppResult.Failure) {
+            } else if (result is AppResult.Failure) {
                 _uiState.update { it.copy(error = result.error) }
             }
         }
@@ -587,12 +591,12 @@ class ChatViewModel @Inject constructor(
         _uiState.update { it.copy(isRecording = false) }
         viewModelScope.launch {
             val result = audioRecorder.stopRecording()
-            if (result is com.kosmos.app.core.common.AppResult.Success) {
+            if (result is AppResult.Success) {
                 val file = result.data
                 if (file.exists()) {
                     sendMessage("", file.absolutePath)
                 }
-            } else if (result is com.kosmos.app.core.common.AppResult.Failure) {
+            } else if (result is AppResult.Failure) {
                 _uiState.update { it.copy(error = result.error) }
             }
         }

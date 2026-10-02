@@ -91,34 +91,21 @@ fun ChatBubbleUser(
                     brush = androidx.compose.ui.graphics.Brush.linearGradient(
                         colors = listOf(KosmosTheme.colors.accent.copy(alpha = 0.25f), KosmosTheme.colors.accentAlt.copy(alpha = 0.2f))
                     ),
-                    shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 4.dp, bottomStart = 18.dp)
+                    shape = UserBubbleShape
                 )
-                .border(
-                    width = 1.dp,
-                    color = KosmosTheme.colors.accent.copy(alpha = 0.25f),
-                    shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 4.dp, bottomStart = 18.dp)
-                )
+                .border(width = 1.dp, color = KosmosTheme.colors.accent.copy(alpha = 0.25f), shape = UserBubbleShape)
                 .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
             Column {
-                if (inputType == com.kosmos.app.domain.model.InputType.IMAGE) {
+                val inputLabel = when (inputType) {
+                    com.kosmos.app.domain.model.InputType.IMAGE -> "🖼️" to "첨부된 이미지"
+                    com.kosmos.app.domain.model.InputType.VOICE -> "🎤" to "음성 메시지"
+                    else -> null
+                }
+                inputLabel?.let { (emoji, label) ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🖼️", modifier = Modifier.padding(end = 4.dp))
-                        Text(
-                            text = "첨부된 이미지",
-                            color = KosmosTheme.colors.textMuted,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    Spacer(modifier = Modifier.size(4.dp))
-                } else if (inputType == com.kosmos.app.domain.model.InputType.VOICE) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🎤", modifier = Modifier.padding(end = 4.dp))
-                        Text(
-                            text = "음성 메시지",
-                            color = KosmosTheme.colors.textMuted,
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        Text(emoji, modifier = Modifier.padding(end = 4.dp))
+                        Text(text = label, color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodySmall)
                     }
                     Spacer(modifier = Modifier.size(4.dp))
                 }
@@ -327,3 +314,6 @@ internal fun AttachmentThumbnail(uri: Uri, sizeDp: Int = 48) {
         }
     }
 }
+
+/** 사용자 말풍선 모양 — 오른쪽 아래 모서리만 뾰족하다. */
+private val UserBubbleShape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 4.dp, bottomStart = 18.dp)

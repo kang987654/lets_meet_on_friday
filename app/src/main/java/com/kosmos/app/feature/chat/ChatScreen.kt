@@ -45,6 +45,14 @@ import android.content.pm.PackageManager
 import android.Manifest
 // [WHY] ChatScreen.kt(1,200여 줄, 12개 컴포저블 동거)를 응집 단위로 분리했다
 // (2026-08-15, MVP 감사 refactor-ui) — 순수 이동이며 동작 변경이 없다. 이 파일: 화면 조립(ChatScreen)과 목록 행 모델(ChatRow). 파일 헤더 KDoc 2벌 중 낡은 쪽은 삭제했다.
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.runtime.rememberCoroutineScope
+import com.kosmos.app.core.mapper.ErrorMessages
+import com.kosmos.app.core.common.AppError
+import com.kosmos.app.core.security.PermissionPolicy
 
 /**
  * 메인 채팅 화면 (ChatScreen)
@@ -153,8 +161,9 @@ fun ChatScreen(
     
     // [WHY] 오류와 토글 피드백을 스낵바 한 곳으로 모으고, 문구는 ErrorMessages로 인간화한다.
     // 첨부 피커와 권한 런처들이 이 두 값을 쓰므로 먼저 선언한다.
-    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
-    val snackbarScope = androidx.compose.runtime.rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+    val notify: (String) -> Unit = { message -> snackbarScope.launch { snackbarHostState.showSnackbar(message) } }
     // [WHY] 행마다 새 람다를 만들지 않는다 — 타임라인은 페이징 목록이라 행 수만큼 재할당된다.
     val copyMessage: (String) -> Unit = remember(clipboard, snackbarHostState) {
         { content -> copyToClipboard(snackbarScope, clipboard, snackbarHostState, content) }
@@ -176,50 +185,36 @@ fun ChatScreen(
                 return@rememberLauncherForActivityResult
             }
             if (result.rejected) {
-                snackbarScope.launch {
-                    snackbarHostState.showSnackbar("이 파일은 글자로 첨부할 수 없어요. PDF·엑셀·워드·한글(hwpx)·텍스트 파일을 첨부해 주세요.")
-                }
+                notify("이 파일은 글자로 첨부할 수 없어요. PDF·엑셀·워드·한글(hwpx)·텍스트 파일을 첨부해 주세요.")
                 return@rememberLauncherForActivityResult
             }
-            if (result.truncated) {
-                snackbarScope.launch {
-                    snackbarHostState.showSnackbar(
-                        "문서가 길어 앞부분만 첨부돼요. 긴 문서 요약은 아직 지원하지 않아요."
-                    )
-                }
-            }
+            if (result.truncated) notify("문서가 길어 앞부분만 첨부돼요. 긴 문서 요약은 아직 지원하지 않아요.")
             val shared = result.input
             if (shared != null) {
                 viewModel.setSharedInput(shared)
             } else {
-                // [WHY] 예전에는 catch 가 비어 있어(`// handle error`) 첨부 읽기가 실패하면
-                // 아무 안내 없이 첨부가 사라졌다 — 사용자는 버튼이 고장 났다고 본다.
-                // openInputStream 이 null 을 돌려주는 무예외 실패도 같은 안내로 덮는다.
-                snackbarScope.launch {
-                    snackbarHostState.showSnackbar("첨부 파일을 읽지 못했어요. 다른 파일을 선택해주세요.")
-                }
+                // [WHY] 읽기 실패(예외·null 스트림)를 조용히 넘기면 사용자는 버튼이 고장 났다고 본다.
+                notify("첨부 파일을 읽지 못했어요. 다른 파일을 선택해주세요.")
             }
         }
     }
 
-    // [WHY] 예전에는 거부 분기가 아예 없어 마이크를 거부하면 **아무 일도 일어나지 않았다** —
-    // 사용자는 버튼이 고장 난 것으로 본다. PRD EC2 는 "음성 입력 비활성 + 텍스트 입력 안내"를
-    // 요구한다. 문구는 `ErrorMessages` 의 것을 그대로 쓴다(화면마다 다른 말을 하지 않도록).
+    // [WHY] 거부하면 안내한다 — PRD EC2("음성 입력 비활성 + 텍스트 입력 안내"). 문구는 ErrorMessages 단일 출처.
     val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
             viewModel.toggleRecording()
         } else {
-            snackbarScope.launch {
-                snackbarHostState.showSnackbar(
-                    com.kosmos.app.core.mapper.ErrorMessages.userMessage(
-                        com.kosmos.app.core.common.AppError.PermissionDenied(
-                            com.kosmos.app.core.security.PermissionPolicy.MICROPHONE
-                        )
-                    )
-                )
-            }
+            notify(ErrorMessages.userMessage(AppError.PermissionDenied(PermissionPolicy.MICROPHONE)))
+        }
+    }
+    // 마이크 버튼과 음성 실행 요청이 같은 권한 게이트를 쓴다.
+    val startVoice = {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            viewModel.toggleRecording()
+        } else {
+            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
@@ -247,7 +242,7 @@ fun ChatScreen(
     // [WHY] 기존에는 uiState.error가 화면에 전혀 표시되지 않아 실패가 무음으로 사라졌다.
     LaunchedEffect(uiState.error) {
         val error = uiState.error ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(com.kosmos.app.core.mapper.ErrorMessages.userMessage(error))
+        snackbarHostState.showSnackbar(ErrorMessages.userMessage(error))
         viewModel.dismissError()
     }
 
@@ -271,18 +266,14 @@ fun ChatScreen(
         if (!uiState.pendingVoiceStart) return@LaunchedEffect
         viewModel.consumePendingVoiceStart()
         if (uiState.isRecording || uiState.isInFlight) return@LaunchedEffect
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            viewModel.toggleRecording()
-        } else {
-            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
+        startVoice()
     }
 
     Scaffold(
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHostState) },
+        containerColor = Color.Transparent,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            com.kosmos.app.feature.chat.CustomChatHeader(
+            CustomChatHeader(
                 onMenuClick = onMenuClick,
                 engineState = uiState.engineState,
                 deviceStatus = uiState.deviceStatus,
@@ -302,28 +293,31 @@ fun ChatScreen(
                         viewModel.sendMessage(text)
                     }
                 },
-                onMicClick = {
-                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                        viewModel.toggleRecording()
-                    } else {
-                        recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                    }
-                },
+                onMicClick = startVoice,
                 onAttachClick = { imagePickerLauncher.launch("*/*") },
                 onStopGeneration = { viewModel.cancelGeneration() },
                 webSearchEnabled = webSearchEnabled,
                 onToggleWebSearch = { enabled ->
                     onToggleWebSearch(enabled)
-                    snackbarScope.launch {
-                        snackbarHostState.showSnackbar(
-                            if (enabled) "웹 검색 허용됨 — 위키피디아 검색을 사용할 수 있어요."
-                            else "웹 검색 차단됨 — 기기 안에서만 답변해요."
-                        )
-                    }
+                    notify(if (enabled) "웹 검색 허용됨 — 위키피디아 검색을 사용할 수 있어요." else "웹 검색 차단됨 — 기기 안에서만 답변해요.")
                 }
             )
         }
     ) { innerPadding ->
+        val timelineRow: @Composable (ChatMessage, ChatMessage?) -> Unit = { message, older ->
+            TimelineRow(
+                message = message,
+                older = older,
+                today = today,
+                episodeChipLabels = episodeChipLabels,
+                highlightStartAt = highlightStartAt,
+                onEnsureChipLabel = viewModel::ensureEpisodeChipLabel,
+                onOpenEpisode = { openEpisodeId = it },
+                onCopy = copyMessage,
+                speakingMessageId = speakingMessageId,
+                onToggleSpeak = viewModel::toggleSpeak
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -364,18 +358,7 @@ fun ChatScreen(
                         // 다음(더 과거) 이웃: 테일 내부 → 없으면 페이징의 첫 항목.
                         val older = liveTail.getOrNull(index + 1)
                             ?: if (history.itemCount > 0) history.peek(0) else null
-                        TimelineRow(
-                            message = message,
-                            older = older,
-                            today = today,
-                            episodeChipLabels = episodeChipLabels,
-                            highlightStartAt = highlightStartAt,
-                            onEnsureChipLabel = viewModel::ensureEpisodeChipLabel,
-                            onOpenEpisode = { openEpisodeId = it },
-                            onCopy = copyMessage,
-                            speakingMessageId = speakingMessageId,
-                            onToggleSpeak = viewModel::toggleSpeak
-                        )
+                        timelineRow(message, older)
                     }
 
                     // 페이징된 과거 — placeholder(null)는 스켈레톤으로.
@@ -388,18 +371,7 @@ fun ChatScreen(
                             PlaceholderBubble()
                         } else {
                             val older = if (index + 1 < history.itemCount) history.peek(index + 1) else null
-                            TimelineRow(
-                                message = message,
-                                older = older,
-                                today = today,
-                                episodeChipLabels = episodeChipLabels,
-                                highlightStartAt = highlightStartAt,
-                                onEnsureChipLabel = viewModel::ensureEpisodeChipLabel,
-                                onOpenEpisode = { openEpisodeId = it },
-                                onCopy = copyMessage,
-                                speakingMessageId = speakingMessageId,
-                                onToggleSpeak = viewModel::toggleSpeak
-                            )
+                            timelineRow(message, older)
                         }
                     }
                 }
@@ -408,7 +380,7 @@ fun ChatScreen(
             // 최신으로 이동 FAB — 위로 스크롤한 상태에서만 노출 (C-3).
             // reverseLayout 에서 "위로 스크롤함" = canScrollBackward, 최신 = index 0.
             if (listState.canScrollBackward) {
-                androidx.compose.material3.SmallFloatingActionButton(
+                SmallFloatingActionButton(
                     onClick = {
                         userScrolledAway = false
                         snackbarScope.launch {
@@ -421,8 +393,8 @@ fun ChatScreen(
                     containerColor = KosmosTheme.colors.glassHigh,
                     contentColor = KosmosTheme.colors.accent
                 ) {
-                    androidx.compose.material3.Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.KeyboardArrowDown,
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
                         contentDescription = "최신 메시지로"
                     )
                 }
