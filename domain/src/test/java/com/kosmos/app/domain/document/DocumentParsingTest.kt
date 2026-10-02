@@ -35,6 +35,13 @@ class DocumentParsingTest {
     }
 
     @Test
+    fun `선택기는 octet-stream 도 받고 연결 프로그램 필터는 받지 않는다`() {
+        assertTrue("application/octet-stream" in DocumentType.PICKER_MIME_TYPES)
+        assertFalse("application/octet-stream" in DocumentType.VIEWABLE_MIME_TYPES)
+        assertTrue(DocumentType.PICKER_MIME_TYPES.containsAll(DocumentType.VIEWABLE_MIME_TYPES))
+    }
+
+    @Test
     fun `파일 앞 바이트로 실제 형식 확인`() {
         assertTrue(DocumentSniffer.isZip("PK\u0003\u0004".toByteArray()))
         assertTrue(DocumentSniffer.isPdf("%PDF-1.7".toByteArray()))

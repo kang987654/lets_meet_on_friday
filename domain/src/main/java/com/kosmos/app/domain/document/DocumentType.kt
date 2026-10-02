@@ -28,6 +28,15 @@ enum class DocumentType {
             "application/vnd.hancom.hwpx"
         )
 
+        /**
+         * 앱 안 파일 선택기(`OpenDocument`)에 넘기는 MIME — 뷰어 필터에 `application/octet-stream` 을 더한다.
+         *
+         * [WHY] 기기가 hwpx 를 모르면 MIME 이 octet-stream 이 되어(0.35.0 에뮬레이터 실측) 선택기에서 고를 수조차 없다. 선택기는
+         * 사용자가 직접 고르는 곳이라 넓혀도 스팸이 없고, 연 뒤 확장자로 판별해 모르는 형식은 안내로 끝난다. "연결 프로그램" 필터는
+         * 모든 바이너리에 앱이 뜨므로 넓히지 않는다(0.34.0 D4).
+         */
+        val PICKER_MIME_TYPES: List<String> = VIEWABLE_MIME_TYPES + "application/octet-stream"
+
         private val BY_MIME = mapOf(
             "application/pdf" to PDF,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" to XLSX,

@@ -97,7 +97,7 @@ fun DocumentHomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .glassEffect(shape = RoundedCornerShape(16.dp), backgroundColor = colors.accentDim, borderColor = colors.accent)
-                        .combinedClickable(onClick = { picker.launch(DocumentType.VIEWABLE_MIME_TYPES.toTypedArray()) })
+                        .combinedClickable(onClick = { picker.launch(DocumentType.PICKER_MIME_TYPES.toTypedArray()) })
                         .padding(16.dp)
                 ) {
                     Text("📂  파일 열기", color = colors.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
