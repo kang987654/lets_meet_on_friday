@@ -25,8 +25,13 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var voiceLaunchHandler: com.kosmos.app.platform.launch.VoiceLaunchHandler
 
+    @Inject
+    lateinit var modelRunner: com.kosmos.app.domain.modelrunner.ModelRunner
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // [WHY] 모델은 채팅 화면이 보일 때만 데운다 — 문서 뷰어는 모델 없이 열린다(0.34.0, ModelWarmUpObserver KDoc).
+        lifecycle.addObserver(com.kosmos.app.platform.launch.ModelWarmUpObserver(modelRunner))
 
         // [WHY] 첫 실행 시 일괄 권한 요청(deprecated API, 결과 미처리)은 제거한다.
         // 권한은 각 기능 진입 시점에 컨텍스트와 함께 요청한다 (예: ChatScreen 마이크 요청 플로우).
