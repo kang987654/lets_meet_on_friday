@@ -1,6 +1,6 @@
 # Kotlin & Android 프로젝트 전역 AI 에이전트 지침 (AGENTS.md)
 > **적용 레포지토리**: `lets_meet_on_friday` (KOSMOS)
-> **최종 개정일**: 2026-10-01
+> **최종 개정일**: 2026-10-06
 
 이 문서는 이 저장소에서 작업하는 AI 코딩 에이전트를 위한 전역 지침입니다.
 모든 리팩터링, 신규 기능 구현 및 코드 수정 작업 시작 전 아래 지침을 반드시 준수해야 합니다.
@@ -23,6 +23,8 @@
 - 회차마다 `docs/CHANGELOG.md` 에 기록한다 — 무엇을 왜 바꿨는지, 발견한 결함은 원인까지.
 
 ### 커밋 규칙
+- **master 에 직접 커밋한다** — 기본 브랜치라고 새 브랜치·PR 을 만들지 않는다(1인 개인 프로젝트라 브랜치 격리보다 머지
+  비용이 크다는 사용자 결정). **푸시는 사용자가 요청할 때만.**
 - **커밋 메시지는 한 줄 제목만** — 본문/불릿 없음 (사용자 결정).
 - **`git add -A` 전에 staged 목록을 확인할 것.** `./gradlew test` 가 다시 만드는 프롬프트 픽스처
   (`scratch/lab/fixtures/system_instruction.txt` 등)와 실험 출력(`exp*_out*.txt`·`exp*_err*.txt`)은 `.gitignore`
@@ -94,6 +96,12 @@
 - 선언과 트리거 규칙에 **같은 정보를 두 번 쓰지 않는다** — 선언의 "언제 쓴다" 문장은
   시스템 지시 트리거 규칙과 중복이라 0.21.0 다이어트에서 제거됐다.
 - `kosmos_lab.py` 의 툴 미러는 앱 선언과 함께 갱신한다 — 어긋나면 실험이 앱과 다른 것을 측정한다.
+- **실험실 실행 환경**: miniforge conda 환경 `friday` 의 `%USERPROFILE%\miniforge3\envs\friday\python.exe` 를 **절대 경로로**
+  부른다 — `python`·`pip`·`conda` 는 PATH 에 없고(`python` 은 MS Store 스텁), `conda run` 은 여러 줄 `-c` 를 못 받는다.
+  LiteRT-LM 패키지 이름은 `litert-lm`(import `litert_lm`). 리다이렉트한 stdout 은 버퍼링되니 `print(..., flush=True)`.
+  한글이 든 스크립트는 셸 heredoc·`python -c` 대신 파일로 써서 실행한다(인코딩·백슬래시가 깨진다).
+- **실험 스크립트는 그때그때 새로 짠다** — 기록된 실험 결과(CHANGELOG·ADR)는 신뢰하고 재현을 위해 다시 돌리지 않는다.
+  프롬프트는 손으로 베끼지 말고 `PromptFixtureExportTest` 가 내보낸 `scratch/lab/fixtures/` 를 읽는다.
 - **툴을 추가할 때 고칠 곳** (0.27.0): `ToolNames` 상수 → 실행기 `name` → `AgentModule` 의 `@IntoSet`
   한 줄 → `KosmosToolDeclarations`(선언·snake 이름) → `KosmosAgent` 활성 목록 → 트리거 규칙. 툴 결과
   JSON 은 `ToolResultJson` 으로 조립한다 — 결과 문구도 모델 입력이라 바꾸면 위 실측 수칙을 따른다.
@@ -150,3 +158,9 @@
 7. **사용자 표기 규칙**: UI 문자열은 한국어(§2-② E2E 계약 문자열 제외), 일시 표기는
    `IsoDateTimeParser.toDisplayKorean` 이 단일 출처다 — ISO 원문을 화면·모델 관측값에 노출하지
    않는다 (0.19.2).
+
+---
+
+## 5. 사용자와 소통 (사용자 결정)
+- **사용자에게 보내는 모든 텍스트는 한국어**로 쓴다 — 요약·표·질문은 물론 긴 작업 중 진행 안내 한 줄까지. 프롬프트·툴 출력·
+  코드가 영어라 응답이 영어로 새는 일이 있었다(2026-10-01). 코드 식별자와 커밋 메시지 규칙(§1)은 그대로다.
