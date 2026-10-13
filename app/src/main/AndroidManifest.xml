@@ -33,11 +33,15 @@
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">
         <!-- [WHY] singleTop — 기본(standard)이면 위젯·타일·알림의 재진입이 액티비티를 재생성해
-             onNewIntent 를 타지 않는다. 인텐트에도 FLAG_ACTIVITY_SINGLE_TOP 이 짝으로 필요. -->
+             onNewIntent 를 타지 않는다. 인텐트에도 FLAG_ACTIVITY_SINGLE_TOP 이 짝으로 필요.
+             adjustResize (0.36.1) — 지정하지 않으면 시스템이 창을 키보드만큼 밀어 올리고(pan) 입력바의 imePadding 이 한 번 더
+             올려, 입력바와 키보드 사이에 키보드 높이만 한 빈칸이 생겼다(실기기·에뮬레이터 재현). edge-to-edge 에서 adjustResize 는
+             창을 줄이지 않고 IME 인셋만 넘기므로 imePadding 하나만 남는다. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@android:style/Theme.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
