@@ -53,6 +53,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import com.kosmos.app.core.mapper.ErrorMessages
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.security.PermissionPolicy
+import com.kosmos.app.platform.notification.NotificationAccess
 
 /**
  * 메인 채팅 화면 (ChatScreen)
@@ -228,14 +229,30 @@ fun ChatScreen(
         viewModel.onApprovalObstructionCleared()
     }
 
+    // [WHY] 알림 권한도 같은 방식이다 — 리마인더 승인 카드가 뜰 때 요청한다(0.36.0 D4). 거부해도 리마인더는 저장되고 울리지만 화면에
+    // 뜨지 않으므로 그 사실을 알린다.
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.onApprovalObstructionCleared()
+        if (!granted) notify(NotificationAccess.DENIED_MESSAGE)
+    }
+
     LaunchedEffect(uiState.pendingApproval) {
-        val needsCalendarPermission = uiState.pendingApproval?.calendarDraft != null
+        val pending = uiState.pendingApproval
+        val needsCalendarPermission = pending?.calendarDraft != null
         if (needsCalendarPermission &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) != PackageManager.PERMISSION_GRANTED
         ) {
             calendarPermissionLauncher.launch(
                 arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
             )
+        }
+        val notificationPermission = NotificationAccess.runtimePermission
+        if (pending?.showsNotification == true && notificationPermission != null &&
+            !NotificationAccess.canPost(context)
+        ) {
+            notificationPermissionLauncher.launch(notificationPermission)
         }
     }
 
@@ -442,10 +459,13 @@ fun ChatScreen(
     // 캘린더 초안이 없는 일반 승인(메모리 저장 등)만 승인 시트로 표시 — 초안 카드와 이중 노출 방지
     val request = uiState.pendingApproval
     if (request != null && request.calendarDraft == null) {
+        val inexact = request.showsNotification &&
+            !NotificationAccess.canScheduleExact(context)
         com.kosmos.app.feature.approval.ApprovalSheet(
             request = request,
             onApprove = { viewModel.approvePendingRequest() },
-            onReject = { viewModel.rejectPendingRequest() }
+            onReject = { viewModel.rejectPendingRequest() },
+            footnote = if (inexact) NotificationAccess.INEXACT_NOTE else null
         )
     }
 

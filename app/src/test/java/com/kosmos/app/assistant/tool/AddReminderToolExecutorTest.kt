@@ -135,4 +135,14 @@ class AddReminderToolExecutorTest {
         verify(exactly = 0) { scheduler.schedule(any(), any()) }
         io.mockk.coVerify(exactly = 0) { widgetRefresher.refresh() }
     }
+
+    @Test
+    fun `리마인더 승인 요청은 알림이 뜨는 액션으로 표시된다`() {
+        val request = executor.buildApprovalRequest(
+            args("""{"time":"2026-08-29T15:00:00","content":"약 먹기"}"""),
+            sessionId = "s1"
+        )
+
+        assertTrue("화면이 이 시점에 알림 권한을 요청한다(0.36.0 D4)", request.showsNotification)
+    }
 }

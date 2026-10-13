@@ -16,7 +16,8 @@ import com.kosmos.app.assistant.approval.ApprovalRequest
 fun ApprovalSheet(
     request: ApprovalRequest,
     onApprove: () -> Unit,
-    onReject: () -> Unit
+    onReject: () -> Unit,
+    footnote: String? = null
 ) {
     ModalBottomSheet(
         onDismissRequest = onReject,
@@ -40,8 +41,17 @@ fun ApprovalSheet(
                 text = request.description,
                 style = MaterialTheme.typography.bodyLarge,
                 color = KosmosTheme.colors.textSecondary,
-                modifier = Modifier.padding(bottom = 24.dp)
+                modifier = Modifier.padding(bottom = if (footnote != null) 8.dp else 24.dp)
             )
+
+            if (footnote != null) {
+                Text(
+                    text = footnote,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = KosmosTheme.colors.warning,
+                    modifier = Modifier.padding(bottom = 24.dp)
+                )
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

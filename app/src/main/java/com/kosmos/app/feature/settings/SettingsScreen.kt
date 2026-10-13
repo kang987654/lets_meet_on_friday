@@ -1,5 +1,8 @@
 package com.kosmos.app.feature.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.kosmos.app.platform.notification.NotificationAccess
 import com.kosmos.app.ui.component.GlassButton
 import com.kosmos.app.core.common.ResponseStyle
 import com.kosmos.app.ui.theme.KosmosTheme
@@ -186,7 +189,26 @@ fun SettingsScreen(
         // 5. 아침 브리핑 (A4 — 알림은 미리보기, 본문은 앱을 열면 도착)
         SectionBox(title = "아침 브리핑") {
             var showTimePicker by remember { mutableStateOf(false) }
-            SettingSwitchRow("매일 아침 브리핑 받기", uiState.briefingEnabled) { viewModel.onBriefingEnabledChanged(it) }
+            val briefingContext = LocalContext.current
+            var notificationDenied by remember { mutableStateOf(false) }
+            // [WHY] 브리핑은 알림으로 도착을 알린다 — 켜는 순간 알림 권한을 요청한다(0.36.0 D4). 거부해도 켜 두고, 카드는 앱을 열면 보인다.
+            val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { granted -> notificationDenied = !granted }
+            SettingSwitchRow("매일 아침 브리핑 받기", uiState.briefingEnabled) { enabled ->
+                viewModel.onBriefingEnabledChanged(enabled)
+                val permission = NotificationAccess.runtimePermission
+                if (enabled && permission != null && !NotificationAccess.canPost(briefingContext)) {
+                    notificationPermissionLauncher.launch(permission)
+                }
+            }
+            if (uiState.briefingEnabled && (notificationDenied || !NotificationAccess.canPost(briefingContext))) {
+                Text(
+                    NotificationAccess.DENIED_MESSAGE,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = KosmosTheme.colors.warning
+                )
+            }
             if (uiState.briefingEnabled) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
