@@ -178,9 +178,16 @@ class SearchMemoryToolExecutor @Inject constructor(
 
     // [WHY] 메모를 앞에 싣는다 — 결과는 토큰 상한에서 뒤부터 잘리므로(successJson), 수십 토큰짜리 과거 대화 요약이 짧은 메모를 밀어내지 않게.
     // sortedBy 는 안정 정렬이라 같은 출처 안의 랭킹 순서는 그대로다.
-    private fun formatHits(hits: List<Hit>): String = hits.sortedBy { it.episodeId != null }.joinToString("\n") { hit ->
-        val tagPart = if (hit.tags.isEmpty()) "" else " [${hit.tags.joinToString(", ")}]"
-        "- ${hit.text}$tagPart"
+    //
+    // [WHY] 메모와 과거 대화가 섞이면 맨 앞에 [MIXED_SOURCE_GUIDE] — 메모가 맨 앞이어도 요약 두 건이 다른 값을 적고 있으면 모델이 요약을
+    // 따랐다(실기기 0.36.1: 134 대신 4321). exp50 조건 B: 충돌 0/2 → 2/2, 과거만·일치·메모만 대조 6/6 무손상.
+    private fun formatHits(hits: List<Hit>): String {
+        val lines = hits.sortedBy { it.episodeId != null }.joinToString("\n") { hit ->
+            val tagPart = if (hit.tags.isEmpty()) "" else " [${hit.tags.joinToString(", ")}]"
+            "- ${hit.text}$tagPart"
+        }
+        val mixed = hits.any { it.episodeId == null } && hits.any { it.episodeId != null }
+        return if (mixed) "$MIXED_SOURCE_GUIDE\n$lines" else lines
     }
 
     private fun KnowledgeNote.toHit() = Hit(
@@ -239,5 +246,9 @@ class SearchMemoryToolExecutor @Inject constructor(
         const val TIER_MANUAL = 0
         const val TIER_AUTO = 1
         const val TIER_EPISODE = 2
+
+        // exp50 조건 B 실측 원문.
+        const val MIXED_SOURCE_GUIDE =
+            "직접 저장한 메모는 사용자가 확인해 남긴 기록이고 (과거 대화)는 요약입니다. 둘이 다르면 메모의 값을 답하고, 과거 대화에 다른 값이 있었다고 덧붙이세요."
     }
 }

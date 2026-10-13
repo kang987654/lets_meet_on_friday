@@ -146,7 +146,24 @@ class SearchMemoryToolExecutorTest {
         val json = run("자전거 비밀번호")
 
         assertTrue(json, json.contains("134"))
-        assertTrue("메모가 과거 대화보다 앞에 실린다", json.indexOf("134") < json.indexOf("(과거 대화)"))
+        // 0.36.1(사용자 확인 후 변경): 안내 문구에도 "(과거 대화)"가 들어 있어 줄 머리표까지 붙여 과거 대화 줄을 찾는다.
+        assertTrue("메모가 과거 대화보다 앞에 실린다", json.indexOf("134") < json.indexOf("- (과거 대화)"))
+    }
+
+    @Test
+    fun `메모와 과거 대화가 섞이면 메모를 믿으라는 안내가 맨 앞에 붙고 한쪽만이면 붙지 않는다`() = runBlocking {
+        val manual = note("k-manual", "자전거 비밀번호는 134")
+        val ep = episode("e1", "자전거 비밀번호 변경", "4321 로 바꿨다", listOf("자전거", "비밀번호"))
+        coEvery { repository.search(any(), any()) } returns AppResult.Success(listOf(manual))
+        coEvery { episodes.search(any(), any()) } returns AppResult.Success(listOf(ep))
+
+        val mixed = run("자전거 비밀번호")
+        assertTrue(mixed, mixed.contains("둘이 다르면 메모의 값을 답하고"))
+        assertTrue("안내가 메모보다 앞", mixed.indexOf("둘이 다르면") < mixed.indexOf("134"))
+
+        coEvery { episodes.search(any(), any()) } returns AppResult.Success(emptyList())
+        val notesOnly = run("자전거 비밀번호")
+        assertTrue(notesOnly, !notesOnly.contains("둘이 다르면"))
     }
 
     @Test
