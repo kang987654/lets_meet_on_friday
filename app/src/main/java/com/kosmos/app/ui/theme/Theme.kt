@@ -1,6 +1,7 @@
 package com.kosmos.app.ui.theme
 
 import android.app.Activity
+import android.graphics.drawable.ColorDrawable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -82,8 +83,14 @@ fun KosmosTheme(
             val window = (view.context as? Activity)?.window ?: return@SideEffect
             @Suppress("DEPRECATION")
             window.statusBarColor = kosmosColors.bg.toArgb()
-            // [WHY] 라이트 배경에서는 상태바 아이콘을 어둡게 해야 가독성이 확보된다.
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !useDark
+            // [WHY] targetSdk 35+ 는 edge-to-edge 가 강제돼 statusBarColor 가 무시되고 시스템 바 뒤로 **창 배경**이 비친다. 매니페스트
+            // 테마(Theme.NoTitleBar)의 창 배경은 검정이라, 라이트 모드에서 검은 바 위에 어두운 아이콘이 그려져 보이지 않았다(0.36.0 실기기).
+            window.setBackgroundDrawable(ColorDrawable(kosmosColors.bg.toArgb()))
+            // [WHY] 라이트 배경에서는 시스템 바 아이콘을 어둡게 해야 가독성이 확보된다.
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !useDark
+                isAppearanceLightNavigationBars = !useDark
+            }
         }
     }
 

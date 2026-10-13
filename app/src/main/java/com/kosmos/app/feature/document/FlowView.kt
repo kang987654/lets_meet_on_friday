@@ -93,7 +93,7 @@ fun FlowView(
                         Box(
                             Modifier
                                 .fillMaxWidth()
-                                .background(if (picked) colors.accentDim else androidx.compose.ui.graphics.Color.Transparent)
+                                .background(if (picked) colors.accentGlow else androidx.compose.ui.graphics.Color.Transparent)
                                 .border(1.dp, if (picked) colors.accent else colors.border)
                                 .clickable { onBlockClick(index) }
                                 .padding(6.dp)

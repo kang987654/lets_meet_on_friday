@@ -130,7 +130,8 @@ private fun DataRow(
 ) {
     val texts = remember(row) { row.cells.associate { it.column to it.text } }
     val merges = layout.mergesAt(row.index)
-    Row(if (selected) Modifier.background(KosmosTheme.colors.accentDim) else Modifier) {
+    // [WHY] 고른 행은 accentGlow — accentDim 은 다크 모드에서 옅어 고른 범위가 잘 안 보였다(0.36.0 실기기). FlowView 도 같다.
+    Row(if (selected) Modifier.background(KosmosTheme.colors.accentGlow) else Modifier) {
         GridCell(
             (row.index + 1).toString(),
             ROW_NUMBER_WIDTH,

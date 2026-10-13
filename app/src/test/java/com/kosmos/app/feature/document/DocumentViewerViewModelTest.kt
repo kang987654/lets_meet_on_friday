@@ -170,6 +170,30 @@ class DocumentViewerViewModelTest {
     }
 
     @Test
+    fun `글자 층이 없는 PDF 페이지는 찾는 중에 머물지 않고 글자 없음이 된다`() {
+        val pages = object : com.kosmos.app.platform.document.PdfPages {
+            override val pageCount = 2
+            override fun aspectRatio(index: Int) = 1.4f
+            override suspend fun render(index: Int, widthPx: Int) = null
+            override suspend fun text(index: Int): String = if (index == 0) " \n " else "본문 글자"
+            override fun close() = Unit
+        }
+        result = DocumentResult.Ok(OpenedDocument.Pdf("표지.pdf", pages))
+        viewModel.load(uri)
+        viewModel.startSelection()
+
+        val cover = viewModel.selection.value as ChatSelection.PdfPage
+        assertTrue("표지(빈 글자)는 글자 없음으로 끝난다", cover.noText)
+        assertEquals(null, cover.preview)
+        assertEquals(false, viewModel.sendToChat())
+
+        viewModel.onPdfPage(1)
+        val body = viewModel.selection.value as ChatSelection.PdfPage
+        assertEquals(false, body.noText)
+        assertEquals("본문 글자", body.preview?.text)
+    }
+
+    @Test
     fun `같은 URI 는 다시 열지 않는다`() {
         viewModel.load(uri)
         viewModel.load(uri)

@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import com.halilibo.richtext.commonmark.Markdown
 import com.halilibo.richtext.ui.material3.RichText
+import com.kosmos.app.assistant.orchestrator.AttachedDocumentBlock
 import com.kosmos.app.ui.component.glassEffect
 
 import android.net.Uri
@@ -79,6 +80,9 @@ fun ChatBubbleUser(
     inputType: com.kosmos.app.domain.model.InputType = com.kosmos.app.domain.model.InputType.TEXT,
     onLongPress: () -> Unit = {}
 ) {
+    // [WHY] 첨부 문서는 모델 입력용 구분자째 저장된다 — 원문 대신 접힌 칩으로 그리고 눌러서 펼친다(0.36.0 D6).
+    val attachedBody = remember(text) { AttachedDocumentBlock.bodyOrNull(text) }
+    var expanded by remember(text) { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End
@@ -86,7 +90,7 @@ fun ChatBubbleUser(
         Box(
             modifier = Modifier
                 .widthIn(max = 280.dp)
-                .combinedClickable(onClick = {}, onLongClick = onLongPress)
+                .combinedClickable(onClick = { if (attachedBody != null) expanded = !expanded }, onLongClick = onLongPress)
                 .background(
                     brush = androidx.compose.ui.graphics.Brush.linearGradient(
                         colors = listOf(KosmosTheme.colors.accent.copy(alpha = 0.25f), KosmosTheme.colors.accentAlt.copy(alpha = 0.2f))
@@ -109,11 +113,23 @@ fun ChatBubbleUser(
                     }
                     Spacer(modifier = Modifier.size(4.dp))
                 }
-                Text(
-                    text = text,
-                    color = KosmosTheme.colors.textPrimary,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                if (attachedBody != null) {
+                    Text(
+                        text = "📎 첨부 문서 · ${attachedBody.length}자 " + if (expanded) "▲" else "▼",
+                        color = KosmosTheme.colors.textSecondary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    if (expanded) {
+                        Spacer(modifier = Modifier.size(6.dp))
+                        Text(text = attachedBody, color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodySmall)
+                    }
+                } else {
+                    Text(
+                        text = text,
+                        color = KosmosTheme.colors.textPrimary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         }
     }

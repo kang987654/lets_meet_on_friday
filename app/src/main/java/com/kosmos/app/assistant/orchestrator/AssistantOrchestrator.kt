@@ -84,7 +84,7 @@ class AssistantOrchestrator @Inject constructor(
         // [WHY] 첨부 문서를 SYSTEM 역할로 저장하면 문서 안의 지시문이 시스템 프롬프트로 승격되어
         // 세션 내내 지속되는 프롬프트 인젝션 경로가 된다. USER 역할의 구분된 블록으로 저장한다.
         if (request.documentText != null) {
-            val documentBlock = "[Attached Document]\n\"\"\"\n${request.documentText}\n\"\"\""
+            val documentBlock = AttachedDocumentBlock.wrap(request.documentText)
             val saveDocResult = messageWriter.save(request.sessionId, ChatMessage.Role.USER, documentBlock, InputType.TEXT, episodeId = episodeId, now = now)
             if (saveDocResult is AppResult.Failure) {
                 return AgentResult.Error(saveDocResult.error)

@@ -82,8 +82,16 @@ sealed interface ChatSelection {
     /** 읽기 모드 블록 — 눌러서 넣고 빼기. */
     data class Blocks(val indices: Set<Int> = emptySet(), override val preview: ClippedText? = null) : ChatSelection
 
-    /** PDF 현재 페이지. [unsupported] 면 이 기기는 PDF 글자를 꺼낼 수 없다(안드로이드 15 미만). */
-    data class PdfPage(val page: Int = 0, override val preview: ClippedText? = null, val unsupported: Boolean = false) : ChatSelection
+    /**
+     * PDF 현재 페이지. [unsupported] 면 이 기기는 PDF 글자를 꺼낼 수 없다(안드로이드 15 미만).
+     * [noText] 면 글자 층이 없는 페이지다(표지·스캔 이미지) — 읽기는 끝났고 보낼 것이 없다.
+     */
+    data class PdfPage(
+        val page: Int = 0,
+        override val preview: ClippedText? = null,
+        val unsupported: Boolean = false,
+        val noText: Boolean = false
+    ) : ChatSelection
 }
 
 /**
@@ -160,7 +168,10 @@ class DocumentViewerViewModel @Inject constructor(
             val text = pdf.pages.text(page)
             _selection.update { s ->
                 if (s !is ChatSelection.PdfPage || s.page != page) return@update s
-                if (text == null) s.copy(unsupported = true) else s.copy(preview = DocumentText.plain(text, CAP).takeIf { it.text.isNotBlank() })
+                if (text == null) return@update s.copy(unsupported = true)
+                // [WHY] 빈 글자를 preview = null 로만 두면 "읽는 중"과 구분되지 않아 안내가 "찾는 중"에서 끝나지 않았다(0.36.0 실기기).
+                val preview = DocumentText.plain(text, CAP).takeIf { it.text.isNotBlank() }
+                s.copy(preview = preview, noText = preview == null)
             }
         }
     }

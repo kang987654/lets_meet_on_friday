@@ -162,6 +162,7 @@ private fun SelectionBar(selection: ChatSelection, actions: SelectionActions) {
         selection is ChatSelection.Rows -> "끝 행의 번호를 누르세요"
         selection is ChatSelection.Blocks -> "보낼 문단·표를 누르세요"
         selection is ChatSelection.PdfPage && selection.unsupported -> "이 기기에서는 PDF 글자를 꺼낼 수 없어요(안드로이드 15 이상)"
+        selection is ChatSelection.PdfPage && selection.noText -> "이 페이지에는 보낼 글자가 없어요(이미지로 된 페이지일 수 있어요)"
         else -> "이 페이지에서 보낼 글자를 찾는 중이에요"
     }
     Column(
