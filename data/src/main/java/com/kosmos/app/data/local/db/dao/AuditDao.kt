@@ -13,4 +13,7 @@ interface AuditDao {
 
     @Query("SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT :limit OFFSET :offset")
     suspend fun getEvents(offset: Int, limit: Int): List<AuditEntity>
+
+    @Query("SELECT * FROM audit_log WHERE eventType = :eventType AND timestamp BETWEEN :from AND :to ORDER BY timestamp")
+    suspend fun getEventsBetween(eventType: String, from: Long, to: Long): List<AuditEntity>
 }

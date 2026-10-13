@@ -28,6 +28,9 @@ class AuditRepositoryImpl @Inject constructor(
     override suspend fun getEvents(offset: Int, limit: Int): AppResult<List<AuditEvent>> =
         dbRead(TABLE, "감사 기록 조회") { auditDao.getEvents(offset, limit).map { it.toDomain() } }
 
+    override suspend fun getEventsBetween(type: AuditEventType, from: Long, to: Long): AppResult<List<AuditEvent>> =
+        dbRead(TABLE, "감사 기록 구간 조회") { auditDao.getEventsBetween(type.name, from, to).map { it.toDomain() } }
+
     private companion object {
         const val TABLE = "audit_log"
     }

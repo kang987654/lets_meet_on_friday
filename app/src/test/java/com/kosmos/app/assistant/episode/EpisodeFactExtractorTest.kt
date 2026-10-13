@@ -4,9 +4,12 @@ import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.data.local.prefs.SettingsDataStore
 import com.kosmos.app.domain.audit.AuditTrailService
+import com.kosmos.app.domain.memory.AuditRepository
 import com.kosmos.app.domain.memory.KnowledgeRepository
 import com.kosmos.app.domain.memory.ProfileRepository
 import com.kosmos.app.domain.memory.ProfileSuggestionRepository
+import com.kosmos.app.domain.model.AuditEvent
+import com.kosmos.app.domain.model.AuditEventType
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.domain.model.EpisodeStatus
@@ -52,10 +55,11 @@ class EpisodeFactExtractorTest {
     private val metricsCollector: RuntimeMetricsCollector = mockk {
         every { getCurrentTemp() } returns 30f
     }
+    private val auditRepository: AuditRepository = mockk()
 
     private fun extractor() = EpisodeFactExtractor(
         settingsDataStore, extractFacts, saveKnowledge, knowledgeRepository,
-        profileRepository, suggestionRepository, auditTrailService, metricsCollector
+        profileRepository, suggestionRepository, auditTrailService, metricsCollector, auditRepository
     )
 
     private val episode = Episode(
@@ -70,6 +74,8 @@ class EpisodeFactExtractorTest {
     @Before
     fun defaults() {
         coEvery { knowledgeRepository.search(any(), any()) } returns AppResult.Success(emptyList())
+        coEvery { knowledgeRepository.getNotes(any(), any()) } returns AppResult.Success(emptyList())
+        coEvery { auditRepository.getEventsBetween(any(), any(), any()) } returns AppResult.Success(emptyList())
         coEvery { saveKnowledge(any(), any(), any()) } answers {
             AppResult.Success(KnowledgeNote(id = "k", content = firstArg(), createdAt = 0, updatedAt = 0))
         }
@@ -102,14 +108,15 @@ class EpisodeFactExtractorTest {
     }
 
     @Test
-    fun `지식은 source auto 와 요약 태그 3개로 저장된다`() = runBlocking {
+    fun `지식은 source auto 와 내용에 든 요약 태그로 저장된다`() = runBlocking {
         facts(knowledge = listOf("회식은 매달 마지막 금요일 고기굽는집"))
 
         val outcome = extractor().extract(episode, messages, now = 1_000)
 
         assertEquals(1, outcome!!.savedKnowledge)
+        // 0.36.0 D2-④(사용자 확인 후 변경): 내용에 없는 "강남"은 붙지 않는다 — 예전 기대값 [회식, 금요일, 강남] 이 결함 ⑦b 였다.
         coVerify(exactly = 1) {
-            saveKnowledge("회식은 매달 마지막 금요일 고기굽는집", listOf("회식", "금요일", "강남"), KnowledgeNote.SOURCE_AUTO)
+            saveKnowledge("회식은 매달 마지막 금요일 고기굽는집", listOf("회식", "금요일"), KnowledgeNote.SOURCE_AUTO)
         }
     }
 
@@ -188,6 +195,53 @@ class EpisodeFactExtractorTest {
                 match { it.contains("savedKnowledge=1") && it.contains("suggested=1") && !it.contains("진우") },
                 any()
             )
+        }
+    }
+
+    @Test
+    fun `같은 에피소드에서 저장을 거절한 내용은 자동 저장하지 않는다`() = runBlocking {
+        facts(knowledge = listOf("아침에 커피 대신 녹차를 마심"))
+        coEvery { auditRepository.getEventsBetween(AuditEventType.APPROVAL_REJECTED, 1, 2) } returns AppResult.Success(
+            listOf(AuditEvent("a1", AuditEventType.APPROVAL_REJECTED, "s1", "AddMemory: 저장할 내용: 커피 대신 녹차를 마신다.", 1))
+        )
+
+        val outcome = extractor().extract(episode, messages)
+
+        assertEquals(0, outcome!!.savedKnowledge)
+        coVerify(exactly = 0) { saveKnowledge(any(), any(), any()) }
+    }
+
+    @Test
+    fun `다른 툴의 거절은 지식 저장을 막지 않는다`() = runBlocking {
+        facts(knowledge = listOf("아침에 커피 대신 녹차를 마심"))
+        coEvery { auditRepository.getEventsBetween(AuditEventType.APPROVAL_REJECTED, 1, 2) } returns AppResult.Success(
+            listOf(AuditEvent("a1", AuditEventType.APPROVAL_REJECTED, "s1", "AddReminder: 녹차 마시기 알림", 1))
+        )
+
+        assertEquals(1, extractor().extract(episode, messages)!!.savedKnowledge)
+    }
+
+    @Test
+    fun `기존 메모와 같은 대상인데 숫자가 다르면 자동 저장하지 않는다`() = runBlocking {
+        facts(knowledge = listOf("자전거 비밀번호: 4321"))
+        coEvery { knowledgeRepository.getNotes(any(), any()) } returns AppResult.Success(
+            listOf(KnowledgeNote(id = "m", content = "자전거 비밀번호는 134", createdAt = 0, updatedAt = 0))
+        )
+
+        val outcome = extractor().extract(episode, messages)
+
+        assertEquals(0, outcome!!.savedKnowledge)
+        coVerify(exactly = 0) { saveKnowledge(any(), any(), any()) }
+    }
+
+    @Test
+    fun `걸러진 건수는 감사 출력에 개수로 남는다`() = runBlocking {
+        facts(knowledge = listOf("3시 40분에 스트레칭하기 알림 설정 필요"))
+
+        extractor().extract(episode, messages)
+
+        coVerify(exactly = 1) {
+            auditTrailService.logModelRun(ExtractFactsUseCase.SESSION_ID, any(), match { it.contains("savedKnowledge=0") && it.contains("filtered=1") }, any())
         }
     }
 }

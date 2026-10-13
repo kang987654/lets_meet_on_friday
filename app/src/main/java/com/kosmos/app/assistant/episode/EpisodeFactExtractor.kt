@@ -1,17 +1,22 @@
 package com.kosmos.app.assistant.episode
 
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.data.local.prefs.SettingsDataStore
 import com.kosmos.app.domain.audit.AuditTrailService
+import com.kosmos.app.domain.memory.AuditRepository
+import com.kosmos.app.domain.memory.KnowledgeAutoSaveFilter
 import com.kosmos.app.domain.memory.KnowledgeRepository
 import com.kosmos.app.domain.memory.ProfileRepository
 import com.kosmos.app.domain.memory.ProfileSuggestionRepository
+import com.kosmos.app.domain.model.AuditEventType
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.model.ProfileSuggestion
 import com.kosmos.app.domain.model.ProfileSuggestionStatus
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.usecase.ExtractFactsUseCase
 import com.kosmos.app.domain.usecase.SaveKnowledgeUseCase
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
@@ -27,11 +32,12 @@ import javax.inject.Inject
  * ### Architecture Context
  * - **Layer**: Assistant (Episode)
  * - **Dependencies**: [ExtractFactsUseCase], [SaveKnowledgeUseCase], [KnowledgeRepository],
- *   [ProfileRepository], [ProfileSuggestionRepository], [SettingsDataStore], [AuditTrailService]
+ *   [ProfileRepository], [ProfileSuggestionRepository], [SettingsDataStore], [AuditTrailService], [AuditRepository]
  *
  * ### Key Flow
  * 1. 설정 토글·발열 게이트 → oneShot 추출([ExtractFactsUseCase])
- * 2. 지식 급: 중복(내용 포함 검색)이 아니면 `source=auto` 로 **자동 저장**
+ * 2. 지식 급: 중복(내용 포함 검색)이 아니고 [KnowledgeAutoSaveFilter] 를 통과하면 `source=auto` 로 **자동 저장**
+ *    (거절한 내용·기존 메모와 다른 숫자·일회성 리마인더 요청은 건너뜀, 태그는 내용에 든 것만)
  * 3. 프로필 급: 현재 프로필과 같은 값·이미 제안된 키-값이 아니면 PENDING 제안(승인 카드 몫)
  * 4. 감사 MODEL_RUN 1건(원문 미기록, 개수만)
  *
@@ -54,7 +60,8 @@ class EpisodeFactExtractor @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val suggestionRepository: ProfileSuggestionRepository,
     private val auditTrailService: AuditTrailService,
-    private val metricsCollector: RuntimeMetricsCollector
+    private val metricsCollector: RuntimeMetricsCollector,
+    private val auditRepository: AuditRepository
 ) {
 
     /** 저장 결과 — 테스트·감사용 개수. */
@@ -82,12 +89,23 @@ class EpisodeFactExtractor @Inject constructor(
         }
 
         var savedKnowledge = 0
+        var filtered = 0
+        val rejected = if (facts.knowledge.isEmpty()) emptyList() else rejectedMemories(episode, now)
+        val existing = if (facts.knowledge.isEmpty()) emptyList()
+        else (knowledgeRepository.getNotes(0, Constants.MEMORY_SCAN_LIMIT) as? AppResult.Success)?.data.orEmpty()
         for (fact in facts.knowledge) {
             // [WHY] 내용 포함 검색으로 중복을 막는다 — 같은 비밀번호를 말한 에피소드가 둘이면
             // 둘째는 건너뛴다. 주기적 병합(A5)까지의 값싼 1차 방어.
             val duplicate = (knowledgeRepository.search(fact, 1) as? AppResult.Success)?.data?.isNotEmpty() ?: false
             if (duplicate) continue
-            if (saveKnowledge(fact, episode.tags.take(MAX_TAGS), KnowledgeNote.SOURCE_AUTO) is AppResult.Success) {
+            val skip = KnowledgeAutoSaveFilter.skipReason(fact, rejected, existing)
+            if (skip != null) {
+                AppLogger.d(TAG, "자동 저장 건너뜀($skip): ${episode.id}")
+                filtered++
+                continue
+            }
+            val tags = KnowledgeAutoSaveFilter.tagsFor(fact, episode.tags, MAX_TAGS)
+            if (saveKnowledge(fact, tags, KnowledgeNote.SOURCE_AUTO) is AppResult.Success) {
                 savedKnowledge++
             }
         }
@@ -116,14 +134,28 @@ class EpisodeFactExtractor @Inject constructor(
             sessionId = ExtractFactsUseCase.SESSION_ID,
             prompt = "fact extraction (episode=${episode.id}, messages=${messages.size})",
             output = "profile=${facts.profile.size} knowledge=${facts.knowledge.size} " +
-                "savedKnowledge=$savedKnowledge suggested=$suggested"
+                "savedKnowledge=$savedKnowledge filtered=$filtered suggested=$suggested"
         )
         return Outcome(savedKnowledge = savedKnowledge, suggestedProfile = suggested)
     }
 
+    /**
+     * 이 에피소드 구간에서 사용자가 거절한 `add_memory` 승인 설명들.
+     *
+     * [WHY] 거절은 대화 기록에 남지 않고(비서가 "기억하지 않았다"고 말할 뿐) 감사 기록에만 있다 — 추출 재료인 전사로는 알 수 없어
+     * 감사를 읽는다. 조회 실패는 "거절 없음"으로 강등한다(추출을 막지 않는다).
+     */
+    private suspend fun rejectedMemories(episode: Episode, now: Long): List<String> {
+        val prefix = "${ToolNames.ADD_MEMORY}:"
+        val events = auditRepository.getEventsBetween(AuditEventType.APPROVAL_REJECTED, episode.startAt, episode.endAt ?: now)
+        return (events as? AppResult.Success)?.data.orEmpty()
+            .filter { it.details.startsWith(prefix) }
+            .map { it.details.removePrefix(prefix).trim() }
+    }
+
     private companion object {
         const val TAG = "EpisodeFactExtractor"
-        // 요약 태그 5~8개 중 앞 3개만 — 지식 태그 검색은 정확 매칭이라 많을수록 잡음이 는다.
+        // 지식 태그 검색은 정확 매칭이라 많을수록 잡음이 는다.
         const val MAX_TAGS = 3
     }
 }

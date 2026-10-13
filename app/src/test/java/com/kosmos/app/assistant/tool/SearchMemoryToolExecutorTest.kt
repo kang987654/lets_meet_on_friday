@@ -132,4 +132,31 @@ class SearchMemoryToolExecutorTest {
         assertTrue("두 노트가 모두 있어야 한다", json.contains("1234") && json.contains("5678"))
         assertTrue(json.indexOf("1234") < json.indexOf("5678"))
     }
+
+    @Test
+    fun `동점이면 직접 저장한 메모가 더 최근의 긴 과거 대화 요약보다 살아남는다`() = runBlocking {
+        // 실기기(2026-10-12) 재현: 요약 두 건이 질의 낱말을 다 담아 메모와 동점이고 더 최근이라, 절단에 메모가 잘렸다.
+        val manual = note("k-manual", "자전거 비밀번호는 134", createdAt = 1)
+        val longSummary = "사용자는 자전거 비밀번호를 여러 번 바꿨고 비서는 그 변경을 기억하겠다고 했으며 이후 일정 이야기도 길게 나눴다. ".repeat(12)
+        val ep1 = episode("e1", "자전거 비밀번호 변경", "처음 1234 이후 4321. $longSummary", listOf("자전거", "비밀번호"), createdAt = 500)
+        val ep2 = episode("e2", "자전거 비밀번호 요청", "4521 에서 4321 로. $longSummary", listOf("자전거", "비밀번호"), createdAt = 600)
+        coEvery { repository.search(any(), any()) } returns AppResult.Success(listOf(manual))
+        coEvery { episodes.search(any(), any()) } returns AppResult.Success(listOf(ep1, ep2))
+
+        val json = run("자전거 비밀번호")
+
+        assertTrue(json, json.contains("134"))
+        assertTrue("메모가 과거 대화보다 앞에 실린다", json.indexOf("134") < json.indexOf("(과거 대화)"))
+    }
+
+    @Test
+    fun `동점이면 직접 저장한 메모가 자동 메모보다 앞선다`() = runBlocking {
+        val auto = KnowledgeNote(id = "k-auto", content = "자전거 비밀번호: 4321", createdAt = 900, updatedAt = 900, source = KnowledgeNote.SOURCE_AUTO)
+        val manual = note("k-manual", "자전거 비밀번호: 134", createdAt = 1)
+        coEvery { repository.search(any(), any()) } returns AppResult.Success(listOf(auto, manual))
+
+        val json = run("자전거 비밀번호")
+
+        assertTrue(json, json.indexOf("134") < json.indexOf("4321"))
+    }
 }

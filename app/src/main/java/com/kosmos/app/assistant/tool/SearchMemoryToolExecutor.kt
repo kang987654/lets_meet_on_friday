@@ -20,7 +20,8 @@ import javax.inject.Inject
  *
  * ### Key Flow (0.25.0, C1+C′3)
  * 1. **정밀 후보**: 키워드를 공백으로 쪼개 토큰마다 본문 LIKE·태그 정확 일치로 후보를 모은다.
- * 2. **랭킹 = 바이그램 점수**([BigramMatcher.score]) — 항이 많이 맞고 온전히 들어 있을수록 앞. 동점은 최신순.
+ * 2. **랭킹 = 바이그램 점수**([BigramMatcher.score]) — 항이 많이 맞고 온전히 들어 있을수록 앞. 동점은 출처 순(직접 저장한 메모 →
+ *    자동 메모 → 과거 대화), 그다음 최신순. 결과 글은 메모를 앞에, 과거 대화를 뒤에 싣는다.
  * 3. **정밀 0건 → 전수 스캔**: 최근 문서 [Constants.MEMORY_SCAN_LIMIT] 건을 바이그램으로 훑고, 가장 잘 맞은
  *    항의 겹침이 [Constants.BIGRAM_MIN_TERM_OVERLAP] 이상인 문서만 결과로 인정한다("자물쇠번호" ↔ "자물쇠 비밀번호").
  * 4. **그래도 0건 → 태그 목록 폴백**: 저장된 분류를 돌려주고 `search_memory` 재호출을 유도한다.
@@ -47,6 +48,7 @@ class SearchMemoryToolExecutor @Inject constructor(
      * [WHY] episodeId 가 null 이 아니면 회수 칩(🧠)의 출처가 된다 — 성공 JSON 의 meta 로
      * 동봉되어 BaseAgent 가 뽑아 쓴다(모델에게는 전달되지 않는다).
      * [scoreText] 는 표시 문구("(과거 대화) …")를 뺀 순수 본문+태그 — 점수 오염 방지(MemorySearchText).
+     * [tier] 는 동점일 때의 출처 순위(작을수록 앞) — [TIER_MANUAL]·[TIER_AUTO]·[TIER_EPISODE].
      */
     private data class Hit(
         val key: String,
@@ -54,7 +56,8 @@ class SearchMemoryToolExecutor @Inject constructor(
         val scoreText: String,
         val tags: List<String>,
         val createdAt: Long,
-        val episodeId: String?
+        val episodeId: String?,
+        val tier: Int
     )
 
     override suspend fun execute(args: ToolArguments, sessionId: String): String {
@@ -146,8 +149,11 @@ class SearchMemoryToolExecutor @Inject constructor(
     }
 
     /**
-     * 바이그램 점수 내림차순, 동점 최신순, 상위 [Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS].
+     * 바이그램 점수 내림차순, 동점은 출처 순위([Hit.tier]) 다음 최신순, 상위 [Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS].
      * [minTermOverlap] 이 있으면 가장 잘 맞은 항의 겹침이 그 이상인 문서만 남긴다(전수 스캔용).
+     *
+     * [WHY] 동점에서 출처를 먼저 본다 — 긴 과거 대화 요약은 질의 낱말을 거의 다 담아 직접 저장한 메모와 동점이 되기 쉽고, 요약이 나중에
+     * 만들어지면 최신순에서 앞선다. 실기기(2026-10-12)에서 요약 두 건이 앞에 서고 결과 절단에 메모가 잘려 옛 값(4321)으로 답했다.
      */
     private fun rank(terms: List<String>, hits: Collection<Hit>, minTermOverlap: Double? = null): List<Hit> =
         hits.asSequence()
@@ -156,7 +162,11 @@ class SearchMemoryToolExecutor @Inject constructor(
                 minTermOverlap == null || BigramMatcher.bestTermOverlap(terms, bigrams) >= minTermOverlap
             }
             .map { (hit, bigrams, _) -> hit to BigramMatcher.score(terms, bigrams) }
-            .sortedWith(compareByDescending<Pair<Hit, Double>> { it.second }.thenByDescending { it.first.createdAt })
+            .sortedWith(
+                compareByDescending<Pair<Hit, Double>> { it.second }
+                    .thenBy { it.first.tier }
+                    .thenByDescending { it.first.createdAt }
+            )
             .take(Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS)
             .map { it.first }
             .toList()
@@ -166,13 +176,16 @@ class SearchMemoryToolExecutor @Inject constructor(
         "- ${note.content}$tagPart"
     }
 
-    private fun formatHits(hits: List<Hit>): String = hits.joinToString("\n") { hit ->
+    // [WHY] 메모를 앞에 싣는다 — 결과는 토큰 상한에서 뒤부터 잘리므로(successJson), 수십 토큰짜리 과거 대화 요약이 짧은 메모를 밀어내지 않게.
+    // sortedBy 는 안정 정렬이라 같은 출처 안의 랭킹 순서는 그대로다.
+    private fun formatHits(hits: List<Hit>): String = hits.sortedBy { it.episodeId != null }.joinToString("\n") { hit ->
         val tagPart = if (hit.tags.isEmpty()) "" else " [${hit.tags.joinToString(", ")}]"
         "- ${hit.text}$tagPart"
     }
 
     private fun KnowledgeNote.toHit() = Hit(
-        key = id, text = content, scoreText = searchText(), tags = tags, createdAt = createdAt, episodeId = null
+        key = id, text = content, scoreText = searchText(), tags = tags, createdAt = createdAt, episodeId = null,
+        tier = if (source == KnowledgeNote.SOURCE_AUTO) TIER_AUTO else TIER_MANUAL
     )
 
     private fun com.kosmos.app.domain.model.Episode.toHit() = Hit(
@@ -182,7 +195,8 @@ class SearchMemoryToolExecutor @Inject constructor(
         scoreText = searchText(),
         tags = tags,
         createdAt = createdAt,
-        episodeId = id
+        episodeId = id,
+        tier = TIER_EPISODE
     )
 
     // [WHY] 메모 본문에 따옴표·개행이 있어도 JSON 이 깨지지 않도록 JSONObject 로 조립한다.
@@ -221,5 +235,9 @@ class SearchMemoryToolExecutor @Inject constructor(
 
         /** 태그 목록이 프롬프트를 잠식하지 않도록 자른다. */
         const val MAX_TAGS = 20
+
+        const val TIER_MANUAL = 0
+        const val TIER_AUTO = 1
+        const val TIER_EPISODE = 2
     }
 }

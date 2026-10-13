@@ -2,6 +2,7 @@ package com.kosmos.app.domain.memory
 
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.AuditEvent
+import com.kosmos.app.domain.model.AuditEventType
 
 /**
  * [v0] 감사 로그 저장소
@@ -15,4 +16,7 @@ interface AuditRepository {
      * ViewModel 로 올렸다. `TaskRepository.getPendingTasksData` 와 같은 형태다.
      */
     suspend fun getEvents(offset: Int, limit: Int): AppResult<List<AuditEvent>>
+
+    /** [type] 사건 중 `from..to`(양끝 포함) 시각의 것, 오래된 순. */
+    suspend fun getEventsBetween(type: AuditEventType, from: Long, to: Long): AppResult<List<AuditEvent>>
 }
