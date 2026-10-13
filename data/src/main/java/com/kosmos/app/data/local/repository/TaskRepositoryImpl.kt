@@ -49,6 +49,18 @@ class TaskRepositoryImpl @Inject constructor(
         dao.getById(taskId)?.toDomain()
     }
 
+    override suspend fun getCompletedTasksData(offset: Int, limit: Int): AppResult<List<TaskItem>> = dbRead(TABLE, "getCompletedTasksData") {
+        dao.getCompletedTasks(offset, limit).map { it.toDomain() }
+    }
+
+    override suspend fun delete(taskId: String): AppResult<Unit> = dbWrite(TABLE, "delete") {
+        dao.delete(taskId)
+    }
+
+    override suspend fun deleteCompleted(): AppResult<Unit> = dbWrite(TABLE, "deleteCompleted") {
+        dao.deleteCompleted()
+    }
+
     override suspend fun getCounts(): AppResult<com.kosmos.app.domain.memory.TaskCounts> = dbRead(TABLE, "getCounts") {
         com.kosmos.app.domain.memory.TaskCounts(pending = dao.countPending(), completed = dao.countCompleted())
     }

@@ -28,6 +28,10 @@ class GetTodayScheduleUseCaseTest {
             AppResult.Success(tasks)
         override suspend fun getById(taskId: String): AppResult<TaskItem?> =
             AppResult.Success(tasks.firstOrNull { it.id == taskId })
+        override suspend fun getCompletedTasksData(offset: Int, limit: Int): AppResult<List<TaskItem>> =
+            AppResult.Success(emptyList())
+        override suspend fun delete(taskId: String): AppResult<Unit> = AppResult.Success(Unit)
+        override suspend fun deleteCompleted(): AppResult<Unit> = AppResult.Success(Unit)
         override suspend fun getActiveReminders(): AppResult<List<TaskItem>> =
             AppResult.Success(emptyList())
         override suspend fun markReminded(taskId: String, remindedAtMs: Long): AppResult<Unit> =

@@ -73,6 +73,13 @@ class MemoryViewModel @Inject constructor(
             }
         }.flow.cachedIn(viewModelScope)
 
+    val completedTaskPagingData: Flow<PagingData<TaskItem>> =
+        androidx.paging.Pager(androidx.paging.PagingConfig(pageSize = 20)) {
+            DefaultPagingSource { offset, limit ->
+                taskRepository.getCompletedTasksData(offset, limit).unwrapForPaging()
+            }
+        }.flow.cachedIn(viewModelScope)
+
     fun onFilterSelected(filterType: MemoryFilterType) {
         _uiState.update { it.copy(selectedFilter = filterType) }
     }
@@ -122,6 +129,66 @@ class MemoryViewModel @Inject constructor(
                 is AppResult.Success -> {
                     reminderAlarmScheduler.cancel(taskId)
                     widgetRefresher.refresh()
+                    loadTaskCounts()
+                    onDone()
+                }
+                is AppResult.Failure ->
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+            }
+        }
+    }
+
+    /**
+     * 완료한 할 일을 되살립니다 — 완료 묶음의 동그라미와 완료 직후 "되돌리기"가 부른다.
+     *
+     * [WHY] 완료할 때 리마인더 알람을 취소했으므로 되살리면 다시 예약한다. 알림 시각이 이미 지났으면 울리지 않고
+     * 발화 처리만 한다 — 미발화로 남겨 두면 재부팅 복원(`ReminderAlarmScheduler.restoreAll`)이 지난 알림을 즉시 울린다.
+     */
+    fun restoreTask(task: TaskItem, now: Long = System.currentTimeMillis(), onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            when (val result = taskRepository.updateCompletion(task.id, false)) {
+                is AppResult.Success -> {
+                    val triggerAtMs = task.remindAtIso
+                        ?.takeIf { task.remindedAtMs == null }
+                        ?.let { com.kosmos.app.domain.util.IsoDateTimeParser.toEpochMillis(it) }
+                    if (triggerAtMs != null) {
+                        if (triggerAtMs > now) {
+                            reminderAlarmScheduler.schedule(task.id, triggerAtMs)
+                        } else {
+                            taskRepository.markReminded(task.id, now)
+                        }
+                    }
+                    widgetRefresher.refresh()
+                    loadTaskCounts()
+                    onDone()
+                }
+                is AppResult.Failure ->
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+            }
+        }
+    }
+
+    /** 할 일 한 건을 지웁니다 — 리마인더 알람도 함께 취소한다. */
+    fun deleteTask(taskId: String, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            when (val result = taskRepository.delete(taskId)) {
+                is AppResult.Success -> {
+                    reminderAlarmScheduler.cancel(taskId)
+                    widgetRefresher.refresh()
+                    loadTaskCounts()
+                    onDone()
+                }
+                is AppResult.Failure ->
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+            }
+        }
+    }
+
+    /** 완료한 할 일을 모두 지웁니다. 완료 항목의 알람은 완료할 때 이미 취소됐다. */
+    fun clearCompletedTasks(onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            when (val result = taskRepository.deleteCompleted()) {
+                is AppResult.Success -> {
                     loadTaskCounts()
                     onDone()
                 }

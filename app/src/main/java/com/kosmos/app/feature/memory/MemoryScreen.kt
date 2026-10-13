@@ -13,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,7 +35,15 @@ fun MemoryScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val knowledgeItems = viewModel.knowledgePagingData.collectAsLazyPagingItems()
     val taskItems = viewModel.taskPagingData.collectAsLazyPagingItems()
+    val completedTaskItems = viewModel.completedTaskPagingData.collectAsLazyPagingItems()
     var knowledgeToDelete by remember { mutableStateOf<com.kosmos.app.domain.model.KnowledgeNote?>(null) }
+    var taskToDelete by remember { mutableStateOf<com.kosmos.app.domain.model.TaskItem?>(null) }
+    var confirmClearCompleted by remember { mutableStateOf(false) }
+    var showCompleted by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val refreshTasks: () -> Unit = {
+        taskItems.refresh()
+        completedTaskItems.refresh()
+    }
 
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -85,6 +95,51 @@ fun MemoryScreen(
             },
             onDismiss = { knowledgeToDelete = null }
         )
+    }
+
+    taskToDelete?.let { task ->
+        ConfirmDialog(
+            title = "이 할 일을 지울까요?",
+            body = task.title,
+            bodyMaxLines = 4,
+            confirmText = "지우기",
+            confirmColor = KosmosTheme.colors.danger,
+            onConfirm = {
+                viewModel.deleteTask(task.id, refreshTasks)
+                taskToDelete = null
+            },
+            onDismiss = { taskToDelete = null }
+        )
+    }
+
+    if (confirmClearCompleted) {
+        ConfirmDialog(
+            title = "완료한 할 일을 모두 지울까요?",
+            body = "완료됨 목록의 항목이 모두 지워지고 되돌릴 수 없어요.",
+            confirmText = "모두 지우기",
+            confirmColor = KosmosTheme.colors.danger,
+            onConfirm = {
+                viewModel.clearCompletedTasks(refreshTasks)
+                confirmClearCompleted = false
+            },
+            onDismiss = { confirmClearCompleted = false }
+        )
+    }
+
+    val snackbarScope = rememberCoroutineScope()
+    // [WHY] 완료는 한 번의 터치라 실수할 수 있다 — 확인 대화상자 대신 사후 되돌리기를 둔다(0.36.2 사용자 결정).
+    val completeWithUndo: (com.kosmos.app.domain.model.TaskItem) -> Unit = { task ->
+        viewModel.completeTask(task.id) {
+            refreshTasks()
+            snackbarScope.launch {
+                val result = snackbarHostState.showSnackbar(
+                    message = "완료했어요",
+                    actionLabel = "되돌리기",
+                    duration = SnackbarDuration.Short
+                )
+                if (result == SnackbarResult.ActionPerformed) viewModel.restoreTask(task, onDone = refreshTasks)
+            }
+        }
     }
 
     // [WHY] 불투명 배경을 깔지 않는다 — 채팅·설정은 셸의 오로라 배경 위에 글래스 카드가 뜨는데
@@ -172,12 +227,11 @@ fun MemoryScreen(
                             TaskItemRow(
                                 title = task.title,
                                 isCompleted = task.isCompleted,
-                                onToggle = {
-                                    viewModel.completeTask(task.id) { taskItems.refresh() }
-                                },
+                                onToggle = { completeWithUndo(task) },
                                 remindAtDisplay = task.remindAtIso?.let {
                                     com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayKorean(it)
-                                }
+                                },
+                                onDelete = { taskToDelete = task }
                             )
                         }
                     }
@@ -245,6 +299,58 @@ fun MemoryScreen(
                                             .clickable { submitNewTask() }
                                             .padding(start = 12.dp)
                                     )
+                                }
+                            }
+                        }
+                    }
+
+                    val completedCount = uiState.taskCounts?.completed ?: 0
+                    if (completedCount > 0) {
+                        item(key = "completed-header") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { showCompleted = !showCompleted }
+                                    .padding(horizontal = 8.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "완료됨 $completedCount",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = KosmosTheme.colors.textMuted,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = if (showCompleted) "접기 ▴" else "펼치기 ▾",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = KosmosTheme.colors.textMuted
+                                )
+                            }
+                        }
+                        if (showCompleted) {
+                            items(
+                                count = completedTaskItems.itemCount,
+                                key = completedTaskItems.itemKey { "done-${it.id}" },
+                                contentType = completedTaskItems.itemContentType { "Task" }
+                            ) { index ->
+                                val task = completedTaskItems[index]
+                                if (task != null) {
+                                    TaskItemRow(
+                                        title = task.title,
+                                        isCompleted = true,
+                                        onToggle = { viewModel.restoreTask(task, onDone = refreshTasks) },
+                                        remindAtDisplay = task.remindAtIso?.let {
+                                            com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayKorean(it)
+                                        },
+                                        onDelete = { taskToDelete = task }
+                                    )
+                                }
+                            }
+                            item(key = "completed-clear") {
+                                TextButton(onClick = { confirmClearCompleted = true }) {
+                                    Text("완료 항목 모두 지우기", color = KosmosTheme.colors.danger)
                                 }
                             }
                         }
@@ -494,13 +600,20 @@ private fun restartApp(context: android.content.Context) {
     kotlin.system.exitProcess(0)
 }
 
+/**
+ * 할 일 한 줄 — 체크 동그라미만 완료를 바꾼다.
+ *
+ * [WHY] 행 전체가 눌림 영역이면 스크롤하다 스치기만 해도 완료됐다(2026-10-13 사용자 피드백). 동그라미의 눌림 영역은
+ * 48dp 로 두어 겨냥하기는 쉽게 한다.
+ */
 @Composable
 fun TaskItemRow(
     title: String,
     isCompleted: Boolean,
     onToggle: () -> Unit,
     // [WHY] 기본값 필수 — 기존 호출부·테스트가 이 파라미터 없이 compose 된다 (B1).
-    remindAtDisplay: String? = null
+    remindAtDisplay: String? = null,
+    onDelete: (() -> Unit)? = null
 ) {
     Box(
         modifier = Modifier
@@ -510,38 +623,47 @@ fun TaskItemRow(
                 borderColor = KosmosTheme.colors.border,
                 shape = RoundedCornerShape(16.dp)
             )
-            .clickable { onToggle() }
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Check Circle
             Box(
                 modifier = Modifier
-                    .size(24.dp)
-                    .border(
-                        width = 1.dp,
-                        color = if (isCompleted) KosmosTheme.colors.success else KosmosTheme.colors.textMuted,
-                        shape = CircleShape
-                    )
-                    .background(
-                        color = if (isCompleted) KosmosTheme.colors.success.copy(alpha = 0.1f) else Color.Transparent,
-                        shape = CircleShape
-                    ),
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .clickable(onClickLabel = if (isCompleted) "되살리기" else "완료") { onToggle() },
                 contentAlignment = Alignment.Center
             ) {
-                if (isCompleted) {
-                    Text("✓", color = KosmosTheme.colors.success, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .border(
+                            width = 1.dp,
+                            color = if (isCompleted) KosmosTheme.colors.success else KosmosTheme.colors.textMuted,
+                            shape = CircleShape
+                        )
+                        .background(
+                            color = if (isCompleted) KosmosTheme.colors.success.copy(alpha = 0.1f) else Color.Transparent,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isCompleted) {
+                        Text("✓", color = KosmosTheme.colors.success, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // Text
-            Column(modifier = Modifier.weight(1f)) {
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 12.dp)
+            ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge,
@@ -556,14 +678,16 @@ fun TaskItemRow(
                     )
                 }
             }
-            
-            // Dot indicator
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .background(KosmosTheme.colors.danger, shape = CircleShape)
-            )
+
+            if (onDelete != null) {
+                Text(
+                    text = "✕",
+                    color = KosmosTheme.colors.danger,
+                    modifier = Modifier
+                        .clickable(onClickLabel = "삭제") { onDelete() }
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                )
+            }
         }
     }
 }
-

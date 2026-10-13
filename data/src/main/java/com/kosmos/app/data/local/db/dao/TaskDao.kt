@@ -17,6 +17,15 @@ interface TaskDao {
     @Query("SELECT * FROM task_item WHERE isCompleted = 0 ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
     suspend fun getPendingTasks(offset: Int, limit: Int): List<TaskEntity>
 
+    @Query("SELECT * FROM task_item WHERE isCompleted = 1 ORDER BY completedAt DESC, createdAt DESC LIMIT :limit OFFSET :offset")
+    suspend fun getCompletedTasks(offset: Int, limit: Int): List<TaskEntity>
+
+    @Query("DELETE FROM task_item WHERE id = :taskId")
+    suspend fun delete(taskId: String)
+
+    @Query("DELETE FROM task_item WHERE isCompleted = 1")
+    suspend fun deleteCompleted(): Int
+
     @Query("SELECT * FROM task_item WHERE id = :taskId")
     suspend fun getById(taskId: String): TaskEntity?
 

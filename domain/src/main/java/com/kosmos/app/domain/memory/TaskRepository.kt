@@ -18,6 +18,15 @@ interface TaskRepository {
     suspend fun getPendingTasksData(offset: Int, limit: Int): AppResult<List<TaskItem>>
     suspend fun getById(taskId: String): AppResult<TaskItem?>
 
+    /** 완료한 할 일 — 완료 시각 최신순. 기억 화면의 "완료됨" 묶음용. */
+    suspend fun getCompletedTasksData(offset: Int, limit: Int): AppResult<List<TaskItem>>
+
+    /** 할 일 한 건을 지웁니다. 리마인더 알람 취소는 호출측 몫(플랫폼 관심사). */
+    suspend fun delete(taskId: String): AppResult<Unit>
+
+    /** 완료한 할 일을 모두 지웁니다. */
+    suspend fun deleteCompleted(): AppResult<Unit>
+
     /** 전체 할 일의 미완료·완료 개수 — 페이징 목록과 무관한 통계용. */
     suspend fun getCounts(): AppResult<TaskCounts>
 
