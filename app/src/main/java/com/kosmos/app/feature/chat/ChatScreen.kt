@@ -34,6 +34,8 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.ui.component.glassEffect
+import androidx.compose.foundation.gestures.scrollBy
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -144,9 +146,20 @@ fun ChatScreen(
             if (tailIndex >= 0) headerCount + tailIndex else 0
         }
         val lastIndex = headerCount + liveTail.size + history.itemCount - 1
+        val index = target.coerceIn(0, maxOf(0, lastIndex))
         userScrolledAway = true
         highlightStartAt = startAt
-        listState.scrollToItem(target.coerceIn(0, maxOf(0, lastIndex)))
+        listState.scrollToItem(index)
+        // [WHY] 자리표시자인 채로 정렬하면 내용이 채워지며 높이가 바뀌어 원문 앞부분이 화면 위로 잘린다 — 대상이 로드될 때까지
+        // 잠깐 기다린 뒤 다시 잡는다. 시간 안에 안 오면 바닥 정렬 그대로 둔다(이동 자체는 이미 끝났다).
+        val pagedIndex = index - headerCount - liveTail.size
+        val loaded = pagedIndex < 0 || kotlinx.coroutines.withTimeoutOrNull(JUMP_LOAD_WAIT_MS) {
+            androidx.compose.runtime.snapshotFlow { history.peek(pagedIndex) }.first { it != null }
+        } != null
+        if (loaded) {
+            if (pagedIndex >= 0) listState.scrollToItem(index)
+            alignItemTop(listState, index)
+        }
     }
 
     LaunchedEffect(jumpToTimestamp) {
@@ -593,6 +606,29 @@ private fun isJumpTarget(message: ChatMessage, older: ChatMessage?, highlightSta
     return message.createdAt >= highlightStartAt &&
         (older == null || older.createdAt < highlightStartAt)
 }
+
+/** 원문 이동 후 대상이 로드되길 기다리는 상한 — 넘으면 바닥 정렬로 둔다. */
+private const val JUMP_LOAD_WAIT_MS = 1_000L
+
+/**
+ * [index] 항목의 윗변을 목록 화면 윗변에 맞춥니다 — 원문 대화가 처음부터 읽히게(0.36.2 사용자 요청).
+ *
+ * [WHY] reverseLayout 의 `scrollToItem` 은 항목을 시작 가장자리(**바닥**)에 놓는다. 아래에 화면 한 장만큼의 대화가 없으면(최근 기억)
+ * 목록이 바닥에서 멈춘다 — 그때는 그 대화가 처음부터 최신까지 한 화면에 다 보인다(사용자 결정: 임시 여백을 두지 않는다).
+ */
+internal suspend fun alignItemTop(listState: androidx.compose.foundation.lazy.LazyListState, index: Int) {
+    val info = listState.layoutInfo
+    val item = info.visibleItemsInfo.firstOrNull { it.index == index } ?: return
+    val delta = topAlignScrollDelta(item.offset, item.size, info.viewportEndOffset - info.afterContentPadding)
+    if (delta != 0) listState.scrollBy(delta.toFloat())
+}
+
+/**
+ * reverseLayout 목록에서 항목 먼 쪽 끝(화면상 윗변)을 [visibleEnd] 에 맞추는 `scrollBy` 양. 오프셋은 모두 시작(바닥) 기준이다.
+ * 음수 = 더 최신 쪽으로 스크롤(항목이 위로 올라감), 양수 = 항목이 화면보다 커서 윗변이 잘린 경우 아래로 내림.
+ */
+internal fun topAlignScrollDelta(itemOffset: Int, itemSize: Int, visibleEnd: Int): Int =
+    (itemOffset + itemSize) - visibleEnd
 
 /** 미로드 placeholder 자리 — 점프 직후 Paging 이 채우기 전까지의 스켈레톤. */
 @Composable
