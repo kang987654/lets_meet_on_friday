@@ -162,9 +162,10 @@ class TokenBudgetInvariantTest {
          * 1,329(5종+few-shot) → +52(add_reminder 다이어트 후, exp34b) → −104(few-shot 제거,
          * `scratch/lab/exp35_profile_budget.py` 2026-08-28) = 1,277 → +16(날짜 없는 시각 = 오늘,
          * `scratch/lab/exp39c_date_carryover.py` 2026-10-01) = 1,293 → −67(중복 문구 다이어트,
-         * `scratch/lab/exp41_prompt_diet.py` 2026-10-01) = **1,226**.
+         * `scratch/lab/exp41_prompt_diet.py` 2026-10-01) = 1,226 → +24(턴 리마인더 긍정 답 문장 + `[Now]`,
+         * `scratch/lab/exp49b_overhead.py` 2026-10-13 — tokenize 차이와 token_count 차이가 같다) = **1,250**.
          * 프로필 블록은 여기 없고 [Constants.PROFILE_MAX_TOKENS] 상한으로 따로 계상된다.
          */
-        const val MEASURED_OVERHEAD = 1226
+        const val MEASURED_OVERHEAD = 1250
     }
 }

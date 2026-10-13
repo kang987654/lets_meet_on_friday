@@ -21,7 +21,10 @@ object KnowledgeAutoSaveFilter {
         CONFLICT,
 
         /** 처리가 끝난 일회성 리마인더 요청이다. */
-        REMINDER_REQUEST
+        REMINDER_REQUEST,
+
+        /** 사실에 든 숫자를 사용자가 말한 적이 없다 — 비서가 말한 숫자다. */
+        ASSISTANT_NUMBER
     }
 
     /** 거절 내용과의 겹침 하한 — 승인 설명에 붙는 "저장할 내용:" 머리를 감안한 값(KnowledgeAutoSaveFilterTest 판정 표). */
@@ -46,12 +49,25 @@ object KnowledgeAutoSaveFilter {
      *
      * @param rejected 같은 에피소드 구간에서 거절된 `add_memory` 승인 설명(감사 기록 원문)
      * @param existing 비교할 기존 메모(수동·자동 모두)
+     * @param userText 이 에피소드에서 사용자가 한 말 전부 — null 이면 숫자 출처 검사를 건너뛴다
      */
-    fun skipReason(fact: String, rejected: List<String>, existing: List<KnowledgeNote>): Skip? = when {
+    fun skipReason(fact: String, rejected: List<String>, existing: List<KnowledgeNote>, userText: String? = null): Skip? = when {
         rejected.any { BigramMatcher.containment(fact, it) >= MIN_REJECTED_OVERLAP } -> Skip.REJECTED
         existing.any { conflicts(fact, it.content) } -> Skip.CONFLICT
         isReminderRequest(fact) -> Skip.REMINDER_REQUEST
+        userText != null && numbersOnlyFromAssistant(fact, userText) -> Skip.ASSISTANT_NUMBER
         else -> null
+    }
+
+    /**
+     * 사실의 숫자 중 사용자 발화에 나온 것이 하나도 없다.
+     *
+     * [WHY] 추출 지시의 "비서의 발언은 제외" 규칙을 모델이 어긴다 — 비서가 틀리게 답한 "자전거 비밀번호 4321"을 사실로 뽑았고
+     * (0.36.0 실기기), 지시를 보강해도 그대로였다(exp49 extract, 두 조건 모두 오추출 1). 숫자는 사용자가 말했는지 글자로 확인할 수 있다.
+     */
+    fun numbersOnlyFromAssistant(fact: String, userText: String): Boolean {
+        val numbers = MemoryMergeGuard.numbersIn(fact)
+        return numbers.isNotEmpty() && numbers.none { it in MemoryMergeGuard.numbersIn(userText) }
     }
 
     /** 둘 다 숫자가 있고, 숫자 집합이 다르며, 숫자를 뺀 본문은 같은 대상으로 볼 만큼 겹친다. */

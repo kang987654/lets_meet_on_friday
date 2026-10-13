@@ -327,10 +327,12 @@ abstract class BaseAgent(
      * "취소" 단어를 살린 변형은 거짓 성공은 0 이었지만 12/12 가 "오류"로 오인해 기각했다(exp38e).
      */
     private fun rejectionMessage(toolName: String): String {
+        // [WHY] 메모만 문구가 다르다 — 공통 문구로는 메모 거절에서 "기억해 두겠습니다" 거짓 성공이 4/6 이었고, 이 문구가 0/6 이다(exp49
+        // memrej 조건 C). 리마인더·일정은 공통 문구가 이미 0 이라 그대로 둔다(exp38d·e).
+        if (toolName == ToolNames.ADD_MEMORY) return MEMORY_REJECTION
         val notDone = when (toolName) {
             ToolNames.ADD_SCHEDULE -> "일정을 추가하지 않았다고"
             ToolNames.ADD_REMINDER -> "알림을 등록하지 않았다고"
-            ToolNames.ADD_MEMORY -> "기억하지 않았다고"
             else -> "요청을 실행하지 않았다고"
         }
         return "사용자가 승인하지 않아 실행하지 않았습니다. $notDone 알리세요."
@@ -388,5 +390,8 @@ abstract class BaseAgent(
 
         // "<|think|" 태그가 토큰 경계에 걸려도 감지되는 길이
         const val THINK_TAG_WINDOW = 12
+
+        // exp49 memrej 조건 C 실측 원문.
+        const val MEMORY_REJECTION = "사용자가 저장을 승인하지 않았습니다. 이 내용은 기억에 없습니다. 저장하지 않았다고 사용자에게 분명히 알리세요."
     }
 }

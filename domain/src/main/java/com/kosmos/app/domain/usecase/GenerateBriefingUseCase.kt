@@ -42,7 +42,8 @@ class GenerateBriefingUseCase @Inject constructor(
         val events: List<CalendarEvent>,
         val deviceCalendarFailed: Boolean,
         val pendingTasks: List<TaskItem>,
-        val recentEpisodes: List<Episode>
+        val recentEpisodes: List<Episode>,
+        val zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault()
     )
 
     suspend operator fun invoke(materials: BriefingMaterials): AppResult<String> {
@@ -93,8 +94,11 @@ class GenerateBriefingUseCase @Inject constructor(
         }
 
         val taskLines = materials.pendingTasks.map { "- ${it.title}" }
+        // [WHY] 에피소드마다 날짜를 붙인다 — 날짜가 없으면 모델이 지시문 예시를 따라 두 달 전 대화도 "어제"라고 불렀다(0.36.0 실기기, exp49
+        // brief: 날짜만 붙이면 효과 없고 예시 교체와 함께여야 0/4).
         val episodeLines = materials.recentEpisodes.map { episode ->
-            "- ${episode.title ?: "(제목 없음)"}: ${episode.summary.orEmpty()}"
+            val day = IsoDateTimeParser.monthDayKorean(episode.startAt, materials.zoneId)
+            "- ($day) ${episode.title ?: "(제목 없음)"}: ${episode.summary.orEmpty()}"
         }
 
         // 뒤에서부터 항목을 떨구며 상한에 맞춘다 — 에피소드 먼저, 그다음 할 일.
@@ -132,6 +136,7 @@ class GenerateBriefingUseCase @Inject constructor(
         /** 감사 기록과 프롬프트가 같은 식별자를 쓴다 — 생성기(app)가 logModelRun 에 재사용. */
         const val SESSION_ID = "morning-briefing"
 
+        // [WHY] 예시 문장은 exp49 brief 조건 C 원문 — 바꾸면 그 측정이 무효다.
         // [WHY] 다른 oneShot 과 같이 영어 [System] 프리픽스 + 한국어 본문. 후속 질문은
         // "정확히 1개" — 여러 개면 심문이 되고, 0개면 A4+ 의 존재 이유가 사라진다.
         private val SYSTEM_INSTRUCTION = """
@@ -142,7 +147,7 @@ class GenerateBriefingUseCase @Inject constructor(
             - 오늘 일정과 미완료 할 일을 간결히 정리하세요. 시각·이름·숫자는 재료의 원문 그대로 보존하세요.
             - 재료에 기기 캘린더를 읽지 못했다는 주의가 있으면 그 사실을 한 줄로 알려주세요.
             - 마지막에 [최근 대화 기억]을 근거로 자연스러운 후속 질문을 **정확히 1개** 하세요.
-              (예: "어제 말씀하신 ○○은 잘 돼가요?") 기억이 없으면 오늘 계획을 묻는 가벼운 질문 1개로 대체하세요.
+              (예: "지난번에 말씀하신 ○○은 잘 돼가요?" — 기억 앞의 날짜를 보고 "어제"·"지난주"를 맞게 쓰세요) 기억이 없으면 오늘 계획을 묻는 가벼운 질문 1개로 대체하세요.
             - 전체 5~8문장, 과장 없이. 목록이 비어 있으면 억지로 채우지 마세요.
         """.trimIndent()
 

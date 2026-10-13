@@ -185,7 +185,8 @@ class MorningBriefingGenerator @Inject constructor(
             // 캘린더 미확인으로 취급해 "일정 없음"이 거짓이 되지 않게 한다 (EC4).
             deviceCalendarFailed = schedule?.deviceCalendarFailed ?: true,
             pendingTasks = tasks,
-            recentEpisodes = episodes
+            recentEpisodes = episodes,
+            zoneId = zone
         )
     }
 

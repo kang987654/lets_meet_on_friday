@@ -37,7 +37,7 @@ import javax.inject.Inject
  * ### Key Flow
  * 1. 설정 토글·발열 게이트 → oneShot 추출([ExtractFactsUseCase])
  * 2. 지식 급: 중복(내용 포함 검색)이 아니고 [KnowledgeAutoSaveFilter] 를 통과하면 `source=auto` 로 **자동 저장**
- *    (거절한 내용·기존 메모와 다른 숫자·일회성 리마인더 요청은 건너뜀, 태그는 내용에 든 것만)
+ *    (거절한 내용·기존 메모와 다른 숫자·일회성 리마인더 요청·사용자가 말한 적 없는 숫자는 건너뜀, 태그는 내용에 든 것만)
  * 3. 프로필 급: 현재 프로필과 같은 값·이미 제안된 키-값이 아니면 PENDING 제안(승인 카드 몫)
  * 4. 감사 MODEL_RUN 1건(원문 미기록, 개수만)
  *
@@ -93,12 +93,13 @@ class EpisodeFactExtractor @Inject constructor(
         val rejected = if (facts.knowledge.isEmpty()) emptyList() else rejectedMemories(episode, now)
         val existing = if (facts.knowledge.isEmpty()) emptyList()
         else (knowledgeRepository.getNotes(0, Constants.MEMORY_SCAN_LIMIT) as? AppResult.Success)?.data.orEmpty()
+        val userText = messages.filter { it.role == ChatMessage.Role.USER }.joinToString("\n") { it.content }
         for (fact in facts.knowledge) {
             // [WHY] 내용 포함 검색으로 중복을 막는다 — 같은 비밀번호를 말한 에피소드가 둘이면
             // 둘째는 건너뛴다. 주기적 병합(A5)까지의 값싼 1차 방어.
             val duplicate = (knowledgeRepository.search(fact, 1) as? AppResult.Success)?.data?.isNotEmpty() ?: false
             if (duplicate) continue
-            val skip = KnowledgeAutoSaveFilter.skipReason(fact, rejected, existing)
+            val skip = KnowledgeAutoSaveFilter.skipReason(fact, rejected, existing, userText)
             if (skip != null) {
                 AppLogger.d(TAG, "자동 저장 건너뜀($skip): ${episode.id}")
                 filtered++

@@ -35,6 +35,16 @@ class KnowledgeAutoSaveFilterTest {
     }
 
     @Test
+    fun `사실의 숫자를 사용자가 말한 적이 없으면 비서가 말한 숫자로 보고 저장하지 않는다`() {
+        val userText = "자전거 비밀번호 기억나?\n그렇구나 고마워\n현관 비밀번호 2580으로 바꿨어\n나 매일 아침 7시에 조깅해"
+
+        assertEquals(Skip.ASSISTANT_NUMBER, KnowledgeAutoSaveFilter.skipReason("자전거 비밀번호는 4321로 변경된 적이 있음", emptyList(), emptyList(), userText))
+        assertEquals(null, KnowledgeAutoSaveFilter.skipReason("현관 비밀번호: 2580", emptyList(), emptyList(), userText))
+        assertEquals(null, KnowledgeAutoSaveFilter.skipReason("매일 아침 7시에 조깅함", emptyList(), emptyList(), userText))
+        assertEquals("숫자 없는 사실은 출처를 따지지 않는다", null, KnowledgeAutoSaveFilter.skipReason("땅콩 알레르기 있음", emptyList(), emptyList(), userText))
+    }
+
+    @Test
     fun `태그는 노트 내용에 든 후보만 최대 개수까지`() {
         val episodeTags = listOf("알림", "자전거 비밀번호", "출시 준비", "녹차")
 

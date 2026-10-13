@@ -17,12 +17,12 @@ import javax.inject.Inject
  * ### Key Flow
  * 1. 히스토리에서 직전 동일 사용자 발화를 제외(현재 턴과 중복 방지)
  * 2. **하루 동안 고정되는** 시스템 지시(역할·스타일·날짜 블록·툴 사용 태도)를 조립
- * 3. 사용자 턴 앞에 툴 지침 한 줄을 덧붙임 ([withTurnToolReminder])
+ * 3. 사용자 턴 앞에 툴 지침 한 줄(+ 현재 시각)을 덧붙임 ([withTurnToolReminder])
  * 4. [ChatPrompt] 객체로 래핑하여 반환
  *
  * [WHY] 시스템 지시를 **하루 동안 고정**하는 것이 이 클래스의 핵심 계약이다 — 지시가 바뀌면 런타임이 대화를 버리고
  * 툴 선언까지 다시 프리필한다. 그래서 날짜 블록은 시스템 지시에 두되(사용자 턴으로 옮기면 조회 질문이 날짜·캘린더 툴로
- * 샌다) 분 단위 시계는 넣지 않는다(ADR-010).
+ * 샌다) 분 단위 시계는 시스템 지시가 아니라 매 턴 바뀌어도 되는 턴 리마인더에 둔다(ADR-010, 0.36.0 exp49).
  *
  * [WHY] 이 클래스의 영어 문구는 전부 실험실 실측 원문이다 — 바꾸려면 실측이 먼저다(AGENTS §2-⑤). 실측 오버헤드의
  * 진실은 `TokenBudgetInvariantTest.MEASURED_OVERHEAD`.
@@ -37,7 +37,9 @@ class PromptAssembler @Inject constructor() {
         // [WHY] 날짜는 인자로 받는다(AGENTS §2-④) — 벽시계를 안에서 읽으면 테스트가 실행 날짜에 묶인다.
         today: java.time.LocalDate = java.time.LocalDate.now(java.time.ZoneId.systemDefault()),
         // [WHY] 문서가 첨부된 턴은 턴 리마인더를 문서용으로 바꾼다 — 표준 리마인더가 문서 질문을 툴로 끌어간다(ADR-028).
-        documentAttached: Boolean = false
+        documentAttached: Boolean = false,
+        // [WHY] 현재 시각도 인자다(AGENTS §2-④) — "1분 뒤 알려줘"를 계산하려면 모델이 지금을 알아야 한다.
+        now: java.time.LocalTime = java.time.LocalTime.now(java.time.ZoneId.systemDefault())
     ): ChatPrompt {
         // [WHY] 현재 턴의 사용자 메시지는 이미 DB에 저장된 뒤 컨텍스트로 로드되므로, 마지막 동일 USER 메시지를
         // 빼야 두 번 실리지 않는다. 비교는 리마인더를 붙이기 전 원문으로 한다(붙인 뒤면 절대 일치하지 않는다).
@@ -66,7 +68,7 @@ class PromptAssembler @Inject constructor() {
             sessionId = context.sessionId,
             systemInstruction = systemInstruction,
             history = dialogHistory,
-            currentInput = withTurnToolReminder(userInput, availableTools, documentAttached),
+            currentInput = withTurnToolReminder(userInput, availableTools, documentAttached, now),
             contextBudgetTokens = context.maxTokens
         )
     }
@@ -77,12 +79,21 @@ class PromptAssembler @Inject constructor() {
      * [WHY] 히스토리가 길어지면 시스템 지시의 지침이 어시스턴트 산문 뒤로 멀어져 툴 호출이 멈추고, 모델은 "검색해
      * 가져왔습니다" 같은 거짓 답을 낸다. 지침을 턴마다 다시 붙이면 긴 히스토리에서도 호출된다(exp20, ADR-017).
      * 시스템 지시의 지침은 옮기지 않고 **더한다** — 검증된 배치가 그것이다.
+     *
+     * [WHY] 표준 리마인더 끝에 긍정 답 문장과 `[Now] HH:mm` 을 붙인다(exp49 조건 NC) — 상대 시각("30분 뒤") 3/8 → 7/8, 비서 제안에
+     * 대한 짧은 긍정("ㅇㅇ·해줘") 4/6 → 5/6, 스모크 23/23 무손상. 시각은 사용자 턴에 있어 시스템 지시(KV 재사용)는 그대로다.
      */
-    private fun withTurnToolReminder(userInput: String, availableTools: List<String>, documentAttached: Boolean = false): String {
+    private fun withTurnToolReminder(
+        userInput: String,
+        availableTools: List<String>,
+        documentAttached: Boolean,
+        now: java.time.LocalTime
+    ): String {
         if (availableTools.isEmpty()) return userInput
         // [WHY] 툴을 끄지 않고 리마인더만 바꾼다 — 툴을 끄면 "일정 추가해줘"에 거짓 완료를 냈고, 시스템 지시가 그대로라
-        // 대화 KV 재사용도 유지된다(ADR-028).
-        val reminder = if (documentAttached) DOC_TURN_REMINDER else TURN_TOOL_REMINDER
+        // 대화 KV 재사용도 유지된다(ADR-028). 문서 턴에는 시각·긍정 답 문장을 붙이지 않는다 — exp49 는 표준 턴만 쟀다.
+        val reminder = if (documentAttached) DOC_TURN_REMINDER
+        else "$TURN_TOOL_REMINDER$TURN_AFFIRM_CLAUSE [Now] ${now.format(CLOCK)}"
         return "$reminder\n\n$userInput"
     }
 
@@ -91,6 +102,11 @@ class PromptAssembler @Inject constructor() {
         const val TURN_TOOL_REMINDER =
             "[Tool Usage Guidelines] For THIS request, first decide if one of your tools applies. " +
                 "If it does, you MUST call the tool — do not answer from memory or merely promise."
+
+        // exp49 실측 원문(조건 NC).
+        const val TURN_AFFIRM_CLAUSE = " If the user is answering your previous question, carry out what you proposed."
+
+        val CLOCK: java.time.format.DateTimeFormatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
 
         // exp46b 실측 원문(조건 D).
         const val DOC_TURN_REMINDER =
@@ -129,7 +145,7 @@ class PromptAssembler @Inject constructor() {
      * 일정 등록의 전제다.
      *
      * [WHY] **분 단위 시계를 넣지 않는다** — 넣으면 시스템 지시가 매 턴 바뀌어 턴마다 전체 재프리필이다(ADR-010).
-     * 대가로 "지금 몇 시야"·"한 시간 뒤" 같은 시계 의존 발화는 다루지 못한다(리마인더도 절대 시각만).
+     * 시각은 턴 리마인더가 싣는다([withTurnToolReminder]).
      */
     private fun buildDateBlock(today: java.time.LocalDate): String {
         val date = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")

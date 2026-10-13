@@ -91,6 +91,19 @@ class GenerateBriefingUseCaseTest {
     }
 
     @Test
+    fun `대화 기억마다 날짜가 붙고 예시는 어제로 단정하지 않는다`() = runBlocking {
+        val prompt = slot<ChatPrompt>()
+        coEvery { modelRunner.generate(capture(prompt), any()) } returns AppResult.Success(ModelTurn("브리핑"))
+        // 2026-08-16 00:00 UTC
+        val old = episode("BFS 알고리즘 공부", "큐 예시").copy(startAt = 1_786_838_400_000L)
+
+        useCase()(materials(episodes = listOf(old)).copy(zoneId = java.time.ZoneOffset.UTC))
+
+        assertTrue(prompt.captured.currentInput, prompt.captured.currentInput.contains("- (8월 16일) BFS 알고리즘 공부: 큐 예시"))
+        assertTrue("예시가 '어제'를 단정하면 오래된 대화도 어제가 된다(0.36.0)", !prompt.captured.systemInstruction.contains("어제 말씀하신"))
+    }
+
+    @Test
     fun `기기 캘린더 실패는 프롬프트에 명시된다`() = runBlocking {
         // [WHY] 조용히 생략하면 "오늘 일정 없음"이 거짓이 된다 (PRD EC4).
         val prompt = slot<ChatPrompt>()
