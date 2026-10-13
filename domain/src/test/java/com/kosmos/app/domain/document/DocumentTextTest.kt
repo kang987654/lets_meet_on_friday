@@ -35,6 +35,31 @@ class DocumentTextTest {
     }
 
     @Test
+    fun `맨 위 제목 행은 열 이름으로 쓰지 않는다`() {
+        val titled = Sheet(
+            name = "현황",
+            rows = listOf(
+                SheetRow(0, listOf(SheetCell(0, "2025 지원사업 현황 (05.30 기준)"))),
+                SheetRow(2, listOf(SheetCell(0, "순번"), SheetCell(1, "지역"), SheetCell(2, "지원금액"))),
+                SheetRow(3, listOf(SheetCell(0, "1"), SheetCell(1, "서울"), SheetCell(2, "최대 20만원"))),
+                SheetRow(4, listOf(SheetCell(0, "2"), SheetCell(1, "부산"), SheetCell(2, "최대 15만원")))
+            ),
+            columnCount = 3
+        )
+
+        assertEquals(
+            "머리 행 밖을 고르면 실제 열 이름을 붙인다",
+            "순번: 2, 지역: 부산, 지원금액: 최대 15만원",
+            DocumentText.sheet(titled, 4..4, 300, TableFormat.KEY_VALUE).text
+        )
+        assertEquals(
+            "제목·머리 행까지 고르면 제목은 빼고 머리 행이 열 이름이 된다",
+            "순번: 1, 지역: 서울, 지원금액: 최대 20만원",
+            DocumentText.sheet(titled, 0..3, 300, TableFormat.KEY_VALUE).text
+        )
+    }
+
+    @Test
     fun `상한을 넘으면 행 경계에서 자르고 전체 길이를 알린다`() {
         val clipped = DocumentText.sheet(sheet, 1..5, cap = 30, format = TableFormat.TSV)
         assertEquals("날짜\t항목\t금액\n10-01\t커피\t4,500", clipped.text)

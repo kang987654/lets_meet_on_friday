@@ -1,7 +1,6 @@
 package com.kosmos.app.ui.theme
 
 import android.app.Activity
-import android.graphics.drawable.ColorDrawable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -10,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
@@ -81,15 +79,12 @@ fun KosmosTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
-            @Suppress("DEPRECATION")
-            window.statusBarColor = kosmosColors.bg.toArgb()
-            // [WHY] targetSdk 35+ 는 edge-to-edge 가 강제돼 statusBarColor 가 무시되고 시스템 바 뒤로 **창 배경**이 비친다. 매니페스트
-            // 테마(Theme.NoTitleBar)의 창 배경은 검정이라, 라이트 모드에서 검은 바 위에 어두운 아이콘이 그려져 보이지 않았다(0.36.0 실기기).
-            window.setBackgroundDrawable(ColorDrawable(kosmosColors.bg.toArgb()))
-            // [WHY] 라이트 배경에서는 시스템 바 아이콘을 어둡게 해야 가독성이 확보된다.
+            // [WHY] 시스템 바 아이콘은 테마와 무관하게 **밝게** 둔다 — 매니페스트 테마(`Theme.NoTitleBar`, 옛 테마)는 시스템이 바 배경을
+            // 직접 검게 그려 앱이 칠할 수 없다(statusBarColor·창 배경 모두 실기기에서 무효, 0.36.1). 라이트 모드에서 어두운 아이콘을 쓰면
+            // 검은 바 위에서 사라졌다. 바를 앱 색으로 칠하려면 edge-to-edge 전환(각 화면이 인셋을 직접 처리)이 필요하다.
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !useDark
-                isAppearanceLightNavigationBars = !useDark
+                isAppearanceLightStatusBars = false
+                isAppearanceLightNavigationBars = false
             }
         }
     }

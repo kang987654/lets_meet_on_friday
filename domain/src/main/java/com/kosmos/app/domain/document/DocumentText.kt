@@ -37,8 +37,10 @@ object DocumentText {
      * 시트의 [rows] 범위(행 번호, 0부터)를 글자로. 머리 행이 범위 밖이면 앞에 붙인다 — 열 이름 없이는 "금액이 얼마야"를 답할 수 없다.
      */
     fun sheet(sheet: Sheet, rows: IntRange, cap: Int, format: TableFormat = TABLE_FORMAT): ClippedText {
-        val picked = sheet.rows.filter { it.index in rows }
-        val header = sheet.rows.firstOrNull()?.takeIf { it.index !in rows && withHeader(sheet) }
+        val headerRow = headerRow(sheet)
+        // [WHY] 머리 행 위(표 제목 등)는 고른 범위에 들어 있어도 뺀다 — 남기면 그 행이 열 이름 자리를 차지한다.
+        val picked = sheet.rows.filter { it.index in rows && (headerRow == null || it.index >= headerRow.index) }
+        val header = headerRow?.takeIf { it.index !in rows }
         val width = sheet.columnCount.coerceAtLeast(1)
         val grid = (listOfNotNull(header) + picked).map { row -> List(width) { c -> row.cells.firstOrNull { it.column == c }?.text.orEmpty() } }
         return clip(table(grid, format), cap)
@@ -60,8 +62,14 @@ object DocumentText {
     /** 글자 하나(PDF 페이지 글자 등)를 줄 단위로 자른다. */
     fun plain(text: String, cap: Int): ClippedText = clip(text.lines().filter { it.isNotBlank() }, cap)
 
-    // 머리 행을 붙일지 — 틀 고정이 있으면 그 행이 머리이고, 없어도 첫 행을 머리로 본다(가계부·명단 대부분이 그렇다).
-    private fun withHeader(sheet: Sheet): Boolean = sheet.rows.isNotEmpty()
+    /**
+     * 열 이름 행 — 칸이 둘 이상 채워진 첫 행.
+     *
+     * [WHY] 첫 행을 그대로 쓰면 맨 위 표 제목(병합된 한 칸)이 열 이름이 되어 "현황 (05.30 기준): 1, : 서울, …"처럼 열 이름 없는 글자를
+     * 모델에 보냈다(0.36.1 실기기, 공개 지원사업 현황 xlsx). 가계부·명단처럼 첫 행이 머리인 시트는 그대로 첫 행이다.
+     */
+    private fun headerRow(sheet: Sheet): SheetRow? =
+        sheet.rows.firstOrNull { row -> row.cells.count { it.text.isNotBlank() } >= 2 } ?: sheet.rows.firstOrNull()
 
     private fun table(grid: List<List<String>>, format: TableFormat): List<String> {
         if (grid.isEmpty()) return emptyList()
