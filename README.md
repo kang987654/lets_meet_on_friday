@@ -4,7 +4,7 @@
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?style=flat-square&logo=kotlin)
 ![AGP](https://img.shields.io/badge/AGP-9.3-3DDC84?style=flat-square&logo=android)
 ![Compose](https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4?style=flat-square&logo=jetpackcompose)
-![LiteRT-LM](https://img.shields.io/badge/On--Device_AI-LiteRT--LM_0.16_·_Gemma_4_E4B-FF6F00?style=flat-square&logo=google)
+![LiteRT-LM](https://img.shields.io/badge/On--Device_AI-LiteRT--LM_0.18_·_Gemma_4_E4B-FF6F00?style=flat-square&logo=google)
 ![Hilt](https://img.shields.io/badge/DI-Hilt-0052CC?style=flat-square&logo=dagger)
 ![License](https://img.shields.io/badge/License-CC_BY--NC_4.0-lightgrey?style=flat-square)
 
@@ -24,7 +24,8 @@
    가능한 기억 문서**가 됩니다. 비서가 과거를 참조하면 답변에 회수 칩(🧠)으로 출처를
    표시합니다. ([설계 문서](docs/design/ui_a_prime.md), ADR-022)
 2. **실측 주도 엔지니어링** — 모바일 GPU 의 FP16 정밀도 한계로 긴 문맥에서 숫자가 깨지는
-   발병점(1,854~2,122 토큰)을 직접 실험으로 특정하고, 대화 예산을 그 아래(1,700)로 설계했습니다.
+   발병점(1,854~2,122 토큰)을 직접 실험으로 특정해 예산을 그 아래(1,700)로 묶었고, 런타임이 정밀도 설정을 연 0.18.0 에서
+   GPU 를 FP32 로 돌려 예산을 2,000~2,800 으로 되돌렸습니다(기기 대조군 실측).
    30여 개의 재현 실험 스크립트가 [`scratch/lab/`](scratch/lab) 에 있습니다.
 3. **무음 실패 제로 원칙** — "실패했는데 화면은 정상"인 경로를 결함으로 취급합니다.
    검색 실패·저장 실패·첨부 실패 전부가 사용자에게 정직하게 표시됩니다.
@@ -58,7 +59,7 @@
 
 | 결정 | 근거 실측 |
 |---|---|
-| 대화 프리필 예산 1,700 토큰 | GPU FP16 활성화 정밀도 × 문맥 깊이 — 숫자 깨짐 발병점 1,854~2,122 실측 (exp29~32, ADR-021) |
+| 대화 프리필 예산 2,000~2,800 토큰(기본 2,500) + GPU FP32 활성화 | FP16 은 문맥 1,854~2,122 에서 숫자 깨짐(exp29~32, ADR-021) → FP32 는 기기 2,966·PC 3,682 까지 온전, 비용 생성 −5%·PSS +0.6GB (exp51, ADR-029) |
 | 에피소드 자동 분절·요약·회수 | 실기기 대화 픽스처로 분절 자연성 9/9, 요약 형식 9/9, recall@1 16/16 — 임베딩 없이 (exp33, ADR-022) |
 | 문서 첨부 캡 300자 | 슬라이딩 윈도우 생존 조건에서 역산 — 캡 초과 문서는 다음 턴부터 모델이 "본 적 없는" 상태가 됨 |
 | 툴 선언 오버헤드 | 5종 652토큰 실측 — 툴 추가 예산 상한의 근거 |
@@ -124,7 +125,7 @@ sequenceDiagram
 | **UI** | Jetpack Compose (Material 3), 글래스모피즘 + 오로라 배경, 라이트/다크 시맨틱 토큰 |
 | **Architecture** | Clean Architecture, 4-모듈, Flow / StateFlow, Paging 3 |
 | **DI** | Hilt |
-| **On-Device AI** | LiteRT-LM `0.16.0`, Gemma 4-E4B-it INT4 (GPU 델리게이트 + CPU 폴백) |
+| **On-Device AI** | LiteRT-LM `0.18.0`, Gemma 4-E4B-it INT4 (GPU 델리게이트 FP32 활성화 + CPU 폴백) |
 | **Storage** | Room (스키마 v6), DataStore, SQLite WAL |
 | **Network / Audio** | OkHttp 4 (위키·모델 다운로드, Wi-Fi 전용 정책), AudioRecord 16kHz PCM |
 | **Testing** | JUnit4 + Robolectric + Compose UI Test — 단위·통합·E2E 300여 건 |

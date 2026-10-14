@@ -388,7 +388,7 @@ Domain 레이어의 인터페이스만 사용한다.
 
 > **정정 (2026-08-15)**: 예전의 "4블록 예산표(총합 4096)"는 현재 산식과 전부 어긋나 삭제했다.
 > 현행 구조: 시스템 지시(세션 고정) + 툴 선언 + few-shot = 오버헤드 실측 1,329(예약 1,400),
-> 히스토리는 Token Sliding Window 가 프리필 예산(기본 1,700)에서 오버헤드를 뺀 몫을 배분한다.
+> 히스토리는 Token Sliding Window 가 프리필 예산(기본 2,500, 설정 2,000~2,800 — ADR-029)에서 오버헤드를 뺀 몫을 배분한다.
 > "메모리 블록" 자동 주입은 ADR-013 에서 폐지됐다(SearchMemory 툴로 대체). 수치의 단일 출처는
 > `Constants.kt` 와 ADR-017·020·021 이다.
 
@@ -1185,7 +1185,7 @@ object Redaction {
 
 | 항목 | v0 제한 | 확장 포인트 |
 |---|---|---|
-| 컨텍스트 길이 | 프리필 예산 1,700 토큰 (KV 4,096, GPU 발병점 아래 — ADR-021) | 상류 FP16 수정 시 예산 복원 (expand.md E-Phase 4) |
+| 컨텍스트 길이 | 프리필 예산 2,000~2,800 토큰, 기본 2,500 (KV 4,096, GPU FP32 — ADR-029) | 상한은 툴 회신 여유(천장 − 툴 결과)와 기기 FP32 실측선 — 올리려면 그 깊이를 기기에서 먼저 잰다 |
 | 대화 히스토리 | Token Sliding Window (턴 수 고정 아님) | 예산 상향 시 자동 확장 |
 | 메모리 검색 | Conversation 중심 | v1 Knowledge, v2 벡터 검색 |
 | 검색 구현 | 구현하지 않음 | v1 WebSearchTool |
@@ -1349,7 +1349,7 @@ GemmaModelRunner → {새모델}ModelRunner
 - **greedy 는 장식이 아니라 하중을 받는 부품이다**: `SamplerConfig(topK = 1)` 은 0.8.4 에서 툴 호출을 성립시킨 조건이고 숫자 왜곡 완화에도 기여한다. gallery 자신도 agent chat 진입 시 `AgentChatSamplingParamsManager` 로 `topK = 1` 을 **강제**하며 그 태스크에서는 이 설정들을 사용자에게 보여주지 않는다. 노출은 8회의 실기기 왕복으로 막아 놓은 실패 모드를 사용자가 슬라이더 한 번으로 되살릴 수 있게 만드는 것이다. 응답의 성격을 바꾸는 손잡이는 **샘플러가 아니라 응답 스타일 지시문**으로 제공한다(ADR-010).
 - **thinking·speculative decoding 은 구글 자신이 우리 태스크에서 배제한다**: gallery 의 모델 허용 목록(`model_allowlists/1_0_17.json`)에서 `Gemma-4-E4B-it`(우리 모델)의 `capabilityToTaskTypes` 는 `llm_thinking: [llm_chat, llm_ask_image, llm_ask_audio]`, `speculative_decoding: [llm_chat, llm_ask_image, llm_ask_audio, llm_prompt_lab]` 이다. **둘 다 `llm_agent_chat` 만 빠져 있다.** speculative decoding 은 단순 태스크인 `llm_prompt_lab` 에도 허용되므로, agent chat 만 제외되는 차이는 툴 선언 + constrained decoding 뿐이다 — 드래프터가 제안한 토큰과 FST 문법 마스크가 충돌한다는 해석과 일치한다. 우리 앱은 모든 턴이 agent chat 이다(툴이 항상 선언된다).
 - **모델 파일에는 드래프터가 실제로 들어 있다**: `gemma-4-E4B-it.litertlm` 컨테이너 헤더에서 `tf_lite_mtp_drafter` 섹션을 확인했다(MTP = multi-token prediction). 즉 `Capabilities(modelPath).hasSpeculativeDecodingSupport()` 는 true 를 돌려줄 것이다 — **켤 수 있는데 켜지 않는다**는 점이 이 결정의 핵심이다. 되돌리기는 쉽다(엔진 초기화 직전 전역 플래그 1줄). 다만 켜려면 툴 호출 회귀 검증이 함께 필요하고, PC 하네스로는 확인할 수 없다(Python 0.15.0 에 대응 플래그가 없다).
-- **0.14.0 API 표면 확인**: `ExperimentalFlags.enableSpeculativeDecoding` 은 `Boolean?` 이고 `Engine.initialize()` **전에** 읽힌다(gallery 는 set → initialize → reset 순서). `Capabilities` 클래스도 0.14.0 AAR 에 있다. 즉 채용은 API 문제가 아니라 품질 위험의 문제다.
+- **0.14.0 API 표면 확인** (0.18.0 에서 `Capabilities` 는 제거되고 `ModelInfo` 로 대체 — 이 결정은 그대로): `ExperimentalFlags.enableSpeculativeDecoding` 은 `Boolean?` 이고 `Engine.initialize()` **전에** 읽힌다(gallery 는 set → initialize → reset 순서). `Capabilities` 클래스도 0.14.0 AAR 에 있다. 즉 채용은 API 문제가 아니라 품질 위험의 문제다.
 - **대신 노출한 것**: 기존 설정의 이름을 실제 동작과 맞췄다. "CONTEXT WINDOW / Token Limit" 은 모델의 컨텍스트 윈도우가 아니라 **우리가 매 턴 실어 보내는 분량**이므로 "대화 기억 범위 / 한 번에 참고할 분량"으로 바꿨다. 이름이 동작과 다르면 사용자는 만져도 효과가 없다고 느낀다.
 
 ### ADR-012. 스트리밍 수신에 무한 버퍼를 끼운다 — 네이티브 콜백이 토큰을 조용히 버린다 (2026-08-07)
@@ -1741,6 +1741,8 @@ AddSchedule 실호출로 방어선도 확인한다 — 깨진 값이면 자가�
 
 ### ADR-021. 글자 유실의 원인 확정 — GPU FP16 활성화 정밀도 × 문맥 깊이 (2026-08-13)
 
+> **처방 대체 (0.37.0)**: 원인 판정은 유효하다. 처방 "예산을 발병점 아래로"는 AAR 0.18.0 이 `activationDataType` 을 노출해 **GPU FP32** 로 바뀌었다 — ADR-029.
+
 - **Status**: Accepted
 - **Context**: ADR-020 재검증에서 "초과 없는데 깨짐"이 나왔다(KV 2,783/4096, 경고 0건 — 계측이 첫 가동에서 가설 하나를 기각했다). 같은 로그의 렌더 프리페이스에서 어제의 깨진 출력들(`20817일 01시`, `2023년 111월 1일`, 원시 `<|tool_call>` 조각)이 히스토리로 재생되는 것이 발견돼 **오염 모방**이 새 가설로 제기됐고, 실험 여섯이 하루 안에 전 가설을 정리했다. 판정은 전부 PC 실험실(litert-lm 0.16.0, 같은 모델 파일)이며 greedy 라 전 결과가 결정적(반복 동일)이다.
 
@@ -2014,3 +2016,33 @@ zip(`ZipFile`, 캐시 복사) + SAX + `PdfRenderer` — 전부 플랫폼 내장�
 #### 3. 판단은 코드가 한다
 
 "이 턴에 문서가 붙었는가"는 모델이 아니라 `ChatRequest.documentText != null` 로 정한다 — 히스토리에 예전 첨부가 남아 있어도 이후 턴은 표준 리마인더다.
+
+### ADR-029. GPU 를 FP32 활성화로 돌리고 대화 예산을 2,000~2,800 으로 되돌린다 (2026-10-14)
+
+- **Status**: Accepted (사용자 결정 — M3 안 (c))
+- **Context**: ADR-021 은 GPU 숫자 깨짐의 원인을 텍스트 디코더 **FP16 활성화 × 문맥 깊이**로 확정했지만, 처방 FLOAT32 는 AAR 0.16.0 이 노출하지 않아
+  예산을 발병점 아래(1,700)로 묶었다. 그 대가로 오버헤드 예약이 1,400 에 갇혀(실측 1,250 + 프로필 100 → 여유 50) **툴을 더 선언할 공간이 없었다**.
+  litertlm 0.18.0 AAR 의 `EngineConfig` 끝에 `activationDataType`(FLOAT32·FLOAT16·INT16·INT8)이 생겼다 — 릴리스 노트에는 없고 classes.jar 비교로 찾았다.
+- **실측** (근거 등급 2 — 우리 실측):
+
+| | 0.16 FP16 | 0.18 FP16 | 0.18 FP32 |
+|---|---|---|---|
+| PC GPU 발병 (exp51, 현 픽스처) | 2,028 온전 / 2,144 깨짐 | 2,028 / 2,141 | **3,682 까지 온전** |
+| 기기 대조군 (S25 Ultra, 임계 3,000 시험 빌드) | — | KV ~2,300 이후 `200026-10-19`·`507319→531` | 2,486·2,966(일정)·2,679·2,942·2,857(메모) **온전** |
+| 툴 스모크 PC 12건 + 이미지·오디오 (exp51b) | 12/12 | 12/12 | 12/12 |
+| 기기 생성 속도 (배터리 ≤31.5°, A/B/A) | — | 11.1·10.8 t/s | 10.6·10.2 t/s (**−5%**) |
+| 기기 첫 응답(시스템 지시 프리필 포함) | — | 9.4·13.6 s | 17.0 s (**+4~5 s**) |
+| 기기 PSS | 5.32 GB(설치본) | 4.34 GB | 4.93~4.96 GB (**+0.6 GB**) |
+
+- **결정**:
+  1. `buildEngineConfig` 가 GPU 일 때 `activationDataType = FLOAT32`, CPU 는 기본값(`EngineConfigTest`).
+  2. 예산을 설정 슬라이더 `MIN_CONTEXT_TOKENS`(2,000)~`MAX_CONTEXT_TOKENS`(2,800), 기본 `DEFAULT_CONTEXT_TOKENS`(2,500)로. 저장값이 범위 밖이면 읽을 때 자른다.
+  3. **상한 2,800 의 근거**: ① 툴 결과(최대 `TOOL_RESULT_MAX_TOKENS` 500)는 재설정 검사 없이 턴 중간에 KV 로 들어가므로 예산 + 툴 결과 ≤ 천장 3,328
+     ② 기기에서 FP32 온전을 확인한 깊이(`GPU_FP32_VERIFIED_SAFE_TOKENS` 2,966) 이하. 둘 다 `TokenBudgetInvariantTest` 가 지킨다.
+  4. **하한 2,000 의 근거**: 하한에서도 오버헤드 예약 + 최소 히스토리가 성립해야 한다 — 하한을 올려 두면 툴 선언이 늘 때 예약을 1,700 까지 키울 수 있다.
+  5. oneShot 입력 상한(요약·추출·브리핑 `MAX_CONTEXT_TOKENS − 300`)은 예산 파생을 유지한다 — 에피소드는 재설정 경계로 닫히므로 예산이 커지면 함께 커져야 잘리지 않는다.
+- **기각**: (a) 0.18.0 만 — 툴 공간 문제가 그대로. (b) FP32 + 예산 1,700 유지 — 숫자는 막지만 툴 공간이 그대로(사용자: "지금 tool 호출이 너무 제한되고 있다").
+- **대가·한계**: 재설정 턴이 길어지고(+4~5 s, 예산이 커서 읽을 히스토리도 늘었다) PSS +0.6 GB. 기기 실측은 2,966 까지이고 툴 회신 턴은 3,070 까지 잰 1건뿐이다.
+  **함께 드러난 별건**: 기기 툴 회신 턴에서 "자전거 비밀번호" → 4321(메모 134). 숫자는 온전했고 원인은 깊이가 아니라 **충돌 요약 수**다 — exp52 에서 4321 을 적은 요약이
+  3건이면 깊이 0 에서도 0.36.1 안내(`MIXED_SOURCE_GUIDE`, 앞·뒤·앞뒤 배치 모두)가 진다(요약 2건이던 exp50 은 2/2). 다음 회차 후보.
+- **되돌리기**: FP16 으로 돌리면 예산 상한이 다시 `GPU_DIGIT_ONSET_SAFE_TOKENS` 아래여야 한다 — 상수는 기록용으로 남겼다.
