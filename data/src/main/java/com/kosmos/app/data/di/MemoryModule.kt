@@ -37,6 +37,12 @@ abstract class MemoryModule {
 
     @Binds
     @Singleton
+    abstract fun bindDataResetRepository(
+        impl: com.kosmos.app.data.local.repository.DataResetRepositoryImpl
+    ): com.kosmos.app.domain.memory.DataResetRepository
+
+    @Binds
+    @Singleton
     abstract fun bindProfileRepository(
         impl: com.kosmos.app.data.local.repository.ProfileRepositoryImpl
     ): com.kosmos.app.domain.memory.ProfileRepository
