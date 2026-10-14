@@ -22,7 +22,9 @@ coroutines = "1.11.0"
 # **제거 0개**이고 우리가 쓰는 심볼(ExperimentalFlags·renderPrefaceIntoString·Capabilities·
 # EngineConfig 필드·SamplerConfig·ToolSet)이 전부 남아 있다. 추가분에 `ThinkingConfig` 가 있어
 # 맵 키로 끄던 생각 모드를 타입 API 로 옮길 수 있게 됐다.
-litertlm = "0.16.0"
+# 0.16.0 → 0.18.0(0.37.0): 제거는 `Capabilities` 하나(앱 미사용 — `ModelInfo` 로 대체), `EngineConfig` 끝에
+# `activationDataType` 추가(ADR-021 의 FLOAT32 처방이 가능해짐). PC 실측 exp51: FP16 발병점 무변화, 툴·멀티모달 무회귀.
+litertlm = "0.18.0"
 # [WHY] 5.x 는 메이저 상향(API 변경 가능) — 4.12 에 문제가 없고, 메이저는 필요가 생길 때
 # 별도 회차로 한다 (0.16.0 최신화 회차 판정, mockwebserver 도 같은 키를 쓴다).
 okhttp = "4.12.0"
