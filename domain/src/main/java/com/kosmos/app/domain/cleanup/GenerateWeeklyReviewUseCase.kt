@@ -94,7 +94,7 @@ class GenerateWeeklyReviewUseCase @Inject constructor(
         const val SESSION_ID = "weekly-review"
         const val TAG = "주간 회고"
         private const val WINDOW_MS = 7L * 24 * 60 * 60 * 1000
-        // [WHY] 에피소드 요약은 건당 100토큰 안팎 — 1,000 이면 7일치가 들어가고 프리필 예산(1,700) 안에 지시가 남는다.
+        // [WHY] 에피소드 요약은 건당 100토큰 안팎 — 1,000 이면 7일치가 들어가고 프리필 예산([Constants.MIN_CONTEXT_TOKENS] 이상) 안에 지시가 남는다.
         private const val MAX_INPUT_TOKENS = 1_000
 
         /** "2026-W40" — ISO 주차. 같은 주에 다시 정리하면 같은 키라 노트가 교체된다. */

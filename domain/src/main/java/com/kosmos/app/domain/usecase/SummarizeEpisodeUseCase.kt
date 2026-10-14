@@ -109,7 +109,7 @@ class SummarizeEpisodeUseCase @Inject constructor(
         val FIELD_TAGS = Regex("태그\\s*[:：]\\s*(.+)")
         val FIELD_SUMMARY = Regex("요약\\s*[:：]\\s*(.+)", RegexOption.DOT_MATCHES_ALL)
 
-        // [WHY] 요약 입력 상한 — 프리필 예산(1,700)에서 지시·구조 여유를 뺀 값. 에피소드가
+        // [WHY] 요약 입력 상한 — 프리필 예산 상한([Constants.MAX_CONTEXT_TOKENS])에서 지시·구조 여유를 뺀 값. 에피소드가
         // 정상 경로(리셋 경계)로 닫혔다면 어차피 이 안이다.
         val MAX_INPUT_TOKENS = Constants.MAX_CONTEXT_TOKENS - 300
     }

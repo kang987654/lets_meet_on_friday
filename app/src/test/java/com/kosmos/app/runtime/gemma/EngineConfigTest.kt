@@ -41,6 +41,16 @@ class EngineConfigTest {
     }
 
     @Test
+    fun `GPU 는 FP32 활성화이고 CPU 는 기본값이다`() {
+        // [WHY] GPU 기본 FP16 은 깊은 문맥에서 숫자를 깨뜨린다(ADR-021) — FP32 지정이 빠지면 예산 상한(ADR-029)의 전제가 무너진다.
+        assertEquals(
+            com.google.ai.edge.litertlm.ActivationDataType.FLOAT32,
+            buildEngineConfig(MODEL, Backend.GPU(), CACHE).activationDataType
+        )
+        org.junit.Assert.assertNull(buildEngineConfig(MODEL, Backend.CPU(), CACHE).activationDataType)
+    }
+
+    @Test
     fun `모델 경로가 그대로 전달된다`() {
         assertEquals(MODEL, buildEngineConfig(MODEL, Backend.GPU(), CACHE).modelPath)
     }

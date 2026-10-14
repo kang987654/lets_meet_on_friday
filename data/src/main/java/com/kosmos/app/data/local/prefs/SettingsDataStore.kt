@@ -128,17 +128,16 @@ class SettingsDataStore @Inject constructor(
      * **업그레이드한 사용자에게만** 되살아난다 — 새 설치는 정상인데 기존 사용자만 겪는,
      * 재현이 가장 어려운 형태의 결함이 된다.
      *
-     * [WHY] 상한이 [Constants.PREFILL_CEILING_TOKENS](엔진 용량)에서
-     * [Constants.MAX_CONTEXT_TOKENS](GPU 발병점 아래, ADR-021)로 내려왔다 — 지금의 구속
-     * 조건은 용량이 아니라 GPU 숫자 정밀도다.
+     * [WHY] 범위는 [Constants.MIN_CONTEXT_TOKENS]..[Constants.MAX_CONTEXT_TOKENS] 다(ADR-029). 하한 아래 저장값(예전 상한
+     * 1,700 시절의 값)은 읽을 때 하한으로 올린다 — 하한은 오버헤드 예약을 늘릴 여지를 위한 값이라 그 아래로는 돌지 않는다.
      *
      * [WHY] 저장값을 덮어쓰지 않고 읽을 때만 자른다. 사용자가 슬라이더를 만지지도 않았는데
      * 저장값이 바뀌는 것은 설정을 임의로 조작하는 것이고, 나중에 상한이 올라가면 원래 의도한
      * 값으로 자연히 복구된다.
      */
     val maxTokensFlow: Flow<Int> = dataStore.data.map {
-        (it[MAX_TOKENS_KEY] ?: Constants.MAX_CONTEXT_TOKENS)
-            .coerceAtMost(Constants.MAX_CONTEXT_TOKENS)
+        (it[MAX_TOKENS_KEY] ?: Constants.DEFAULT_CONTEXT_TOKENS)
+            .coerceIn(Constants.MIN_CONTEXT_TOKENS, Constants.MAX_CONTEXT_TOKENS)
     }
 
     suspend fun saveResponseStyle(style: String) {

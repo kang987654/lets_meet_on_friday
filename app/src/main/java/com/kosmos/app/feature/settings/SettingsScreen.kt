@@ -166,11 +166,10 @@ fun SettingsScreen(
                     value = sliderValue,
                     onValueChange = { sliderValue = it },
                     onValueChangeFinished = { viewModel.onMaxTokensChanged(sliderValue.toInt()) },
-                    // [WHY] 상한 1700 = GPU 숫자 깨짐 발병점(실측 1854~2122, exp30) 아래
-                    // (근거: Constants.MAX_CONTEXT_TOKENS, ADR-021). 그 위 값은 긴 대화에서
-                    // 일정 시각·비밀번호의 숫자를 깨뜨린다.
-                    valueRange = 1000f..1700f,
-                    steps = 6, // 100 단위: 1000..1700
+                    // [WHY] 범위의 근거는 Constants.MIN_CONTEXT_TOKENS·MAX_CONTEXT_TOKENS (ADR-029) — 상한은 툴 회신 턴이
+                    // 엔진 용량을 넘지 않는 값, 하한은 툴 선언을 늘릴 여지를 남기는 값이다.
+                    valueRange = com.kosmos.app.core.common.Constants.MIN_CONTEXT_TOKENS.toFloat()..com.kosmos.app.core.common.Constants.MAX_CONTEXT_TOKENS.toFloat(),
+                    steps = (com.kosmos.app.core.common.Constants.MAX_CONTEXT_TOKENS - com.kosmos.app.core.common.Constants.MIN_CONTEXT_TOKENS) / 100 - 1, // 100 단위
                     colors = SliderDefaults.colors(
                         thumbColor = KosmosTheme.colors.accent,
                         activeTrackColor = KosmosTheme.colors.accent,

@@ -5,7 +5,7 @@ import com.kosmos.app.domain.modelrunner.ModelLoadState
 
 data class SettingsUiState(
     val responseStyle: String = ResponseStyle.DEFAULT,
-    val maxTokens: Int = com.kosmos.app.core.common.Constants.MAX_CONTEXT_TOKENS,
+    val maxTokens: Int = com.kosmos.app.core.common.Constants.DEFAULT_CONTEXT_TOKENS,
     val modelLoadState: ModelLoadState = ModelLoadState.Loading,
     val briefingEnabled: Boolean = true,
     val briefingTimeMinutes: Int =

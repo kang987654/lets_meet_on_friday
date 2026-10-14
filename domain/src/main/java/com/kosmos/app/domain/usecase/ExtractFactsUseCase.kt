@@ -155,7 +155,7 @@ class ExtractFactsUseCase @Inject constructor(
         private val LABEL_LINE = Regex("^\\s*[-*•]?\\s*(프로필|지식)\\s*[:：]\\s*(.*)$")
         private val BULLET_LINE = Regex("^\\s*[-*•]\\s+(.+)$")
 
-        // [WHY] 요약과 같은 입력 상한 — 프리필 예산(1,700)에서 지시·구조 여유를 뺀 값.
+        // [WHY] 요약과 같은 입력 상한 — 프리필 예산 상한([Constants.MAX_CONTEXT_TOKENS])에서 지시·구조 여유를 뺀 값.
         val MAX_INPUT_TOKENS = Constants.MAX_CONTEXT_TOKENS - 300
     }
 }

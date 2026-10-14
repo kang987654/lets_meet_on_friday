@@ -3,6 +3,7 @@ package com.kosmos.app.runtime.gemma
 import android.content.Context
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.ActivationDataType
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.Content
@@ -51,6 +52,9 @@ import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
  * [WHY] 오디오는 **CPU 여야 한다** — GPU 면 엔진 생성이 실패한다(exp23). 비전은 양쪽 다 되므로 넘겨받은 백엔드를 쓴다.
  * `cacheDir` 은 CPU 폴백에도 넘긴다(아니면 폴백 기기가 매번 커널 캐시를 다시 만든다). `maxNumTokens`·`maxNumImages` 를
  * 명시하는 이유는 [Constants.ENGINE_MAX_TOKENS]·[Constants.MAX_IMAGES_PER_TURN].
+ *
+ * [WHY] GPU 는 텍스트 디코더 활성화를 **FP32** 로 — 기본 FP16 은 문맥이 깊어지면 숫자를 깨뜨린다(ADR-021, 기기 대조군 2,300토큰부터
+ * 깨짐). FP32 는 기기 2,966토큰까지 온전, 비용은 생성 −5%·긴 입력 처리 +4~5초·PSS +0.6GB(ADR-029). CPU 는 기본값을 쓴다.
  */
 internal fun buildEngineConfig(
     modelPath: String,
@@ -63,7 +67,8 @@ internal fun buildEngineConfig(
     audioBackend = Backend.CPU(),
     maxNumTokens = Constants.ENGINE_MAX_TOKENS,
     maxNumImages = Constants.MAX_IMAGES_PER_TURN,
-    cacheDir = cacheDir
+    cacheDir = cacheDir,
+    activationDataType = if (backend is Backend.GPU) ActivationDataType.FLOAT32 else null
 )
 
 /**

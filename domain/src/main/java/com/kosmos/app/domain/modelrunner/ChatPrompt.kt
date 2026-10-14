@@ -33,5 +33,5 @@ data class ChatPrompt(
      * 1000 으로 내려도 살아 있는 대화의 KV 는 8000 토큰까지 자랐다 — 설정이 메모리에
      * 아무 영향을 주지 못했다. 예산을 여기 실어 임계값을 설정과 이어 붙인다.
      */
-    val contextBudgetTokens: Int = com.kosmos.app.core.common.Constants.MAX_CONTEXT_TOKENS
+    val contextBudgetTokens: Int = com.kosmos.app.core.common.Constants.DEFAULT_CONTEXT_TOKENS
 )

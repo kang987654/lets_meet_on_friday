@@ -87,23 +87,38 @@ class TokenBudgetInvariantTest {
     }
 
     @Test
-    fun `예산과 재설정 임계값이 GPU 숫자 깨짐 발병점 아래다`() {
-        // [WHY] GPU 백엔드는 문맥이 발병점을 넘으면 숫자 토큰을 깨뜨린다(exp30 실측:
-        // 1854 온전 / 2122 깨짐, PC GPU). AAR 은 정밀도 레버(activationDataType)를 노출하지
-        // 않고 GPU 전용 모델 변형은 오디오·비전이 없어(exp32) 예산으로 피하는 것이 유일한
-        // 완화다 (ADR-021). 이 관계가 깨지면 긴 대화에서 일정 시각·비밀번호가 깨진다.
+    fun `예산 상한이 GPU FP32 기기 실측 온전선 아래다`() {
+        // [WHY] 0.37.0(사용자 확인 후 변경): 처방이 "예산을 FP16 발병점(1,854) 아래로"에서 "GPU 를 FP32 로"로 바뀌었다(ADR-029).
+        // FP32 도 무한히 안전한 것은 아니다 — 기기에서 온전함을 확인한 깊이까지만 슬라이더를 연다. 더 올리려면 그 깊이를 먼저 잰다.
         assertTrue(
-            "기본 예산 ${Constants.MAX_CONTEXT_TOKENS} 이 발병 안전선 ${Constants.GPU_DIGIT_ONSET_SAFE_TOKENS} 을 넘는다",
-            Constants.MAX_CONTEXT_TOKENS <= Constants.GPU_DIGIT_ONSET_SAFE_TOKENS
-        )
-        assertTrue(
-            "재설정 하한 ${Constants.MIN_CONVERSATION_RESET_TOKENS} 이 발병 안전선을 넘는다",
-            Constants.MIN_CONVERSATION_RESET_TOKENS <= Constants.GPU_DIGIT_ONSET_SAFE_TOKENS
+            "예산 상한 ${Constants.MAX_CONTEXT_TOKENS} 이 FP32 기기 실측 온전선 ${Constants.GPU_FP32_VERIFIED_SAFE_TOKENS} 을 넘는다",
+            Constants.MAX_CONTEXT_TOKENS <= Constants.GPU_FP32_VERIFIED_SAFE_TOKENS
         )
         assertTrue(
             "발병 경계 실측값의 순서가 뒤집혔다",
             Constants.GPU_DIGIT_ONSET_SAFE_TOKENS < Constants.GPU_DIGIT_ONSET_BROKEN_TOKENS
         )
+    }
+
+    @Test
+    fun `예산 상한에 툴 결과를 얹어도 프리필 천장을 넘지 않는다`() {
+        // [WHY] 툴 결과는 재설정 검사 없이 턴 중간에 KV 로 들어간다(ADR-020). 대화가 예산 상한까지 자란 턴에 툴 결과가 붙어도
+        // 생성 여유가 남아야 한다 — 예산 1,700 시절엔 여유가 넉넉해 따로 묶지 않았다.
+        assertTrue(
+            "예산 상한 ${Constants.MAX_CONTEXT_TOKENS} + 툴 결과 ${Constants.TOOL_RESULT_MAX_TOKENS} > 천장 ${Constants.PREFILL_CEILING_TOKENS}",
+            Constants.MAX_CONTEXT_TOKENS + Constants.TOOL_RESULT_MAX_TOKENS <= Constants.PREFILL_CEILING_TOKENS
+        )
+    }
+
+    @Test
+    fun `슬라이더 범위는 하한 기본값 상한 순이고 하한에서도 히스토리가 남는다`() {
+        assertTrue(Constants.MIN_CONTEXT_TOKENS <= Constants.DEFAULT_CONTEXT_TOKENS)
+        assertTrue(Constants.DEFAULT_CONTEXT_TOKENS <= Constants.MAX_CONTEXT_TOKENS)
+        assertTrue(
+            "하한 ${Constants.MIN_CONTEXT_TOKENS} 에서 오버헤드 예약 뒤 히스토리가 최소치 아래다",
+            Constants.MIN_CONTEXT_TOKENS - Constants.PREFILL_OVERHEAD_TOKENS >= Constants.MIN_HISTORY_TOKENS
+        )
+        assertEquals("슬라이더가 100 단위로 나뉘어야 한다", 0, (Constants.MAX_CONTEXT_TOKENS - Constants.MIN_CONTEXT_TOKENS) % 100)
     }
 
     @Test

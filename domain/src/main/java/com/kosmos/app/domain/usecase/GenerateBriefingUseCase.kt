@@ -151,7 +151,7 @@ class GenerateBriefingUseCase @Inject constructor(
             - 전체 5~8문장, 과장 없이. 목록이 비어 있으면 억지로 채우지 마세요.
         """.trimIndent()
 
-        // [WHY] 프리필 예산(1,700)에서 지시·구조 여유를 뺀 값 — SummarizeEpisodeUseCase 와
+        // [WHY] 프리필 예산 상한([Constants.MAX_CONTEXT_TOKENS])에서 지시·구조 여유를 뺀 값 — SummarizeEpisodeUseCase 와
         // 같은 유도. 재료가 이 상한을 넘는 날(일정 폭주)은 뒤층부터 떨어져 나간다.
         private val MAX_INPUT_TOKENS = Constants.MAX_CONTEXT_TOKENS - 300
     }

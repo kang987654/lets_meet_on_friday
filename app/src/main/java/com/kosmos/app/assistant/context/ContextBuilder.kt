@@ -21,7 +21,7 @@ import javax.inject.Inject
  *
  * ### Key Flow
  * 1. 세션 ID를 기반으로 최근 대화 기록 조회
- * 2. 프리필 예산([Constants.MAX_CONTEXT_TOKENS] 기본, 설정에서 조절)에서 시스템 지시·툴 선언
+ * 2. 프리필 예산([Constants.DEFAULT_CONTEXT_TOKENS] 기본, 설정에서 조절)에서 시스템 지시·툴 선언
  *    오버헤드를 예약한 뒤, 남은 예산만큼 Token Sliding Window 적용
  * 3. 최적화된 [ChatMessage] 목록을 포함하는 [Context] 반환
  *
@@ -55,7 +55,7 @@ class ContextBuilder @Inject constructor(
          * 내려도 살아 있는 대화의 KV 는 런타임에 박힌 8000 토큰까지 자랐다 — 설정이 실제
          * 메모리 사용에 아무 영향을 주지 못했다.
          */
-        val maxTokens: Int = Constants.MAX_CONTEXT_TOKENS
+        val maxTokens: Int = Constants.DEFAULT_CONTEXT_TOKENS
     )
 
     suspend fun build(sessionId: String): AppResult<Context> {
@@ -71,7 +71,7 @@ class ContextBuilder @Inject constructor(
             .getOrDefault(ResponseStyle.DEFAULT)
 
         val maxTokens = runCatchingCancellable { settingsDataStore.maxTokensFlow.first() }
-            .getOrDefault(Constants.MAX_CONTEXT_TOKENS)
+            .getOrDefault(Constants.DEFAULT_CONTEXT_TOKENS)
 
         // [WHY] 읽기 실패 시 프라이버시 우선 원칙에 따라 웹 검색은 비활성(false)으로 폴백한다.
         val webSearchEnabled = runCatchingCancellable { settingsDataStore.webSearchEnabledFlow.first() }

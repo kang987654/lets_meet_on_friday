@@ -36,17 +36,26 @@ object Constants {
     const val PREFILL_CEILING_TOKENS = ENGINE_MAX_TOKENS - GENERATION_HEADROOM_TOKENS
 
     /**
-     * GPU 백엔드에서 숫자 토큰이 깨지기 시작하는 문맥 깊이의 실측 경계입니다 (exp30, PC GPU).
+     * GPU **FP16** 활성화에서 숫자 토큰이 깨지기 시작하는 문맥 깊이의 실측 경계입니다 (exp30, PC GPU) — 기록용.
      *
-     * [WHY] GPU FP16 활성화 정밀도의 누적 오차로 이 깊이부터 숫자가 깨진다(`20826-…` 같은 자릿수 유실). AAR 이 정밀도
-     * 레버를 노출하지 않아 예산으로 발병점을 피한다(ADR-021). PC GPU 실측이라 기기 GPU 재검증이 최종 판정이다.
+     * [WHY] FP16 누적 오차로 이 깊이부터 숫자가 깨진다(`20826-…` 같은 자릿수 유실, ADR-021). 지금은 GPU 를 FP32 로 돌려
+     * 이 경계가 예산을 구속하지 않는다(ADR-029) — FP16 으로 되돌리면 다시 이 값이 상한이 된다.
      */
     const val GPU_DIGIT_ONSET_SAFE_TOKENS = 1854
     const val GPU_DIGIT_ONSET_BROKEN_TOKENS = 2122
 
-    // [WHY] 프리필 전체 예산의 기본값 — GPU 숫자 깨짐 발병점(위 경계) 아래로 둔다(ADR-021). 오버헤드 예약 + 최소
-    // 히스토리(PREFILL_OVERHEAD_TOKENS + MIN_HISTORY_TOKENS)와 같아 내릴 수 있는 바닥이기도 하다.
-    const val MAX_CONTEXT_TOKENS = 1700
+    /**
+     * GPU FP32 활성화에서 숫자가 온전함을 **기기에서** 확인한 가장 깊은 문맥입니다 (0.37.0 M2, S25 Ultra — PC exp51 은 3,682 까지 온전).
+     * 예산 상한([MAX_CONTEXT_TOKENS])은 이 값 이하여야 한다 — 더 올리려면 그 깊이를 기기에서 먼저 잰다.
+     */
+    const val GPU_FP32_VERIFIED_SAFE_TOKENS = 2966
+
+    // [WHY] 프리필 예산(설정 슬라이더)의 범위와 기본값. 상한은 천장에서 툴 결과 몫을 뺀 값 아래다 — 툴 결과는 재설정 검사 없이
+    // 턴 중간에 KV 로 들어가므로(ADR-020) 예산이 천장에 붙으면 툴 회신 턴이 엔진 용량을 넘는다. 하한은 오버헤드 예약을 늘릴
+    // 여지(툴 추가)를 남기는 값이다(0.37.0 사용자 결정). 관계는 `TokenBudgetInvariantTest` 가 지킨다.
+    const val MIN_CONTEXT_TOKENS = 2000
+    const val MAX_CONTEXT_TOKENS = 2800
+    const val DEFAULT_CONTEXT_TOKENS = 2500
 
     /**
      * 시스템 지시 + 툴 선언 + 프로필 블록(상한)이 차지하는 프리필 오버헤드 예약입니다.
@@ -58,8 +67,7 @@ object Constants {
      */
     const val PREFILL_OVERHEAD_TOKENS = 1400
 
-    // [WHY] 오버헤드 예약 후에도 히스토리에 남겨야 하는 최소 예산(대략 2~3턴). 더 키우면 최소 프리필이 GPU 발병점
-    // 안전선([GPU_DIGIT_ONSET_SAFE_TOKENS])을 넘는다.
+    // [WHY] 오버헤드 예약 후에도 히스토리에 남겨야 하는 최소 예산(대략 2~3턴). 재설정 하한과 첨부 문서 상한의 기준이다.
     const val MIN_HISTORY_TOKENS = 300
 
     // [WHY] 슬라이딩 윈도우가 메시지마다 더하는 턴 템플릿(역할 태그·턴 경계) 몫 — 본문 추정만으로는 빠진다.
@@ -89,7 +97,7 @@ object Constants {
      *
      * [WHY] 문서 메시지가 다음 턴에도 슬라이딩 윈도우에 남으려면 추정 토큰이 [MIN_HISTORY_TOKENS] 이하여야 한다.
      * 메시지 오버헤드·래퍼(약 25토큰)를 빼고 비ASCII 계수(1.2자/토큰, exp26)로 환산하면 ≈318자 — 여유를 두고 300.
-     * 이보다 길면 그 턴은 GPU 발병점을 넘고 다음 턴부터 문서가 통째로 탈락한다. 긴 문서 요약은 expand.md D1 경로다.
+     * 이보다 길면 다음 턴부터 문서가 슬라이딩 윈도우에서 통째로 탈락한다. 긴 문서 요약은 expand.md D1 경로다.
      */
     const val MAX_ATTACHED_DOC_CHARS = 300
 
@@ -122,7 +130,7 @@ object Constants {
      * 런타임이 살아 있는 Conversation 을 버리고 새로 만드는 하한 임계값입니다.
      *
      * [WHY] 재생성은 전체 프리필이라 너무 낮으면 매 턴 재생성 루프가 된다 — 바닥은 오버헤드 예약 + 최소 히스토리.
-     * 동시에 GPU 발병점 아래여야 대화가 숫자 깨짐 구간까지 자라지 않는다(ADR-021).
+     * 실제 임계값은 예산을 따르므로([MIN_CONTEXT_TOKENS] 이상) 이 하한은 루프 방지 바닥 역할만 한다.
      */
     const val MIN_CONVERSATION_RESET_TOKENS = 1700
 
