@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import com.kosmos.app.ui.component.GlassSegmentedControl
+import com.kosmos.app.ui.restartApp
 
 @Composable
 fun MemoryScreen(
@@ -585,19 +586,6 @@ private fun ConfirmDialog(
         titleContentColor = KosmosTheme.colors.textPrimary,
         textContentColor = KosmosTheme.colors.textSecondary
     )
-}
-
-/**
- * [WHY] 복원 후에는 프로세스를 새로 시작해야 한다 — `ExportImportManager` 가 열려 있는 Room
- * DB 파일을 교체하므로 현재 프로세스의 커넥션은 이미 낡은 상태다.
- */
-private fun restartApp(context: android.content.Context) {
-    val componentName = context.packageManager
-        .getLaunchIntentForPackage(context.packageName)?.component
-    if (componentName != null) {
-        context.startActivity(android.content.Intent.makeRestartActivityTask(componentName))
-    }
-    kotlin.system.exitProcess(0)
 }
 
 /**

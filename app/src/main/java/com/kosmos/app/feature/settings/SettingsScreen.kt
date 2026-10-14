@@ -31,7 +31,8 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
     themeViewModel: com.kosmos.app.ui.theme.ThemeViewModel = hiltViewModel(),
     onNavigateToModelManagement: () -> Unit = {},
-    onNavigateToMemoryCleanup: () -> Unit = {}
+    onNavigateToMemoryCleanup: () -> Unit = {},
+    dataResetViewModel: DataResetViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
@@ -397,6 +398,14 @@ fun SettingsScreen(
             }
         }
 
+        val resetState by dataResetViewModel.state.collectAsStateWithLifecycle()
+        DataResetSection(
+            state = resetState,
+            onReset = dataResetViewModel::reset,
+            onDismiss = dataResetViewModel::dismiss,
+            onRestart = { com.kosmos.app.ui.restartApp(context) }
+        )
+
         // [WHY] SECURITY & LOGS 섹션은 제거했다 — 활동 기록 진입점이 드로어 타일로 옮겨져
         // (M2-2) 같은 화면으로 가는 문이 두 개였다 (2026-08-15 사용자 피드백).
         Spacer(modifier = Modifier.height(40.dp))
@@ -460,6 +469,132 @@ private fun SettingSwitchRow(label: String, checked: Boolean, onCheckedChange: (
                 checkedThumbColor = KosmosTheme.colors.onAccent,
                 checkedTrackColor = KosmosTheme.colors.accent
             )
+        )
+    }
+}
+
+/** 초기화 대상 한 줄 — 화면 문구가 곧 [com.kosmos.app.domain.memory.ResetTarget] 의 범위 설명이다. */
+private data class ResetOption(val target: com.kosmos.app.domain.memory.ResetTarget, val title: String, val detail: String)
+
+private val RESET_OPTIONS = listOf(
+    ResetOption(com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS, "대화 기록", "채팅·브리핑 카드·기억 요약·활동 기록·호칭 제안"),
+    ResetOption(com.kosmos.app.domain.memory.ResetTarget.TASKS, "할 일", "완료한 것 포함, 예약된 알림도 취소"),
+    ResetOption(com.kosmos.app.domain.memory.ResetTarget.KNOWLEDGE, "메모", "직접·자동으로 저장한 메모"),
+    ResetOption(com.kosmos.app.domain.memory.ResetTarget.PROFILE, "프로필", "호칭 등 나에 대한 정보")
+)
+
+/**
+ * 데이터 초기화(0.37.1) — 고른 항목만 지운다. 설정·AI 모델·최근 문서 목록은 남는다.
+ *
+ * [WHY] 확인 대화상자 안에서 고르게 한다 — 섹션에 체크박스를 늘어놓으면 실수로 누른 체크가 화면에 남아 다음 방문 때도 위험하다.
+ */
+@Composable
+private fun DataResetSection(
+    state: DataResetState,
+    onReset: (Set<com.kosmos.app.domain.memory.ResetTarget>) -> Unit,
+    onDismiss: () -> Unit,
+    onRestart: () -> Unit
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    SectionBox(title = "데이터 초기화") {
+        Text(
+            text = "대화 기록·할 일·메모·프로필 중 고른 것을 지워요. 설정과 AI 모델은 그대로예요.",
+            style = MaterialTheme.typography.bodySmall,
+            color = KosmosTheme.colors.textMuted
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "초기화할 항목 고르기",
+            color = KosmosTheme.colors.danger,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                .clickable { showPicker = true }
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        )
+    }
+
+    if (showPicker && state !is DataResetState.Done) {
+        var selected by remember { mutableStateOf(emptySet<com.kosmos.app.domain.memory.ResetTarget>()) }
+        val running = state == DataResetState.Running
+        AlertDialog(
+            onDismissRequest = { if (!running) showPicker = false },
+            title = { Text("무엇을 지울까요?", color = KosmosTheme.colors.textPrimary) },
+            text = {
+                Column {
+                    RESET_OPTIONS.forEach { option ->
+                        val checked = option.target in selected
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !running) {
+                                    selected = if (checked) selected - option.target else selected + option.target
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = null,
+                                enabled = !running,
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = KosmosTheme.colors.danger,
+                                    uncheckedColor = KosmosTheme.colors.textMuted
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(option.title, color = KosmosTheme.colors.textPrimary)
+                                Text(option.detail, style = MaterialTheme.typography.bodySmall, color = KosmosTheme.colors.textMuted)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "지운 것은 되돌릴 수 없어요. 필요하면 먼저 메모 화면에서 백업하세요." +
+                            if (com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS in selected) " 대화 기록을 지우면 앱이 다시 시작돼요." else "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = KosmosTheme.colors.textSecondary
+                    )
+                    if (state is DataResetState.Failed) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(state.message, style = MaterialTheme.typography.bodySmall, color = KosmosTheme.colors.danger)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onReset(selected) }, enabled = selected.isNotEmpty() && !running) {
+                    Text(if (running) "지우는 중…" else "지우기", color = if (selected.isNotEmpty() && !running) KosmosTheme.colors.danger else KosmosTheme.colors.textMuted)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false; onDismiss() }, enabled = !running) {
+                    Text("취소", color = KosmosTheme.colors.textMuted)
+                }
+            },
+            containerColor = KosmosTheme.colors.surface
+        )
+    }
+
+    if (state is DataResetState.Done) {
+        AlertDialog(
+            // [WHY] 재시작이 필요한 완료는 닫을 수 없다 — 낡은 메모리 상태로 계속 쓰면 지운 대화가 엔진 KV 에 남아 답에 섞인다.
+            onDismissRequest = { if (!state.needsRestart) { showPicker = false; onDismiss() } },
+            title = { Text("지웠어요", color = KosmosTheme.colors.textPrimary) },
+            text = {
+                Text(
+                    if (state.needsRestart) "대화 기록을 정리하려면 앱을 다시 시작해야 해요." else "고른 항목을 지웠어요.",
+                    color = KosmosTheme.colors.textSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (state.needsRestart) onRestart() else { showPicker = false; onDismiss() }
+                }) {
+                    Text(if (state.needsRestart) "재시작" else "확인", color = KosmosTheme.colors.accent)
+                }
+            },
+            containerColor = KosmosTheme.colors.surface
         )
     }
 }
