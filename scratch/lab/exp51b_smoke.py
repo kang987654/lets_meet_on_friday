@@ -38,7 +38,8 @@ CASES = [
     ("일정 추가", "내일 오후 3시에 치과 예약 잡아줘", args_has("add_schedule", start_time=f"{TOMORROW}T15:00")),
     ("일정 다음주", "다음주 월요일 10시 팀 회의 일정 추가해줘", args_has("add_schedule", start_time=f"{NEXT_MON}T10:00")),
     ("일정 분", "오늘 저녁 7시 30분에 친구랑 저녁 약속 추가해줘", args_has("add_schedule", start_time=f"{TODAY}T19:30")),
-    ("일정 조회", "내일 일정 뭐 있어?", args_has("get_schedule", date=TOMORROW)),
+    # 선언 규칙: 오늘이 아닌 날은 'week'
+    ("일정 조회", "내일 일정 뭐 있어?", args_has("get_schedule", date="week")),
     ("위키", "에스파가 뭐야? 검색해줘", args_has("search_wikipedia")),
     ("리마인더", "오늘 오후 6시에 약 먹으라고 알려줘", args_has("add_reminder", time=f"{TODAY}T18:00")),
     ("리마인더 내일", "내일 아침 8시 15분에 출근 준비 리마인드 해줘", args_has("add_reminder", time=f"{TOMORROW}T08:15")),
