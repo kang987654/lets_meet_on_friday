@@ -167,6 +167,27 @@ class SearchMemoryToolExecutorTest {
     }
 
     @Test
+    fun `메모와 다른 값을 적은 요약은 한 줄로 줄이고 칩에서 빼며 메모 값을 적은 요약은 남긴다`() = runBlocking {
+        // 실기기(2026-10-14): 4321 을 적은 요약이 여럿이면 안내가 있어도 4321 로 답했다(exp52) — exp53 조건 C.
+        val manual = note("k-manual", "자전거 비밀번호는 134")
+        // 결과 상한(MAX_KNOWLEDGE_CONTEXT_ITEMS)이 3이라 메모 + 요약 2건 — 실기기 실패도 이 모양이었다.
+        val eps = listOf(
+            episode("e1", "자전거 비밀번호 변경", "1234로 설정했으나 4321로 변경했다", listOf("자전거", "비밀번호")),
+            episode("e4", "자전거 비밀번호 질문", "비서는 134라고 답했다", listOf("자전거", "비밀번호"))
+        )
+        coEvery { repository.search(any(), any()) } returns AppResult.Success(listOf(manual))
+        coEvery { episodes.search(any(), any()) } returns AppResult.Success(eps)
+
+        val json = run("자전거 비밀번호")
+
+        assertTrue(json, json.contains("- (과거 대화) 1건에는 다른 값이 적혀 있습니다: 1234, 4321"))
+        assertTrue("메모 값을 적은 요약은 그대로", json.contains("비서는 134라고 답했다"))
+        assertTrue("줄인 요약 본문은 싣지 않는다", !json.contains("4321로 변경했다"))
+        assertTrue("칩은 남긴 요약만", json.contains("\"episodeIds\":[\"e4\"]"))
+        assertTrue("섞였으니 안내는 그대로", json.contains("둘이 다르면 메모의 값을 답하고"))
+    }
+
+    @Test
     fun `동점이면 직접 저장한 메모가 자동 메모보다 앞선다`() = runBlocking {
         val auto = KnowledgeNote(id = "k-auto", content = "자전거 비밀번호: 4321", createdAt = 900, updatedAt = 900, source = KnowledgeNote.SOURCE_AUTO)
         val manual = note("k-manual", "자전거 비밀번호: 134", createdAt = 1)

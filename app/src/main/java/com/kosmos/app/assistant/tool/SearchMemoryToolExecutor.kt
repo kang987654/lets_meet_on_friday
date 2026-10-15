@@ -4,6 +4,7 @@ import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.memory.KnowledgeRepository
+import com.kosmos.app.domain.memory.RecallConflict
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.search.BigramMatcher
 import com.kosmos.app.domain.search.searchText
@@ -99,7 +100,7 @@ class SearchMemoryToolExecutor @Inject constructor(
         // 보다 앞서는 기존 계약은 그대로 성립하고, 항이 온전히 들어 있는 정도까지 반영된다(exp33 원문).
         val ranked = rank(tokens, candidates.values)
         if (ranked.isNotEmpty()) {
-            return successJson(formatHits(ranked), episodeIds = ranked.mapNotNull { it.episodeId })
+            return formatHits(ranked).let { successJson(it.text, episodeIds = it.episodeIds) }
         }
 
         // ── 3. 정밀 0건 → 바이그램 전수 스캔 ─────────────────────────────────────
@@ -118,7 +119,7 @@ class SearchMemoryToolExecutor @Inject constructor(
             minTermOverlap = Constants.BIGRAM_MIN_TERM_OVERLAP
         )
         if (scanned.isNotEmpty()) {
-            return successJson(formatHits(scanned), episodeIds = scanned.mapNotNull { it.episodeId })
+            return formatHits(scanned).let { successJson(it.text, episodeIds = it.episodeIds) }
         }
 
         // ── 4. 태그 목록 폴백 ───────────────────────────────────────────────────
@@ -181,14 +182,26 @@ class SearchMemoryToolExecutor @Inject constructor(
     //
     // [WHY] 메모와 과거 대화가 섞이면 맨 앞에 [MIXED_SOURCE_GUIDE] — 메모가 맨 앞이어도 요약 두 건이 다른 값을 적고 있으면 모델이 요약을
     // 따랐다(실기기 0.36.1: 134 대신 4321). exp50 조건 B: 충돌 0/2 → 2/2, 과거만·일치·메모만 대조 6/6 무손상.
-    private fun formatHits(hits: List<Hit>): String {
-        val lines = hits.sortedBy { it.episodeId != null }.joinToString("\n") { hit ->
+    //
+    // [WHY] 메모와 다른 값을 적은 요약은 한 줄로 줄인다([RecallConflict]) — 그런 요약이 3건 이상이면 안내가 있어도 많은 쪽을 따랐다(exp52).
+    // exp53 조건 C2: 충돌 5/8 → 8/8, 대조 4/4. 줄인 요약은 답의 근거가 아니므로 회수 칩(meta)에서도 뺀다.
+    private fun formatHits(hits: List<Hit>): Formatted {
+        val notes = hits.filter { it.episodeId == null }.map { it.text }
+        val (contradicting, kept) = hits.partition { it.episodeId != null && RecallConflict.contradicts(it.text, notes) }
+        val lines = kept.sortedBy { it.episodeId != null }.map { hit ->
             val tagPart = if (hit.tags.isEmpty()) "" else " [${hit.tags.joinToString(", ")}]"
             "- ${hit.text}$tagPart"
-        }
-        val mixed = hits.any { it.episodeId == null } && hits.any { it.episodeId != null }
-        return if (mixed) "$MIXED_SOURCE_GUIDE\n$lines" else lines
+        } + listOfNotNull(
+            contradicting.takeIf { it.isNotEmpty() }?.let {
+                "- (과거 대화) ${it.size}건에는 다른 값이 적혀 있습니다: ${RecallConflict.otherValues(it.map(Hit::text), notes).joinToString(", ")})"
+            }
+        )
+        val mixed = notes.isNotEmpty() && hits.any { it.episodeId != null }
+        val body = lines.joinToString("\n")
+        return Formatted(if (mixed) "$MIXED_SOURCE_GUIDE\n$body" else body, kept.mapNotNull { it.episodeId })
     }
+
+    private data class Formatted(val text: String, val episodeIds: List<String>)
 
     private fun KnowledgeNote.toHit() = Hit(
         key = id, text = content, scoreText = searchText(), tags = tags, createdAt = createdAt, episodeId = null,
