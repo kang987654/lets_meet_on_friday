@@ -91,3 +91,6 @@ Thumbs.db
 
 # Claude Code 로컬 폴더 — 설정·제3자 디자인 스킬(0.38.x) 모두 커밋하지 않음
 .claude/
+
+# 화면 카탈로그 출력(0.38.0 감사용, -Pcatalog 로 재생성)
+docs/design/audit-0.38/

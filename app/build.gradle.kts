@@ -83,6 +83,15 @@ android {
                     }
                 }
             }
+            // [WHY] 화면 카탈로그(0.38.0 디자인 감사)는 PNG 를 쓰는 도구라 게이트에서 돌지 않는다 — `-Pcatalog` 일 때만, 그것만 돌린다.
+            all { test ->
+                if (project.hasProperty("catalog")) {
+                    test.filter { includeTestsMatching("com.kosmos.app.design.ScreenCatalogTest") }
+                    test.systemProperty("kosmos.catalog.dir", rootProject.file("docs/design/audit-0.38").absolutePath)
+                } else {
+                    test.filter { excludeTestsMatching("com.kosmos.app.design.ScreenCatalogTest") }
+                }
+            }
         }
     }
     lint {
