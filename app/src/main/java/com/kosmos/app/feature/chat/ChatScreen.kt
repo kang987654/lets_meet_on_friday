@@ -32,7 +32,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import com.kosmos.app.domain.model.ChatMessage
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 import androidx.compose.foundation.gestures.scrollBy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -636,7 +636,7 @@ private fun PlaceholderBubble() {
         modifier = Modifier
             .fillMaxWidth(0.6f)
             .height(40.dp)
-            .glassEffect(shape = RoundedCornerShape(16.dp))
+            .kosmosSurface(shape = RoundedCornerShape(16.dp))
     )
 }
 

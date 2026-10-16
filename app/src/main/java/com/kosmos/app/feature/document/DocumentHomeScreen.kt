@@ -43,7 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kosmos.app.domain.document.DocumentType
 import com.kosmos.app.domain.document.RecentDocument
 import com.kosmos.app.domain.util.IsoDateTimeParser
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 import com.kosmos.app.ui.theme.KosmosTheme
 
 /**
@@ -97,7 +97,7 @@ fun DocumentHomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .glassEffect(shape = RoundedCornerShape(16.dp), backgroundColor = colors.brandContainer, borderColor = colors.brand)
+                        .kosmosSurface(shape = RoundedCornerShape(16.dp), backgroundColor = colors.brandContainer, borderColor = colors.brand)
                         .combinedClickable(onClick = { picker.launch(DocumentType.PICKER_MIME_TYPES.toTypedArray()) })
                         .padding(16.dp)
                 ) {
@@ -161,7 +161,7 @@ private fun RecentRow(document: RecentDocument, onClick: () -> Unit, onLongClick
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .glassEffect(shape = RoundedCornerShape(12.dp))
+            .kosmosSurface(shape = RoundedCornerShape(12.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically

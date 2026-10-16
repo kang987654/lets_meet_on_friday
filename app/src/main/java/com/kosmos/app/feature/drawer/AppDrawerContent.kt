@@ -33,7 +33,7 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.feature.episode.EpisodeSheet
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 import com.kosmos.app.ui.theme.KosmosTheme
 
 /**
@@ -91,7 +91,7 @@ fun AppDrawerContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .glassEffect(shape = RoundedCornerShape(12.dp))
+                .kosmosSurface(shape = RoundedCornerShape(12.dp))
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -208,7 +208,7 @@ private fun ProfileCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .glassEffect(shape = RoundedCornerShape(12.dp))
+            .kosmosSurface(shape = RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -245,7 +245,7 @@ private fun EpisodeCard(episode: Episode, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .glassEffect(shape = RoundedCornerShape(12.dp))
+            .kosmosSurface(shape = RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
@@ -272,7 +272,7 @@ private fun DrawerListItem(@androidx.annotation.DrawableRes icon: Int, label: St
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .glassEffect(shape = RoundedCornerShape(12.dp))
+            .kosmosSurface(shape = RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -296,7 +296,7 @@ private fun DrawerTile(
 ) {
     Column(
         modifier = modifier
-            .glassEffect(shape = RoundedCornerShape(12.dp))
+            .kosmosSurface(shape = RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally

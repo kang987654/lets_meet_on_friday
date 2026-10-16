@@ -52,9 +52,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    com.kosmos.app.ui.component.AuroraBackground {
-                        MainScreen()
-                    }
+                    MainScreen()
                 }
             }
         }

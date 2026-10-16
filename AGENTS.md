@@ -156,7 +156,7 @@
 6. **UI 색상은 `KosmosTheme.colors` 토큰만** 사용한다 — 하드코딩 `Color(...)` 금지. 라이트/다크
    팔레트가 토큰째 바뀌므로 토큰만 쓰면 테마 대응이 자동이다. **UI 는 `docs/DESIGN.md`(v3)를 따른다** —
    이모지·글자 기호 아이콘 금지(Phosphor 만), 글자 크기는 `AppTypography` 단계만(직접 `fontSize` 금지).
-   (`glassEffect` 는 v3 에서 폐기 — 0.38.1 에서 걷어낸다.)
+   표면은 `Modifier.kosmosSurface`(불투명 면 + hairline), 버튼은 `KosmosButton` — 유리 효과(`glassEffect`)는 0.38.1 M5 에서 폐기.
 7. **사용자 표기 규칙**: UI 문자열은 한국어(§2-② E2E 계약 문자열 제외), 일시 표기는
    `IsoDateTimeParser.toDisplayKorean` 이 단일 출처다 — ISO 원문을 화면·모델 관측값에 노출하지
    않는다 (0.19.2).

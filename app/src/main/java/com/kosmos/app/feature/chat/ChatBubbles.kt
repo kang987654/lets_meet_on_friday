@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.halilibo.richtext.commonmark.Markdown
 import com.halilibo.richtext.ui.material3.RichText
 import com.kosmos.app.assistant.orchestrator.AttachedDocumentBlock
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
@@ -165,7 +165,7 @@ fun ChatBubbleAssistant(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .glassEffect(
+                        .kosmosSurface(
                             backgroundColor = KosmosTheme.colors.surfaceSunk,
                             shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 0.dp, bottomEnd = 0.dp)
                         )
@@ -186,7 +186,7 @@ fun ChatBubbleAssistant(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .glassEffect(
+                            .kosmosSurface(
                                 backgroundColor = KosmosTheme.colors.surface,
                                 shape = RoundedCornerShape(0.dp)
                             )
@@ -210,7 +210,7 @@ fun ChatBubbleAssistant(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .glassEffect(shape = shape)
+                    .kosmosSurface(shape = shape)
                     .combinedClickable(onClick = {}, onLongClick = onLongPress)
                     .padding(horizontal = 14.dp, vertical = 12.dp)
             ) {
@@ -247,7 +247,7 @@ fun ChatBubbleAssistant(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .padding(start = 14.dp, top = 4.dp)
-                        .glassEffect(shape = RoundedCornerShape(99.dp))
+                        .kosmosSurface(shape = RoundedCornerShape(99.dp))
                         .clickable(onClick = onRecallChipClick)
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
@@ -281,7 +281,7 @@ fun TypingIndicator() {
     ) {
         Box(
             modifier = Modifier
-                .glassEffect(shape = RoundedCornerShape(18.dp))
+                .kosmosSurface(shape = RoundedCornerShape(18.dp))
         ) {
             com.kosmos.app.ui.component.ThinkingDots()
         }

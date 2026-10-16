@@ -28,7 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.kosmos.app.domain.model.Episode
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 import com.kosmos.app.ui.theme.KosmosTheme
 
 /**
@@ -115,7 +115,7 @@ fun EpisodeSheet(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = KosmosTheme.colors.textSecondary,
                                 modifier = Modifier
-                                    .glassEffect(shape = RoundedCornerShape(99.dp))
+                                    .kosmosSurface(shape = RoundedCornerShape(99.dp))
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }

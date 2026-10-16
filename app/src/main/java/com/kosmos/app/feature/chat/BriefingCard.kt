@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.halilibo.richtext.commonmark.Markdown
 import com.halilibo.richtext.ui.material3.RichText
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 import com.kosmos.app.ui.theme.KosmosTheme
 
 /**
@@ -43,7 +43,7 @@ fun BriefingCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .glassEffect(
+            .kosmosSurface(
                 backgroundColor = KosmosTheme.colors.surface,
                 borderColor = KosmosTheme.colors.brand.copy(alpha = 0.35f),
                 shape = RoundedCornerShape(20.dp)

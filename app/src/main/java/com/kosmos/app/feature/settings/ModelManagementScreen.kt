@@ -1,6 +1,6 @@
 package com.kosmos.app.feature.settings
 
-import com.kosmos.app.ui.component.GlassButton
+import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.theme.KosmosTheme
 import android.Manifest
 import android.annotation.SuppressLint
@@ -18,7 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,7 +96,7 @@ fun ModelManagementScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .glassEffect(
+                    .kosmosSurface(
                         backgroundColor = KosmosTheme.colors.surface,
                         borderColor = KosmosTheme.colors.border,
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
@@ -111,7 +111,7 @@ fun ModelManagementScreen(
                         color = KosmosTheme.colors.textMuted
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    GlassButton("내려받기", { startDownload(defaultModelUrl) }, Modifier.fillMaxWidth(), accent = true)
+                    KosmosButton("내려받기", { startDownload(defaultModelUrl) }, Modifier.fillMaxWidth(), accent = true)
                 }
             }
 
@@ -125,7 +125,7 @@ fun ModelManagementScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .glassEffect(
+                    .kosmosSurface(
                         backgroundColor = KosmosTheme.colors.surface,
                         borderColor = KosmosTheme.colors.border,
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
@@ -152,7 +152,7 @@ fun ModelManagementScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .glassEffect(
+                            .kosmosSurface(
                                 backgroundColor = btnBg,
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                             )
@@ -229,7 +229,7 @@ private fun DownloadCardShell(content: @Composable ColumnScope.() -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .glassEffect(
+            .kosmosSurface(
                 backgroundColor = KosmosTheme.colors.surface,
                 borderColor = KosmosTheme.colors.brand.copy(alpha = 0.4f),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)

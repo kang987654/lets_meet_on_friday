@@ -1,0 +1,59 @@
+package com.kosmos.app.ui.component
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.kosmos.app.ui.theme.KosmosShapes
+import com.kosmos.app.ui.theme.KosmosTheme
+
+/**
+ * 앱 버튼 — 주 버튼(하늘색 면 + 짙은 글자 굵게)과 보조 버튼(흰 면 + 테두리), 높이 48(DESIGN.md v3 Components).
+ *
+ * @param accent 주 버튼. 한 화면(시트)에 하나만 둔다. false 면 보조 버튼.
+ * @param enabled false 면 누를 수 없고 가라앉은 면 + 흐린 글자가 된다.
+ */
+@Composable
+fun KosmosButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    accent: Boolean = false,
+    enabled: Boolean = true
+) {
+    val colors = KosmosTheme.colors
+    val face = when {
+        !enabled -> Modifier.background(colors.surfaceSunk, KosmosShapes.md)
+        accent -> Modifier.background(colors.brand, KosmosShapes.md)
+        else -> Modifier.background(colors.surface, KosmosShapes.md).border(1.dp, colors.border, KosmosShapes.md)
+    }
+    Box(
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .then(face)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = when {
+                !enabled -> colors.textMuted
+                accent -> colors.onBrand
+                else -> colors.textPrimary
+            },
+            fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium,
+            style = MaterialTheme.typography.labelLarge
+        )
+    }
+}

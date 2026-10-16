@@ -4,7 +4,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.kosmos.app.platform.notification.NotificationAccess
-import com.kosmos.app.ui.component.GlassButton
+import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.core.common.ResponseStyle
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.clickable
@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,7 +85,7 @@ fun SettingsScreen(
                         modifier = Modifier.padding(top = 4.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    GlassButton("모델 관리", onNavigateToModelManagement, Modifier.fillMaxWidth(), accent = true)
+                    KosmosButton("모델 관리", onNavigateToModelManagement, Modifier.fillMaxWidth(), accent = true)
                 }
                 is ModelLoadState.NotFound -> {
                     Text(
@@ -101,8 +101,8 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GlassButton("새로 고침", viewModel::refreshModelState, Modifier.weight(1f))
-                        GlassButton("내려받기", onNavigateToModelManagement, Modifier.weight(1f), accent = true)
+                        KosmosButton("새로 고침", viewModel::refreshModelState, Modifier.weight(1f))
+                        KosmosButton("내려받기", onNavigateToModelManagement, Modifier.weight(1f), accent = true)
                     }
                 }
                 is ModelLoadState.Error -> {
@@ -123,7 +123,7 @@ fun SettingsScreen(
 
         // 2. Appearance Section (ADR-005: 라이트/다크 테마 전환)
         SectionBox(title = "화면 테마") {
-            com.kosmos.app.ui.component.GlassSegmentedControl(
+            com.kosmos.app.ui.component.KosmosSegmentedControl(
                 options = com.kosmos.app.ui.theme.ThemeMode.entries.map { it to it.label },
                 selected = themeMode,
                 onSelect = themeViewModel::setThemeMode
@@ -132,7 +132,7 @@ fun SettingsScreen(
 
         // [WHY] 하다 라운드가 기본이지만 기기 글꼴을 쓰는 사람도 있다 — 크기·굵기 단계는 같고 글꼴만 바뀐다(DESIGN.md v3 Typography).
         SectionBox(title = "글꼴") {
-            com.kosmos.app.ui.component.GlassSegmentedControl(
+            com.kosmos.app.ui.component.KosmosSegmentedControl(
                 options = com.kosmos.app.ui.theme.FontMode.entries.map { it to it.label },
                 selected = fontMode,
                 onSelect = themeViewModel::setFontMode
@@ -143,7 +143,7 @@ fun SettingsScreen(
         SectionBox(title = "응답 스타일") {
             // 저장값(영문 키)은 그대로 두고 표시만 한글화한다 — 키를 바꾸면 기존 설정이 깨진다.
             val styles = listOf(ResponseStyle.CONCISE to "간결", ResponseStyle.DEFAULT to "기본", ResponseStyle.DETAILED to "자세히")
-            com.kosmos.app.ui.component.GlassSegmentedControl(
+            com.kosmos.app.ui.component.KosmosSegmentedControl(
                 options = styles,
                 selected = uiState.responseStyle,
                 onSelect = viewModel::onResponseStyleChanged
@@ -234,7 +234,7 @@ fun SettingsScreen(
                         color = KosmosTheme.colors.brandText,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
-                            .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                            .kosmosSurface(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
                             .clickable { showTimePicker = true }
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     )
@@ -288,7 +288,7 @@ fun SettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                    .kosmosSurface(shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                     .clickable { onNavigateToMemoryCleanup() }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -392,7 +392,7 @@ fun SettingsScreen(
                     color = KosmosTheme.colors.brandText,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
-                        .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                        .kosmosSurface(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
                         .clickable {
                             context.startActivity(
                                 android.content.Intent(
@@ -429,7 +429,7 @@ private fun SectionBox(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .glassEffect(
+            .kosmosSurface(
                 backgroundColor = KosmosTheme.colors.surface,
                 borderColor = KosmosTheme.colors.border,
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
@@ -517,7 +517,7 @@ private fun DataResetSection(
             color = KosmosTheme.colors.dangerText,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
-                .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                .kosmosSurface(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
                 .clickable { showPicker = true }
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         )

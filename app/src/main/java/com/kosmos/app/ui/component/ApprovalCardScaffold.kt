@@ -34,7 +34,7 @@ import com.kosmos.app.ui.theme.KosmosTheme
  *
  * ### Architecture Context
  * - **Layer**: UI (Component)
- * - **Dependencies**: [KosmosTheme], [glassEffect]
+ * - **Dependencies**: [KosmosTheme], [kosmosSurface]
  *
  * ### Key Flow
  * 1. [headerText] 와 선택적 [headerTrailing](예: "외 N건")으로 헤더를 그린다.
@@ -58,7 +58,7 @@ fun ApprovalCardScaffold(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .glassEffect(
+            .kosmosSurface(
                 backgroundColor = KosmosTheme.colors.surface,
                 shape = RoundedCornerShape(24.dp),
                 borderColor = KosmosTheme.colors.border
@@ -89,7 +89,7 @@ fun ApprovalCardScaffold(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .glassEffect(
+                .kosmosSurface(
                     backgroundColor = KosmosTheme.colors.surface,
                     shape = RoundedCornerShape(16.dp)
                 )
@@ -120,20 +120,13 @@ fun ApprovalCardScaffold(
                 modifier = Modifier
                     .weight(1f)
                     .clickable { onApprove() }
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                KosmosTheme.colors.brand.copy(alpha = 0.2f),
-                                KosmosTheme.colors.brand.copy(alpha = 0.2f)
-                            )
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .border(1.dp, KosmosTheme.colors.brand.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    // [WHY] 카드 안 승인 버튼은 꽉 찬 하늘색이 흰 카드에서 튀었다(사용자 지적, 0.38.1 M5) — 옅은 면 + 테두리 + 진한 글자.
+                    .background(KosmosTheme.colors.brandContainer, RoundedCornerShape(12.dp))
+                    .border(1.dp, KosmosTheme.colors.brand.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(approveLabel, color = KosmosTheme.colors.brandText, fontWeight = FontWeight.SemiBold)
+                Text(approveLabel, color = KosmosTheme.colors.brandText, fontWeight = FontWeight.Bold)
             }
         }
     }

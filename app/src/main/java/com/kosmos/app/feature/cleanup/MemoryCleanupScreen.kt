@@ -1,6 +1,6 @@
 package com.kosmos.app.feature.cleanup
 
-import com.kosmos.app.ui.component.GlassButton
+import com.kosmos.app.ui.component.KosmosButton
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,7 +37,7 @@ import com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
 import com.kosmos.app.domain.cleanup.EpisodeMergeProposal
 import com.kosmos.app.domain.cleanup.MergeProposal
 import com.kosmos.app.domain.model.KnowledgeNote
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 import com.kosmos.app.ui.theme.KosmosTheme
 
 /**
@@ -130,7 +130,7 @@ private fun Intro(onStart: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium
         )
     }
-    GlassButton("정리 시작", onStart, Modifier.fillMaxWidth(), accent = true)
+    KosmosButton("정리 시작", onStart, Modifier.fillMaxWidth(), accent = true)
 }
 
 @Composable
@@ -151,7 +151,7 @@ private fun Progress(label: String, fraction: Float?, onCancel: (() -> Unit)?) {
 @Composable
 private fun Notice(message: String, action: String, onAction: () -> Unit) {
     Card { Text(message, color = KosmosTheme.colors.textPrimary) }
-    GlassButton(action, onAction, Modifier.fillMaxWidth(), accent = true)
+    KosmosButton(action, onAction, Modifier.fillMaxWidth(), accent = true)
 }
 
 @Composable
@@ -201,7 +201,7 @@ private fun ReviewContent(
         }
     }
     val count = proposals.count { it.key in checked } + episodeProposals.count { it.key in checkedEpisodes }
-    GlassButton(if (count > 0) "선택한 ${count}건 합치기" else "합치지 않고 마치기", onApply, Modifier.fillMaxWidth(), accent = true)
+    KosmosButton(if (count > 0) "선택한 ${count}건 합치기" else "합치지 않고 마치기", onApply, Modifier.fillMaxWidth(), accent = true)
 }
 
 @Composable
@@ -209,7 +209,7 @@ private fun ProposalCard(proposal: MergeProposal, isChecked: Boolean, onToggle: 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .glassEffect(shape = RoundedCornerShape(16.dp))
+            .kosmosSurface(shape = RoundedCornerShape(16.dp))
             .clickable(onClick = onToggle)
             .padding(12.dp),
         verticalAlignment = Alignment.Top
@@ -234,7 +234,7 @@ private fun EpisodeProposalCard(proposal: EpisodeMergeProposal, isChecked: Boole
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .glassEffect(shape = RoundedCornerShape(16.dp))
+            .kosmosSurface(shape = RoundedCornerShape(16.dp))
             .clickable(onClick = onToggle)
             .padding(12.dp),
         verticalAlignment = Alignment.Top
@@ -263,7 +263,7 @@ private fun Card(content: @Composable () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .glassEffect(shape = RoundedCornerShape(16.dp))
+            .kosmosSurface(shape = RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) { content() }
 }

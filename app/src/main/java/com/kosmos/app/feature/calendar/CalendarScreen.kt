@@ -1,6 +1,6 @@
 package com.kosmos.app.feature.calendar
 
-import com.kosmos.app.ui.component.GlassButton
+import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,7 +21,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kosmos.app.domain.model.CalendarEvent
 import com.kosmos.app.domain.model.ScheduleData
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 import androidx.compose.foundation.clickable
 
 
@@ -71,14 +71,11 @@ fun CalendarScreen(
         )
 
         // [WHY] 월 / 목록 탭(사용자 결정, 0.28.0) — 목록 탭은 기존 화면(오늘·이번 주 + 날짜 띠)을 그대로 옮겼다.
-        com.kosmos.app.ui.component.GlassSegmentedControl(
+        com.kosmos.app.ui.component.KosmosSegmentedControl(
             options = listOf(CalendarTab.MONTH to "월", CalendarTab.LIST to "목록"),
             selected = tab,
             onSelect = viewModel::onTabSelected,
-            modifier = Modifier.padding(horizontal = 20.dp),
-            cornerRadius = 16.dp,
-            verticalPadding = 10.dp,
-            textStyle = MaterialTheme.typography.bodyMedium
+            modifier = Modifier.padding(horizontal = 20.dp)
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -116,14 +113,11 @@ private fun ListTab(viewModel: CalendarViewModel, today: java.time.LocalDate, on
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     Column(modifier = Modifier.fillMaxSize()) {
         // Range Segment (오늘 / 이번 주)
-        com.kosmos.app.ui.component.GlassSegmentedControl(
+        com.kosmos.app.ui.component.KosmosSegmentedControl(
             options = listOf(ScheduleData.RangeType.TODAY to "오늘", ScheduleData.RangeType.WEEK to "이번 주"),
             selected = selectedRange,
             onSelect = viewModel::onRangeSelected,
-            modifier = Modifier.padding(horizontal = 20.dp),
-            cornerRadius = 16.dp,
-            verticalPadding = 10.dp,
-            textStyle = MaterialTheme.typography.bodyMedium
+            modifier = Modifier.padding(horizontal = 20.dp)
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -220,7 +214,7 @@ private fun DeviceCalendarNotice(
         modifier = Modifier
             .padding(horizontal = 20.dp)
             .fillMaxWidth()
-            .glassEffect(
+            .kosmosSurface(
                 backgroundColor = KosmosTheme.colors.warningText.copy(alpha = 0.15f),
                 borderColor = KosmosTheme.colors.warningText.copy(alpha = 0.3f),
                 shape = RoundedCornerShape(16.dp)
@@ -234,8 +228,8 @@ private fun DeviceCalendarNotice(
         )
         Spacer(modifier = Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GlassButton("다시 시도", onRetry, Modifier.weight(1f))
-            GlassButton("권한 설정 열기", onOpenSettings, Modifier.weight(1f), accent = true)
+            KosmosButton("다시 시도", onRetry, Modifier.weight(1f))
+            KosmosButton("권한 설정 열기", onOpenSettings, Modifier.weight(1f), accent = true)
         }
     }
 }
@@ -262,7 +256,7 @@ fun DatePill(
         modifier = Modifier
             .width(60.dp)
             .height(80.dp)
-            .glassEffect(backgroundColor = bgColor, borderColor = borderColor, shape = RoundedCornerShape(16.dp))
+            .kosmosSurface(backgroundColor = bgColor, borderColor = borderColor, shape = RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -310,7 +304,7 @@ fun ScheduleContent(data: ScheduleData, sectionLabel: String = "오늘") {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .glassEffect(shape = RoundedCornerShape(16.dp))
+                        .kosmosSurface(shape = RoundedCornerShape(16.dp))
                         .padding(16.dp)
                 ) {
                     // [WHY] 요약은 이번 주에만 만든다(0.28.0) — 날짜 띠로 하루를 골라도 요약은 7일 전체라 라벨로 범위를 밝힌다.
@@ -345,7 +339,7 @@ fun TodayEventCard(event: CalendarEvent, stripColor: Color, timeLabel: String? =
         modifier = Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
-            .glassEffect(
+            .kosmosSurface(
                 backgroundColor = KosmosTheme.colors.surface,
                 borderColor = KosmosTheme.colors.border,
                 shape = RoundedCornerShape(16.dp)

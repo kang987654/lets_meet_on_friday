@@ -19,7 +19,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.kosmos.app.domain.modelrunner.ModelLoadState
-import com.kosmos.app.ui.component.AuroraBackground
 import com.kosmos.app.ui.component.OrbPulse
 
 @Composable
@@ -40,7 +39,6 @@ fun SplashScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        AuroraBackground()
         
         if (loadState is ModelLoadState.Error || loadState is ModelLoadState.NotFound) {
             val errorMessage = when (val state = loadState) {

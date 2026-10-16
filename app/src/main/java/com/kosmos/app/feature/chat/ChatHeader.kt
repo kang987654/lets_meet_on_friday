@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 // [WHY] ChatScreen.kt(1,200여 줄, 12개 컴포저블 동거)를 응집 단위로 분리했다
@@ -109,7 +109,7 @@ fun CustomChatHeader(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .glassEffect(shape = RoundedCornerShape(99.dp))
+                    .kosmosSurface(shape = RoundedCornerShape(99.dp))
                     .clickable(onClick = onStatusClick)
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             ) {

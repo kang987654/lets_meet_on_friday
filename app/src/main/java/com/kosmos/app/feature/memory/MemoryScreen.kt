@@ -1,6 +1,6 @@
 package com.kosmos.app.feature.memory
 
-import com.kosmos.app.ui.component.GlassButton
+import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -22,11 +22,11 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
-import com.kosmos.app.ui.component.GlassSegmentedControl
+import com.kosmos.app.ui.component.KosmosSegmentedControl
 import com.kosmos.app.ui.restartApp
 
 @Composable
@@ -155,14 +155,11 @@ fun MemoryScreen(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 8.dp)
             )
-            GlassSegmentedControl(
+            KosmosSegmentedControl(
                 options = listOf(MemoryFilterType.KNOWLEDGE to "메모", MemoryFilterType.TASK to "할 일"),
                 selected = uiState.selectedFilter,
                 onSelect = viewModel::onFilterSelected,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-                cornerRadius = 16.dp,
-                verticalPadding = 12.dp,
-                textStyle = MaterialTheme.typography.bodyMedium
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -365,7 +362,7 @@ fun MemoryScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .glassEffect(
+                                    .kosmosSurface(
                                         backgroundColor = KosmosTheme.colors.surface,
                                         borderColor = KosmosTheme.colors.border,
                                         shape = RoundedCornerShape(16.dp)
@@ -478,8 +475,8 @@ private fun BackupSection(
             modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
         )
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            GlassButton(if (backupState is BackupState.Exporting) "내보내는 중…" else "내보내기", onExportClick, Modifier.weight(1f), enabled = !busy)
-            GlassButton(if (backupState is BackupState.Importing) "복원 중…" else "가져오기", onImportClick, Modifier.weight(1f), enabled = !busy)
+            KosmosButton(if (backupState is BackupState.Exporting) "내보내는 중…" else "내보내기", onExportClick, Modifier.weight(1f), enabled = !busy)
+            KosmosButton(if (backupState is BackupState.Importing) "복원 중…" else "가져오기", onImportClick, Modifier.weight(1f), enabled = !busy)
         }
     }
 }
@@ -598,7 +595,7 @@ fun TaskItemRow(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .glassEffect(
+            .kosmosSurface(
                 backgroundColor = KosmosTheme.colors.surface,
                 borderColor = KosmosTheme.colors.border,
                 shape = RoundedCornerShape(16.dp)

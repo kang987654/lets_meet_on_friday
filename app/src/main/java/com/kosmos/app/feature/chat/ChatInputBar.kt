@@ -36,7 +36,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kosmos.app.ui.component.glassEffect
+import com.kosmos.app.ui.component.kosmosSurface
 
 import com.kosmos.app.platform.share.SharedInput
 // [WHY] ChatScreen.kt(1,200여 줄, 12개 컴포저블 동거)를 응집 단위로 분리했다
@@ -111,7 +111,7 @@ fun ChatInputBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
-                .glassEffect(
+                .kosmosSurface(
                     shape = RoundedCornerShape(28.dp),
                     borderColor = KosmosTheme.colors.border
                 )
@@ -204,11 +204,7 @@ fun ChatInputBar(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(androidx.compose.foundation.shape.CircleShape)
-                            .background(
-                                brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                                    colors = listOf(KosmosTheme.colors.brand, KosmosTheme.colors.brand)
-                                )
-                            )
+                            .background(KosmosTheme.colors.brand)
                             .clickable(enabled = !isLoading) {
                                 onSend(textState.text)
                                 textState = TextFieldValue("")
@@ -268,7 +264,7 @@ private fun AttachmentPreview(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .glassEffect(shape = RoundedCornerShape(12.dp))
+            .kosmosSurface(shape = RoundedCornerShape(12.dp))
             .padding(12.dp)
     ) {
         Row(
