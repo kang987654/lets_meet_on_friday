@@ -38,6 +38,8 @@ data class KosmosColors(
     val brand: Color,
     /** 옅은 브랜드 면 — 사용자 말풍선·선택된 칩 */
     val brandContainer: Color,
+    /** 사용자 말풍선 그라데이션의 끝 색 — [brandContainer] 와 같은 색상에서 조금 더 맑게(DESIGN.md "개성") */
+    val brandContainerEnd: Color,
     /** [brand] 면 위 글자·아이콘 */
     val onBrand: Color,
     /** 링크·강조 글자·강조 아이콘 */
@@ -61,6 +63,7 @@ val LightColors = KosmosColors(
     textMuted = Color(0xFF676D6F),
     brand = Color(0xFF5BC2E7),
     brandContainer = Color(0xFFD7F4FF),
+    brandContainerEnd = Color(0xFFBDEAFA),
     onBrand = Color(0xFF222729),
     brandText = Color(0xFF006E8B),
     dangerText = Color(0xFFBA3630),
@@ -80,6 +83,7 @@ val DarkColors = KosmosColors(
     textMuted = Color(0xFF93999C),
     brand = Color(0xFF5BC2E7),
     brandContainer = Color(0xFF133B49),
+    brandContainerEnd = Color(0xFF184C5E),
     onBrand = Color(0xFF111618),
     brandText = Color(0xFF70CCEE),
     dangerText = Color(0xFFF7857D),

@@ -93,7 +93,7 @@ fun ChatBubbleUser(
                 .combinedClickable(onClick = { if (attachedBody != null) expanded = !expanded }, onLongClick = onLongPress)
                 .background(
                     brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                        colors = listOf(KosmosTheme.colors.brandContainer, KosmosTheme.colors.brandContainer)
+                        colors = listOf(KosmosTheme.colors.brandContainer, KosmosTheme.colors.brandContainerEnd)
                     ),
                     shape = UserBubbleShape
                 )
