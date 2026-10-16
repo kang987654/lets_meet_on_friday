@@ -30,8 +30,8 @@ fun GlassButton(
     Box(
         modifier = modifier
             .glassEffect(
-                backgroundColor = if (accent) colors.accent.copy(alpha = 0.2f) else null,
-                borderColor = if (accent) colors.accent.copy(alpha = 0.5f) else null,
+                backgroundColor = if (accent) colors.brand.copy(alpha = 0.2f) else null,
+                borderColor = if (accent) colors.brand.copy(alpha = 0.5f) else null,
                 shape = RoundedCornerShape(12.dp)
             )
             .clickable(enabled = enabled, onClick = onClick)
@@ -42,7 +42,7 @@ fun GlassButton(
             text = text,
             color = when {
                 !enabled -> colors.textMuted
-                accent -> colors.accent
+                accent -> colors.brandText
                 else -> colors.textPrimary
             },
             fontWeight = if (accent) FontWeight.Bold else null

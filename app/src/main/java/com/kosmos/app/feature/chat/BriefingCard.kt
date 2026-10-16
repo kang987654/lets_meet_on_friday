@@ -44,8 +44,8 @@ fun BriefingCard(
         modifier = Modifier
             .fillMaxWidth()
             .glassEffect(
-                backgroundColor = KosmosTheme.colors.glassMid,
-                borderColor = KosmosTheme.colors.accent.copy(alpha = 0.35f),
+                backgroundColor = KosmosTheme.colors.surface,
+                borderColor = KosmosTheme.colors.brand.copy(alpha = 0.35f),
                 shape = RoundedCornerShape(20.dp)
             )
             .combinedClickable(onClick = {}, onLongClick = onLongPress)
@@ -61,7 +61,7 @@ fun BriefingCard(
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.5.sp,
-                color = KosmosTheme.colors.accent
+                color = KosmosTheme.colors.brandText
             )
         }
         Spacer(modifier = Modifier.height(8.dp))

@@ -54,7 +54,7 @@ fun ModelManagementScreen(
                 title = { Text("모델 관리", color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     TextButton(onClick = onBack) {
-                        Text("뒤로", color = KosmosTheme.colors.accent)
+                        Text("뒤로", color = KosmosTheme.colors.brandText)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
@@ -97,13 +97,13 @@ fun ModelManagementScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .glassEffect(
-                        backgroundColor = KosmosTheme.colors.glass,
-                        borderColor = KosmosTheme.colors.borderHigh,
+                        backgroundColor = KosmosTheme.colors.surface,
+                        borderColor = KosmosTheme.colors.border,
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                     )
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Gemma 4 E4B", style = MaterialTheme.typography.titleMedium, color = KosmosTheme.colors.accentAlt, fontWeight = FontWeight.Bold)
+                    Text("Gemma 4 E4B", style = MaterialTheme.typography.titleMedium, color = KosmosTheme.colors.brandText, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         "LiteRT-LM 최적화 · 크기 약 3.6GB",
@@ -126,8 +126,8 @@ fun ModelManagementScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .glassEffect(
-                        backgroundColor = KosmosTheme.colors.glass,
-                        borderColor = KosmosTheme.colors.borderHigh,
+                        backgroundColor = KosmosTheme.colors.surface,
+                        borderColor = KosmosTheme.colors.border,
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                     )
             ) {
@@ -138,7 +138,7 @@ fun ModelManagementScreen(
                         label = { Text("URL (.litertlm 파일)", color = KosmosTheme.colors.textMuted) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = KosmosTheme.colors.accent,
+                            focusedBorderColor = KosmosTheme.colors.brand,
                             unfocusedBorderColor = KosmosTheme.colors.border,
                             focusedTextColor = KosmosTheme.colors.textPrimary,
                             unfocusedTextColor = KosmosTheme.colors.textPrimary
@@ -147,8 +147,8 @@ fun ModelManagementScreen(
                     )
                     
                     val canDownload = customUrl.isNotBlank()
-                    val btnBg = if (canDownload) KosmosTheme.colors.accent else KosmosTheme.colors.glass
-                    val btnText = if (canDownload) KosmosTheme.colors.onAccent else KosmosTheme.colors.textMuted
+                    val btnBg = if (canDownload) KosmosTheme.colors.brand else KosmosTheme.colors.surface
+                    val btnText = if (canDownload) KosmosTheme.colors.onBrand else KosmosTheme.colors.textMuted
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -175,7 +175,7 @@ fun ModelManagementScreen(
                 text = { Text("모델을 받아서 적용했어요. 이제 대화를 시작할 수 있어요.") },
                 confirmButton = {
                     TextButton(onClick = { viewModel.resetState() }) {
-                        Text("확인", color = KosmosTheme.colors.accent)
+                        Text("확인", color = KosmosTheme.colors.brandText)
                     }
                 },
                 containerColor = KosmosTheme.colors.surface,
@@ -186,7 +186,7 @@ fun ModelManagementScreen(
         is DownloadState.Error -> {
             AlertDialog(
                 onDismissRequest = { viewModel.resetState() },
-                title = { Text("내려받기 실패", color = KosmosTheme.colors.danger) },
+                title = { Text("내려받기 실패", color = KosmosTheme.colors.dangerText) },
                 text = {
                     // 이어받을 부분 파일이 있으면 재시도가 저렴하다는 사실을 함께 알린다.
                     val resumeNote = if (state.resumableBytes > 0) {
@@ -202,7 +202,7 @@ fun ModelManagementScreen(
                         viewModel.resetState()
                         startDownload(lastRequestedUrl)
                     }) {
-                        Text("재시도", color = KosmosTheme.colors.accent)
+                        Text("재시도", color = KosmosTheme.colors.brandText)
                     }
                 },
                 dismissButton = {
@@ -230,8 +230,8 @@ private fun DownloadCardShell(content: @Composable ColumnScope.() -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .glassEffect(
-                backgroundColor = KosmosTheme.colors.glassMid,
-                borderColor = KosmosTheme.colors.accent.copy(alpha = 0.4f),
+                backgroundColor = KosmosTheme.colors.surface,
+                borderColor = KosmosTheme.colors.brand.copy(alpha = 0.4f),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
             )
     ) {
@@ -283,21 +283,21 @@ private fun DownloadProgressCard(
                 fontWeight = FontWeight.Bold
             )
             if (!indeterminate) {
-                Text("$progress%", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
+                Text("$progress%", color = KosmosTheme.colors.brandText, fontWeight = FontWeight.Bold)
             }
         }
         if (indeterminate) {
             LinearProgressIndicator(
                 modifier = Modifier.fillMaxWidth(),
-                color = KosmosTheme.colors.accent,
-                trackColor = KosmosTheme.colors.glass
+                color = KosmosTheme.colors.brand,
+                trackColor = KosmosTheme.colors.surface
             )
         } else {
             LinearProgressIndicator(
                 progress = { progress / 100f },
                 modifier = Modifier.fillMaxWidth(),
-                color = KosmosTheme.colors.accent,
-                trackColor = KosmosTheme.colors.glass
+                color = KosmosTheme.colors.brand,
+                trackColor = KosmosTheme.colors.surface
             )
         }
         val sizeText = if (totalBytes > 0) {
@@ -322,7 +322,7 @@ private fun DownloadProgressCard(
             // [WHY] 취소는 이어받기용 부분 파일을 남긴다. 저장 공간을 즉시 회수하고 싶은
             // 사용자를 위해 폐기를 별도 동작으로 노출한다.
             TextButton(onClick = onDiscardPartial) {
-                Text("취소 후 삭제", color = KosmosTheme.colors.danger)
+                Text("취소 후 삭제", color = KosmosTheme.colors.dangerText)
             }
         }
     }
@@ -340,8 +340,8 @@ private fun DownloadQueuedCard(onCancel: () -> Unit) {
         )
         LinearProgressIndicator(
             modifier = Modifier.fillMaxWidth(),
-            color = KosmosTheme.colors.accent,
-            trackColor = KosmosTheme.colors.glass
+            color = KosmosTheme.colors.brand,
+            trackColor = KosmosTheme.colors.surface
         )
         Text(
             "데이터 요금을 아끼기 위해 Wi-Fi에 연결되면 자동으로 시작합니다.",
@@ -349,7 +349,7 @@ private fun DownloadQueuedCard(onCancel: () -> Unit) {
             color = KosmosTheme.colors.textMuted
         )
         TextButton(onClick = onCancel) {
-            Text("대기 취소", color = KosmosTheme.colors.danger)
+            Text("대기 취소", color = KosmosTheme.colors.dangerText)
         }
     }
 }

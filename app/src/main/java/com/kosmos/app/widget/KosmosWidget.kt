@@ -86,8 +86,8 @@ class KosmosWidgetReceiver : GlanceAppWidgetReceiver() {
 // --- 팔레트: KosmosColors Light/Dark 복제 (프레임워크 경계 예외 — 파일 상단 [WHY]) ---
 private object WidgetPalette {
     val bg = ColorProvider(day = LightColors.surface, night = DarkColors.surface)
-    val accent = ColorProvider(day = LightColors.accent, night = DarkColors.accent)
-    val accentDim = ColorProvider(day = LightColors.accentDim, night = DarkColors.accentDim)
+    val brandText = ColorProvider(day = LightColors.brandText, night = DarkColors.brandText)
+    val brandContainer = ColorProvider(day = LightColors.brandContainer, night = DarkColors.brandContainer)
     val textPrimary = ColorProvider(day = LightColors.textPrimary, night = DarkColors.textPrimary)
     val textSecondary = ColorProvider(day = LightColors.textSecondary, night = DarkColors.textSecondary)
     val textMuted = ColorProvider(day = LightColors.textMuted, night = DarkColors.textMuted)
@@ -106,7 +106,7 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "오늘",
-                style = TextStyle(color = WidgetPalette.accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                style = TextStyle(color = WidgetPalette.brandText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             )
             Spacer(modifier = GlanceModifier.width(8.dp))
             Text(
@@ -126,7 +126,7 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
                 Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp)) {
                     Text(
                         text = line.time,
-                        style = TextStyle(color = WidgetPalette.accent, fontSize = 13.sp)
+                        style = TextStyle(color = WidgetPalette.brandText, fontSize = 13.sp)
                     )
                     Spacer(modifier = GlanceModifier.width(8.dp))
                     Text(
@@ -176,9 +176,9 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
 private fun WidgetButton(text: String, action: androidx.glance.action.Action) {
     Text(
         text = text,
-        style = TextStyle(color = WidgetPalette.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold),
+        style = TextStyle(color = WidgetPalette.brandText, fontSize = 13.sp, fontWeight = FontWeight.Bold),
         modifier = GlanceModifier
-            .background(WidgetPalette.accentDim)
+            .background(WidgetPalette.brandContainer)
             .cornerRadius(12.dp)
             .padding(horizontal = 12.dp, vertical = 6.dp)
             .clickable(action)

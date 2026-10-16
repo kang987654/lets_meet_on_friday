@@ -122,7 +122,7 @@ fun ProfileSheet(
                     }
                     Text(
                         text = "✕",
-                        color = KosmosTheme.colors.danger,
+                        color = KosmosTheme.colors.dangerText,
                         modifier = Modifier
                             .clickable { viewModel.delete(entry.key) }
                             .padding(8.dp)
@@ -152,7 +152,7 @@ fun ProfileSheet(
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
-                    color = KosmosTheme.colors.danger
+                    color = KosmosTheme.colors.dangerText
                 )
             }
             Row(modifier = Modifier.fillMaxWidth()) {
@@ -168,7 +168,7 @@ fun ProfileSheet(
                         keyInput = ""
                         valueInput = ""
                     }
-                }) { Text("저장", color = KosmosTheme.colors.accent) }
+                }) { Text("저장", color = KosmosTheme.colors.brandText) }
             }
         }
     }

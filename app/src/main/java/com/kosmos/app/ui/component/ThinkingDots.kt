@@ -43,8 +43,8 @@ fun ThinkingDots(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.size(6.dp).graphicsLayer { translationY = dot1 }.background(KosmosTheme.colors.accent, CircleShape))
-        Box(modifier = Modifier.size(6.dp).graphicsLayer { translationY = dot2 }.background(KosmosTheme.colors.accent, CircleShape))
-        Box(modifier = Modifier.size(6.dp).graphicsLayer { translationY = dot3 }.background(KosmosTheme.colors.accent, CircleShape))
+        Box(modifier = Modifier.size(6.dp).graphicsLayer { translationY = dot1 }.background(KosmosTheme.colors.brand, CircleShape))
+        Box(modifier = Modifier.size(6.dp).graphicsLayer { translationY = dot2 }.background(KosmosTheme.colors.brand, CircleShape))
+        Box(modifier = Modifier.size(6.dp).graphicsLayer { translationY = dot3 }.background(KosmosTheme.colors.brand, CircleShape))
     }
 }

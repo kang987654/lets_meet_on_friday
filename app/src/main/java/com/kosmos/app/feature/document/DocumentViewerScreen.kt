@@ -77,21 +77,21 @@ fun DocumentViewerScreen(
                 title = {
                     Text(title, color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 },
-                navigationIcon = { TextButton(onClick = onClose) { Text("닫기", color = colors.accent) } },
+                navigationIcon = { TextButton(onClick = onClose) { Text("닫기", color = colors.brandText) } },
                 actions = {
                     val ready = state is DocumentViewerState.Pdf || state is DocumentViewerState.Flow ||
                         (state is DocumentViewerState.Spreadsheet && state.sheet != null)
                     if (selection == null && ready) {
-                        TextButton(onClick = selectionActions.start) { Text("채팅으로", color = colors.accent) }
+                        TextButton(onClick = selectionActions.start) { Text("채팅으로", color = colors.brandText) }
                     }
                     if (state is DocumentViewerState.Flow) {
-                        TextButton(onClick = { onTextScale(-1) }, enabled = textScaleStep > 0) { Text("가−", color = colors.accent, fontSize = 13.sp) }
-                        TextButton(onClick = { onTextScale(1) }, enabled = textScaleStep < 2) { Text("가+", color = colors.accent, fontSize = 17.sp) }
+                        TextButton(onClick = { onTextScale(-1) }, enabled = textScaleStep > 0) { Text("가−", color = colors.brandText, fontSize = 13.sp) }
+                        TextButton(onClick = { onTextScale(1) }, enabled = textScaleStep < 2) { Text("가+", color = colors.brandText, fontSize = 17.sp) }
                     }
                     if (state is DocumentViewerState.Pdf) {
                         // 버튼은 1배 → 1.5배 → 2배 → 1배로 돈다(두 손가락 확대와 같은 값을 쓴다).
                         TextButton(onClick = { zoom = nextZoom(zoom) }) {
-                            Text("${(zoom * 100).toInt()}%", color = colors.accent)
+                            Text("${(zoom * 100).toInt()}%", color = colors.brandText)
                         }
                     }
                 },
@@ -168,14 +168,14 @@ private fun SelectionBar(selection: ChatSelection, actions: SelectionActions) {
     Column(
         Modifier
             .fillMaxWidth()
-            .background(colors.glassMid)
+            .background(colors.surfaceSunk)
             .navigationBarsPadding()
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        Text(message, color = if (preview?.truncated == true) colors.warning else colors.textSecondary, fontSize = 12.sp)
+        Text(message, color = if (preview?.truncated == true) colors.warningText else colors.textSecondary, fontSize = 12.sp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = actions.cancel) { Text("취소", color = colors.textSecondary) }
-            TextButton(onClick = actions.send, enabled = preview != null) { Text("채팅으로 보내기", color = if (preview != null) colors.accent else colors.textMuted) }
+            TextButton(onClick = actions.send, enabled = preview != null) { Text("채팅으로 보내기", color = if (preview != null) colors.brandText else colors.textMuted) }
         }
     }
 }
@@ -186,7 +186,7 @@ private fun SheetTabs(names: List<String>, selected: Int, onSelect: (Int) -> Uni
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(colors.glassMid)
+            .background(colors.surfaceSunk)
             .navigationBarsPadding()
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -196,12 +196,12 @@ private fun SheetTabs(names: List<String>, selected: Int, onSelect: (Int) -> Uni
             val isSelected = index == selected
             Text(
                 text = name,
-                color = if (isSelected) colors.onAccent else colors.textSecondary,
+                color = if (isSelected) colors.onBrand else colors.textSecondary,
                 fontSize = 13.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                 maxLines = 1,
                 modifier = Modifier
-                    .background(if (isSelected) colors.accent else colors.glass, RoundedCornerShape(8.dp))
+                    .background(if (isSelected) colors.brand else colors.surface, RoundedCornerShape(8.dp))
                     .clickable { onSelect(index) }
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             )
@@ -243,7 +243,7 @@ private fun Centered(content: @Composable () -> Unit) {
 @Composable
 private fun Loading(label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        CircularProgressIndicator(color = KosmosTheme.colors.accent)
+        CircularProgressIndicator(color = KosmosTheme.colors.brand)
         Spacer(Modifier.height(12.dp))
         Text(label, color = KosmosTheme.colors.textSecondary)
     }

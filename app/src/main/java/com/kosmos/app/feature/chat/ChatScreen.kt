@@ -420,8 +420,8 @@ fun ChatScreen(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(end = 20.dp, bottom = 20.dp),
-                    containerColor = KosmosTheme.colors.glassHigh,
-                    contentColor = KosmosTheme.colors.accent
+                    containerColor = KosmosTheme.colors.surface,
+                    contentColor = KosmosTheme.colors.brandText
                 ) {
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowDown,
@@ -567,7 +567,7 @@ private fun MessageWithDate(
         // 점프 도착 하이라이트 — 배경 은은한 강조 1회성 (jumpToTimeline 후 2.5초).
         val bubbleModifier = if (highlighted) {
             Modifier.background(
-                KosmosTheme.colors.accent.copy(alpha = 0.10f),
+                KosmosTheme.colors.brand.copy(alpha = 0.10f),
                 RoundedCornerShape(20.dp)
             )
         } else Modifier

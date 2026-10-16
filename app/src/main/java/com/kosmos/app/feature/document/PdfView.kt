@@ -109,7 +109,7 @@ fun PdfView(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 16.dp)
-                .background(colors.glassHigh, RoundedCornerShape(12.dp))
+                .background(colors.surface, RoundedCornerShape(12.dp))
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         )
     }
@@ -122,7 +122,7 @@ private fun PdfPage(pages: PdfPages, index: Int, renderWidthPx: Int, width: andr
     }
     val height = width * pages.aspectRatio(index)
     Box(
-        modifier = Modifier.fillMaxWidth().height(height).background(KosmosTheme.colors.glass),
+        modifier = Modifier.fillMaxWidth().height(height).background(KosmosTheme.colors.surface),
         contentAlignment = Alignment.Center
     ) {
         val image = bitmap

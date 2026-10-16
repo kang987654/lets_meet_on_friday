@@ -47,9 +47,9 @@ fun AuroraBackground(
 
     // [WHY] DrawScope는 @Composable이 아니므로 테마 토큰을 Canvas 바깥에서 미리 읽어둔다.
     // auroraAlpha는 라이트 테마에서 연출 강도를 낮추는 배율이다.
-    val accent = KosmosTheme.colors.accent
-    val accentAlt = KosmosTheme.colors.accentAlt
-    val auroraAlpha = KosmosTheme.colors.auroraAlpha
+    val accent = KosmosTheme.colors.brand
+    val accentAlt = KosmosTheme.colors.brand
+    val auroraAlpha = if (KosmosTheme.colors.isLight) 0.35f else 1.0f
 
     androidx.compose.foundation.layout.Box(modifier = modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {

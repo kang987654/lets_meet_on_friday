@@ -105,7 +105,7 @@ fun AppDrawerContent(
                     color = KosmosTheme.colors.textPrimary,
                     fontSize = 13.sp
                 ),
-                cursorBrush = SolidColor(KosmosTheme.colors.accent),
+                cursorBrush = SolidColor(KosmosTheme.colors.brand),
                 modifier = Modifier.fillMaxWidth(),
                 decorationBox = { inner ->
                     if (query.isEmpty()) {

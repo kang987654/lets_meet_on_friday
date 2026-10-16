@@ -48,7 +48,7 @@ fun ApprovalSheet(
                 Text(
                     text = footnote,
                     style = MaterialTheme.typography.bodySmall,
-                    color = KosmosTheme.colors.warning,
+                    color = KosmosTheme.colors.warningText,
                     modifier = Modifier.padding(bottom = 24.dp)
                 )
             }
@@ -71,9 +71,9 @@ fun ApprovalSheet(
                     onClick = onApprove,
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = KosmosTheme.colors.accent)
+                    colors = ButtonDefaults.buttonColors(containerColor = KosmosTheme.colors.brand)
                 ) {
-                    Text("승인", color = KosmosTheme.colors.onAccent, fontWeight = FontWeight.Bold)
+                    Text("승인", color = KosmosTheme.colors.onBrand, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(modifier = Modifier.height(32.dp))

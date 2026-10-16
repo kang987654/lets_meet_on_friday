@@ -61,7 +61,7 @@ fun MemoryCleanupScreen(
             TopAppBar(
                 title = { Text("기억 정리", color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text("뒤로", color = KosmosTheme.colors.accent) }
+                    TextButton(onClick = onBack) { Text("뒤로", color = KosmosTheme.colors.brandText) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
@@ -139,9 +139,9 @@ private fun Progress(label: String, fraction: Float?, onCancel: (() -> Unit)?) {
         Text(label, color = KosmosTheme.colors.textPrimary)
         Spacer(modifier = Modifier.height(12.dp))
         if (fraction != null) {
-            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth(), color = KosmosTheme.colors.accent)
+            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth(), color = KosmosTheme.colors.brand)
         } else {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = KosmosTheme.colors.accent)
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = KosmosTheme.colors.brand)
         }
     }
     // [WHY] 적용 중에는 취소가 없다 — 노트 병합·대화 통합이 반쯤 된 상태로 끊기지 않게(각 건은 트랜잭션이지만 묶음은 아니다).
@@ -217,7 +217,7 @@ private fun ProposalCard(proposal: MergeProposal, isChecked: Boolean, onToggle: 
         Checkbox(
             checked = isChecked,
             onCheckedChange = { onToggle() },
-            colors = CheckboxDefaults.colors(checkedColor = KosmosTheme.colors.accent)
+            colors = CheckboxDefaults.colors(checkedColor = KosmosTheme.colors.brand)
         )
         Column(modifier = Modifier.weight(1f).padding(start = 4.dp, top = 12.dp)) {
             proposal.sources.forEach { source ->
@@ -242,7 +242,7 @@ private fun EpisodeProposalCard(proposal: EpisodeMergeProposal, isChecked: Boole
         Checkbox(
             checked = isChecked,
             onCheckedChange = { onToggle() },
-            colors = CheckboxDefaults.colors(checkedColor = KosmosTheme.colors.accent)
+            colors = CheckboxDefaults.colors(checkedColor = KosmosTheme.colors.brand)
         )
         Column(modifier = Modifier.weight(1f).padding(start = 4.dp, top = 12.dp)) {
             proposal.episodes.forEach { ep ->

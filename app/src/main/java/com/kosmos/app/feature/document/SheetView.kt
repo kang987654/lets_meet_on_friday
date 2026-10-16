@@ -83,7 +83,7 @@ fun SheetView(
             if (sheet.truncated) {
                 Text(
                     text = "파일이 커서 앞부분(${sheet.rows.lastOrNull()?.index?.plus(1) ?: 0}행까지)만 보여요",
-                    color = colors.warning,
+                    color = colors.warningText,
                     fontSize = 12.sp,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
                 )
@@ -108,7 +108,7 @@ fun SheetView(
 @Composable
 private fun HeaderRow(layout: SheetLayout, frozen: IntRange, scroll: IntRange, horizontal: ScrollState) {
     val colors = KosmosTheme.colors
-    Row(Modifier.background(colors.glassMid)) {
+    Row(Modifier.background(colors.surfaceSunk)) {
         GridCell("", ROW_NUMBER_WIDTH, header = true)
         frozen.forEach { c -> GridCell(CellRef.columnName(c), layout.width(c), header = true) }
         Row(Modifier.horizontalScroll(horizontal)) {
@@ -131,7 +131,7 @@ private fun DataRow(
     val texts = remember(row) { row.cells.associate { it.column to it.text } }
     val merges = layout.mergesAt(row.index)
     // [WHY] 고른 행은 accentGlow — accentDim 은 다크 모드에서 옅어 고른 범위가 잘 안 보였다(0.36.0 실기기). FlowView 도 같다.
-    Row(if (selected) Modifier.background(KosmosTheme.colors.accentGlow) else Modifier) {
+    Row(if (selected) Modifier.background(KosmosTheme.colors.brandContainer) else Modifier) {
         GridCell(
             (row.index + 1).toString(),
             ROW_NUMBER_WIDTH,

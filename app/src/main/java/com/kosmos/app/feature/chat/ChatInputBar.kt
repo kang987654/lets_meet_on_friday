@@ -116,7 +116,7 @@ fun ChatInputBar(
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .glassEffect(
                     shape = RoundedCornerShape(28.dp),
-                    borderColor = KosmosTheme.colors.borderHigh
+                    borderColor = KosmosTheme.colors.border
                 )
                 .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -142,7 +142,7 @@ fun ChatInputBar(
                 Icon(
                     imageVector = Icons.Default.Language,
                     contentDescription = "웹 검색",
-                    tint = if (webSearchEnabled) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted,
+                    tint = if (webSearchEnabled) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -164,7 +164,7 @@ fun ChatInputBar(
                     onValueChange = { textState = it },
                     modifier = Modifier.fillMaxWidth(),
                     textStyle = MaterialTheme.typography.bodyMedium.copy(color = KosmosTheme.colors.textPrimary),
-                    cursorBrush = SolidColor(KosmosTheme.colors.accent),
+                    cursorBrush = SolidColor(KosmosTheme.colors.brand),
                     enabled = !isLoading,
                     maxLines = 5
                 )
@@ -190,15 +190,15 @@ fun ChatInputBar(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(androidx.compose.foundation.shape.CircleShape)
-                            .background(KosmosTheme.colors.glass)
-                            .border(1.dp, KosmosTheme.colors.accent, shape = androidx.compose.foundation.shape.CircleShape)
+                            .background(KosmosTheme.colors.surface)
+                            .border(1.dp, KosmosTheme.colors.brand, shape = androidx.compose.foundation.shape.CircleShape)
                             .clickable { onStopGeneration() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             painter = painterResource(id = com.kosmos.app.R.drawable.ic_stop),
                             contentDescription = "응답 중단",
-                            tint = KosmosTheme.colors.accent,
+                            tint = KosmosTheme.colors.brandText,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -209,7 +209,7 @@ fun ChatInputBar(
                             .clip(androidx.compose.foundation.shape.CircleShape)
                             .background(
                                 brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                                    colors = listOf(KosmosTheme.colors.accent, KosmosTheme.colors.accentAlt)
+                                    colors = listOf(KosmosTheme.colors.brand, KosmosTheme.colors.brand)
                                 )
                             )
                             .clickable(enabled = !isLoading) {
@@ -221,14 +221,14 @@ fun ChatInputBar(
                         Icon(
                             painter = painterResource(id = com.kosmos.app.R.drawable.ic_send),
                             contentDescription = "Send",
-                            tint = KosmosTheme.colors.onAccent,
+                            tint = KosmosTheme.colors.onBrand,
                             modifier = Modifier.size(20.dp).padding(start = 2.dp)
                         )
                     }
                 } else {
-                    val micBg = if (isRecording) KosmosTheme.colors.danger.copy(alpha = 0.2f) else KosmosTheme.colors.glass
-                    val micBorder = if (isRecording) KosmosTheme.colors.danger else KosmosTheme.colors.border
-                    val micIconColor = if (isRecording) KosmosTheme.colors.danger else KosmosTheme.colors.textSecondary
+                    val micBg = if (isRecording) KosmosTheme.colors.dangerText.copy(alpha = 0.2f) else KosmosTheme.colors.surface
+                    val micBorder = if (isRecording) KosmosTheme.colors.dangerText else KosmosTheme.colors.border
+                    val micIconColor = if (isRecording) KosmosTheme.colors.dangerText else KosmosTheme.colors.textSecondary
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -288,12 +288,12 @@ private fun AttachmentPreview(
                     Spacer(modifier = Modifier.width(12.dp))
                 }
                 Column {
-                    Text(title, color = KosmosTheme.colors.accent, style = MaterialTheme.typography.bodyMedium)
+                    Text(title, color = KosmosTheme.colors.brandText, style = MaterialTheme.typography.bodyMedium)
                     Text(subtitle, color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodySmall)
                     if (needsText) {
                         Text(
                             androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.attachment_needs_text),
-                            color = KosmosTheme.colors.accent,
+                            color = KosmosTheme.colors.brandText,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }

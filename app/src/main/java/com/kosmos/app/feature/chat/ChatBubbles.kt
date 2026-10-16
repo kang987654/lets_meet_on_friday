@@ -93,11 +93,11 @@ fun ChatBubbleUser(
                 .combinedClickable(onClick = { if (attachedBody != null) expanded = !expanded }, onLongClick = onLongPress)
                 .background(
                     brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                        colors = listOf(KosmosTheme.colors.accent.copy(alpha = 0.25f), KosmosTheme.colors.accentAlt.copy(alpha = 0.2f))
+                        colors = listOf(KosmosTheme.colors.brandContainer, KosmosTheme.colors.brandContainer)
                     ),
                     shape = UserBubbleShape
                 )
-                .border(width = 1.dp, color = KosmosTheme.colors.accent.copy(alpha = 0.25f), shape = UserBubbleShape)
+                .border(width = 1.dp, color = KosmosTheme.colors.brand.copy(alpha = 0.25f), shape = UserBubbleShape)
                 .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
             Column {
@@ -163,7 +163,7 @@ fun ChatBubbleAssistant(
                     modifier = Modifier
                         .fillMaxWidth()
                         .glassEffect(
-                            backgroundColor = KosmosTheme.colors.glassMid,
+                            backgroundColor = KosmosTheme.colors.surfaceSunk,
                             shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 0.dp, bottomEnd = 0.dp)
                         )
                         .clickable { isThinkingExpanded = !isThinkingExpanded }
@@ -184,7 +184,7 @@ fun ChatBubbleAssistant(
                         modifier = Modifier
                             .fillMaxWidth()
                             .glassEffect(
-                                backgroundColor = KosmosTheme.colors.glass,
+                                backgroundColor = KosmosTheme.colors.surface,
                                 shape = RoundedCornerShape(0.dp)
                             )
                             .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -259,7 +259,7 @@ fun ChatBubbleAssistant(
                             androidx.compose.material.icons.Icons.AutoMirrored.Filled.VolumeUp
                         },
                         contentDescription = if (isSpeaking) "읽기 멈추기" else "답변 읽기",
-                        tint = if (isSpeaking) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted,
+                        tint = if (isSpeaking) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -318,7 +318,7 @@ internal fun AttachmentThumbnail(uri: Uri, sizeDp: Int = 48) {
         modifier = Modifier
             .size(sizeDp.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(KosmosTheme.colors.glassMid)
+            .background(KosmosTheme.colors.surfaceSunk)
     ) {
         bitmap?.let {
             androidx.compose.foundation.Image(

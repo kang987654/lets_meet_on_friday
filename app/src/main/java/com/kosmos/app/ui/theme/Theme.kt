@@ -2,6 +2,7 @@ package com.kosmos.app.ui.theme
 
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -26,33 +27,53 @@ enum class ThemeMode(val key: String, val label: String) {
     }
 }
 
-private fun darkSchemeOf(colors: KosmosColors) = darkColorScheme(
-    primary = colors.accent,
-    secondary = colors.accentAlt,
-    tertiary = colors.success,
-    background = colors.bg,
-    surface = colors.surface,
-    error = colors.danger,
-    onPrimary = colors.bg,
-    onSecondary = colors.bg,
-    onTertiary = colors.bg,
-    onBackground = colors.textPrimary,
-    onSurface = colors.textPrimary,
-)
-
-private fun lightSchemeOf(colors: KosmosColors) = lightColorScheme(
-    primary = colors.accent,
-    secondary = colors.accentAlt,
-    tertiary = colors.success,
-    background = colors.bg,
-    surface = colors.surface,
-    error = colors.danger,
-    onPrimary = androidx.compose.ui.graphics.Color.White,
-    onSecondary = androidx.compose.ui.graphics.Color.White,
-    onTertiary = androidx.compose.ui.graphics.Color.White,
-    onBackground = colors.textPrimary,
-    onSurface = colors.textPrimary,
-)
+/**
+ * Material3 컴포넌트가 읽는 색 역할을 [KosmosColors] 로만 채운다.
+ *
+ * [WHY] 비워 둔 역할(surfaceContainer* 등)은 M3 기본 보라 계열로 채워져 시트·메뉴·대화상자가 앱 팔레트와 어긋났다.
+ * 하늘색 면 위 글자는 흰색이 아니라 [KosmosColors.onBrand] — 흰 글자는 대비 미달이다(DESIGN.md v3).
+ */
+private fun schemeOf(colors: KosmosColors): ColorScheme {
+    val base = if (colors.isLight) lightColorScheme() else darkColorScheme()
+    return base.copy(
+        primary = colors.brand,
+        onPrimary = colors.onBrand,
+        primaryContainer = colors.brandContainer,
+        onPrimaryContainer = colors.textPrimary,
+        inversePrimary = colors.brandText,
+        secondary = colors.brandText,
+        onSecondary = colors.surface,
+        secondaryContainer = colors.brandContainer,
+        onSecondaryContainer = colors.textPrimary,
+        tertiary = colors.successText,
+        onTertiary = colors.surface,
+        tertiaryContainer = colors.surfaceSunk,
+        onTertiaryContainer = colors.textPrimary,
+        background = colors.bg,
+        onBackground = colors.textPrimary,
+        surface = colors.surface,
+        onSurface = colors.textPrimary,
+        surfaceVariant = colors.surfaceSunk,
+        onSurfaceVariant = colors.textSecondary,
+        surfaceTint = colors.surface,
+        surfaceBright = colors.surface,
+        surfaceDim = colors.surfaceSunk,
+        surfaceContainerLowest = colors.surface,
+        surfaceContainerLow = colors.surface,
+        surfaceContainer = colors.surface,
+        surfaceContainerHigh = colors.surface,
+        surfaceContainerHighest = colors.surfaceSunk,
+        inverseSurface = colors.textPrimary,
+        inverseOnSurface = colors.surface,
+        error = colors.dangerText,
+        onError = colors.surface,
+        errorContainer = colors.surfaceSunk,
+        onErrorContainer = colors.dangerText,
+        outline = colors.border,
+        outlineVariant = colors.border,
+        scrim = colors.scrim,
+    )
+}
 
 /**
  * [KosmosTheme]
@@ -73,7 +94,7 @@ fun KosmosTheme(
     }
 
     val kosmosColors = if (useDark) DarkColors else LightColors
-    val colorScheme = if (useDark) darkSchemeOf(kosmosColors) else lightSchemeOf(kosmosColors)
+    val colorScheme = schemeOf(kosmosColors)
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -98,7 +119,7 @@ fun KosmosTheme(
     }
 }
 
-/** 테마 토큰 접근자 — `KosmosTheme.colors.accent` 형태로 사용합니다. */
+/** 테마 토큰 접근자 — `KosmosTheme.colors.brand` 형태로 사용합니다. */
 object KosmosTheme {
     val colors: KosmosColors
         @Composable

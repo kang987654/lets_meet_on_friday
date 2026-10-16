@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.Color
 
 /**
  * [KosmosColors]
- * 라이트/다크 테마에 따라 교체되는 시맨틱 색상 토큰 집합입니다. (ADR-005)
+ * 라이트/다크 테마에 따라 교체되는 시맨틱 색상 토큰 집합입니다. (ADR-005, `docs/DESIGN.md` v3 Colors)
  *
  * ### Architecture Context
  * - **Layer**: UI (Theme)
@@ -15,98 +15,78 @@ import androidx.compose.ui.graphics.Color
  * ### Key Flow
  * 1. [KosmosTheme]이 현재 테마 모드에 맞는 인스턴스([DarkColors]/[LightColors])를 [LocalKosmosColors]로 제공합니다.
  * 2. 각 화면은 `KosmosTheme.colors.<토큰>`으로 접근하며, 하드코딩된 Color 리터럴을 사용하지 않습니다.
+ *
+ * [WHY] 면 색과 글자 색을 나눈다 — 하늘색 하나를 면·글자에 같이 쓰던 v2 는 흰 배경 위 글자 대비가 2:1 대였다(0.38.0 감사).
+ * 글자로 쓰는 토큰(`text*`·`*Text`)은 모두 surface 위 4.5:1 이상이다(수치는 DESIGN.md 머리말).
  */
 @Immutable
 data class KosmosColors(
-    // Surfaces
+    // 표면
     val bg: Color,
     val surface: Color,
-    val glass: Color,
-    val glassMid: Color,
-    val glassHigh: Color,
+    /** 한 단계 가라앉은 면 — 분할 버튼·입력 바탕 */
+    val surfaceSunk: Color,
+    /** hairline */
     val border: Color,
-    val borderHigh: Color,
-    // Accents
-    val accent: Color,
-    val accentDim: Color,
-    val accentGlow: Color,
-    val accentAlt: Color,
-    val accentAltDim: Color,
-    /** accent 배경 위에 올리는 전경색(텍스트·아이콘) — 대비 확보용 */
-    val onAccent: Color,
-    // Status
-    val success: Color,
-    val successDim: Color,
-    val danger: Color,
-    val dangerDim: Color,
-    val warning: Color,
-    // Text
+    // 글자
     val textPrimary: Color,
     val textSecondary: Color,
+    /** 날짜·태그·보조 라벨 */
     val textMuted: Color,
-    // 배경 오로라 연출 강도 — 라이트 테마에서는 과한 채도를 낮춘다
-    val auroraAlpha: Float,
+    // 브랜드
+    /** 면 전용(주 버튼·선택 표시·진행 바·토글). 글자·아이콘 색으로 쓰지 않는다 */
+    val brand: Color,
+    /** 옅은 브랜드 면 — 사용자 말풍선·선택된 칩 */
+    val brandContainer: Color,
+    /** [brand] 면 위 글자·아이콘 */
+    val onBrand: Color,
+    /** 링크·강조 글자·강조 아이콘 */
+    val brandText: Color,
+    // 상태 (글자·아이콘용, 면은 alpha 를 낮춰 쓴다)
+    val dangerText: Color,
+    val successText: Color,
+    val warningText: Color,
+    /** 시트·대화상자 뒤 */
+    val scrim: Color,
     val isLight: Boolean
 )
 
-/** 다크 Glassmorphism 팔레트 (기존 v0.4.0 구현 계승) */
-val DarkColors = KosmosColors(
-    bg = Color(0xFF040D1F),
-    surface = Color(0xFF071526),
-    glass = Color(0x0DFFFFFF),      // white ~0.05
-    glassMid = Color(0x14FFFFFF),   // white ~0.08
-    glassHigh = Color(0x1EFFFFFF),  // white ~0.12
-    border = Color(0x14FFFFFF),     // white ~0.08
-    borderHigh = Color(0x26FFFFFF), // white ~0.15
-    accent = Color(0xFF22D3EE),
-    accentDim = Color(0x2622D3EE),
-    accentGlow = Color(0x4D22D3EE),
-    accentAlt = Color(0xFF818CF8),
-    accentAltDim = Color(0x26818CF8),
-    onAccent = Color(0xFF040D1F), // 밝은 cyan 위 어두운 전경
-
-    success = Color(0xFF34D399),
-    successDim = Color(0x2634D399),
-    danger = Color(0xFFF87171),
-    dangerDim = Color(0x26F87171),
-    warning = Color(0xFFFBBF24),
-    textPrimary = Color(0xFFF1F5F9),
-    textSecondary = Color(0xFF94A3B8),
-    textMuted = Color(0xFF475569),
-    auroraAlpha = 1.0f,
-    isLight = false
+val LightColors = KosmosColors(
+    bg = Color(0xFFF5FBFE),
+    surface = Color(0xFFFFFFFF),
+    surfaceSunk = Color(0xFFEBF1F4),
+    border = Color(0xFFD9DFE2),
+    textPrimary = Color(0xFF222729),
+    textSecondary = Color(0xFF515659),
+    textMuted = Color(0xFF676D6F),
+    brand = Color(0xFF5BC2E7),
+    brandContainer = Color(0xFFD7F4FF),
+    onBrand = Color(0xFF222729),
+    brandText = Color(0xFF006E8B),
+    dangerText = Color(0xFFBA3630),
+    successText = Color(0xFF227C45),
+    warningText = Color(0xFF9D6300),
+    scrim = Color(0x7A111618),
+    isLight = true
 )
 
-/**
- * 라이트 팔레트 — `docs/DESIGN.md` v1.2의 Sky Blue(#5BC2E7) 기획을 Glassmorphism 구조에 적용.
- * [WHY] 라이트에서는 흰색 반투명 대신 카드 표면을 불투명에 가깝게 올리고 hairline 테두리로
- * 계층을 만든다 — 밝은 캔버스 위 white-on-white는 경계가 사라지기 때문이다.
- */
-val LightColors = KosmosColors(
-    bg = Color(0xFFF7FBFD),         // canvas
-    surface = Color(0xFFFFFFFF),    // surface-card
-    glass = Color(0xCCFFFFFF),      // white ~0.80
-    glassMid = Color(0xE6FFFFFF),   // white ~0.90
-    glassHigh = Color(0xFFFFFFFF),
-    border = Color(0xFFD9E6EC),     // hairline
-    borderHigh = Color(0xFFBFD6E0),
-    accent = Color(0xFF39AED8),     // primary-strong (밝은 배경 대비 확보)
-    accentDim = Color(0x1F5BC2E7),
-    accentGlow = Color(0x3D5BC2E7),
-    accentAlt = Color(0xFF6366F1),
-    accentAltDim = Color(0x1F6366F1),
-    onAccent = Color(0xFFFFFFFF), // DESIGN.md on-primary
-
-    success = Color(0xFF2FA36B),
-    successDim = Color(0x1F2FA36B),
-    danger = Color(0xFFE35D5D),
-    dangerDim = Color(0x1FE35D5D),
-    warning = Color(0xFFF4A62A),
-    textPrimary = Color(0xFF1F2A33),   // ink
-    textSecondary = Color(0xFF42515C), // body
-    textMuted = Color(0xFF758390),     // muted
-    auroraAlpha = 0.35f,
-    isLight = true
+val DarkColors = KosmosColors(
+    bg = Color(0xFF111618),
+    surface = Color(0xFF1A1F21),
+    surfaceSunk = Color(0xFF161A1C),
+    border = Color(0xFF2F3436),
+    textPrimary = Color(0xFFE6ECEF),
+    textSecondary = Color(0xFFBFC5C8),
+    textMuted = Color(0xFF93999C),
+    brand = Color(0xFF5BC2E7),
+    brandContainer = Color(0xFF133B49),
+    onBrand = Color(0xFF111618),
+    brandText = Color(0xFF70CCEE),
+    dangerText = Color(0xFFF7857D),
+    successText = Color(0xFF65C98C),
+    warningText = Color(0xFFEBB25F),
+    scrim = Color(0x8F000000),
+    isLight = false
 )
 
 val LocalKosmosColors = staticCompositionLocalOf { DarkColors }

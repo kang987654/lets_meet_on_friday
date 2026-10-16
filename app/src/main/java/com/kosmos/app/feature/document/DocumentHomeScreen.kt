@@ -83,7 +83,7 @@ fun DocumentHomeScreen(
         topBar = {
             TopAppBar(
                 title = { Text("문서", color = colors.textPrimary, fontWeight = FontWeight.Bold) },
-                navigationIcon = { TextButton(onClick = onBack) { Text("뒤로", color = colors.accent) } },
+                navigationIcon = { TextButton(onClick = onBack) { Text("뒤로", color = colors.brandText) } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
@@ -96,7 +96,7 @@ fun DocumentHomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .glassEffect(shape = RoundedCornerShape(16.dp), backgroundColor = colors.accentDim, borderColor = colors.accent)
+                        .glassEffect(shape = RoundedCornerShape(16.dp), backgroundColor = colors.brandContainer, borderColor = colors.brand)
                         .combinedClickable(onClick = { picker.launch(DocumentType.PICKER_MIME_TYPES.toTypedArray()) })
                         .padding(16.dp)
                 ) {
@@ -142,7 +142,7 @@ fun DocumentHomeScreen(
             onDismissRequest = { removing = null },
             text = { Text("'${document.name}'을(를) 최근 목록에서 지울까요? 파일은 지워지지 않아요.", color = colors.textPrimary) },
             confirmButton = {
-                TextButton(onClick = { viewModel.remove(document); removing = null }) { Text("지우기", color = colors.danger) }
+                TextButton(onClick = { viewModel.remove(document); removing = null }) { Text("지우기", color = colors.dangerText) }
             },
             dismissButton = { TextButton(onClick = { removing = null }) { Text("취소") } },
             containerColor = colors.surface

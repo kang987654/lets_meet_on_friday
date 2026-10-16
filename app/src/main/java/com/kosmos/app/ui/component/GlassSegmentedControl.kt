@@ -54,7 +54,7 @@ fun <T> GlassSegmentedControl(
                 modifier = Modifier
                     .weight(1f)
                     .background(
-                        if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.2f) else Color.Transparent,
+                        if (isSelected) KosmosTheme.colors.brand.copy(alpha = 0.2f) else Color.Transparent,
                         shape = shape
                     )
                     .clickable { onSelect(value) }
@@ -63,7 +63,7 @@ fun <T> GlassSegmentedControl(
             ) {
                 Text(
                     text = label,
-                    color = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted,
+                    color = if (isSelected) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                     style = textStyle
                 )

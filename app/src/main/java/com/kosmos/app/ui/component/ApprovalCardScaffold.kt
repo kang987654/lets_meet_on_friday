@@ -61,7 +61,7 @@ fun ApprovalCardScaffold(
             .glassEffect(
                 backgroundColor = KosmosTheme.colors.surface,
                 shape = RoundedCornerShape(24.dp),
-                borderColor = KosmosTheme.colors.borderHigh
+                borderColor = KosmosTheme.colors.border
             )
             .padding(20.dp)
     ) {
@@ -69,10 +69,10 @@ fun ApprovalCardScaffold(
             Box(
                 modifier = Modifier
                     .size(24.dp)
-                    .background(KosmosTheme.colors.accent, CircleShape),
+                    .background(KosmosTheme.colors.brand, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("K", color = KosmosTheme.colors.onAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("K", color = KosmosTheme.colors.onBrand, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -90,7 +90,7 @@ fun ApprovalCardScaffold(
             modifier = Modifier
                 .fillMaxWidth()
                 .glassEffect(
-                    backgroundColor = KosmosTheme.colors.glass,
+                    backgroundColor = KosmosTheme.colors.surface,
                     shape = RoundedCornerShape(16.dp)
                 )
                 .border(1.dp, KosmosTheme.colors.border, RoundedCornerShape(16.dp))
@@ -109,12 +109,12 @@ fun ApprovalCardScaffold(
                 modifier = Modifier
                     .weight(1f)
                     .clickable { onReject() }
-                    .background(KosmosTheme.colors.danger.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                    .background(KosmosTheme.colors.dangerText.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
                     .border(1.dp, KosmosTheme.colors.border, RoundedCornerShape(12.dp))
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(rejectLabel, color = KosmosTheme.colors.danger, fontWeight = FontWeight.Medium)
+                Text(rejectLabel, color = KosmosTheme.colors.dangerText, fontWeight = FontWeight.Medium)
             }
             Box(
                 modifier = Modifier
@@ -123,17 +123,17 @@ fun ApprovalCardScaffold(
                     .background(
                         brush = Brush.linearGradient(
                             colors = listOf(
-                                KosmosTheme.colors.accent.copy(alpha = 0.2f),
-                                KosmosTheme.colors.accentAlt.copy(alpha = 0.2f)
+                                KosmosTheme.colors.brand.copy(alpha = 0.2f),
+                                KosmosTheme.colors.brand.copy(alpha = 0.2f)
                             )
                         ),
                         shape = RoundedCornerShape(12.dp)
                     )
-                    .border(1.dp, KosmosTheme.colors.accent.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .border(1.dp, KosmosTheme.colors.brand.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(approveLabel, color = KosmosTheme.colors.accent, fontWeight = FontWeight.SemiBold)
+                Text(approveLabel, color = KosmosTheme.colors.brandText, fontWeight = FontWeight.SemiBold)
             }
         }
     }

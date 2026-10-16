@@ -154,11 +154,11 @@ private fun formatTimestamp(timestamp: Long): String {
 @Composable
 private fun getTagColors(type: AuditEventType): Pair<Color, Color> {
     return when (type) {
-        AuditEventType.MODEL_RUN -> KosmosTheme.colors.accent.copy(alpha=0.15f) to KosmosTheme.colors.accent
-        AuditEventType.TOOL_CALL -> KosmosTheme.colors.success.copy(alpha=0.15f) to KosmosTheme.colors.success
-        AuditEventType.APPROVAL_GRANTED -> KosmosTheme.colors.warning.copy(alpha=0.15f) to KosmosTheme.colors.warning
-        AuditEventType.APPROVAL_REJECTED -> KosmosTheme.colors.danger.copy(alpha=0.15f) to KosmosTheme.colors.danger
-        AuditEventType.ERROR -> KosmosTheme.colors.danger.copy(alpha=0.1f) to KosmosTheme.colors.danger
-        else -> KosmosTheme.colors.glass to KosmosTheme.colors.textMuted
+        AuditEventType.MODEL_RUN -> KosmosTheme.colors.brand.copy(alpha=0.15f) to KosmosTheme.colors.brand
+        AuditEventType.TOOL_CALL -> KosmosTheme.colors.successText.copy(alpha=0.15f) to KosmosTheme.colors.successText
+        AuditEventType.APPROVAL_GRANTED -> KosmosTheme.colors.warningText.copy(alpha=0.15f) to KosmosTheme.colors.warningText
+        AuditEventType.APPROVAL_REJECTED -> KosmosTheme.colors.dangerText.copy(alpha=0.15f) to KosmosTheme.colors.dangerText
+        AuditEventType.ERROR -> KosmosTheme.colors.dangerText.copy(alpha=0.1f) to KosmosTheme.colors.dangerText
+        else -> KosmosTheme.colors.surface to KosmosTheme.colors.textMuted
     }
 }

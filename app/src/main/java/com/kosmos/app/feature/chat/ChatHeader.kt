@@ -86,10 +86,10 @@ fun CustomChatHeader(
 
         // 엔진 상태 점 — Ready=success / 로딩 계열=muted / 오류·발열 경고=danger·warning.
         val dotColor = when {
-            warningMessage != null -> KosmosTheme.colors.warning
-            engineState is ModelLoadState.Ready -> KosmosTheme.colors.success
+            warningMessage != null -> KosmosTheme.colors.warningText
+            engineState is ModelLoadState.Ready -> KosmosTheme.colors.successText
             engineState is ModelLoadState.Error || engineState is ModelLoadState.NotFound ->
-                KosmosTheme.colors.danger
+                KosmosTheme.colors.dangerText
             else -> KosmosTheme.colors.textMuted
         }
         Box(
@@ -108,7 +108,7 @@ fun CustomChatHeader(
             val warning = warningMessage != null
             Text(
                 text = if (warning) "⚠ ${capsule.ifEmpty { "발열 주의" }}" else capsule,
-                color = if (warning) KosmosTheme.colors.warning else KosmosTheme.colors.textSecondary,
+                color = if (warning) KosmosTheme.colors.warningText else KosmosTheme.colors.textSecondary,
                 style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier
                     .glassEffect(shape = RoundedCornerShape(99.dp))
@@ -163,7 +163,7 @@ fun StatusDetailSheet(
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = warningMessage,
-                    color = KosmosTheme.colors.warning,
+                    color = KosmosTheme.colors.warningText,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                 )

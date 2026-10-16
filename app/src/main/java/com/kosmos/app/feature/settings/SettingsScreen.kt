@@ -57,7 +57,7 @@ fun SettingsScreen(
         SectionBox(title = "로컬 AI 모델 (GEMMA)") {
             when (val state = uiState.modelLoadState) {
                 is ModelLoadState.Loading, is ModelLoadState.FileFound, is ModelLoadState.InitializingEngine -> {
-                    CircularProgressIndicator(color = KosmosTheme.colors.accent)
+                    CircularProgressIndicator(color = KosmosTheme.colors.brand)
                     Text(
                         text = when (state) {
                             is ModelLoadState.Loading -> "모델 상태 확인 중…"
@@ -71,7 +71,7 @@ fun SettingsScreen(
                 is ModelLoadState.Ready -> {
                     Text(
                         text = "상태: 준비됨",
-                        color = KosmosTheme.colors.success,
+                        color = KosmosTheme.colors.successText,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -90,14 +90,14 @@ fun SettingsScreen(
                 is ModelLoadState.NotFound -> {
                     Text(
                         text = "상태: 모델 없음",
-                        color = KosmosTheme.colors.danger,
+                        color = KosmosTheme.colors.dangerText,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "모델 파일을 찾을 수 없어요. 내려받으면 바로 사용할 수 있어요.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = KosmosTheme.colors.danger
+                        color = KosmosTheme.colors.dangerText
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -108,13 +108,13 @@ fun SettingsScreen(
                 is ModelLoadState.Error -> {
                     Text(
                         text = "상태: 오류",
-                        color = KosmosTheme.colors.danger,
+                        color = KosmosTheme.colors.dangerText,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = KosmosTheme.colors.danger,
+                        color = KosmosTheme.colors.dangerText,
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
@@ -160,7 +160,7 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("한 번에 참고할 분량", color = KosmosTheme.colors.textPrimary)
-                    Text("${sliderValue.toInt()} 토큰", color = KosmosTheme.colors.accent, fontWeight = FontWeight.Bold)
+                    Text("${sliderValue.toInt()} 토큰", color = KosmosTheme.colors.brandText, fontWeight = FontWeight.Bold)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Slider(
@@ -172,9 +172,9 @@ fun SettingsScreen(
                     valueRange = com.kosmos.app.core.common.Constants.MIN_CONTEXT_TOKENS.toFloat()..com.kosmos.app.core.common.Constants.MAX_CONTEXT_TOKENS.toFloat(),
                     steps = (com.kosmos.app.core.common.Constants.MAX_CONTEXT_TOKENS - com.kosmos.app.core.common.Constants.MIN_CONTEXT_TOKENS) / 100 - 1, // 100 단위
                     colors = SliderDefaults.colors(
-                        thumbColor = KosmosTheme.colors.accent,
-                        activeTrackColor = KosmosTheme.colors.accent,
-                        inactiveTrackColor = KosmosTheme.colors.glass
+                        thumbColor = KosmosTheme.colors.brand,
+                        activeTrackColor = KosmosTheme.colors.brand,
+                        inactiveTrackColor = KosmosTheme.colors.surface
                     )
                 )
                 Text(
@@ -206,7 +206,7 @@ fun SettingsScreen(
                 Text(
                     NotificationAccess.DENIED_MESSAGE,
                     style = MaterialTheme.typography.bodySmall,
-                    color = KosmosTheme.colors.warning
+                    color = KosmosTheme.colors.warningText
                 )
             }
             if (uiState.briefingEnabled) {
@@ -222,7 +222,7 @@ fun SettingsScreen(
                             uiState.briefingTimeMinutes / 60,
                             uiState.briefingTimeMinutes % 60
                         ),
-                        color = KosmosTheme.colors.accent,
+                        color = KosmosTheme.colors.brandText,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
                             .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
@@ -252,7 +252,7 @@ fun SettingsScreen(
                         TextButton(onClick = {
                             viewModel.onBriefingTimeChanged(timeState.hour * 60 + timeState.minute)
                             showTimePicker = false
-                        }) { Text("확인", color = KosmosTheme.colors.accent) }
+                        }) { Text("확인", color = KosmosTheme.colors.brandText) }
                     },
                     dismissButton = {
                         TextButton(onClick = { showTimePicker = false }) {
@@ -323,7 +323,7 @@ fun SettingsScreen(
                     RadioButton(
                         selected = uiState.ttsEngine == engine.packageName,
                         onClick = { viewModel.onTtsEngineChanged(engine.packageName) },
-                        colors = RadioButtonDefaults.colors(selectedColor = KosmosTheme.colors.accent)
+                        colors = RadioButtonDefaults.colors(selectedColor = KosmosTheme.colors.brand)
                     )
                     Text(engine.label, color = KosmosTheme.colors.textPrimary)
                 }
@@ -337,7 +337,7 @@ fun SettingsScreen(
             }
             voiceNotice?.let { notice ->
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(notice, style = MaterialTheme.typography.bodySmall, color = KosmosTheme.colors.warning)
+                Text(notice, style = MaterialTheme.typography.bodySmall, color = KosmosTheme.colors.warningText)
                 if (uiState.voiceStatus == com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE) {
                     TextButton(onClick = {
                         val intent = android.content.Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
@@ -345,7 +345,7 @@ fun SettingsScreen(
                             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                         // [WHY] 엔진이 설치 화면을 제공하지 않을 수 있다 — 실패는 조용히 무시(안내 문구는 이미 보이고 있다).
                         runCatching { ttsContext.startActivity(intent) }
-                    }) { Text("음성 데이터 설치", color = KosmosTheme.colors.accent) }
+                    }) { Text("음성 데이터 설치", color = KosmosTheme.colors.brandText) }
                 }
             }
         }
@@ -380,7 +380,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = "정확한 알림 허용하기",
-                    color = KosmosTheme.colors.accent,
+                    color = KosmosTheme.colors.brandText,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
                         .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
@@ -421,8 +421,8 @@ private fun SectionBox(
         modifier = Modifier
             .fillMaxWidth()
             .glassEffect(
-                backgroundColor = KosmosTheme.colors.glass,
-                borderColor = KosmosTheme.colors.borderHigh,
+                backgroundColor = KosmosTheme.colors.surface,
+                borderColor = KosmosTheme.colors.border,
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
             )
     ) {
@@ -466,8 +466,8 @@ private fun SettingSwitchRow(label: String, checked: Boolean, onCheckedChange: (
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = KosmosTheme.colors.onAccent,
-                checkedTrackColor = KosmosTheme.colors.accent
+                checkedThumbColor = KosmosTheme.colors.onBrand,
+                checkedTrackColor = KosmosTheme.colors.brand
             )
         )
     }
@@ -505,7 +505,7 @@ private fun DataResetSection(
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "초기화할 항목 고르기",
-            color = KosmosTheme.colors.danger,
+            color = KosmosTheme.colors.dangerText,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .glassEffect(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
@@ -538,7 +538,7 @@ private fun DataResetSection(
                                 onCheckedChange = null,
                                 enabled = !running,
                                 colors = CheckboxDefaults.colors(
-                                    checkedColor = KosmosTheme.colors.danger,
+                                    checkedColor = KosmosTheme.colors.dangerText,
                                     uncheckedColor = KosmosTheme.colors.textMuted
                                 )
                             )
@@ -558,13 +558,13 @@ private fun DataResetSection(
                     )
                     if (state is DataResetState.Failed) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(state.message, style = MaterialTheme.typography.bodySmall, color = KosmosTheme.colors.danger)
+                        Text(state.message, style = MaterialTheme.typography.bodySmall, color = KosmosTheme.colors.dangerText)
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { onReset(selected) }, enabled = selected.isNotEmpty() && !running) {
-                    Text(if (running) "지우는 중…" else "지우기", color = if (selected.isNotEmpty() && !running) KosmosTheme.colors.danger else KosmosTheme.colors.textMuted)
+                    Text(if (running) "지우는 중…" else "지우기", color = if (selected.isNotEmpty() && !running) KosmosTheme.colors.dangerText else KosmosTheme.colors.textMuted)
                 }
             },
             dismissButton = {
@@ -591,7 +591,7 @@ private fun DataResetSection(
                 TextButton(onClick = {
                     if (state.needsRestart) onRestart() else { showPicker = false; onDismiss() }
                 }) {
-                    Text(if (state.needsRestart) "재시작" else "확인", color = KosmosTheme.colors.accent)
+                    Text(if (state.needsRestart) "재시작" else "확인", color = KosmosTheme.colors.brandText)
                 }
             },
             containerColor = KosmosTheme.colors.surface

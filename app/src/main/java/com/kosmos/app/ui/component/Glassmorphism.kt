@@ -23,7 +23,7 @@ fun Modifier.glassEffect(
     borderColor: Color? = null,
     borderWidth: Dp = 1.dp
 ): Modifier = composed {
-    val resolvedBackground = backgroundColor ?: KosmosTheme.colors.glass
+    val resolvedBackground = backgroundColor ?: KosmosTheme.colors.surface
     val resolvedBorder = borderColor ?: KosmosTheme.colors.border
     this.then(
         Modifier

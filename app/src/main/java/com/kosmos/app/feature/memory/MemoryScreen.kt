@@ -89,7 +89,7 @@ fun MemoryScreen(
             body = note.content,
             bodyMaxLines = 4,
             confirmText = "지우기",
-            confirmColor = KosmosTheme.colors.danger,
+            confirmColor = KosmosTheme.colors.dangerText,
             onConfirm = {
                 viewModel.deleteKnowledge(note.id) { knowledgeItems.refresh() }
                 knowledgeToDelete = null
@@ -104,7 +104,7 @@ fun MemoryScreen(
             body = task.title,
             bodyMaxLines = 4,
             confirmText = "지우기",
-            confirmColor = KosmosTheme.colors.danger,
+            confirmColor = KosmosTheme.colors.dangerText,
             onConfirm = {
                 viewModel.deleteTask(task.id, refreshTasks)
                 taskToDelete = null
@@ -118,7 +118,7 @@ fun MemoryScreen(
             title = "완료한 할 일을 모두 지울까요?",
             body = "완료됨 목록의 항목이 모두 지워지고 되돌릴 수 없어요.",
             confirmText = "모두 지우기",
-            confirmColor = KosmosTheme.colors.danger,
+            confirmColor = KosmosTheme.colors.dangerText,
             onConfirm = {
                 viewModel.clearCompletedTasks(refreshTasks)
                 confirmClearCompleted = false
@@ -196,13 +196,13 @@ fun MemoryScreen(
                         modifier = Modifier
                             .width(60.dp)
                             .height(4.dp)
-                            .background(KosmosTheme.colors.glass, RoundedCornerShape(2.dp))
+                            .background(KosmosTheme.colors.surface, RoundedCornerShape(2.dp))
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth(progress)
-                                .background(KosmosTheme.colors.success, RoundedCornerShape(2.dp))
+                                .background(KosmosTheme.colors.successText, RoundedCornerShape(2.dp))
                         )
                     }
                 }
@@ -272,7 +272,7 @@ fun MemoryScreen(
                                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                                         color = KosmosTheme.colors.textPrimary
                                     ),
-                                    cursorBrush = androidx.compose.ui.graphics.SolidColor(KosmosTheme.colors.accent),
+                                    cursorBrush = androidx.compose.ui.graphics.SolidColor(KosmosTheme.colors.brand),
                                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                                         imeAction = androidx.compose.ui.text.input.ImeAction.Done
                                     ),
@@ -294,7 +294,7 @@ fun MemoryScreen(
                                 if (newTaskText.isNotBlank()) {
                                     Text(
                                         text = "추가",
-                                        color = KosmosTheme.colors.accent,
+                                        color = KosmosTheme.colors.brandText,
                                         style = MaterialTheme.typography.bodyMedium,
                                         modifier = Modifier
                                             .clickable { submitNewTask() }
@@ -351,7 +351,7 @@ fun MemoryScreen(
                             }
                             item(key = "completed-clear") {
                                 TextButton(onClick = { confirmClearCompleted = true }) {
-                                    Text("완료 항목 모두 지우기", color = KosmosTheme.colors.danger)
+                                    Text("완료 항목 모두 지우기", color = KosmosTheme.colors.dangerText)
                                 }
                             }
                         }
@@ -370,8 +370,8 @@ fun MemoryScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .glassEffect(
-                                        backgroundColor = KosmosTheme.colors.glass,
-                                        borderColor = KosmosTheme.colors.borderHigh,
+                                        backgroundColor = KosmosTheme.colors.surface,
+                                        borderColor = KosmosTheme.colors.border,
                                         shape = RoundedCornerShape(16.dp)
                                     )
                             ) {
@@ -392,7 +392,7 @@ fun MemoryScreen(
                                                 modifier = Modifier
                                                     .padding(start = 8.dp)
                                                     .background(
-                                                        color = KosmosTheme.colors.glass,
+                                                        color = KosmosTheme.colors.surface,
                                                         shape = RoundedCornerShape(6.dp)
                                                     )
                                                     .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -400,7 +400,7 @@ fun MemoryScreen(
                                         }
                                         Text(
                                             text = "✕",
-                                            color = KosmosTheme.colors.danger,
+                                            color = KosmosTheme.colors.dangerText,
                                             modifier = Modifier
                                                 .clickable { knowledgeToDelete = note }
                                                 .padding(start = 10.dp, end = 2.dp)
@@ -417,7 +417,7 @@ fun MemoryScreen(
                                                 Box(
                                                     modifier = Modifier
                                                         .background(
-                                                            color = KosmosTheme.colors.accent.copy(alpha = 0.15f),
+                                                            color = KosmosTheme.colors.brand.copy(alpha = 0.15f),
                                                             shape = RoundedCornerShape(8.dp)
                                                         )
                                                         .padding(horizontal = 10.dp, vertical = 4.dp)
@@ -425,7 +425,7 @@ fun MemoryScreen(
                                                     Text(
                                                         text = tag,
                                                         style = MaterialTheme.typography.labelSmall,
-                                                        color = KosmosTheme.colors.accent
+                                                        color = KosmosTheme.colors.brandText
                                                     )
                                                 }
                                             }
@@ -520,7 +520,7 @@ private fun BackupDialogs(
             body = "복원하면 현재 기기의 대화·지식·일정이 백업 파일의 내용으로 " +
                 "완전히 교체되며 되돌릴 수 없습니다. 계속하시겠습니까?",
             confirmText = "파일 선택",
-            confirmColor = KosmosTheme.colors.danger,
+            confirmColor = KosmosTheme.colors.dangerText,
             onConfirm = onConfirmImport,
             onDismiss = onDismiss
         )
@@ -543,7 +543,7 @@ private fun BackupDialogs(
         is BackupState.Failed -> {
             ConfirmDialog(
                 title = "백업 처리 실패",
-                titleColor = KosmosTheme.colors.danger,
+                titleColor = KosmosTheme.colors.dangerText,
                 body = state.message,
                 confirmText = "닫기",
                 showCancel = false,
@@ -564,7 +564,7 @@ private fun ConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     titleColor: Color = KosmosTheme.colors.textPrimary,
-    confirmColor: Color = KosmosTheme.colors.accent,
+    confirmColor: Color = KosmosTheme.colors.brandText,
     showCancel: Boolean = true,
     bodyMaxLines: Int = Int.MAX_VALUE
 ) {
@@ -607,7 +607,7 @@ fun TaskItemRow(
         modifier = Modifier
             .fillMaxWidth()
             .glassEffect(
-                backgroundColor = KosmosTheme.colors.glass,
+                backgroundColor = KosmosTheme.colors.surface,
                 borderColor = KosmosTheme.colors.border,
                 shape = RoundedCornerShape(16.dp)
             )
@@ -630,17 +630,17 @@ fun TaskItemRow(
                         .size(24.dp)
                         .border(
                             width = 1.dp,
-                            color = if (isCompleted) KosmosTheme.colors.success else KosmosTheme.colors.textMuted,
+                            color = if (isCompleted) KosmosTheme.colors.successText else KosmosTheme.colors.textMuted,
                             shape = CircleShape
                         )
                         .background(
-                            color = if (isCompleted) KosmosTheme.colors.success.copy(alpha = 0.1f) else Color.Transparent,
+                            color = if (isCompleted) KosmosTheme.colors.successText.copy(alpha = 0.1f) else Color.Transparent,
                             shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isCompleted) {
-                        Text("✓", color = KosmosTheme.colors.success, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("✓", color = KosmosTheme.colors.successText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -662,7 +662,7 @@ fun TaskItemRow(
                     Text(
                         text = "⏰ $remindAtDisplay",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isCompleted) KosmosTheme.colors.textMuted else KosmosTheme.colors.accent
+                        color = if (isCompleted) KosmosTheme.colors.textMuted else KosmosTheme.colors.brandText
                     )
                 }
             }
@@ -670,7 +670,7 @@ fun TaskItemRow(
             if (onDelete != null) {
                 Text(
                     text = "✕",
-                    color = KosmosTheme.colors.danger,
+                    color = KosmosTheme.colors.dangerText,
                     modifier = Modifier
                         .clickable(onClickLabel = "삭제") { onDelete() }
                         .padding(horizontal = 14.dp, vertical = 12.dp)

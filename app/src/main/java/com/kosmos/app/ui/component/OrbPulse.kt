@@ -40,8 +40,8 @@ fun OrbPulse(modifier: Modifier = Modifier) {
     )
 
     // [WHY] DrawScope는 @Composable이 아니므로 테마 토큰을 미리 읽어둔다.
-    val accent = KosmosTheme.colors.accent
-    val accentAlt = KosmosTheme.colors.accentAlt
+    val accent = KosmosTheme.colors.brand
+    val accentAlt = KosmosTheme.colors.brand
 
     Box(modifier = modifier.size(160.dp), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.size(160.dp)) {

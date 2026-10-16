@@ -173,12 +173,12 @@ private fun ListTab(viewModel: CalendarViewModel, today: java.time.LocalDate, on
         Box(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             when (val state = uiState) {
                 is CalendarUiState.Idle, is CalendarUiState.Loading -> {
-                    CircularProgressIndicator(color = KosmosTheme.colors.accent, modifier = Modifier.align(Alignment.Center))
+                    CircularProgressIndicator(color = KosmosTheme.colors.brand, modifier = Modifier.align(Alignment.Center))
                 }
                 is CalendarUiState.Error -> {
                     Text(
                         com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error),
-                        color = KosmosTheme.colors.danger,
+                        color = KosmosTheme.colors.dangerText,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
@@ -221,8 +221,8 @@ private fun DeviceCalendarNotice(
             .padding(horizontal = 20.dp)
             .fillMaxWidth()
             .glassEffect(
-                backgroundColor = KosmosTheme.colors.warning.copy(alpha = 0.15f),
-                borderColor = KosmosTheme.colors.warning.copy(alpha = 0.3f),
+                backgroundColor = KosmosTheme.colors.warningText.copy(alpha = 0.15f),
+                borderColor = KosmosTheme.colors.warningText.copy(alpha = 0.3f),
                 shape = RoundedCornerShape(16.dp)
             )
             .padding(16.dp)
@@ -252,10 +252,10 @@ fun DatePill(
     onClick: () -> Unit = {}
 ) {
     // 필터가 걸린 날짜는 테두리를 강조해 "이 날짜만 보고 있음"을 드러낸다
-    val bgColor = if (isSelected) KosmosTheme.colors.accent.copy(alpha = 0.1f) else KosmosTheme.colors.glass
+    val bgColor = if (isSelected) KosmosTheme.colors.brand.copy(alpha = 0.1f) else KosmosTheme.colors.surface
     val borderColor = when {
-        isFiltered -> KosmosTheme.colors.accent
-        isSelected -> KosmosTheme.colors.accent.copy(alpha = 0.5f)
+        isFiltered -> KosmosTheme.colors.brand
+        isSelected -> KosmosTheme.colors.brand.copy(alpha = 0.5f)
         else -> KosmosTheme.colors.border
     }
     Box(
@@ -267,12 +267,12 @@ fun DatePill(
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = dayOfWeek, color = if (isSelected) KosmosTheme.colors.accent else KosmosTheme.colors.textMuted, style = MaterialTheme.typography.labelMedium)
+            Text(text = dayOfWeek, color = if (isSelected) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted, style = MaterialTheme.typography.labelMedium)
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = dayOfMonth, color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             if (isSelected || isToday) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Box(modifier = Modifier.size(4.dp).background(KosmosTheme.colors.accent, androidx.compose.foundation.shape.CircleShape))
+                Box(modifier = Modifier.size(4.dp).background(KosmosTheme.colors.brand, androidx.compose.foundation.shape.CircleShape))
             }
         }
     }
@@ -281,7 +281,7 @@ fun DatePill(
 @Composable
 fun ScheduleContent(data: ScheduleData, sectionLabel: String = "오늘") {
     // [WHY] LazyListScope 람다는 @Composable이 아니므로 테마 토큰을 바깥에서 읽어둔다.
-    val eventAccents = listOf(KosmosTheme.colors.accent, KosmosTheme.colors.accentAlt, KosmosTheme.colors.warning)
+    val eventAccents = listOf(KosmosTheme.colors.brand, KosmosTheme.colors.successText, KosmosTheme.colors.warningText)
 
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -346,7 +346,7 @@ fun TodayEventCard(event: CalendarEvent, stripColor: Color, timeLabel: String? =
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
             .glassEffect(
-                backgroundColor = KosmosTheme.colors.glass,
+                backgroundColor = KosmosTheme.colors.surface,
                 borderColor = KosmosTheme.colors.border,
                 shape = RoundedCornerShape(16.dp)
             )

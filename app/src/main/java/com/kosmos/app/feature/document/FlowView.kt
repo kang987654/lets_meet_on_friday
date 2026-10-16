@@ -82,7 +82,7 @@ fun FlowView(
             ) {
                 if (document.truncated) {
                     item(key = "truncated") {
-                        Text("문서가 길어서 앞부분만 보여요", color = colors.warning, fontSize = 12.sp)
+                        Text("문서가 길어서 앞부분만 보여요", color = colors.warningText, fontSize = 12.sp)
                     }
                 }
                 itemsIndexed(document.blocks, key = { index, _ -> index }) { index, block ->
@@ -93,8 +93,8 @@ fun FlowView(
                         Box(
                             Modifier
                                 .fillMaxWidth()
-                                .background(if (picked) colors.accentGlow else androidx.compose.ui.graphics.Color.Transparent)
-                                .border(1.dp, if (picked) colors.accent else colors.border)
+                                .background(if (picked) colors.brandContainer else androidx.compose.ui.graphics.Color.Transparent)
+                                .border(1.dp, if (picked) colors.brand else colors.border)
                                 .clickable { onBlockClick(index) }
                                 .padding(6.dp)
                         ) { FlowBlockView(block, images, widthPx, scale) }
@@ -123,7 +123,7 @@ private fun FlowBlockView(block: FlowBlock, images: suspend (String, Int) -> Bit
         }
         is FlowBlock.Table -> FlowTable(block, scale)
         is FlowBlock.Image -> FlowImage(block.entryName, images, widthPx)
-        FlowBlock.PageBreak -> HorizontalDivider(Modifier.padding(vertical = 8.dp), color = colors.borderHigh)
+        FlowBlock.PageBreak -> HorizontalDivider(Modifier.padding(vertical = 8.dp), color = colors.border)
     }
 }
 
@@ -148,7 +148,7 @@ private fun FlowTableCell(cell: TableCell, scale: Float) {
             .width(CELL_WIDTH * cell.colSpan)
             .fillMaxHeight()
             .border(0.5.dp, colors.border)
-            .background(if (cell.merged) colors.glass else colors.surface)
+            .background(if (cell.merged) colors.surface else colors.surface)
             .padding(6.dp)
     ) {
         if (!cell.merged) {
@@ -166,7 +166,7 @@ private fun FlowImage(entryName: String, images: suspend (String, Int) -> Bitmap
     val bitmap by produceState<Bitmap?>(initialValue = null, entryName, widthPx) { value = images(entryName, widthPx) }
     val image = bitmap
     if (image == null || image.width == 0) {
-        Box(Modifier.fillMaxWidth().height(120.dp).background(KosmosTheme.colors.glass))
+        Box(Modifier.fillMaxWidth().height(120.dp).background(KosmosTheme.colors.surface))
     } else {
         Image(
             bitmap = image.asImageBitmap(),

@@ -68,7 +68,7 @@ fun EpisodeSheet(
             actionError?.let { message ->
                 Text(
                     text = message,
-                    color = KosmosTheme.colors.danger,
+                    color = KosmosTheme.colors.dangerText,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
@@ -130,7 +130,7 @@ fun EpisodeSheet(
                 Spacer(modifier = Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = { confirmDelete = true }) {
-                        Text("삭제", color = KosmosTheme.colors.danger)
+                        Text("삭제", color = KosmosTheme.colors.dangerText)
                     }
                     TextButton(onClick = { editing = true }) {
                         Text("수정", color = KosmosTheme.colors.textSecondary)
@@ -140,7 +140,7 @@ fun EpisodeSheet(
                         onDismiss()
                         onJumpToTimeline(current.startAt)
                     }) {
-                        Text("원문 대화 보기", color = KosmosTheme.colors.accent)
+                        Text("원문 대화 보기", color = KosmosTheme.colors.brandText)
                     }
                 }
             }
@@ -161,7 +161,7 @@ fun EpisodeSheet(
                         onChanged()
                         onDismiss()
                     })
-                }) { Text("삭제", color = KosmosTheme.colors.danger) }
+                }) { Text("삭제", color = KosmosTheme.colors.dangerText) }
             },
             dismissButton = {
                 TextButton(onClick = { confirmDelete = false }) { Text("취소") }
@@ -190,7 +190,7 @@ private fun EditForm(
         Row {
             Spacer(modifier = Modifier.weight(1f))
             TextButton(onClick = onCancel) { Text("취소", color = KosmosTheme.colors.textMuted) }
-            TextButton(onClick = { onSave(title, tags, summary) }) { Text("저장", color = KosmosTheme.colors.accent) }
+            TextButton(onClick = { onSave(title, tags, summary) }) { Text("저장", color = KosmosTheme.colors.brandText) }
         }
     }
 }
