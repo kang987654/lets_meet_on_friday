@@ -178,7 +178,7 @@ icons:
 
 **입력** — `surface`(또는 `surfaceSunk`) + `border` + `rounded.md`, 높이 ≥48, 포커스는 `brand` 테두리 1.5.
 
-**말풍선** — 사용자: `brandContainer`→`brandContainerEnd` 같은 색 그라데이션(대각선) + 옅은 테두리 — 개성 자리(아래 "개성"), `rounded.lg`(보낸 쪽 아래 모서리 4). 비서 답의 모양(맨 문장 / 카드)은 0.38.2 구조 결정(D6)을 따른다.
+**말풍선** — 사용자: `brandContainer`→`brandContainerEnd` 같은 색 그라데이션(대각선) + 옅은 테두리 — 개성 자리(아래 "개성"), `rounded.lg`(보낸 쪽 아래 모서리 4). 비서 답은 **카드**(`surface` + `border`, 받은 쪽 아래 모서리 4) 안에 문장과 결과 행(`surfaceSunk`, 누르면 시트)을 담는다 — 0.38.2 M0 결정. 읽기 버튼과 칩은 카드 밖 아래.
 
 **결과 카드** — `surface` + `border` + `rounded.md`. 구성: Duotone 아이콘 + `label` 종류(brandText) / `subtitle` 이름 / `number` 값. **보기 전용** — 카드 안에 바로 실행되는 버튼을 두지 않고, 누르면 시트가 열려 그 안에서 바꾼다(D6 ②). 카드는 그 순간의 사진이 아니라 대상의 **현재 상태**(미룸·취소함·울렸음)를 보여 준다.
 
