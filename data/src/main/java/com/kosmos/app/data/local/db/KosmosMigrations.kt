@@ -177,7 +177,22 @@ object KosmosMigrations {
         }
     }
 
+    /**
+     * 결과 카드(0.38.2) — `conversation` 에 결과 칸 3개, `task_item` 에 취소 시각.
+     *
+     * [WHY] 모두 nullable 이라 `DEFAULT` 를 쓰지 않는다(5→6 과 같은 경우 — 붙이면 Room 이 기대하는 DDL 과 어긋난다).
+     * 기존 메시지 = 결과 없음(글만), 기존 할 일 = 취소 안 됨이 사실에 맞다.
+     */
+    val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `conversation` ADD COLUMN `resultKind` TEXT")
+            db.execSQL("ALTER TABLE `conversation` ADD COLUMN `resultRef` TEXT")
+            db.execSQL("ALTER TABLE `conversation` ADD COLUMN `resultMeta` TEXT")
+            db.execSQL("ALTER TABLE `task_item` ADD COLUMN `cancelledAt` INTEGER")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
-        MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9
+        MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
     )
 }

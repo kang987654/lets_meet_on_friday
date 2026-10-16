@@ -40,6 +40,6 @@ abstract class KosmosDatabase : RoomDatabase() {
          * 현재 스키마 버전 — `@Database(version)` 과 백업 가져오기 검증의 단일 출처.
          * 올릴 때는 KosmosMigrations 에 경로를 추가하고 `data/schemas/` 에 JSON 이 생기는지 확인한다.
          */
-        const val SCHEMA_VERSION = 9
+        const val SCHEMA_VERSION = 10
     }
 }

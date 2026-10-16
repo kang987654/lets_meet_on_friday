@@ -35,5 +35,13 @@ data class ConversationEntity(
      * 렌더 시 episode 테이블에서 id 로 해석한다. thinkingProcess 가 Entity 칼럼이 없어 재로드
      * 시 소실됐던 전례가 있으므로 칩 데이터는 처음부터 영속한다.
      */
-    val recallEpisodeIds: String? = null
+    val recallEpisodeIds: String? = null,
+    /**
+     * 결과 카드(0.38.2) — `MessageResult.Kind` 이름·대상 id·근거 JSON. 셋 다 NULL = 결과 없음(옛 메시지 포함).
+     *
+     * [WHY] 대상 상태(미룸·취소함)는 여기 복사하지 않고 렌더 시 id 로 조회한다 — 카드는 그 순간의 사진이 아니라 현재 상태다(D6 ④).
+     */
+    val resultKind: String? = null,
+    val resultRef: String? = null,
+    val resultMeta: String? = null
 )

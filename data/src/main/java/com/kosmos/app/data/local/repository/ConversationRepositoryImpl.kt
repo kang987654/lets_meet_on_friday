@@ -27,7 +27,10 @@ class ConversationRepositoryImpl @Inject constructor(
                 // [WHY] 빈 목록은 NULL 로 — "회수 없음"과 "빈 CSV"를 구분할 이유가 없고
                 // NULL 이 마이그레이션 기본값과 일치한다.
                 recallEpisodeIds = message.recallEpisodeIds
-                    .takeIf { it.isNotEmpty() }?.joinToString(",")
+                    .takeIf { it.isNotEmpty() }?.joinToString(","),
+                resultKind = message.result?.kind?.name,
+                resultRef = message.result?.ref,
+                resultMeta = message.result?.meta
             )
         )
     }
@@ -83,7 +86,11 @@ fun ConversationEntity.toDomain(): ChatMessage {
         // [WHY] 저장과 대칭 — NULL/빈 문자열 모두 빈 목록으로. 여기서 빠뜨리면 thinkingProcess
         // 처럼 "저장은 되는데 재로드에서 소실"되는 결함이 재현된다 (매퍼 왕복 테스트가 고정).
         recallEpisodeIds = this.recallEpisodeIds
-            ?.split(",")?.mapNotNull { it.trim().ifEmpty { null } }?.distinct() ?: emptyList()
+            ?.split(",")?.mapNotNull { it.trim().ifEmpty { null } }?.distinct() ?: emptyList(),
+        // [WHY] 모르는 종류 이름(이후 판의 값을 옛 앱이 읽는 경우)은 결과 없음으로 — 글은 그대로 보인다.
+        result = this.resultKind
+            ?.let { kind -> com.kosmos.app.domain.model.MessageResult.Kind.entries.firstOrNull { it.name == kind } }
+            ?.let { kind -> this.resultRef?.let { com.kosmos.app.domain.model.MessageResult(kind, it, this.resultMeta) } }
     )
 }
 

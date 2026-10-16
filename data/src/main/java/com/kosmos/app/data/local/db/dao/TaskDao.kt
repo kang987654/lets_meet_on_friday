@@ -14,10 +14,10 @@ interface TaskDao {
     @Query("UPDATE task_item SET isCompleted = :isCompleted, completedAt = :completedAt WHERE id = :taskId")
     suspend fun updateCompletion(taskId: String, isCompleted: Boolean, completedAt: Long?)
 
-    @Query("SELECT * FROM task_item WHERE isCompleted = 0 ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
+    @Query("SELECT * FROM task_item WHERE isCompleted = 0 AND cancelledAt IS NULL ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
     suspend fun getPendingTasks(offset: Int, limit: Int): List<TaskEntity>
 
-    @Query("SELECT * FROM task_item WHERE isCompleted = 1 ORDER BY completedAt DESC, createdAt DESC LIMIT :limit OFFSET :offset")
+    @Query("SELECT * FROM task_item WHERE isCompleted = 1 AND cancelledAt IS NULL ORDER BY completedAt DESC, createdAt DESC LIMIT :limit OFFSET :offset")
     suspend fun getCompletedTasks(offset: Int, limit: Int): List<TaskEntity>
 
     @Query("DELETE FROM task_item WHERE id = :taskId")
@@ -29,17 +29,21 @@ interface TaskDao {
     @Query("SELECT * FROM task_item WHERE id = :taskId")
     suspend fun getById(taskId: String): TaskEntity?
 
+    // [WHY] 결과 카드가 대상의 현재 상태(미룸·울렸음·취소함)를 따라가야 한다 — 일회 조회가 아니라 흐름(0.38.2).
+    @Query("SELECT * FROM task_item WHERE id = :taskId")
+    fun observeById(taskId: String): kotlinx.coroutines.flow.Flow<TaskEntity?>
+
     // [WHY] 기억 화면 통계("남은 일 N · 완료 M")는 전체 기준이어야 한다 — 페이징 목록은
     // 미완료만, 그것도 로드된 페이지만 담아서 거기서 세면 완료 수가 늘 0이었다.
-    @Query("SELECT COUNT(*) FROM task_item WHERE isCompleted = 0")
+    @Query("SELECT COUNT(*) FROM task_item WHERE isCompleted = 0 AND cancelledAt IS NULL")
     suspend fun countPending(): Int
 
-    @Query("SELECT COUNT(*) FROM task_item WHERE isCompleted = 1")
+    @Query("SELECT COUNT(*) FROM task_item WHERE isCompleted = 1 AND cancelledAt IS NULL")
     suspend fun countCompleted(): Int
 
     // [WHY] remindAtIso 가 TEXT(ISO)라 SQL 시각 비교를 하지 않는다 — 시각 파싱·정렬은
     // Kotlin 몫이다 (GetTodayScheduleUseCase 전례). 개인 1인 규모라 전량 조회로 충분하다.
-    @Query("SELECT * FROM task_item WHERE remindAtIso IS NOT NULL AND remindedAtMs IS NULL AND isCompleted = 0")
+    @Query("SELECT * FROM task_item WHERE remindAtIso IS NOT NULL AND remindedAtMs IS NULL AND isCompleted = 0 AND cancelledAt IS NULL")
     suspend fun getActiveReminders(): List<TaskEntity>
 
     @Query("UPDATE task_item SET remindedAtMs = :remindedAtMs WHERE id = :taskId")

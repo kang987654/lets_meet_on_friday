@@ -31,7 +31,8 @@ class TaskRepositoryImpl @Inject constructor(
                 endDateIso = task.endDateIso,
                 description = task.description,
                 remindAtIso = task.remindAtIso,
-                remindedAtMs = task.remindedAtMs
+                remindedAtMs = task.remindedAtMs,
+                cancelledAt = task.cancelledAt
             )
         )
     }
@@ -83,7 +84,8 @@ class TaskRepositoryImpl @Inject constructor(
             description = description,
             createdAt = createdAt,
             remindAtIso = remindAtIso,
-            remindedAtMs = remindedAtMs
+            remindedAtMs = remindedAtMs,
+            cancelledAt = cancelledAt
         )
     }
 
