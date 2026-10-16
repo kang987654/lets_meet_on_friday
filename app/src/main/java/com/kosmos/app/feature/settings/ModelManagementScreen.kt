@@ -139,8 +139,8 @@ fun ModelManagementScreen(
                     )
                     
                     val canDownload = customUrl.isNotBlank()
-                    val btnBg = if (canDownload) KosmosTheme.colors.brand else KosmosTheme.colors.surface
-                    val btnText = if (canDownload) KosmosTheme.colors.onBrand else KosmosTheme.colors.textMuted
+                    val btnBg = if (canDownload) KosmosTheme.colors.brandSoft else KosmosTheme.colors.surface
+                    val btnText = if (canDownload) KosmosTheme.colors.onBrandSoft else KosmosTheme.colors.textMuted
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

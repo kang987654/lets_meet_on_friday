@@ -18,7 +18,7 @@ import com.kosmos.app.ui.theme.KosmosShapes
 import com.kosmos.app.ui.theme.KosmosTheme
 
 /**
- * 앱 버튼 — 주 버튼(하늘색 면 + 짙은 글자 굵게)과 보조 버튼(흰 면 + 테두리), 높이 48(DESIGN.md v3 Components).
+ * 앱 버튼 — 주 버튼(채도 낮춘 하늘 면 `brandSoft` + 진한 하늘 글자 굵게)과 보조 버튼(흰 면 + 테두리), 높이 48(DESIGN.md v3 Components).
  *
  * @param accent 주 버튼. 한 화면(시트)에 하나만 둔다. false 면 보조 버튼.
  * @param enabled false 면 누를 수 없고 가라앉은 면 + 흐린 글자가 된다.
@@ -34,7 +34,7 @@ fun KosmosButton(
     val colors = KosmosTheme.colors
     val face = when {
         !enabled -> Modifier.background(colors.surfaceSunk, KosmosShapes.md)
-        accent -> Modifier.background(colors.brand, KosmosShapes.md)
+        accent -> Modifier.background(colors.brandSoft, KosmosShapes.md)
         else -> Modifier.background(colors.surface, KosmosShapes.md).border(1.dp, colors.border, KosmosShapes.md)
     }
     Box(
@@ -49,7 +49,7 @@ fun KosmosButton(
             text = text,
             color = when {
                 !enabled -> colors.textMuted
-                accent -> colors.onBrand
+                accent -> colors.onBrandSoft
                 else -> colors.textPrimary
             },
             fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium,

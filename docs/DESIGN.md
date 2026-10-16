@@ -22,6 +22,8 @@ colors:
   brandContainer: "#D7F4FF"       # 옅은 브랜드 면 — 사용자 말풍선·선택된 칩
   brandContainerEnd: "#BDEAFA"    # 사용자 말풍선 그라데이션 끝(같은 색상, 조금 더 맑게) — textPrimary 11.7
   onBrand: "#222729"              # brand 면 위 글자(7.4) — 흰 글자 금지(2.5)
+  brandSoft: "#B4E4F6"            # 주 버튼 면 — brand 보다 채도를 낮춘 중간 하늘(0.38.1 M6 사용자 결정)
+  onBrandSoft: "#005B73"          # brandSoft 위 글자(5.6)
   brandText: "#006E8B"            # 링크·아이콘·강조 글자(5.8)
   dangerText: "#BA3630"           # 5.7
   successText: "#227C45"          # 5.2
@@ -40,6 +42,8 @@ colors-dark:
   brandContainer: "#133B49"
   brandContainerEnd: "#184C5E"    # textPrimary 7.9
   onBrand: "#111618"              # 9.0
+  brandSoft: "#1D4D5E"
+  onBrandSoft: "#70CCEE"          # 5.1
   brandText: "#70CCEE"            # 9.2
   dangerText: "#F7857D"           # 6.8
   successText: "#65C98C"          # 8.2
@@ -103,10 +107,10 @@ icons:
 ## Colors
 
 ### 브랜드
-- **하늘색 `brand` 는 면에만** — 주 버튼, 선택된 탭·칩 표시, 진행 바, 토글 켜짐. 글자·아이콘으로 쓰지 않는다(흰 배경 위 2.0:1).
+- **하늘색 `brand` 는 면에만** — 선택된 날짜·칩 표시, 진행 바, 토글 켜짐, 보내기 버튼. 글자·아이콘으로 쓰지 않는다(흰 배경 위 2.0:1).
 - 같은 색상의 **글자 단계 `brandText`** 가 링크·강조 글자·강조 아이콘을 맡는다(라이트는 짙게, 다크는 밝게).
 - **`brandContainer`** 는 옅은 브랜드 면 — 사용자 말풍선, 선택된 칩 바탕, 결과 카드의 Duotone 면.
-- 주 버튼 글자는 `onBrand`(짙은 글자). 하늘색 위 흰 글자는 대비 미달이라 쓰지 않는다.
+- 주 버튼은 꽉 찬 `brand` 가 아니라 채도를 낮춘 **`brandSoft` 면 + `onBrandSoft` 글자** — 흰 카드 위에서 꽉 찬 하늘색이 튀었다(사용자 지적). `brand` 면 위 글자는 `onBrand`(짙은 글자), 흰 글자는 대비 미달이라 쓰지 않는다.
 
 ### 표면
 - `bg` < `surface` 두 단계와 한 단계 낮은 `surfaceSunk`. 위계는 그림자가 아니라 **면의 밝기 차 + hairline `border`** 로 만든다.
@@ -165,7 +169,7 @@ icons:
 ## Components
 
 **버튼**
-- 주 버튼: `brand` 면 + `onBrand` 글자 700, `rounded.md`, 높이 48. 한 화면(시트)에 하나.
+- 주 버튼(`KosmosButton(accent = true)`·승인 시트): `brandSoft` 면 + `onBrandSoft` 글자 700, `rounded.md`, 높이 48. 한 화면(시트)에 하나. 채팅 안 승인 카드의 승인 버튼은 `brandContainer` 면 + 테두리 + `brandText`(0.38.2 에서 시트로 대체).
 - 보조 버튼: `surface` + `border` + `textPrimary`.
 - 글자 버튼(링크형): `brandText`, 위험 동작은 `dangerText`. 터치 영역 48dp.
 - 아이콘 버튼: 48dp 영역, 아이콘 24, `contentDescription` 필수. 글자 기호(✕ › ▾ +)를 버튼으로 쓰지 않는다.

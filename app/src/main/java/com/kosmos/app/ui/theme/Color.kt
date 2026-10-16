@@ -42,6 +42,10 @@ data class KosmosColors(
     val brandContainerEnd: Color,
     /** [brand] 면 위 글자·아이콘 */
     val onBrand: Color,
+    /** 주 버튼 면 — [brand] 보다 채도를 낮춘 중간 하늘색(꽉 찬 brand 는 흰 카드 위에서 튀었다, 0.38.1 M6 사용자 결정) */
+    val brandSoft: Color,
+    /** [brandSoft] 면 위 글자 — 라이트는 brandText 보다 한 단계 진하게(4.5:1) */
+    val onBrandSoft: Color,
     /** 링크·강조 글자·강조 아이콘 */
     val brandText: Color,
     // 상태 (글자·아이콘용, 면은 alpha 를 낮춰 쓴다)
@@ -65,6 +69,8 @@ val LightColors = KosmosColors(
     brandContainer = Color(0xFFD7F4FF),
     brandContainerEnd = Color(0xFFBDEAFA),
     onBrand = Color(0xFF222729),
+    brandSoft = Color(0xFFB4E4F6),
+    onBrandSoft = Color(0xFF005B73),
     brandText = Color(0xFF006E8B),
     dangerText = Color(0xFFBA3630),
     successText = Color(0xFF227C45),
@@ -85,6 +91,8 @@ val DarkColors = KosmosColors(
     brandContainer = Color(0xFF133B49),
     brandContainerEnd = Color(0xFF184C5E),
     onBrand = Color(0xFF111618),
+    brandSoft = Color(0xFF1D4D5E),
+    onBrandSoft = Color(0xFF70CCEE),
     brandText = Color(0xFF70CCEE),
     dangerText = Color(0xFFF7857D),
     successText = Color(0xFF65C98C),

@@ -33,6 +33,11 @@ class ThemeViewModel @Inject constructor(
         .map { ThemeMode.fromKey(it) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
 
+    /** 저장값을 읽기 전에는 null — 창 바탕 동기화([syncApplicationNightMode])가 초기값(SYSTEM)으로 한 번 뒤집히지 않게. */
+    val persistedThemeMode: StateFlow<ThemeMode?> = settingsDataStore.themeModeFlow
+        .map<String, ThemeMode?> { ThemeMode.fromKey(it) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             settingsDataStore.saveThemeMode(mode.key)

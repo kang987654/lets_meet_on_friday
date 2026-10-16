@@ -49,6 +49,12 @@ class DocumentViewerActivity : ComponentActivity() {
         setContent {
             val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
             val fontMode by themeViewModel.fontMode.collectAsStateWithLifecycle()
+            // [WHY] 창 바탕(앱 시작 순간)도 앱 테마를 따르게 — 저장값을 읽은 뒤 시스템의 앱별 야간 모드에 알린다.
+            val persistedThemeMode by themeViewModel.persistedThemeMode.collectAsStateWithLifecycle()
+            val context = androidx.compose.ui.platform.LocalContext.current
+            androidx.compose.runtime.LaunchedEffect(persistedThemeMode) {
+                persistedThemeMode?.let { com.kosmos.app.ui.theme.syncApplicationNightMode(context, it) }
+            }
             val state by viewModel.state.collectAsStateWithLifecycle()
             val textScaleStep by viewModel.textScaleStep.collectAsStateWithLifecycle()
             val selection by viewModel.selection.collectAsStateWithLifecycle()

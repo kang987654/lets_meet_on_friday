@@ -71,9 +71,9 @@ fun ApprovalSheet(
                     onClick = onApprove,
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = KosmosTheme.colors.brand)
+                    colors = ButtonDefaults.buttonColors(containerColor = KosmosTheme.colors.brandSoft)
                 ) {
-                    Text("승인", color = KosmosTheme.colors.onBrand, fontWeight = FontWeight.Bold)
+                    Text("승인", color = KosmosTheme.colors.onBrandSoft, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(modifier = Modifier.height(32.dp))
