@@ -45,8 +45,9 @@ class MainActivity : ComponentActivity() {
             val themeViewModel: com.kosmos.app.ui.theme.ThemeViewModel =
                 androidx.lifecycle.viewmodel.compose.viewModel()
             val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
+            val fontMode by themeViewModel.fontMode.collectAsStateWithLifecycle()
 
-            com.kosmos.app.ui.theme.KosmosTheme(themeMode = themeMode) {
+            com.kosmos.app.ui.theme.KosmosTheme(themeMode = themeMode, fontMode = fontMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

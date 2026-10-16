@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.document
 
+import androidx.compose.material3.MaterialTheme
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -105,7 +106,7 @@ fun PdfView(
         Text(
             text = "$currentPage / ${pages.pageCount}",
             color = colors.textSecondary,
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.labelMedium,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 16.dp)
@@ -127,7 +128,7 @@ private fun PdfPage(pages: PdfPages, index: Int, renderWidthPx: Int, width: andr
     ) {
         val image = bitmap
         if (image == null) {
-            Text("${index + 1}쪽", color = KosmosTheme.colors.textMuted, fontSize = 12.sp)
+            Text("${index + 1}쪽", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.labelMedium)
         } else {
             Image(
                 bitmap = image.asImageBitmap(),

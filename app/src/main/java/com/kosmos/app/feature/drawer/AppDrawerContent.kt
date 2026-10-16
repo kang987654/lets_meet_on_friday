@@ -101,10 +101,7 @@ fun AppDrawerContent(
                 value = query,
                 onValueChange = viewModel::onQueryChanged,
                 singleLine = true,
-                textStyle = TextStyle(
-                    color = KosmosTheme.colors.textPrimary,
-                    fontSize = 13.sp
-                ),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = KosmosTheme.colors.textPrimary),
                 cursorBrush = SolidColor(KosmosTheme.colors.brand),
                 modifier = Modifier.fillMaxWidth(),
                 decorationBox = { inner ->
@@ -112,7 +109,7 @@ fun AppDrawerContent(
                         Text(
                             text = "기억 검색…",
                             color = KosmosTheme.colors.textMuted,
-                            fontSize = 13.sp
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
                     inner()
@@ -308,8 +305,7 @@ private fun DrawerTile(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
-            fontSize = 10.sp,
-            letterSpacing = 0.5.sp,
+            style = MaterialTheme.typography.labelMedium,
             color = KosmosTheme.colors.textMuted
         )
     }

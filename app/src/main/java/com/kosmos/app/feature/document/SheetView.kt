@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.document
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -76,7 +77,7 @@ fun SheetView(
                 Text(
                     text = "나머지 행을 읽는 중…",
                     color = colors.textMuted,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
@@ -84,7 +85,7 @@ fun SheetView(
                 Text(
                     text = "파일이 커서 앞부분(${sheet.rows.lastOrNull()?.index?.plus(1) ?: 0}행까지)만 보여요",
                     color = colors.warningText,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }

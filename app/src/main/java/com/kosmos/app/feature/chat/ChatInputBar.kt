@@ -104,7 +104,7 @@ fun ChatInputBar(
                 androidx.compose.material3.Text(
                     text = "문서를 읽는 중…",
                     color = KosmosTheme.colors.textSecondary,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(start = 24.dp, top = 8.dp)
                 )
             }

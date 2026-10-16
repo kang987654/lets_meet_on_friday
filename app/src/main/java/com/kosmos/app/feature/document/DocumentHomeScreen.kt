@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.document
 
+import androidx.compose.material3.MaterialTheme
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -100,11 +101,11 @@ fun DocumentHomeScreen(
                         .combinedClickable(onClick = { picker.launch(DocumentType.PICKER_MIME_TYPES.toTypedArray()) })
                         .padding(16.dp)
                 ) {
-                    Text("📂  파일 열기", color = colors.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("📂  파일 열기", color = colors.textPrimary, style = MaterialTheme.typography.titleMedium)
                     Text(
                         "PDF · 엑셀(xlsx) · CSV · 워드(docx) · 한글(hwpx) — AI 를 켜지 않고 가볍게 열어요",
                         color = colors.textSecondary,
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
@@ -113,7 +114,7 @@ fun DocumentHomeScreen(
                 Text(
                     "최근 문서",
                     color = colors.textMuted,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(top = 12.dp, bottom = 2.dp, start = 4.dp)
                 )
             }
@@ -122,7 +123,7 @@ fun DocumentHomeScreen(
                     Text(
                         "여기서 연 문서가 쌓여요. 다른 앱에서 '연결 프로그램'으로 연 문서는 남지 않아요.",
                         color = colors.textMuted,
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(start = 4.dp)
                     )
                 }
@@ -164,11 +165,11 @@ private fun RecentRow(document: RecentDocument, onClick: () -> Unit, onLongClick
     ) {
         Text(documentIcon(document), fontSize = 20.sp)
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
-            Text(document.name, color = colors.textPrimary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(document.name, color = colors.textPrimary, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 "${IsoDateTimeParser.monthDayKorean(document.openedAt)} · ${IsoDateTimeParser.timeKorean(document.openedAt)}",
                 color = colors.textMuted,
-                fontSize = 11.sp
+                style = MaterialTheme.typography.labelMedium
             )
         }
     }

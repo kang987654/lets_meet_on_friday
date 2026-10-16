@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.document
 
+import androidx.compose.material3.MaterialTheme
 import android.content.ClipData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -75,7 +76,7 @@ fun DocumentViewerScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(title, color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(title, color = colors.textPrimary, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 },
                 navigationIcon = { TextButton(onClick = onClose) { Text("닫기", color = colors.brandText) } },
                 actions = {
@@ -85,8 +86,8 @@ fun DocumentViewerScreen(
                         TextButton(onClick = selectionActions.start) { Text("채팅으로", color = colors.brandText) }
                     }
                     if (state is DocumentViewerState.Flow) {
-                        TextButton(onClick = { onTextScale(-1) }, enabled = textScaleStep > 0) { Text("가−", color = colors.brandText, fontSize = 13.sp) }
-                        TextButton(onClick = { onTextScale(1) }, enabled = textScaleStep < 2) { Text("가+", color = colors.brandText, fontSize = 17.sp) }
+                        TextButton(onClick = { onTextScale(-1) }, enabled = textScaleStep > 0) { Text("가−", color = colors.brandText, style = MaterialTheme.typography.labelMedium) }
+                        TextButton(onClick = { onTextScale(1) }, enabled = textScaleStep < 2) { Text("가+", color = colors.brandText, style = MaterialTheme.typography.titleMedium) }
                     }
                     if (state is DocumentViewerState.Pdf) {
                         // 버튼은 1배 → 1.5배 → 2배 → 1배로 돈다(두 손가락 확대와 같은 값을 쓴다).
@@ -172,7 +173,7 @@ private fun SelectionBar(selection: ChatSelection, actions: SelectionActions) {
             .navigationBarsPadding()
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        Text(message, color = if (preview?.truncated == true) colors.warningText else colors.textSecondary, fontSize = 12.sp)
+        Text(message, color = if (preview?.truncated == true) colors.warningText else colors.textSecondary, style = MaterialTheme.typography.bodyMedium)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = actions.cancel) { Text("취소", color = colors.textSecondary) }
             TextButton(onClick = actions.send, enabled = preview != null) { Text("채팅으로 보내기", color = if (preview != null) colors.brandText else colors.textMuted) }
@@ -197,7 +198,7 @@ private fun SheetTabs(names: List<String>, selected: Int, onSelect: (Int) -> Uni
             Text(
                 text = name,
                 color = if (isSelected) colors.onBrand else colors.textSecondary,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.labelMedium,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                 maxLines = 1,
                 modifier = Modifier

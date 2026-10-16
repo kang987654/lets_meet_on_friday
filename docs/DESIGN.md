@@ -14,7 +14,7 @@ colors:
   bg: "#F5FBFE"
   surface: "#FFFFFF"
   surfaceSunk: "#EBF1F4"          # 분할 버튼 바탕·입력 바탕 등 한 단계 가라앉은 면
-  border: "#D9DFE2"               # hairline
+  border: "#D9E6EC"               # hairline — 하늘빛(회색은 흰 박스 경계가 탁해 보였다, 0.38.1 M3)
   textPrimary: "#222729"          # 15.1
   textSecondary: "#515659"        # 7.4
   textMuted: "#676D6F"            # 5.3 — 날짜·태그·보조 라벨
@@ -127,8 +127,12 @@ icons:
 - **하다 라운드** 400/500/700 세 굵기(앱에 원본 탑재, 서브셋 없음). Light·Black 은 쓰지 않는다.
 - **설정의 "앱 글꼴 / 시스템 글꼴"** — 시스템 글꼴 모드에서는 기기에서 고른 글꼴을 같은 크기·굵기 단계로 따른다. 두 모드 모두 줄 높이·최소 폭을 글꼴 모양에 기대지 않는다.
 - 단계는 위 7개뿐. 화면에서 `fontSize` 를 직접 쓰지 않는다. 숫자는 `number` 단계와 tabular 숫자.
+  구현: `ui/theme/Type.kt` 가 7단계를 Material3 역할 15개에 모두 싣는다(표는 그 파일 KDoc) — 화면은 `MaterialTheme.typography.<역할>`.
+  `BasicTextField` 는 기본 글자 스타일을 물려받지 않으니 `textStyle = MaterialTheme.typography.<역할>.copy(...)` 로 준다.
+- 예외: 문서 뷰어 본문(`FlowView`·`SheetView` 의 셀)은 확대 배율을 곱하는 읽기용 글자라 직접 크기를 쓴다(글꼴은 단계와 같다).
 - 한자는 글꼴에 없어 시스템 글꼴로 섞여 보인다(알려진 한계).
-- 위젯(Glance)은 시스템 글꼴.
+- 위젯(Glance)은 Compose 단계를 쓸 수 없어 시스템 글꼴 + 직접 크기(같은 수치를 따른다).
+- 라이선스: SIL OFL 1.1 — 고지는 `app/src/main/assets/licenses/HadaRound-OFL.txt`(구성 글꼴 저작권 포함).
 
 ---
 

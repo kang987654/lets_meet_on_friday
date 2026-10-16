@@ -28,6 +28,19 @@ enum class ThemeMode(val key: String, val label: String) {
 }
 
 /**
+ * [FontMode]
+ * 설정에서 고르는 글꼴 — 앱 글꼴(하다 라운드)이나 기기에서 고른 글꼴. 크기·굵기 단계는 같다(DESIGN.md v3 Typography).
+ */
+enum class FontMode(val key: String, val label: String) {
+    APP("APP", "앱 글꼴"),
+    SYSTEM("SYSTEM", "시스템 글꼴");
+
+    companion object {
+        fun fromKey(key: String?): FontMode = entries.firstOrNull { it.key == key } ?: APP
+    }
+}
+
+/**
  * Material3 컴포넌트가 읽는 색 역할을 [KosmosColors] 로만 채운다.
  *
  * [WHY] 비워 둔 역할(surfaceContainer* 등)은 M3 기본 보라 계열로 채워져 시트·메뉴·대화상자가 앱 팔레트와 어긋났다.
@@ -78,13 +91,14 @@ private fun schemeOf(colors: KosmosColors): ColorScheme {
 /**
  * [KosmosTheme]
  * 앱 전역 테마. 선택된 [ThemeMode]에 따라 라이트/다크 팔레트를 [LocalKosmosColors]로 제공하고
- * Material3 ColorScheme·상태바 외관을 함께 동기화합니다. (ADR-005)
+ * Material3 ColorScheme·상태바 외관을 함께 동기화합니다. (ADR-005) [FontMode] 에 따라 글자 단계의 글꼴(하다 라운드/기기 글꼴)을 고릅니다.
  *
  * 화면에서는 `KosmosTheme.colors.<토큰>`으로 색상에 접근합니다.
  */
 @Composable
 fun KosmosTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
+    fontMode: FontMode = FontMode.APP,
     content: @Composable () -> Unit
 ) {
     val useDark = when (themeMode) {
@@ -113,7 +127,7 @@ fun KosmosTheme(
     CompositionLocalProvider(LocalKosmosColors provides kosmosColors) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = AppTypography,
+            typography = if (fontMode == FontMode.APP) AppTypography else SystemTypography,
             content = content
         )
     }

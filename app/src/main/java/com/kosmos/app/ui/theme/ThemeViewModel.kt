@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 /**
  * [ThemeViewModel]
- * 앱 전역 테마 모드(시스템/라이트/다크)를 보관하고 DataStore에 영속하는 뷰모델입니다. (ADR-005)
+ * 앱 전역 테마 모드(시스템/라이트/다크)와 글꼴 모드(앱/시스템)를 보관하고 DataStore에 영속하는 뷰모델입니다. (ADR-005)
  *
  * ### Architecture Context
  * - **Layer**: UI (Theme)
@@ -36,6 +36,16 @@ class ThemeViewModel @Inject constructor(
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             settingsDataStore.saveThemeMode(mode.key)
+        }
+    }
+
+    val fontMode: StateFlow<FontMode> = settingsDataStore.fontModeFlow
+        .map { FontMode.fromKey(it) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, FontMode.APP)
+
+    fun setFontMode(mode: FontMode) {
+        viewModelScope.launch {
+            settingsDataStore.saveFontMode(mode.key)
         }
     }
 }

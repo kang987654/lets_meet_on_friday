@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.document
 
+import androidx.compose.material3.MaterialTheme
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -82,7 +83,7 @@ fun FlowView(
             ) {
                 if (document.truncated) {
                     item(key = "truncated") {
-                        Text("문서가 길어서 앞부분만 보여요", color = colors.warningText, fontSize = 12.sp)
+                        Text("문서가 길어서 앞부분만 보여요", color = colors.warningText, style = MaterialTheme.typography.labelMedium)
                     }
                 }
                 itemsIndexed(document.blocks, key = { index, _ -> index }) { index, block ->

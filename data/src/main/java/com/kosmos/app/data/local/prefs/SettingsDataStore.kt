@@ -22,6 +22,7 @@ class SettingsDataStore @Inject constructor(
         private val MAX_TOKENS_KEY = intPreferencesKey("max_tokens")
         private val WEB_SEARCH_ENABLED_KEY = booleanPreferencesKey("web_search_enabled")
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
+        private val FONT_MODE_KEY = stringPreferencesKey("font_mode")
         private val BRIEFING_ENABLED_KEY = booleanPreferencesKey("briefing_enabled")
         private val BRIEFING_TIME_MINUTES_KEY = intPreferencesKey("briefing_time_minutes")
         private val AUTO_EXTRACT_ENABLED_KEY = booleanPreferencesKey("auto_extract_enabled")
@@ -101,6 +102,17 @@ class SettingsDataStore @Inject constructor(
     suspend fun saveThemeMode(mode: String) {
         dataStore.edit { prefs ->
             prefs[THEME_MODE_KEY] = mode
+        }
+    }
+
+    // [WHY] 글꼴 모드도 UI enum(FontMode)의 키 문자열로만 다룬다(APP/SYSTEM). 기본값 APP — 하다 라운드(DESIGN.md v3 Typography).
+    val fontModeFlow: Flow<String> = dataStore.data.map {
+        it[FONT_MODE_KEY] ?: "APP"
+    }
+
+    suspend fun saveFontMode(mode: String) {
+        dataStore.edit { prefs ->
+            prefs[FONT_MODE_KEY] = mode
         }
     }
 

@@ -72,7 +72,7 @@ fun ApprovalCardScaffold(
                     .background(KosmosTheme.colors.brand, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("K", color = KosmosTheme.colors.onBrand, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("K", color = KosmosTheme.colors.onBrand, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(

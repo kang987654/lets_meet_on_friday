@@ -36,6 +36,7 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
+    val fontMode by themeViewModel.fontMode.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
 
     Column(
@@ -127,6 +128,15 @@ fun SettingsScreen(
                 options = com.kosmos.app.ui.theme.ThemeMode.entries.map { it to it.label },
                 selected = themeMode,
                 onSelect = themeViewModel::setThemeMode
+            )
+        }
+
+        // [WHY] 하다 라운드가 기본이지만 기기 글꼴을 쓰는 사람도 있다 — 크기·굵기 단계는 같고 글꼴만 바뀐다(DESIGN.md v3 Typography).
+        SectionBox(title = "글꼴") {
+            com.kosmos.app.ui.component.GlassSegmentedControl(
+                options = com.kosmos.app.ui.theme.FontMode.entries.map { it to it.label },
+                selected = fontMode,
+                onSelect = themeViewModel::setFontMode
             )
         }
 
@@ -441,7 +451,7 @@ private fun SectionBox(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleSmall.copy(fontSize = 12.sp),
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = KosmosTheme.colors.textMuted,
                     letterSpacing = 1.sp
