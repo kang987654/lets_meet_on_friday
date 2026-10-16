@@ -37,6 +37,14 @@ class DocumentViewerActivity : ComponentActivity() {
     private val viewModel: DocumentViewerViewModel by viewModels()
     private val themeViewModel: ThemeViewModel by viewModels()
 
+    // [WHY] 창 바탕(다음 실행의 시작 순간)이 앱 테마를 따르게 — 시스템의 앱별 야간 모드에 알리는 것은 화면이 뒤로 갈 때 한다.
+    // 전환하는 순간에는 설정 변경 신호를 만들지 않는다 — 재생성은 매니페스트 configChanges=uiMode 로 막았고(실기기 relaunch 55ms 원인),
+    // 창 바탕은 다음 실행에만 쓰이므로 여기서 알려도 충분하다.
+    override fun onStop() {
+        super.onStop()
+        themeViewModel.persistedThemeMode.value?.let { com.kosmos.app.ui.theme.syncApplicationNightMode(this, it) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // [WHY] 시스템 바를 투명하게 두고 앱 바탕이 비치게 한다 — 인셋은 각 화면의 상단 바·입력바가 진다(DESIGN.md "시스템 바").
@@ -49,12 +57,6 @@ class DocumentViewerActivity : ComponentActivity() {
         setContent {
             val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
             val fontMode by themeViewModel.fontMode.collectAsStateWithLifecycle()
-            // [WHY] 창 바탕(앱 시작 순간)도 앱 테마를 따르게 — 저장값을 읽은 뒤 시스템의 앱별 야간 모드에 알린다.
-            val persistedThemeMode by themeViewModel.persistedThemeMode.collectAsStateWithLifecycle()
-            val context = androidx.compose.ui.platform.LocalContext.current
-            androidx.compose.runtime.LaunchedEffect(persistedThemeMode) {
-                persistedThemeMode?.let { com.kosmos.app.ui.theme.syncApplicationNightMode(context, it) }
-            }
             val state by viewModel.state.collectAsStateWithLifecycle()
             val textScaleStep by viewModel.textScaleStep.collectAsStateWithLifecycle()
             val selection by viewModel.selection.collectAsStateWithLifecycle()

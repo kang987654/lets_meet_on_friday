@@ -36,12 +36,16 @@
              onNewIntent 를 타지 않는다. 인텐트에도 FLAG_ACTIVITY_SINGLE_TOP 이 짝으로 필요.
              adjustResize (0.36.1) — 지정하지 않으면 시스템이 창을 키보드만큼 밀어 올리고(pan) 입력바의 imePadding 이 한 번 더
              올려, 입력바와 키보드 사이에 키보드 높이만 한 빈칸이 생겼다(실기기·에뮬레이터 재현). edge-to-edge 에서 adjustResize 는
-             창을 줄이지 않고 IME 인셋만 넘기므로 imePadding 하나만 남는다. -->
+             창을 줄이지 않고 IME 인셋만 넘기므로 imePadding 하나만 남는다.
+             configChanges=uiMode (0.38.1): 앱 테마를 앱별 야간 모드에도 알리면(syncApplicationNightMode) 시스템이 화면을 통째로
+             다시 만들어 전환이 끊겼다(실기기 relaunch 55ms·끊긴 프레임 46ms) — 색은 Compose 테마가 그리므로 다시 만들 필요가 없다.
+             알리는 시점도 화면이 뒤로 갈 때(onStop)로 옮겼다. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize"
+            android:configChanges="uiMode"
             android:theme="@style/Theme.Kosmos">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -68,6 +72,7 @@
             android:taskAffinity=""
             android:autoRemoveFromRecents="true"
             android:label="문서 보기"
+            android:configChanges="uiMode"
             android:theme="@style/Theme.Kosmos">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
