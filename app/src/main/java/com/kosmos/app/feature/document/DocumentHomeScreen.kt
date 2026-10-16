@@ -101,7 +101,10 @@ fun DocumentHomeScreen(
                         .combinedClickable(onClick = { picker.launch(DocumentType.PICKER_MIME_TYPES.toTypedArray()) })
                         .padding(16.dp)
                 ) {
-                    Text("📂  파일 열기", color = colors.textPrimary, style = MaterialTheme.typography.titleMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_folder_open, contentDescription = null, tint = colors.brandText, modifier = Modifier.padding(end = 8.dp))
+                        Text("파일 열기", color = colors.textPrimary, style = MaterialTheme.typography.titleMedium)
+                    }
                     Text(
                         "PDF · 엑셀(xlsx) · CSV · 워드(docx) · 한글(hwpx) — AI 를 켜지 않고 가볍게 열어요",
                         color = colors.textSecondary,
@@ -163,7 +166,7 @@ private fun RecentRow(document: RecentDocument, onClick: () -> Unit, onLongClick
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(documentIcon(document), fontSize = 20.sp)
+        com.kosmos.app.ui.component.KosmosIcon(documentIcon(document), contentDescription = null, tint = colors.textSecondary)
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
             Text(document.name, color = colors.textPrimary, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
@@ -175,11 +178,12 @@ private fun RecentRow(document: RecentDocument, onClick: () -> Unit, onLongClick
     }
 }
 
-internal fun documentIcon(document: RecentDocument): String = when (DocumentType.detect(document.mimeType, document.name)) {
-    DocumentType.PDF -> "📕"
-    DocumentType.XLSX -> "📊"
-    DocumentType.CSV -> "📋"
-    DocumentType.DOCX -> "📘"
-    DocumentType.HWPX -> "📗"
-    DocumentType.UNSUPPORTED -> "📄"
+@androidx.annotation.DrawableRes
+internal fun documentIcon(document: RecentDocument): Int = when (DocumentType.detect(document.mimeType, document.name)) {
+    DocumentType.PDF -> com.kosmos.app.R.drawable.ic_ph_file_pdf
+    DocumentType.XLSX -> com.kosmos.app.R.drawable.ic_ph_file_xls
+    DocumentType.CSV -> com.kosmos.app.R.drawable.ic_ph_file_csv
+    DocumentType.DOCX -> com.kosmos.app.R.drawable.ic_ph_file_doc
+    DocumentType.HWPX -> com.kosmos.app.R.drawable.ic_ph_file_text
+    DocumentType.UNSUPPORTED -> com.kosmos.app.R.drawable.ic_ph_file
 }

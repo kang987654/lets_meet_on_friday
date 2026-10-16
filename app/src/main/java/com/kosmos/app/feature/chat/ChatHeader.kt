@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.chat
 
+import androidx.compose.ui.res.painterResource
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -26,8 +27,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kosmos.app.ui.component.glassEffect
@@ -68,7 +67,7 @@ fun CustomChatHeader(
             modifier = Modifier.size(40.dp)
         ) {
             androidx.compose.material3.Icon(
-                imageVector = Icons.Default.Menu,
+                painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_list),
                 contentDescription = "메뉴",
                 tint = KosmosTheme.colors.textSecondary,
                 modifier = Modifier.size(22.dp)
@@ -106,15 +105,29 @@ fun CustomChatHeader(
         val capsule = formatStatusCapsule(deviceStatus)
         if (capsule.isNotEmpty() || warningMessage != null) {
             val warning = warningMessage != null
-            Text(
-                text = if (warning) "⚠ ${capsule.ifEmpty { "발열 주의" }}" else capsule,
-                color = if (warning) KosmosTheme.colors.warningText else KosmosTheme.colors.textSecondary,
-                style = MaterialTheme.typography.labelSmall,
+            val capsuleColor = if (warning) KosmosTheme.colors.warningText else KosmosTheme.colors.textSecondary
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .glassEffect(shape = RoundedCornerShape(99.dp))
                     .clickable(onClick = onStatusClick)
                     .padding(horizontal = 10.dp, vertical = 5.dp)
-            )
+            ) {
+                if (warning || deviceStatus.temperatureCelsius > 0f) {
+                    com.kosmos.app.ui.component.KosmosIcon(
+                        if (warning) com.kosmos.app.R.drawable.ic_ph_warning else com.kosmos.app.R.drawable.ic_ph_thermometer,
+                        contentDescription = null,
+                        size = 14.dp,
+                        tint = capsuleColor,
+                        modifier = Modifier.padding(end = 2.dp)
+                    )
+                }
+                Text(
+                    text = if (warning) capsule.ifEmpty { "발열 주의" } else capsule,
+                    color = capsuleColor,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
         }
     }
 }
@@ -172,21 +185,21 @@ fun StatusDetailSheet(
     }
 }
 
-/** 캡슐용 축약 포맷 — `🌡36° · 4.1GB · 9.6t/s`. 상세 수치는 [formatDeviceStatus](시트)가 담당한다. */
+/** 캡슐용 축약 포맷 — `36° · 4.1GB · 9.6t/s`(온도 아이콘은 화면이 앞에 붙인다). 상세 수치는 [formatDeviceStatus](시트)가 담당한다. */
 internal fun formatStatusCapsule(status: com.kosmos.app.runtime.metrics.DeviceStatus): String {
     val parts = mutableListOf<String>()
-    if (status.temperatureCelsius > 0f) parts += "🌡%.0f°".format(status.temperatureCelsius)
+    if (status.temperatureCelsius > 0f) parts += "%.0f°".format(status.temperatureCelsius)
     // 앱 PSS — 3.6GB 모델이 차지하는 몫. 시스템 전체 사용량은 시트에서 (사용자 요청 2026-08-15).
     if (status.appMemoryBytes > 0L) parts += "%.1fGB".format(status.appMemoryBytes.toGigabytes())
     status.tokensPerSecond?.let { parts += "%.1ft/s".format(it) }
     return parts.joinToString(" · ")
 }
 
-/** `🌡 41.2°C · RAM 3.4/8.0GB(앱 4.1GB) · 12.4 tok/s` */
+/** `온도 41.2°C · RAM 3.4/8.0GB(앱 4.1GB) · 12.4 tok/s` */
 internal fun formatDeviceStatus(status: com.kosmos.app.runtime.metrics.DeviceStatus): String {
     val parts = mutableListOf<String>()
     if (status.temperatureCelsius > 0f) {
-        parts += "🌡 %.1f°C".format(status.temperatureCelsius)
+        parts += "온도 %.1f°C".format(status.temperatureCelsius)
     }
     if (status.memoryTotalBytes > 0L) {
         val ram = "RAM %.1f/%.1fGB".format(

@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.settings
 
+import androidx.compose.ui.res.painterResource
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.kosmos.app.platform.notification.NotificationAccess
@@ -17,8 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
@@ -303,7 +302,7 @@ fun SettingsScreen(
                         color = KosmosTheme.colors.textMuted
                     )
                 }
-                Text("›", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.titleLarge)
+                com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_caret_right, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textMuted)
             }
         }
 
@@ -443,7 +442,7 @@ private fun SectionBox(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Default.Settings,
+                    painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_gear_six),
                     contentDescription = null,
                     tint = KosmosTheme.colors.textMuted,
                     modifier = Modifier.size(16.dp)

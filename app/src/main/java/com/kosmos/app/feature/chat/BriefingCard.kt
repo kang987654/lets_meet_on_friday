@@ -55,7 +55,7 @@ fun BriefingCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(text = "☀️", fontSize = 14.sp)
+            com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_sun, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText)
             Text(
                 text = "아침 브리핑",
                 style = MaterialTheme.typography.labelSmall,

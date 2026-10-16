@@ -120,13 +120,9 @@ fun ProfileSheet(
                             color = KosmosTheme.colors.textPrimary
                         )
                     }
-                    Text(
-                        text = "✕",
-                        color = KosmosTheme.colors.dangerText,
-                        modifier = Modifier
-                            .clickable { viewModel.delete(entry.key) }
-                            .padding(8.dp)
-                    )
+                    androidx.compose.material3.IconButton(onClick = { viewModel.delete(entry.key) }) {
+                        com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_x, contentDescription = "삭제", size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.dangerText)
+                    }
                 }
             }
 

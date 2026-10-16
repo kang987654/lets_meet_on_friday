@@ -43,7 +43,7 @@ class AndroidBriefingNotifier @Inject constructor(
         val notification = NotificationCompat.Builder(context, NotificationChannels.BRIEFING)
             .setSmallIcon(R.drawable.ic_stat_briefing)
             .setColor(ContextCompat.getColor(context, R.color.notification_accent))
-            .setContentTitle("좋은 아침이에요 ☀️")
+            .setContentTitle("좋은 아침이에요")
             .setContentText(body.lineSequence().first())
             .setStyle(NotificationCompat.BigTextStyle().bigText(body + "\n앱을 열면 브리핑이 도착해요."))
             .setAutoCancel(true)

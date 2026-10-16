@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.chat
 
+import androidx.compose.ui.res.painterResource
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -26,8 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.paging.compose.collectAsLazyPagingItems
@@ -424,7 +423,7 @@ fun ChatScreen(
                     contentColor = KosmosTheme.colors.brandText
                 ) {
                     Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
+                        painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_caret_down),
                         contentDescription = "최신 메시지로"
                     )
                 }

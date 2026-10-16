@@ -40,7 +40,7 @@ class AndroidReminderNotifier @Inject constructor(
         val notification = NotificationCompat.Builder(context, NotificationChannels.REMINDER)
             .setSmallIcon(R.drawable.ic_stat_reminder)
             .setColor(ContextCompat.getColor(context, R.color.notification_accent))
-            .setContentTitle("⏰ $content")
+            .setContentTitle(content)
             .apply { timeDisplay?.let { setContentText(it) } }
             .setAutoCancel(true)
             .setContentIntent(contentIntent())

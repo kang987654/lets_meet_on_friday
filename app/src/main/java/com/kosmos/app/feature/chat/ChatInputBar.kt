@@ -31,9 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.TextFieldValue
@@ -127,7 +124,7 @@ fun ChatInputBar(
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
-                    painter = painterResource(id = com.kosmos.app.R.drawable.ic_attach),
+                    painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_paperclip),
                     contentDescription = "Attach",
                     tint = if (!isLoading) KosmosTheme.colors.textSecondary else KosmosTheme.colors.textMuted,
                     modifier = Modifier.size(24.dp)
@@ -140,7 +137,7 @@ fun ChatInputBar(
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Language,
+                    painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_globe),
                     contentDescription = "웹 검색",
                     tint = if (webSearchEnabled) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted,
                     modifier = Modifier.size(22.dp)
@@ -196,7 +193,7 @@ fun ChatInputBar(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(id = com.kosmos.app.R.drawable.ic_stop),
+                            painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_stop_fill),
                             contentDescription = "응답 중단",
                             tint = KosmosTheme.colors.brandText,
                             modifier = Modifier.size(20.dp)
@@ -219,10 +216,10 @@ fun ChatInputBar(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(id = com.kosmos.app.R.drawable.ic_send),
+                            painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_arrow_up),
                             contentDescription = "Send",
                             tint = KosmosTheme.colors.onBrand,
-                            modifier = Modifier.size(20.dp).padding(start = 2.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 } else {
@@ -239,7 +236,7 @@ fun ChatInputBar(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(id = if (isRecording) com.kosmos.app.R.drawable.ic_stop else com.kosmos.app.R.drawable.ic_mic),
+                            painter = painterResource(id = if (isRecording) com.kosmos.app.R.drawable.ic_ph_stop_fill else com.kosmos.app.R.drawable.ic_ph_microphone),
                             contentDescription = if (isRecording) "녹음 중지" else "음성 입력",
                             tint = micIconColor,
                             modifier = Modifier.size(24.dp)
@@ -301,7 +298,7 @@ private fun AttachmentPreview(
             }
             IconButton(onClick = onClear) {
                 Icon(
-                    imageVector = Icons.Filled.Close,
+                    painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_x),
                     contentDescription = "첨부 취소",
                     tint = KosmosTheme.colors.textMuted
                 )

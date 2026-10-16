@@ -1,14 +1,12 @@
-<!--
-  모델 다운로드 실패 알림용 상태바 아이콘.
-  [WHY] 알파 마스크 렌더링 — ic_stat_download.xml 주석 참조. 가운데 느낌표는 채운 원을
-  파낸 형태여야 실루엣에서 보인다(선으로 그리면 마스크에서 사라진다).
--->
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 모델 다운로드 실패 알림 상태바 아이콘 — 시스템이 알파만 쓰므로 흰색 단색. Phosphor Icons (MIT) ph:warning-circle, 0.38.1 M4. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-  <path
-      android:fillColor="#FF000000"
-      android:pathData="M12,2C6.5,2 2,6.5 2,12s4.5,10 10,10 10,-4.5 10,-10S17.5,2 12,2zM13,17h-2v-2h2zM13,13h-2V7h2z"/>
+    android:viewportWidth="256"
+    android:viewportHeight="256"
+    android:tint="#FFFFFF">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24m0 192a88 88 0 1 1 88-88a88.1 88.1 0 0 1-88 88m-8-80V80a8 8 0 0 1 16 0v56a8 8 0 0 1-16 0m20 36a12 12 0 1 1-12-12a12 12 0 0 1 12 12" />
 </vector>

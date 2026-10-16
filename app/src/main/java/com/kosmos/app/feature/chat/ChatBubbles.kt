@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.chat
 
+import androidx.compose.ui.res.painterResource
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,8 +19,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -102,23 +101,27 @@ fun ChatBubbleUser(
         ) {
             Column {
                 val inputLabel = when (inputType) {
-                    com.kosmos.app.domain.model.InputType.IMAGE -> "🖼️" to "첨부된 이미지"
-                    com.kosmos.app.domain.model.InputType.VOICE -> "🎤" to "음성 메시지"
+                    com.kosmos.app.domain.model.InputType.IMAGE -> com.kosmos.app.R.drawable.ic_ph_image to "첨부된 이미지"
+                    com.kosmos.app.domain.model.InputType.VOICE -> com.kosmos.app.R.drawable.ic_ph_microphone to "음성 메시지"
                     else -> null
                 }
-                inputLabel?.let { (emoji, label) ->
+                inputLabel?.let { (icon, label) ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(emoji, modifier = Modifier.padding(end = 4.dp))
+                        com.kosmos.app.ui.component.KosmosIcon(icon, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textMuted, modifier = Modifier.padding(end = 4.dp))
                         Text(text = label, color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodySmall)
                     }
                     Spacer(modifier = Modifier.size(4.dp))
                 }
                 if (attachedBody != null) {
-                    Text(
-                        text = "📎 첨부 문서 · ${attachedBody.length}자 " + if (expanded) "▲" else "▼",
-                        color = KosmosTheme.colors.textSecondary,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_paperclip, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textSecondary)
+                        Text(
+                            text = " 첨부 문서 · ${attachedBody.length}자",
+                            color = KosmosTheme.colors.textSecondary,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        com.kosmos.app.ui.component.KosmosIcon(if (expanded) com.kosmos.app.R.drawable.ic_ph_caret_up else com.kosmos.app.R.drawable.ic_ph_caret_down, contentDescription = if (expanded) "접기" else "펼치기", size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textSecondary)
+                    }
                     if (expanded) {
                         Spacer(modifier = Modifier.size(6.dp))
                         Text(text = attachedBody, color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodySmall)
@@ -170,7 +173,7 @@ fun ChatBubbleAssistant(
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🤔", modifier = Modifier.padding(end = 6.dp))
+                        com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_lightbulb, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 6.dp))
                         Text(
                             text = if (isThinkingExpanded) "고민 과정 숨기기" else "고민 과정 보기",
                             color = KosmosTheme.colors.textSecondary,
@@ -228,36 +231,39 @@ fun ChatBubbleAssistant(
             // 우선 원칙에서 웹 검색은 토글로 명시 허용하는 동작이므로, 실제로 쓰인 턴을
             // 표시하지 않으면 토글의 의미가 절반만 남는다.
             if (searchUsed) {
-                Text(
-                    text = "🌐 위키백과 검색 결과를 참고했어요",
-                    color = KosmosTheme.colors.textMuted,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(start = 14.dp, top = 4.dp)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 14.dp, top = 4.dp)) {
+                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_globe, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textMuted, modifier = Modifier.padding(end = 4.dp))
+                    Text(
+                        text = "위키백과 검색 결과를 참고했어요",
+                        color = KosmosTheme.colors.textMuted,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
 
             // 회수 칩 — searchUsed 표기와 같은 원칙: 답변의 출처(기억)를 보이게 한다.
             if (recallChipLabel != null) {
-                Text(
-                    text = "🧠 기억에서 — $recallChipLabel",
-                    color = KosmosTheme.colors.textSecondary,
-                    style = MaterialTheme.typography.labelSmall,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .padding(start = 14.dp, top = 4.dp)
                         .glassEffect(shape = RoundedCornerShape(99.dp))
                         .clickable(onClick = onRecallChipClick)
                         .padding(horizontal = 10.dp, vertical = 4.dp)
-                )
+                ) {
+                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_clock_counter_clockwise, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 4.dp))
+                    Text(
+                        text = "기억에서 — $recallChipLabel",
+                        color = KosmosTheme.colors.textSecondary,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
 
             if (onToggleSpeak != null) {
                 IconButton(onClick = onToggleSpeak, modifier = Modifier.size(36.dp)) {
                     Icon(
-                        imageVector = if (isSpeaking) {
-                            androidx.compose.material.icons.Icons.Filled.Stop
-                        } else {
-                            androidx.compose.material.icons.Icons.AutoMirrored.Filled.VolumeUp
-                        },
+                        painter = painterResource(id = if (isSpeaking) com.kosmos.app.R.drawable.ic_ph_stop_fill else com.kosmos.app.R.drawable.ic_ph_speaker_high),
                         contentDescription = if (isSpeaking) "읽기 멈추기" else "답변 읽기",
                         tint = if (isSpeaking) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted,
                         modifier = Modifier.size(18.dp)

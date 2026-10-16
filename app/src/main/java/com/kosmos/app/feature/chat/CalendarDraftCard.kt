@@ -52,10 +52,10 @@ fun CalendarDraftCard(
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(12.dp))
-        DraftLine(icon = "📅", text = formatDraftDate(draft.startIso))
+        DraftLine(icon = com.kosmos.app.R.drawable.ic_ph_calendar_blank, text = formatDraftDate(draft.startIso))
         Spacer(modifier = Modifier.height(8.dp))
         DraftLine(
-            icon = "🕒",
+            icon = com.kosmos.app.R.drawable.ic_ph_clock,
             text = buildString {
                 append(formatDraftTime(draft.startIso))
                 draft.endIso?.let { append(" - ").append(formatDraftTime(it)) }
@@ -63,15 +63,15 @@ fun CalendarDraftCard(
         )
         draft.note?.let { note ->
             Spacer(modifier = Modifier.height(8.dp))
-            DraftLine(icon = "💬", text = note, muted = true)
+            DraftLine(icon = com.kosmos.app.R.drawable.ic_ph_chat_text, text = note, muted = true)
         }
     }
 }
 
 @Composable
-private fun DraftLine(icon: String, text: String, muted: Boolean = false) {
+private fun DraftLine(@androidx.annotation.DrawableRes icon: Int, text: String, muted: Boolean = false) {
     Row(verticalAlignment = if (muted) Alignment.Top else Alignment.CenterVertically) {
-        Text(icon, fontSize = 14.sp)
+        com.kosmos.app.ui.component.KosmosIcon(icon, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textSecondary)
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = text,

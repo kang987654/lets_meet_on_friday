@@ -156,7 +156,7 @@ fun MemoryScreen(
                 modifier = Modifier.padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 8.dp)
             )
             GlassSegmentedControl(
-                options = listOf(MemoryFilterType.KNOWLEDGE to "🧠 메모", MemoryFilterType.TASK to "✓ 할 일"),
+                options = listOf(MemoryFilterType.KNOWLEDGE to "메모", MemoryFilterType.TASK to "할 일"),
                 selected = uiState.selectedFilter,
                 onSelect = viewModel::onFilterSelected,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
@@ -259,12 +259,7 @@ fun MemoryScreen(
                                 .padding(16.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "+",
-                                    color = KosmosTheme.colors.textSecondary,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.padding(end = 12.dp)
-                                )
+                                com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_plus, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 12.dp))
                                 androidx.compose.foundation.text.BasicTextField(
                                     value = newTaskText,
                                     onValueChange = { newTaskText = it },
@@ -324,10 +319,11 @@ fun MemoryScreen(
                                     modifier = Modifier.weight(1f)
                                 )
                                 Text(
-                                    text = if (showCompleted) "접기 ▴" else "펼치기 ▾",
+                                    text = if (showCompleted) "접기" else "펼치기",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = KosmosTheme.colors.textMuted
                                 )
+                                com.kosmos.app.ui.component.KosmosIcon(if (showCompleted) com.kosmos.app.R.drawable.ic_ph_caret_up else com.kosmos.app.R.drawable.ic_ph_caret_down, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textMuted)
                             }
                         }
                         if (showCompleted) {
@@ -398,13 +394,9 @@ fun MemoryScreen(
                                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                                             )
                                         }
-                                        Text(
-                                            text = "✕",
-                                            color = KosmosTheme.colors.dangerText,
-                                            modifier = Modifier
-                                                .clickable { knowledgeToDelete = note }
-                                                .padding(start = 10.dp, end = 2.dp)
-                                        )
+                                        androidx.compose.material3.IconButton(onClick = { knowledgeToDelete = note }) {
+                                            com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_x, contentDescription = "삭제", size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.dangerText)
+                                        }
                                     }
                                     if (note.tags.isNotEmpty()) {
                                         Spacer(modifier = Modifier.height(8.dp))
@@ -640,7 +632,7 @@ fun TaskItemRow(
                     contentAlignment = Alignment.Center
                 ) {
                     if (isCompleted) {
-                        Text("✓", color = KosmosTheme.colors.successText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_check, contentDescription = null, size = 14.dp, tint = KosmosTheme.colors.successText)
                     }
                 }
             }
@@ -659,22 +651,21 @@ fun TaskItemRow(
                     textDecoration = if (isCompleted) androidx.compose.ui.text.style.TextDecoration.LineThrough else androidx.compose.ui.text.style.TextDecoration.None
                 )
                 if (remindAtDisplay != null) {
-                    Text(
-                        text = "⏰ $remindAtDisplay",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isCompleted) KosmosTheme.colors.textMuted else KosmosTheme.colors.brandText
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_bell, contentDescription = null, size = 14.dp, tint = if (isCompleted) KosmosTheme.colors.textMuted else KosmosTheme.colors.brandText, modifier = Modifier.padding(end = 4.dp))
+                        Text(
+                            text = remindAtDisplay,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isCompleted) KosmosTheme.colors.textMuted else KosmosTheme.colors.brandText
+                        )
+                    }
                 }
             }
 
             if (onDelete != null) {
-                Text(
-                    text = "✕",
-                    color = KosmosTheme.colors.dangerText,
-                    modifier = Modifier
-                        .clickable(onClickLabel = "삭제") { onDelete() }
-                        .padding(horizontal = 14.dp, vertical = 12.dp)
-                )
+                androidx.compose.material3.IconButton(onClick = onDelete) {
+                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_x, contentDescription = "삭제", size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.dangerText)
+                }
             }
         }
     }

@@ -335,7 +335,7 @@ class ScreenCatalogTest {
         shoot("06-memory-tasks", before = {
             vm.onFilterSelected(com.kosmos.app.feature.memory.MemoryFilterType.TASK)
             settle()
-            runCatching { rule.onNodeWithText("펼치기 ▾").performClick() }
+            runCatching { rule.onNodeWithText("펼치기").performClick() }
         }) { com.kosmos.app.feature.memory.MemoryScreen(viewModel = vm) }
     }
 

@@ -95,7 +95,7 @@ fun AppDrawerContent(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "🔍", fontSize = 13.sp)
+            com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_magnifying_glass, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textMuted)
             Spacer(modifier = Modifier.padding(start = 8.dp))
             BasicTextField(
                 value = query,
@@ -164,10 +164,10 @@ fun AppDrawerContent(
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        DrawerListItem(icon = "🧠", label = "메모 · 할 일", onClick = onNavigateToMemory)
+        DrawerListItem(icon = com.kosmos.app.R.drawable.ic_ph_note, label = "메모 · 할 일", onClick = onNavigateToMemory)
         // [WHY] 문서는 목록 줄로 둔다 — 최근 문서·파일 열기가 있는 "앱 속 앱" 화면으로 가는 입구다(0.34.0 사용자 결정, 타일 2×2 안 기각).
         Spacer(modifier = Modifier.height(8.dp))
-        DrawerListItem(icon = "📄", label = "문서", onClick = onNavigateToDocuments)
+        DrawerListItem(icon = com.kosmos.app.R.drawable.ic_ph_file_text, label = "문서", onClick = onNavigateToDocuments)
         Spacer(modifier = Modifier.height(12.dp))
 
         // [WHY] 아이콘 크게(20sp)·라벨 작게 — 시안 A′ 검토에서의 사용자 결정 (2026-08-15).
@@ -175,9 +175,9 @@ fun AppDrawerContent(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            DrawerTile(icon = "📅", label = "캘린더", onClick = onNavigateToCalendar, modifier = Modifier.weight(1f))
-            DrawerTile(icon = "🛡", label = "활동 기록", onClick = onNavigateToAudit, modifier = Modifier.weight(1f))
-            DrawerTile(icon = "⚙", label = "설정", onClick = onNavigateToSettings, modifier = Modifier.weight(1f))
+            DrawerTile(icon = com.kosmos.app.R.drawable.ic_ph_calendar_blank, label = "캘린더", onClick = onNavigateToCalendar, modifier = Modifier.weight(1f))
+            DrawerTile(icon = com.kosmos.app.R.drawable.ic_ph_shield_check, label = "활동 기록", onClick = onNavigateToAudit, modifier = Modifier.weight(1f))
+            DrawerTile(icon = com.kosmos.app.R.drawable.ic_ph_gear_six, label = "설정", onClick = onNavigateToSettings, modifier = Modifier.weight(1f))
         }
     }
 
@@ -213,7 +213,7 @@ private fun ProfileCard(
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = "👤", fontSize = 18.sp)
+        com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_user_circle, contentDescription = null, tint = KosmosTheme.colors.textSecondary)
         Spacer(modifier = Modifier.padding(start = 10.dp))
         Column {
             Text(
@@ -268,7 +268,7 @@ private fun EpisodeCard(episode: Episode, onClick: () -> Unit) {
 }
 
 @Composable
-private fun DrawerListItem(icon: String, label: String, onClick: () -> Unit) {
+private fun DrawerListItem(@androidx.annotation.DrawableRes icon: Int, label: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -277,7 +277,7 @@ private fun DrawerListItem(icon: String, label: String, onClick: () -> Unit) {
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = icon, fontSize = 18.sp)
+        com.kosmos.app.ui.component.KosmosIcon(icon, contentDescription = null, tint = KosmosTheme.colors.textSecondary)
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
@@ -289,7 +289,7 @@ private fun DrawerListItem(icon: String, label: String, onClick: () -> Unit) {
 
 @Composable
 private fun DrawerTile(
-    icon: String,
+    @androidx.annotation.DrawableRes icon: Int,
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -301,7 +301,7 @@ private fun DrawerTile(
             .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = icon, fontSize = 20.sp)
+        com.kosmos.app.ui.component.KosmosIcon(icon, contentDescription = null, tint = KosmosTheme.colors.textSecondary)
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,

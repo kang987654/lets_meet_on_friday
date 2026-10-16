@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.calendar
 
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,9 +18,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -99,7 +97,7 @@ fun MonthCalendarTab(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) } }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "이전 달", tint = KosmosTheme.colors.textSecondary)
+                Icon(painterResource(id = com.kosmos.app.R.drawable.ic_ph_caret_left), contentDescription = "이전 달", tint = KosmosTheme.colors.textSecondary)
             }
             Text(
                 text = "${visibleMonth.year}년 ${visibleMonth.monthValue}월",
@@ -120,7 +118,7 @@ fun MonthCalendarTab(
                 )
             }
             IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "다음 달", tint = KosmosTheme.colors.textSecondary)
+                Icon(painterResource(id = com.kosmos.app.R.drawable.ic_ph_caret_right), contentDescription = "다음 달", tint = KosmosTheme.colors.textSecondary)
             }
         }
 

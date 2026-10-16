@@ -195,7 +195,10 @@ icons:
 
 ## Icons
 
-- **Phosphor** 한 세트(MIT). 다른 세트·이모지와 섞지 않는다.
+- **Phosphor** 한 세트(MIT). 다른 세트·이모지와 섞지 않는다(Material 아이콘 라이브러리는 0.38.1 M4 에서 의존성째 뺐다).
+  구현: `res/drawable/ic_ph_<이름>.xml`(쓰는 것만, Iconify `ph` 세트에서 변환 — 이름은 Phosphor 이름의 `-` 를 `_` 로), 화면은 `ui/component/KosmosIcon`.
+  상태바·빠른 설정 타일 아이콘(`ic_stat_*`, `ic_mic`)은 같은 모양을 흰색 단색으로. 고지 `app/src/main/assets/licenses/Phosphor-MIT.txt`.
+- 눌리는 아이콘은 `IconButton`(48dp) 안에 — 글자 기호(✕ ›)에 `clickable` 만 붙이지 않는다. 예외: 문서 뷰어 본문의 목록 기호(• ◦)는 문서 내용이다. 기억 정리 제안의 "→ 합친 내용"은 `MemoryCleanupScreenTest` 가 그 글자로 찾으므로 0.38.2 구조 작업까지 글자로 둔다.
 - 크기: 글자 옆 20, 기본 24, 빈 화면 32.
 - 굵기: 기본 **Regular**, 선택된 탭·켜진 상태 **Fill**, 결과 카드 대표 아이콘(알림·일정·기억) **Duotone**(면은 `brandContainer` 계열이 되도록 확인). 빈 화면은 Light.
 - 색: `textPrimary` 기본, 강조 `brandText`, 위험 `dangerText`.

@@ -179,3 +179,4 @@ cd lets_meet_on_friday
 - **상업적 이용**: 허용되지 않습니다 — 원하시면 저작권자와 **별도 라이선스 협의**가 필요합니다.
 - Gemma 모델은 저장소에 포함되지 않으며, 사용 시 Google 의 Gemma Terms of Use 를 따릅니다.
 - 앱에 실린 글꼴 **하다 라운드**(Hada Type Foundry)는 [SIL Open Font License 1.1](app/src/main/assets/licenses/HadaRound-OFL.txt) 을 따릅니다 — 이 저장소의 CC BY-NC 4.0 과 별개입니다.
+- 아이콘은 [Phosphor Icons](https://phosphoricons.com)(MIT, [고지](app/src/main/assets/licenses/Phosphor-MIT.txt))를 VectorDrawable 로 바꿔 씁니다.

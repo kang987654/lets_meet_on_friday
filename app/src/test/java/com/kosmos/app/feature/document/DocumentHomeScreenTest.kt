@@ -42,7 +42,7 @@ class DocumentHomeScreenTest {
     @Test
     fun `빈 목록이면 어디서 연 문서가 쌓이는지 알린다`() {
         show()
-        composeRule.onNodeWithText("📂  파일 열기").assertIsDisplayed()
+        composeRule.onNodeWithText("파일 열기").assertIsDisplayed()
         composeRule.onNodeWithText("여기서 연 문서가 쌓여요. 다른 앱에서 '연결 프로그램'으로 연 문서는 남지 않아요.").assertIsDisplayed()
     }
 
