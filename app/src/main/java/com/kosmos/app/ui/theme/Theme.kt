@@ -28,6 +28,28 @@ enum class ThemeMode(val key: String, val label: String) {
 }
 
 /**
+ * [ChatTextSize]
+ * 설정에서 고르는 **채팅 메시지** 글자 크기 — 본문 단계(기본 16)를 기준으로 채팅 목록 안의 글자 단계를 같은 비율로 키운다(0.38.2, 사용자 결정: 채팅만·4단계).
+ * 상단 바·요약 타일·입력바·다른 화면은 그대로다(시스템 글자 크기는 그 위에 곱해진다).
+ */
+enum class ChatTextSize(val key: String, val label: String, val bodySp: Int) {
+    SMALL("SMALL", "작게", 14),
+    DEFAULT("DEFAULT", "기본", 16),
+    LARGE("LARGE", "크게", 18),
+    XLARGE("XLARGE", "아주 크게", 20);
+
+    /** 본문 단계(16) 대비 배율. */
+    val scale: Float get() = bodySp / 16f
+
+    companion object {
+        fun fromKey(key: String?): ChatTextSize = entries.firstOrNull { it.key == key } ?: DEFAULT
+    }
+}
+
+/** 채팅 목록이 읽는 글자 배율 — [KosmosTheme] 가 [ChatTextSize] 로 채운다. */
+val LocalChatTextScale = androidx.compose.runtime.staticCompositionLocalOf { 1f }
+
+/**
  * [FontMode]
  * 설정에서 고르는 글꼴 — 앱 글꼴(하다 라운드)이나 기기에서 고른 글꼴. 크기·굵기 단계는 같다(DESIGN.md v3 Typography).
  */
@@ -99,6 +121,7 @@ private fun schemeOf(colors: KosmosColors): ColorScheme {
 fun KosmosTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     fontMode: FontMode = FontMode.APP,
+    chatTextSize: ChatTextSize = ChatTextSize.DEFAULT,
     content: @Composable () -> Unit
 ) {
     val useDark = when (themeMode) {
@@ -127,7 +150,7 @@ fun KosmosTheme(
         }
     }
 
-    CompositionLocalProvider(LocalKosmosColors provides kosmosColors) {
+    CompositionLocalProvider(LocalKosmosColors provides kosmosColors, LocalChatTextScale provides chatTextSize.scale) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = if (fontMode == FontMode.APP) AppTypography else SystemTypography,

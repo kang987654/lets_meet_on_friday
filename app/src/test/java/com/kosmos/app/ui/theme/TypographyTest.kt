@@ -52,4 +52,17 @@ class TypographyTest {
         assertEquals(FontMode.APP, FontMode.fromKey("WHATEVER"))
         FontMode.entries.forEach { assertEquals(it, FontMode.fromKey(it.key)) }
     }
+
+    @Test
+    fun `채팅 글자 크기 — 배율만큼 모든 역할이 커지고 글꼴·굵기는 그대로, 모르는 키는 기본`() {
+        val large = AppTypography.scaled(ChatTextSize.XLARGE.scale)
+        assertEquals(20.sp, large.bodyLarge.fontSize)
+        assertEquals(30.sp, large.bodyLarge.lineHeight)
+        assertEquals(AppTypography.bodyLarge.fontFamily, large.bodyLarge.fontFamily)
+        assertEquals(AppTypography.titleLarge.fontWeight, large.titleLarge.fontWeight)
+        assertEquals(AppTypography, AppTypography.scaled(ChatTextSize.DEFAULT.scale))
+        assertEquals(ChatTextSize.DEFAULT, ChatTextSize.fromKey(null))
+        assertEquals(ChatTextSize.DEFAULT, ChatTextSize.fromKey("HUGE"))
+        assertEquals(listOf(14, 16, 18, 20), ChatTextSize.entries.map { it.bodySp })
+    }
 }

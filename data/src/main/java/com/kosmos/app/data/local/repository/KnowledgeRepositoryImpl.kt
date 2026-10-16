@@ -28,6 +28,10 @@ class KnowledgeRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun getById(noteId: String): AppResult<KnowledgeNote?> = dbRead(TABLE, "getById") {
+        dao.getById(noteId)?.toDomain()
+    }
+
     override suspend fun delete(noteId: String): AppResult<Unit> = dbWrite(TABLE, "delete") {
         dao.delete(noteId)
     }

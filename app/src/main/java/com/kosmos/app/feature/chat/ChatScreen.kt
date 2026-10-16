@@ -6,6 +6,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.MaterialTheme
+import com.kosmos.app.ui.theme.scaled
+import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -84,9 +89,23 @@ fun ChatScreen(
     // [WHY] 드로어의 에피소드 시트 → "원문 대화 보기" (M2-5). 셸(MainScreen)이 요청 시각을
     // 내려주고, 소비 후 [onJumpConsumed]로 지운다. 기본값은 E2E 계약(단독 compose) 때문에 필수.
     jumpToTimestamp: Long? = null,
-    onJumpConsumed: () -> Unit = {}
+    onJumpConsumed: () -> Unit = {},
+    // [WHY] 결과 카드·요약 타일(0.38.2 M3) — 셸이 ChatExtrasViewModel 로 채운다. 기본값은 E2E 계약(단독 compose): 카드·타일 없이 글만.
+    resultStates: Map<String, com.kosmos.app.feature.chat.result.ResultCardState> = emptyMap(),
+    onEnsureResult: (com.kosmos.app.domain.model.MessageResult) -> Unit = {},
+    onResultClick: (ChatMessage) -> Unit = {},
+    summary: com.kosmos.app.feature.chat.result.ChatSummary? = null,
+    onRefreshSummary: () -> Unit = {},
+    onOpenTasks: () -> Unit = {},
+    onOpenCalendar: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // [WHY] 요약 타일은 대화로 알림·할 일이 생기거나 다른 화면에서 고친 뒤 돌아올 때 바뀐다 — 그때 다시 센다.
+    LaunchedEffect(uiState.messages.size) { onRefreshSummary() }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        onRefreshSummary()
+        onPauseOrDispose { }
+    }
     val speakingMessageId by viewModel.speakingMessageId.collectAsStateWithLifecycle()
     val attachmentExtracting by viewModel.attachmentExtracting.collectAsStateWithLifecycle()
     var showStatusSheet by remember { mutableStateOf(false) }
@@ -302,13 +321,16 @@ fun ChatScreen(
         containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            CustomChatHeader(
-                onMenuClick = onMenuClick,
-                engineState = uiState.engineState,
-                deviceStatus = uiState.deviceStatus,
-                warningMessage = uiState.warningMessage,
-                onStatusClick = { showStatusSheet = true }
-            )
+            Column {
+                CustomChatHeader(
+                    onMenuClick = onMenuClick,
+                    engineState = uiState.engineState,
+                    deviceStatus = uiState.deviceStatus,
+                    warningMessage = uiState.warningMessage,
+                    onStatusClick = { showStatusSheet = true }
+                )
+                summary?.let { SummaryTiles(it, onOpenTasks = onOpenTasks, onOpenCalendar = onOpenCalendar) }
+            }
         },
         bottomBar = {
             ChatInputBar(
@@ -344,7 +366,10 @@ fun ChatScreen(
                 onOpenEpisode = { openEpisodeId = it },
                 onCopy = copyMessage,
                 speakingMessageId = speakingMessageId,
-                onToggleSpeak = viewModel::toggleSpeak
+                onToggleSpeak = viewModel::toggleSpeak,
+                resultStates = resultStates,
+                onEnsureResult = onEnsureResult,
+                onResultClick = onResultClick
             )
         }
         Box(
@@ -355,52 +380,56 @@ fun ChatScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // [WHY] reverseLayout — 선언 순서대로 index 0(바닥)부터 위로 쌓인다:
-                // 스트리밍/타이핑 → 라이브 테일(최신순) → 페이징된 과거(최신순 DESC 그대로).
-                // 과거로 스크롤하면 Paging 이 다음 페이지를 로드한다.
-                LazyColumn(
-                    state = listState,
-                    reverseLayout = true,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    if (uiState.streamingText != null || uiState.streamingThinking != null) {
-                        item(key = "streaming") {
-                            ChatBubbleAssistant(text = uiState.streamingText ?: "", thinkingProcess = uiState.streamingThinking)
+                // [WHY] 채팅 글자 크기 설정(0.38.2)은 목록 안에만 — 상단 바·타일·입력바는 화면 틀이라 그대로다.
+                val chatTypography = MaterialTheme.typography.scaled(com.kosmos.app.ui.theme.LocalChatTextScale.current)
+                MaterialTheme(typography = chatTypography) {
+                    // [WHY] reverseLayout — 선언 순서대로 index 0(바닥)부터 위로 쌓인다:
+                    // 스트리밍/타이핑 → 라이브 테일(최신순) → 페이징된 과거(최신순 DESC 그대로).
+                    // 과거로 스크롤하면 Paging 이 다음 페이지를 로드한다.
+                    LazyColumn(
+                        state = listState,
+                        reverseLayout = true,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        if (uiState.streamingText != null || uiState.streamingThinking != null) {
+                            item(key = "streaming") {
+                                ChatBubbleAssistant(text = uiState.streamingText ?: "", thinkingProcess = uiState.streamingThinking)
+                            }
                         }
-                    }
 
-                    if (uiState.isInFlight && uiState.streamingText == null) {
-                        item(key = "typing") {
-                            TypingIndicator()
+                        if (uiState.isInFlight && uiState.streamingText == null) {
+                            item(key = "typing") {
+                                TypingIndicator()
+                            }
                         }
-                    }
 
-                    // 라이브 테일 — 이 세션에서 생긴 메시지 (최신이 index 앞).
-                    // [WHY] key가 없으면 스트리밍 append마다 전체 행이 리바인드되고
-                    // 아코디언 확장 상태가 엉뚱한 버블에 붙을 수 있다.
-                    items(liveTail.size, key = { liveTail[it].id }) { index ->
-                        val message = liveTail[index]
-                        // 다음(더 과거) 이웃: 테일 내부 → 없으면 페이징의 첫 항목.
-                        val older = liveTail.getOrNull(index + 1)
-                            ?: if (history.itemCount > 0) history.peek(0) else null
-                        timelineRow(message, older)
-                    }
-
-                    // 페이징된 과거 — placeholder(null)는 스켈레톤으로.
-                    items(
-                        count = history.itemCount,
-                        key = history.itemKey { it.id }
-                    ) { index ->
-                        val message = history[index]
-                        if (message == null) {
-                            PlaceholderBubble()
-                        } else {
-                            val older = if (index + 1 < history.itemCount) history.peek(index + 1) else null
+                        // 라이브 테일 — 이 세션에서 생긴 메시지 (최신이 index 앞).
+                        // [WHY] key가 없으면 스트리밍 append마다 전체 행이 리바인드되고
+                        // 아코디언 확장 상태가 엉뚱한 버블에 붙을 수 있다.
+                        items(liveTail.size, key = { liveTail[it].id }) { index ->
+                            val message = liveTail[index]
+                            // 다음(더 과거) 이웃: 테일 내부 → 없으면 페이징의 첫 항목.
+                            val older = liveTail.getOrNull(index + 1)
+                                ?: if (history.itemCount > 0) history.peek(0) else null
                             timelineRow(message, older)
+                        }
+
+                        // 페이징된 과거 — placeholder(null)는 스켈레톤으로.
+                        items(
+                            count = history.itemCount,
+                            key = history.itemKey { it.id }
+                        ) { index ->
+                            val message = history[index]
+                            if (message == null) {
+                                PlaceholderBubble()
+                            } else {
+                                val older = if (index + 1 < history.itemCount) history.peek(index + 1) else null
+                                timelineRow(message, older)
+                            }
                         }
                     }
                 }
@@ -528,8 +557,12 @@ private fun TimelineRow(
     onOpenEpisode: (String) -> Unit,
     onCopy: (String) -> Unit,
     speakingMessageId: String? = null,
-    onToggleSpeak: (ChatMessage) -> Unit = {}
+    onToggleSpeak: (ChatMessage) -> Unit = {},
+    resultStates: Map<String, com.kosmos.app.feature.chat.result.ResultCardState> = emptyMap(),
+    onEnsureResult: (com.kosmos.app.domain.model.MessageResult) -> Unit = {},
+    onResultClick: (ChatMessage) -> Unit = {}
 ) {
+    message.result?.let { result -> LaunchedEffect(result) { onEnsureResult(result) } }
     val chipId = message.recallEpisodeIds.firstOrNull()
     if (chipId != null) {
         LaunchedEffect(chipId) { onEnsureChipLabel(chipId) }
@@ -543,7 +576,9 @@ private fun TimelineRow(
         onRecallChipClick = { if (chipId != null) onOpenEpisode(chipId) },
         highlighted = isJumpTarget(message, older, highlightStartAt),
         isSpeaking = message.id == speakingMessageId,
-        onToggleSpeak = { onToggleSpeak(message) }
+        onToggleSpeak = { onToggleSpeak(message) },
+        result = message.result?.let { resultStates[com.kosmos.app.feature.chat.result.ChatExtrasViewModel.keyOf(it)] },
+        onResultClick = { onResultClick(message) }
     )
 }
 
@@ -557,7 +592,9 @@ private fun MessageWithDate(
     onRecallChipClick: () -> Unit = {},
     highlighted: Boolean = false,
     isSpeaking: Boolean = false,
-    onToggleSpeak: () -> Unit = {}
+    onToggleSpeak: () -> Unit = {},
+    result: com.kosmos.app.feature.chat.result.ResultCardState? = null,
+    onResultClick: () -> Unit = {}
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         val label = dateLabelIfBoundary(message, older, today)
@@ -589,10 +626,52 @@ private fun MessageWithDate(
                     onRecallChipClick = onRecallChipClick,
                     onLongPress = onCopy,
                     isSpeaking = isSpeaking,
-                    onToggleSpeak = onToggleSpeak
+                    onToggleSpeak = onToggleSpeak,
+                    result = result,
+                    onResultClick = onResultClick.takeIf { result != null }
                 )
             }
         }
+    }
+}
+
+/**
+ * 채팅 상단 요약 타일 3칸(0.38.2 M3) — 다음 알림·오늘 일정·남은 할 일. 누르면 해당 화면(결정 2: 할 일 탭·일정 화면).
+ */
+@Composable
+private fun SummaryTiles(
+    summary: com.kosmos.app.feature.chat.result.ChatSummary,
+    onOpenTasks: () -> Unit,
+    onOpenCalendar: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        SummaryTile("다음 알림", summary.nextReminder ?: "없음", onOpenTasks, Modifier.weight(1f))
+        SummaryTile("오늘 일정", "${summary.todaySchedules}", onOpenCalendar, Modifier.weight(1f))
+        SummaryTile("남은 할 일", "${summary.pendingTasks}", onOpenTasks, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun SummaryTile(label: String, value: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .kosmosSurface(shape = com.kosmos.app.ui.theme.KosmosShapes.md)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "$label 보기", onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = KosmosTheme.colors.textMuted)
+        Text(
+            value,
+            style = MaterialTheme.typography.titleLarge,
+            color = KosmosTheme.colors.textPrimary,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
     }
 }
 

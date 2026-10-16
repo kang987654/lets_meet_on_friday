@@ -50,8 +50,9 @@ class MainActivity : ComponentActivity() {
             // [WHY] 저장된 테마 모드를 앱 루트에서 구독해 전체 트리에 적용한다 (ADR-005).
             val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
             val fontMode by themeViewModel.fontMode.collectAsStateWithLifecycle()
+            val chatTextSize by themeViewModel.chatTextSize.collectAsStateWithLifecycle()
 
-            com.kosmos.app.ui.theme.KosmosTheme(themeMode = themeMode, fontMode = fontMode) {
+            com.kosmos.app.ui.theme.KosmosTheme(themeMode = themeMode, fontMode = fontMode, chatTextSize = chatTextSize) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

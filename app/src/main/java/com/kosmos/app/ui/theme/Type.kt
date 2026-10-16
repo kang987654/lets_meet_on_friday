@@ -54,3 +54,18 @@ val AppTypography = typographyOf(HadaRound)
 
 /** 시스템 글꼴 모드 — 같은 단계, 기기에서 고른 글꼴. */
 val SystemTypography = typographyOf(FontFamily.Default)
+
+/**
+ * 모든 역할의 크기·줄 높이를 [scale] 배 — 채팅 글자 크기 설정(0.38.2)이 채팅 목록 안에서만 쓴다. 1이면 그대로.
+ */
+fun Typography.scaled(scale: Float): Typography {
+    if (scale == 1f) return this
+    fun TextStyle.s() = copy(fontSize = fontSize * scale, lineHeight = lineHeight * scale)
+    return Typography(
+        displayLarge = displayLarge.s(), displayMedium = displayMedium.s(), displaySmall = displaySmall.s(),
+        headlineLarge = headlineLarge.s(), headlineMedium = headlineMedium.s(), headlineSmall = headlineSmall.s(),
+        titleLarge = titleLarge.s(), titleMedium = titleMedium.s(), titleSmall = titleSmall.s(),
+        bodyLarge = bodyLarge.s(), bodyMedium = bodyMedium.s(), bodySmall = bodySmall.s(),
+        labelLarge = labelLarge.s(), labelMedium = labelMedium.s(), labelSmall = labelSmall.s(),
+    )
+}

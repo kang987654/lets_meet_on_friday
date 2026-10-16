@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kosmos.app.ui.theme.scaled
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,6 +38,7 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
     val fontMode by themeViewModel.fontMode.collectAsStateWithLifecycle()
+    val chatTextSize by themeViewModel.chatTextSize.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -132,6 +134,22 @@ fun SettingsScreen(
                     options = com.kosmos.app.ui.theme.FontMode.entries.map { it to it.label },
                     selected = fontMode,
                     onSelect = themeViewModel::setFontMode
+                )
+            }
+
+            // [WHY] 채팅 메시지만 키운다(0.38.2 사용자 결정) — 화면 틀은 시스템 글자 크기를 따른다.
+            SectionBox(title = "채팅 글자 크기") {
+                com.kosmos.app.ui.component.KosmosSegmentedControl(
+                    options = com.kosmos.app.ui.theme.ChatTextSize.entries.map { it to it.label },
+                    selected = chatTextSize,
+                    onSelect = themeViewModel::setChatTextSize
+                )
+                Text(
+                    text = "오후 1시 56분에 알려 드릴게요.",
+                    // 채팅 목록과 같은 배율 — 고른 크기를 그대로 미리 본다.
+                style = MaterialTheme.typography.scaled(chatTextSize.scale).bodyLarge,
+                    color = KosmosTheme.colors.textPrimary,
+                    modifier = Modifier.padding(top = 12.dp)
                 )
             }
 

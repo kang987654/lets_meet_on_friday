@@ -3,11 +3,13 @@ package com.kosmos.app.design
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
@@ -20,6 +22,7 @@ import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.domain.model.EpisodeStatus
 import com.kosmos.app.domain.model.InputType
 import com.kosmos.app.domain.model.KnowledgeNote
+import com.kosmos.app.domain.model.MessageResult
 import com.kosmos.app.domain.model.TaskItem
 import com.kosmos.app.domain.modelrunner.ModelInfo
 import com.kosmos.app.domain.modelrunner.ModelLoadState
@@ -166,6 +169,7 @@ class ScreenCatalogTest {
     }
 
     private var themeMode by mutableStateOf(ThemeMode.LIGHT)
+    private var chatTextSize = com.kosmos.app.ui.theme.ChatTextSize.DEFAULT
     private val defaultZone: TimeZone = TimeZone.getDefault()
 
     @Before
@@ -205,9 +209,15 @@ class ScreenCatalogTest {
         val messages = listOf(
             msg("m1", ChatMessage.Role.ASSISTANT, "좋은 아침이에요. 오늘은 일정이 비어 있고, 할 일 2개가 남아 있어요. 어제 말씀하신 저녁 메뉴는 정하셨어요?", now - 3_600_000, InputType.BRIEFING),
             msg("m2", ChatMessage.Role.USER, "30분 뒤에 물 마시라고 알려줘", now - 1_800_000),
-            msg("m3", ChatMessage.Role.ASSISTANT, "오후 1시 56분에 알려 드릴게요.", now - 1_790_000),
+            msg("m3", ChatMessage.Role.ASSISTANT, "오후 1시 56분에 알려 드릴게요.", now - 1_790_000,
+                result = MessageResult(MessageResult.Kind.REMINDER, "t1")),
+            msg("m3b", ChatMessage.Role.USER, "다음 주 월요일 10시에 팀 회의 잡아줘", now - 1_200_000),
+            msg("m3c", ChatMessage.Role.ASSISTANT, "10월 19일 월요일 오전 10시로 캘린더에 넣었어요.", now - 1_190_000,
+                result = MessageResult(MessageResult.Kind.SCHEDULE, "t5")),
             msg("m4", ChatMessage.Role.USER, "자전거 비밀번호 기억나?", now - 600_000),
-            msg("m5", ChatMessage.Role.ASSISTANT, "자전거 비밀번호는 134예요. 예전 대화엔 4321로 적힌 기록도 있었어요.", now - 590_000, recall = listOf("ep-bike")),
+            msg("m5", ChatMessage.Role.ASSISTANT, "134예요. 예전 대화엔 4321도 있었는데, 직접 저장하신 메모가 134라서 그걸로 알려 드려요.", now - 590_000,
+                recall = listOf("ep-bike"),
+                result = MessageResult(MessageResult.Kind.MEMORY_RECALL, "k1", """{"noteAt":${now - DAY * 3},"conflictCount":1,"otherValues":["4321"]}""")),
             msg("m6", ChatMessage.Role.USER, "커피 하나 추천해 줘", now - 120_000),
             msg("m7", ChatMessage.Role.ASSISTANT, "오후니까 디카페인 라떼 어때요? 진한 쪽이 좋으세요, 부드러운 쪽이 좋으세요?", now - 110_000)
         )
@@ -218,6 +228,11 @@ class ScreenCatalogTest {
         taskRepository.save(TaskItem(id = "t1", title = "물 마시기", isCompleted = false, createdAt = now - 1_800_000, remindAtIso = "2026-10-15T13:56:00"))
         taskRepository.save(TaskItem(id = "t2", title = "치과 예약 전화하기", isCompleted = false, createdAt = now - DAY))
         taskRepository.save(TaskItem(id = "t3", title = "장보기", isCompleted = true, createdAt = now - DAY * 2))
+        // 일정 결과 카드(0.38.2)의 대상, 취소한 리마인더(할 일 탭에서는 숨겨진다 — 결정 1)
+        taskRepository.save(TaskItem(id = "t5", title = "팀 회의", isCompleted = false, createdAt = now - 1_190_000,
+            dueDateIso = "2026-10-19T10:00:00", endDateIso = "2026-10-19T11:00:00"))
+        taskRepository.save(TaskItem(id = "t4", title = "스트레칭", isCompleted = false, createdAt = now - DAY,
+            remindAtIso = "2026-10-15T15:40:00", cancelledAt = now - 3_000_000))
         profileRepository.upsert("호칭", "진우님")
         profileRepository.upsert("직업", "개발자")
         auditRepository.save(AuditEvent("a1", AuditEventType.TOOL_CALL, SESSION, "AddReminder 물 마시기 13:56", now - 1_790_000))
@@ -227,8 +242,8 @@ class ScreenCatalogTest {
 
     private fun msg(
         id: String, role: ChatMessage.Role, content: String, at: Long,
-        type: InputType = InputType.TEXT, recall: List<String> = emptyList()
-    ) = ChatMessage(id = id, sessionId = SESSION, role = role, content = content, inputType = type, createdAt = at, recallEpisodeIds = recall)
+        type: InputType = InputType.TEXT, recall: List<String> = emptyList(), result: MessageResult? = null
+    ) = ChatMessage(id = id, sessionId = SESSION, role = role, content = content, inputType = type, createdAt = at, recallEpisodeIds = recall, result = result)
 
     // ── 촬영 ──
 
@@ -248,7 +263,7 @@ class ScreenCatalogTest {
         // [WHY] 앱처럼 배경을 깐다 — 화면들은 투명하고 MainActivity 의 Surface(background)가 바닥을 칠한다. 드로어는 surface 색 시트 위에 있다.
         rule.setContent {
             CompositionLocalProvider(LocalClock provides CLOCK) {
-                KosmosTheme(themeMode = themeMode) {
+                KosmosTheme(themeMode = themeMode, chatTextSize = chatTextSize) {
                     androidx.compose.material3.Surface(
                         color = if (onSurface) KosmosTheme.colors.surface else androidx.compose.material3.MaterialTheme.colorScheme.background
                     ) { content() }
@@ -296,15 +311,50 @@ class ScreenCatalogTest {
 
     // ── 화면 ──
 
+    /** 결과 카드·요약 타일(0.38.2) — 셸(AppNavHost)이 하듯 ChatExtrasViewModel 을 붙인다. 시각은 고정([NOW]). */
+    @Composable
+    private fun ChatWithExtras(vm: com.kosmos.app.feature.chat.ChatViewModel, extras: com.kosmos.app.feature.chat.result.ChatExtrasViewModel) {
+        val states by extras.results.collectAsState()
+        val summary by extras.summary.collectAsState()
+        com.kosmos.app.feature.chat.ChatScreen(
+            viewModel = vm,
+            resultStates = states,
+            onEnsureResult = { extras.ensure(it, TODAY) },
+            summary = summary,
+            onRefreshSummary = { extras.refreshSummary(NOW, ZoneId.of(ZONE)) }
+        )
+    }
+
+    private fun extras() = com.kosmos.app.feature.chat.result.ChatExtrasViewModel(taskRepository, knowledgeRepository, getTodayScheduleUseCase)
+
     @Test fun chat() {
         val vm = chatViewModel()
-        shoot("01-chat") { com.kosmos.app.feature.chat.ChatScreen(viewModel = vm) }
+        val extras = extras()
+        shoot("01-chat") { ChatWithExtras(vm, extras) }
+    }
+
+    /** 결과 카드(알림·일정)가 보이게 위로 올린 채팅 — 역방향 목록이라 index 3(자전거 질문)을 바닥에 둔다. */
+    @Test fun chatResults() {
+        val vm = chatViewModel()
+        val extras = extras()
+        shoot("15-chat-results", before = {
+            rule.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToIndex(3)
+        }) { ChatWithExtras(vm, extras) }
+    }
+
+    /** 채팅 글자 크기 "아주 크게"(0.38.2) — 목록 안만 커지고 상단 바·타일·입력바는 그대로. */
+    @Test fun chatLargeText() {
+        chatTextSize = com.kosmos.app.ui.theme.ChatTextSize.XLARGE
+        val vm = chatViewModel()
+        val extras = extras()
+        shoot("16-chat-large-text") { ChatWithExtras(vm, extras) }
     }
 
     @Test fun chatApproval() {
         val vm = chatViewModel()
+        val extras = extras()
         shoot("02-chat-approval", before = { fastForward = false; vm.sendMessage("다음주 월요일 10시 팀 회의 일정 추가해줘") }) {
-            com.kosmos.app.feature.chat.ChatScreen(viewModel = vm)
+            ChatWithExtras(vm, extras)
         }
     }
 

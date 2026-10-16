@@ -14,6 +14,9 @@ interface KnowledgeDao {
     @Query("DELETE FROM knowledge_note WHERE id = :noteId")
     suspend fun delete(noteId: String)
 
+    @Query("SELECT * FROM knowledge_note WHERE id = :noteId")
+    suspend fun getById(noteId: String): KnowledgeEntity?
+
     /**
      * [query]는 호출부에서 `SqlLike.escape`로 이스케이프된 값이어야 합니다.
      * [WHY] ESCAPE 절이 없으면 검색어에 포함된 `%`/`_`가 와일드카드로 해석돼

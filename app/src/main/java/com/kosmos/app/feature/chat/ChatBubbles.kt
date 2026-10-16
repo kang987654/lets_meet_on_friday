@@ -150,16 +150,21 @@ fun ChatBubbleAssistant(
     onLongPress: () -> Unit = {},
     // [WHY] 말풍선 재생 버튼(0.29.0 D3) — null 이면 미렌더. 스트리밍 중 말풍선·E2E 단독 compose 는 기본값 그대로.
     isSpeaking: Boolean = false,
-    onToggleSpeak: (() -> Unit)? = null
+    onToggleSpeak: (() -> Unit)? = null,
+    // [WHY] 결과 행(0.38.2) — 카드 안 문장 아래. null 이면 글만(옛 메시지·스트리밍·E2E 단독 compose).
+    result: com.kosmos.app.feature.chat.result.ResultCardState? = null,
+    onResultClick: (() -> Unit)? = null
 ) {
     var isThinkingExpanded by remember { mutableStateOf(false) }
+    val recallInCard = recallChipLabel != null && result?.kind == com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start
     ) {
         Column(
-            modifier = Modifier.widthIn(max = 280.dp)
+            // [WHY] 결과 행이 있으면 넓힌다 — 값·이름·날짜가 280dp 에서는 꺾였다(0.38.2 M3 렌더). 글만 있는 답은 그대로.
+            modifier = Modifier.widthIn(max = if (result != null) 340.dp else 280.dp)
         ) {
             if (thinkingProcess != null) {
                 Box(
@@ -207,21 +212,49 @@ fun ChatBubbleAssistant(
                 RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp)
             }
 
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .kosmosSurface(shape = shape)
                     .combinedClickable(onClick = {}, onLongClick = onLongPress)
-                    .padding(horizontal = 14.dp, vertical = 12.dp)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 CompositionLocalProvider(
                     androidx.compose.material3.LocalContentColor provides KosmosTheme.colors.textPrimary
                 ) {
                     ProvideTextStyle(
-                        value = MaterialTheme.typography.bodyMedium.copy(color = KosmosTheme.colors.textPrimary)
+                        value = MaterialTheme.typography.bodyLarge.copy(color = KosmosTheme.colors.textPrimary)
                     ) {
                         RichText {
                             Markdown(content = text)
+                        }
+                    }
+                }
+                if (result != null) {
+                    com.kosmos.app.feature.chat.result.ResultRow(result, onClick = onResultClick)
+                    if (result.evidence.isNotEmpty()) {
+                        androidx.compose.material3.HorizontalDivider(color = KosmosTheme.colors.border)
+                        result.evidence.forEachIndexed { index, line ->
+                            Text(line, style = MaterialTheme.typography.labelMedium, color = KosmosTheme.colors.textSecondary)
+                            // [WHY] 회수 칩을 근거 줄로 접는다 — 카드 밖 칩과 근거 줄이 같은 "어디서 찾았나"를 두 번 말했다(사용자 지적, 0.38.2 M3).
+                            if (index == 0 && recallInCard) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(onClickLabel = "대화 열기", onClick = onRecallChipClick)
+                                        .padding(vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        "함께 본 대화 · $recallChipLabel",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = KosmosTheme.colors.brandText,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_caret_right, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText)
+                                }
+                            }
                         }
                     }
                 }
@@ -241,8 +274,8 @@ fun ChatBubbleAssistant(
                 }
             }
 
-            // 회수 칩 — searchUsed 표기와 같은 원칙: 답변의 출처(기억)를 보이게 한다.
-            if (recallChipLabel != null) {
+            // 회수 칩 — searchUsed 표기와 같은 원칙: 답변의 출처(기억)를 보이게 한다. 기억 카드가 있으면 카드 근거 줄로 들어간다.
+            if (recallChipLabel != null && !recallInCard) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier

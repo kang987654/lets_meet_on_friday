@@ -60,13 +60,24 @@ fun AppNavHost(
             val webSearchViewModel: com.kosmos.app.feature.chat.WebSearchViewModel =
                 androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
             val webSearchEnabled by webSearchViewModel.webSearchEnabled.collectAsStateWithLifecycle()
+            // [WHY] 결과 카드·요약 타일(0.38.2 M3) — ChatViewModel 과 나눠 E2E 의 단독 compose 계약을 지킨다.
+            val extras: com.kosmos.app.feature.chat.result.ChatExtrasViewModel =
+                androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
+            val resultStates by extras.results.collectAsStateWithLifecycle()
+            val summary by extras.summary.collectAsStateWithLifecycle()
             ChatScreen(
                 // [WHY] 설정 진입은 드로어 타일로 이동(M2-2) — ☰ 이 셸의 드로어를 연다.
                 onMenuClick = onOpenDrawer,
                 webSearchEnabled = webSearchEnabled,
                 onToggleWebSearch = webSearchViewModel::setWebSearchEnabled,
                 jumpToTimestamp = jumpToTimestamp,
-                onJumpConsumed = onJumpConsumed
+                onJumpConsumed = onJumpConsumed,
+                resultStates = resultStates,
+                onEnsureResult = { extras.ensure(it) },
+                summary = summary,
+                onRefreshSummary = { extras.refreshSummary() },
+                onOpenTasks = { navController.navigate(AppDestination.MemoryTasks.route) { launchSingleTop = true } },
+                onOpenCalendar = { navController.navigate(AppDestination.Calendar.route) { launchSingleTop = true } }
             )
         }
         
@@ -81,6 +92,15 @@ fun AppNavHost(
         composable(route = AppDestination.Memory.route) {
             Box(modifier = Modifier.navigationBarsPadding()) {
                 com.kosmos.app.feature.memory.MemoryScreen(onBack = { navigateBack() })
+            }
+        }
+
+        composable(route = AppDestination.MemoryTasks.route) {
+            Box(modifier = Modifier.navigationBarsPadding()) {
+                com.kosmos.app.feature.memory.MemoryScreen(
+                    onBack = { navigateBack() },
+                    initialFilter = com.kosmos.app.feature.memory.MemoryFilterType.TASK
+                )
             }
         }
 

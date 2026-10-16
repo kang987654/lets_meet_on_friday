@@ -10,6 +10,13 @@ import com.kosmos.app.domain.model.KnowledgeNote
 interface KnowledgeRepository {
     suspend fun save(note: KnowledgeNote): AppResult<Unit>
     suspend fun delete(noteId: String): AppResult<Unit>
+
+    /**
+     * 메모 한 건 — 채팅 결과 카드(0.38.2)가 저장·근거 메모의 현재 내용을 보인다. 없으면(지웠으면) null.
+     *
+     * [WHY] 기본 구현은 "없음" — 테스트 가짜 저장소가 그대로 컴파일되게. Room 구현체가 덮어쓴다.
+     */
+    suspend fun getById(noteId: String): AppResult<KnowledgeNote?> = AppResult.Success(null)
     suspend fun search(query: String, limit: Int = 10): AppResult<List<KnowledgeNote>>
     suspend fun searchRecent(limit: Int = 10): AppResult<List<KnowledgeNote>>
     suspend fun searchByTags(tags: List<String>, limit: Int = 10): AppResult<List<KnowledgeNote>>

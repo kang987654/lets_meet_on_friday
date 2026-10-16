@@ -23,6 +23,7 @@ class SettingsDataStore @Inject constructor(
         private val WEB_SEARCH_ENABLED_KEY = booleanPreferencesKey("web_search_enabled")
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         private val FONT_MODE_KEY = stringPreferencesKey("font_mode")
+        private val CHAT_TEXT_SIZE_KEY = stringPreferencesKey("chat_text_size")
         private val BRIEFING_ENABLED_KEY = booleanPreferencesKey("briefing_enabled")
         private val BRIEFING_TIME_MINUTES_KEY = intPreferencesKey("briefing_time_minutes")
         private val AUTO_EXTRACT_ENABLED_KEY = booleanPreferencesKey("auto_extract_enabled")
@@ -113,6 +114,17 @@ class SettingsDataStore @Inject constructor(
     suspend fun saveFontMode(mode: String) {
         dataStore.edit { prefs ->
             prefs[FONT_MODE_KEY] = mode
+        }
+    }
+
+    // [WHY] 채팅 글자 크기도 UI enum(ChatTextSize)의 키 문자열로만 다룬다. 기본 DEFAULT(16) — 0.38.2 사용자 요청.
+    val chatTextSizeFlow: Flow<String> = dataStore.data.map {
+        it[CHAT_TEXT_SIZE_KEY] ?: "DEFAULT"
+    }
+
+    suspend fun saveChatTextSize(size: String) {
+        dataStore.edit { prefs ->
+            prefs[CHAT_TEXT_SIZE_KEY] = size
         }
     }
 

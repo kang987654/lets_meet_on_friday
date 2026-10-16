@@ -6,6 +6,7 @@ import com.kosmos.app.data.local.db.entity.TaskEntity
 import com.kosmos.app.domain.memory.TaskRepository
 import com.kosmos.app.domain.model.TaskItem
 
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class TaskRepositoryImpl @Inject constructor(
@@ -73,6 +74,9 @@ class TaskRepositoryImpl @Inject constructor(
     override suspend fun markReminded(taskId: String, remindedAtMs: Long): AppResult<Unit> = dbWrite(TABLE, "markReminded") {
         dao.markReminded(taskId, remindedAtMs)
     }
+
+    override fun observeById(taskId: String): kotlinx.coroutines.flow.Flow<TaskItem?> =
+        dao.observeById(taskId).map { it?.toDomain() }
 
     private fun TaskEntity.toDomain(): TaskItem {
         return TaskItem(

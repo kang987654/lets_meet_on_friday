@@ -32,8 +32,13 @@ import com.kosmos.app.ui.restartApp
 @Composable
 fun MemoryScreen(
     viewModel: MemoryViewModel = hiltViewModel(),
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    // [WHY] 채팅 요약 타일(다음 알림·남은 할 일)에서 들어오면 할 일 탭으로 연다(0.38.2 결정 2). 처음 한 번만.
+    initialFilter: MemoryFilterType? = null
 ) {
+    if (initialFilter != null) {
+        androidx.compose.runtime.LaunchedEffect(Unit) { viewModel.onFilterSelected(initialFilter) }
+    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val knowledgeItems = viewModel.knowledgePagingData.collectAsLazyPagingItems()
     val taskItems = viewModel.taskPagingData.collectAsLazyPagingItems()

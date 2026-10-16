@@ -33,4 +33,13 @@ interface TaskRepository {
     /** 아직 발화되지 않고 완료되지 않은 리마인더 전부 — 시각 정렬·과거 판정은 호출측 몫. */
     suspend fun getActiveReminders(): AppResult<List<TaskItem>>
     suspend fun markReminded(taskId: String, remindedAtMs: Long): AppResult<Unit>
+
+    /**
+     * 할 일 한 건의 현재 상태를 따라간다 — 채팅 결과 카드(0.38.2)가 미룸·울렸음·취소함을 바로 보이게.
+     *
+     * [WHY] 기본 구현은 한 번 조회해 내보낸다 — 테스트 가짜 저장소가 그대로 컴파일되게. Room 구현체가 흐름으로 덮어쓴다.
+     */
+    fun observeById(taskId: String): kotlinx.coroutines.flow.Flow<TaskItem?> = kotlinx.coroutines.flow.flow {
+        emit((getById(taskId) as? AppResult.Success)?.data)
+    }
 }

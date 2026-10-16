@@ -53,4 +53,14 @@ class ThemeViewModel @Inject constructor(
             settingsDataStore.saveFontMode(mode.key)
         }
     }
+
+    val chatTextSize: StateFlow<ChatTextSize> = settingsDataStore.chatTextSizeFlow
+        .map { ChatTextSize.fromKey(it) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ChatTextSize.DEFAULT)
+
+    fun setChatTextSize(size: ChatTextSize) {
+        viewModelScope.launch {
+            settingsDataStore.saveChatTextSize(size.key)
+        }
+    }
 }
