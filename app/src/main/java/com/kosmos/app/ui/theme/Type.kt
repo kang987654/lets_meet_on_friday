@@ -21,7 +21,7 @@ val HadaRound = FontFamily(
  * | DESIGN 단계 | 역할 |
  * |---|---|
  * | number 28/32 Bold | displaySmall (display·headlineLarge 도 같은 값) |
- * | title 22/30 Bold | titleLarge (headlineMedium·headlineSmall 도) |
+ * | title 20/28 Bold | titleLarge (headlineMedium·headlineSmall 도) — 상단 바 제목 |
  * | subtitle 17/24 Medium | titleMedium |
  * | body 16/24 | bodyLarge |
  * | caption 14/20 | bodyMedium (bodySmall·titleSmall 도) |
@@ -34,7 +34,7 @@ private fun typographyOf(family: FontFamily): Typography {
     fun style(size: Int, line: Int, weight: FontWeight) =
         TextStyle(fontFamily = family, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
     val number = style(28, 32, FontWeight.Bold)
-    val title = style(22, 30, FontWeight.Bold)
+    val title = style(20, 28, FontWeight.Bold)
     val subtitle = style(17, 24, FontWeight.Medium)
     val body = style(16, 24, FontWeight.Normal)
     val caption = style(14, 20, FontWeight.Normal)

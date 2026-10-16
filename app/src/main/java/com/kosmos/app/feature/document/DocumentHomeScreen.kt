@@ -82,11 +82,7 @@ fun DocumentHomeScreen(
         containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            TopAppBar(
-                title = { Text("문서", color = colors.textPrimary, fontWeight = FontWeight.Bold) },
-                navigationIcon = { TextButton(onClick = onBack) { Text("뒤로", color = colors.brandText) } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
+            com.kosmos.app.ui.component.KosmosTopBar(title = "문서", onBack = onBack)
         }
     ) { padding ->
         LazyColumn(

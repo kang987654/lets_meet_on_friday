@@ -50,15 +50,7 @@ fun ModelManagementScreen(
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
-            TopAppBar(
-                title = { Text("모델 관리", color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    TextButton(onClick = onBack) {
-                        Text("뒤로", color = KosmosTheme.colors.brandText)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
-            )
+            com.kosmos.app.ui.component.KosmosTopBar(title = "모델 관리", onBack = onBack)
         }
     ) { padding ->
         Column(

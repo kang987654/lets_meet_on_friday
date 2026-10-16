@@ -7,4 +7,6 @@
       따르고 라이트/다크 분기가 불가능하므로 두 테마에 같은 brand 한 값을 정한다.
     -->
     <color name="notification_accent">#FF5BC2E7</color>
+    <!-- 창 바탕(Compose 가 그리기 전 앱 시작 순간) — Color.kt LightColors.bg 복제, 다크는 values-night. -->
+    <color name="kosmos_window_bg">#FFF5FBFE</color>
 </resources>

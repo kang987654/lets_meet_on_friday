@@ -31,7 +31,8 @@ import com.kosmos.app.ui.restartApp
 
 @Composable
 fun MemoryScreen(
-    viewModel: MemoryViewModel = hiltViewModel()
+    viewModel: MemoryViewModel = hiltViewModel(),
+    onBack: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val knowledgeItems = viewModel.knowledgePagingData.collectAsLazyPagingItems()
@@ -143,18 +144,10 @@ fun MemoryScreen(
         }
     }
 
-    // [WHY] 불투명 배경을 깔지 않는다 — 채팅·설정은 셸의 오로라 배경 위에 글래스 카드가 뜨는데
-    // 이 화면만 bg 로 덮으면 다른 앱처럼 보였다 (2026-08-15 통일 회차).
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Text(
-                // 드로어 타일("메모 · 할 일")과 같은 이름 — 진입점과 화면 제목이 다르면 길을 잃는다.
-                text = "메모 · 할 일",
-                style = MaterialTheme.typography.headlineMedium,
-                color = KosmosTheme.colors.textPrimary,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 8.dp)
-            )
+            // 드로어 타일("메모 · 할 일")과 같은 이름 — 진입점과 화면 제목이 다르면 길을 잃는다.
+            com.kosmos.app.ui.component.KosmosTopBar(title = "메모 · 할 일", onBack = onBack)
             KosmosSegmentedControl(
                 options = listOf(MemoryFilterType.KNOWLEDGE to "메모", MemoryFilterType.TASK to "할 일"),
                 selected = uiState.selectedFilter,

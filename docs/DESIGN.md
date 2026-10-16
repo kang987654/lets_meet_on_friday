@@ -49,7 +49,7 @@ colors-dark:
 # 글자 — 하다 라운드(Hada Round, OFL) 400/500/700. 시스템 글꼴 모드에서는 같은 크기·굵기로 기기 글꼴. 단위 sp.
 typography:
   number:   { fontSize: 28, lineHeight: 32, fontWeight: 700, use: "결과 카드의 시각·값(1:56, 134). tabular 숫자" }
-  title:    { fontSize: 22, lineHeight: 30, fontWeight: 700, use: "본문 안 큰 제목(시트 머리·빈 화면) — 상단 바 제목은 subtitle" }
+  title:    { fontSize: 20, lineHeight: 28, fontWeight: 700, use: "상단 바 제목(KOSMOS 포함)·시트 머리" }
   subtitle: { fontSize: 17, lineHeight: 24, fontWeight: 500, use: "카드·시트 제목, 알림·일정 이름" }
   body:     { fontSize: 16, lineHeight: 24, fontWeight: 400, use: "채팅·메모 본문" }
   caption:  { fontSize: 14, lineHeight: 20, fontWeight: 400, use: "설명·도움말" }
@@ -157,7 +157,7 @@ icons:
 
 - **edge-to-edge** — 상태바·내비게이션 바도 앱 색으로 칠해진다(0.38.1 M2, 매니페스트 옛 테마 교체). 바 아이콘 밝기는 테마를 따른다.
 - 인셋은 **화면 틀이 맡는다** — 상단 바(TopAppBar)가 상태바, 입력바·하단 버튼이 내비게이션 바·키보드(IME). 평범한 Row/Column 을 슬롯에 넣으면 바에 깔린다(AGENTS §2-③).
-- **모든 하위 화면에 같은 상단 바** — 왼쪽 ← 아이콘 버튼(48dp, contentDescription "뒤로") + `subtitle` 단계 제목(17, 굵게 — "KOSMOS" 도 같은 크기, 사용자 결정 2026-10-16). 글자 "뒤로" 버튼은 쓰지 않는다. 시스템 뒤로·예측 뒤로는 그대로(`AppNavHost.navigateBack` 루트 가드).
+- **모든 하위 화면에 같은 상단 바** — 왼쪽 ← 아이콘 버튼(48dp, contentDescription "뒤로") + `title` 단계 제목(20). ← 도 20(`IconSize.inline`) — 화살표와 글자 크기를 맞춘다. 채팅의 "KOSMOS"·메뉴 아이콘도 같다(사용자 결정 2026-10-16, 17·22·20 시안 비교). 글자 "뒤로" 버튼은 쓰지 않는다. 시스템 뒤로·예측 뒤로는 그대로(`AppNavHost.navigateBack` 루트 가드).
 - 채팅(홈)은 상단 바 왼쪽이 메뉴(드로어).
 
 ---

@@ -20,7 +20,7 @@ class TypographyTest {
 
     @Test
     fun `모든 역할이 DESIGN 7단계 중 하나다 — M3 기본 크기표가 남지 않는다`() {
-        val steps = setOf(28 to 32, 22 to 30, 17 to 24, 16 to 24, 14 to 20, 13 to 18, 15 to 20)
+        val steps = setOf(28 to 32, 20 to 28, 17 to 24, 16 to 24, 14 to 20, 13 to 18, 15 to 20)
         for (style in roles(AppTypography)) {
             val step = style.fontSize.value.toInt() to style.lineHeight.value.toInt()
             assert(step in steps) { "단계 밖 크기 $step" }

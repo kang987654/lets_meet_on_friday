@@ -1,7 +1,7 @@
 package com.kosmos.app.navigation
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -70,30 +70,30 @@ fun AppNavHost(
             )
         }
         
-        // [WHY] 아래 세 화면은 자체 Scaffold/TopAppBar 가 없어 M2-2 전에는 셸 Scaffold 의
-        // innerPadding 이 시스템 바 여백을 대신 만들어 줬다. 셸 Scaffold 가 사라졌으므로
-        // 여기서 시스템 바 패딩을 감아 준다 (채팅은 자기 헤더·입력바가 인셋을 직접 진다).
+        // [WHY] 아래 세 화면은 Scaffold 가 없다 — 상태바는 화면의 KosmosTopBar(M3 TopAppBar)가 지고, 내비게이션 바만
+        // 여기서 감아 준다(채팅은 자기 헤더·입력바가 인셋을 직접 진다, AGENTS §2-③).
         composable(route = AppDestination.Calendar.route) {
-            Box(modifier = Modifier.systemBarsPadding()) {
-                CalendarScreen()
+            Box(modifier = Modifier.navigationBarsPadding()) {
+                CalendarScreen(onBack = { navigateBack() })
             }
         }
 
         composable(route = AppDestination.Memory.route) {
-            Box(modifier = Modifier.systemBarsPadding()) {
-                com.kosmos.app.feature.memory.MemoryScreen()
+            Box(modifier = Modifier.navigationBarsPadding()) {
+                com.kosmos.app.feature.memory.MemoryScreen(onBack = { navigateBack() })
             }
         }
 
         composable(route = AppDestination.Settings.route) {
-            Box(modifier = Modifier.systemBarsPadding()) {
+            Box(modifier = Modifier.navigationBarsPadding()) {
                 com.kosmos.app.feature.settings.SettingsScreen(
                     onNavigateToModelManagement = {
                         navController.navigate(AppDestination.ModelManagement.route)
                     },
                     onNavigateToMemoryCleanup = {
                         navController.navigate(AppDestination.MemoryCleanup.route)
-                    }
+                    },
+                    onBack = { navigateBack() }
                 )
             }
         }

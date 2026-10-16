@@ -58,13 +58,7 @@ fun MemoryCleanupScreen(
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
-                title = { Text("기억 정리", color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    TextButton(onClick = onBack) { Text("뒤로", color = KosmosTheme.colors.brandText) }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
+            com.kosmos.app.ui.component.KosmosTopBar(title = "기억 정리", onBack = onBack)
         }
     ) { padding ->
         Column(

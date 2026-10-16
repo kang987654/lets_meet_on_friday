@@ -70,13 +70,14 @@ fun CustomChatHeader(
                 painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_list),
                 contentDescription = "메뉴",
                 tint = KosmosTheme.colors.textSecondary,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(com.kosmos.app.ui.component.IconSize.inline)
             )
         }
 
         Text(
             text = "KOSMOS",
-            style = MaterialTheme.typography.titleMedium,
+            // [WHY] 하위 화면 상단 바 제목과 같은 `title` 단계 — 메뉴 아이콘도 ← 와 같은 20.
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
             letterSpacing = 1.sp,
             color = KosmosTheme.colors.textPrimary,

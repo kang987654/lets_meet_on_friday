@@ -27,7 +27,8 @@ import androidx.compose.foundation.clickable
 
 @Composable
 fun CalendarScreen(
-    viewModel: CalendarViewModel = hiltViewModel()
+    viewModel: CalendarViewModel = hiltViewModel(),
+    onBack: (() -> Unit)? = null
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     // [WHY] 헤더 월·날짜 띠·"오늘" 판정이 같은 today 를 본다 — 화면 복귀마다 갱신(rememberToday).
@@ -56,19 +57,8 @@ fun CalendarScreen(
         }
     }
 
-    // [WHY] 불투명 배경을 깔지 않는다 — MemoryScreen 과 동일 (통일 회차).
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 16.dp)
-    ) {
-        Text(
-            "일정",
-            style = MaterialTheme.typography.headlineMedium,
-            color = KosmosTheme.colors.textPrimary,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
-        )
+    Column(modifier = Modifier.fillMaxSize()) {
+        com.kosmos.app.ui.component.KosmosTopBar(title = "일정", onBack = onBack)
 
         // [WHY] 월 / 목록 탭(사용자 결정, 0.28.0) — 목록 탭은 기존 화면(오늘·이번 주 + 날짜 띠)을 그대로 옮겼다.
         com.kosmos.app.ui.component.KosmosSegmentedControl(

@@ -327,7 +327,7 @@ class ScreenCatalogTest {
 
     @Test fun memoryNotes() {
         val vm = memoryViewModel()
-        shoot("05-memory-notes") { com.kosmos.app.feature.memory.MemoryScreen(viewModel = vm) }
+        shoot("05-memory-notes") { com.kosmos.app.feature.memory.MemoryScreen(viewModel = vm, onBack = {}) }
     }
 
     @Test fun memoryTasks() {
@@ -336,12 +336,12 @@ class ScreenCatalogTest {
             vm.onFilterSelected(com.kosmos.app.feature.memory.MemoryFilterType.TASK)
             settle()
             runCatching { rule.onNodeWithText("펼치기").performClick() }
-        }) { com.kosmos.app.feature.memory.MemoryScreen(viewModel = vm) }
+        }) { com.kosmos.app.feature.memory.MemoryScreen(viewModel = vm, onBack = {}) }
     }
 
     @Test fun calendar() {
         val vm = com.kosmos.app.feature.calendar.CalendarViewModel(getTodayScheduleUseCase, summarizeScheduleUseCase)
-        shoot("07-calendar", before = { vm.selectMonthDate(TODAY) }) { com.kosmos.app.feature.calendar.CalendarScreen(viewModel = vm) }
+        shoot("07-calendar", before = { vm.selectMonthDate(TODAY) }) { com.kosmos.app.feature.calendar.CalendarScreen(viewModel = vm, onBack = {}) }
     }
 
     @Test fun documentHome() {
@@ -358,7 +358,7 @@ class ScreenCatalogTest {
             dataResetRepository, taskRepository, reminderAlarmScheduler, widgetRefresher, sessionStore
         )
         shoot("09-settings") {
-            com.kosmos.app.feature.settings.SettingsScreen(viewModel = vm, themeViewModel = themeVm, dataResetViewModel = resetVm)
+            com.kosmos.app.feature.settings.SettingsScreen(viewModel = vm, themeViewModel = themeVm, dataResetViewModel = resetVm, onBack = {})
         }
     }
 

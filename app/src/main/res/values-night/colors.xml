@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Color.kt DarkColors.bg 복제 — 창 바탕(앱 시작 순간)용, values/colors.xml 주석 참조. -->
+    <color name="kosmos_window_bg">#FF111618</color>
+</resources>

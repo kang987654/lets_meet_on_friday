@@ -33,17 +33,7 @@ fun AuditScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("활동 기록", fontWeight = FontWeight.Bold, color = KosmosTheme.colors.textPrimary) },
-                navigationIcon = {
-                    TextButton(onClick = onNavigateBack) {
-                        Text("뒤로", color = KosmosTheme.colors.textSecondary)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = KosmosTheme.colors.bg
-                )
-            )
+            com.kosmos.app.ui.component.KosmosTopBar(title = "활동 기록", onBack = onNavigateBack)
         }
     ) { innerPadding ->
         Column(

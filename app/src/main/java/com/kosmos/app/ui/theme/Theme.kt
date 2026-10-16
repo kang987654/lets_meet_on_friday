@@ -114,12 +114,15 @@ fun KosmosTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
-            // [WHY] 시스템 바 아이콘은 테마와 무관하게 **밝게** 둔다 — 매니페스트 테마(`Theme.NoTitleBar`, 옛 테마)는 시스템이 바 배경을
-            // 직접 검게 그려 앱이 칠할 수 없다(statusBarColor·창 배경 모두 실기기에서 무효, 0.36.1). 라이트 모드에서 어두운 아이콘을 쓰면
-            // 검은 바 위에서 사라졌다. 바를 앱 색으로 칠하려면 edge-to-edge 전환(각 화면이 인셋을 직접 처리)이 필요하다.
+            // [WHY] 바는 투명(enableEdgeToEdge)이라 앱 바탕이 비친다 — 아이콘 밝기는 시스템이 아니라 **앱 테마**를 따라야
+            // 라이트 바탕 위 흰 아이콘·다크 바탕 위 검은 아이콘이 생기지 않는다(앱 테마는 시스템 설정과 다를 수 있다).
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = false
-                isAppearanceLightNavigationBars = false
+                isAppearanceLightStatusBars = kosmosColors.isLight
+                isAppearanceLightNavigationBars = kosmosColors.isLight
+            }
+            // [WHY] 3버튼 내비게이션에서 시스템이 반투명 막을 덧칠하지 않게 — 바 색은 앱 바탕 한 가지.
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
             }
         }
     }

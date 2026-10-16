@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      [WHY] 옛 Theme.NoTitleBar 는 시스템이 상태바·내비게이션 바를 직접 검게 칠해 앱이 바 색을 정할 수 없었다(0.36.1).
+      현행 NoActionBar 테마 + enableEdgeToEdge() 로 바를 투명하게 두고 앱 바탕이 비쳐 보이게 한다(0.38.1 M2, DESIGN.md "시스템 바").
+      창 바탕은 Compose 가 그리기 전(앱 시작 순간)만 보인다 — 다크 기기에서 흰 화면이 번쩍이지 않게 values-night 에서 바꾼다.
+    -->
+    <style name="Theme.Kosmos" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/kosmos_window_bg</item>
+    </style>
+</resources>

@@ -74,11 +74,10 @@ fun DocumentViewerScreen(
     Scaffold(
         containerColor = colors.bg,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(title, color = colors.textPrimary, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                },
-                navigationIcon = { TextButton(onClick = onClose) { Text("닫기", color = colors.brandText) } },
+            com.kosmos.app.ui.component.KosmosTopBar(
+                title = title,
+                onBack = onClose,
+                backDescription = "닫기",
                 actions = {
                     val ready = state is DocumentViewerState.Pdf || state is DocumentViewerState.Flow ||
                         (state is DocumentViewerState.Spreadsheet && state.sheet != null)
@@ -95,8 +94,7 @@ fun DocumentViewerScreen(
                             Text("${(zoom * 100).toInt()}%", color = colors.brandText)
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.bg)
+                }
             )
         },
         bottomBar = {
