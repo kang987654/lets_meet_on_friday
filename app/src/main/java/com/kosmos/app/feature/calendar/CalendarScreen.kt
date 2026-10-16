@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -325,14 +326,17 @@ fun ScheduleContent(data: ScheduleData, sectionLabel: String = "오늘") {
 
 @Composable
 fun TodayEventCard(event: CalendarEvent, stripColor: Color, timeLabel: String? = null) {
+    val shape = RoundedCornerShape(16.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
+            // [WHY] 카드 모양으로 잘라야 왼쪽 출처 띠가 둥근 모서리를 따라간다 — 띠가 제 모서리를 따로 그리면 위아래가 카드 밖으로 삐져나왔다(0.38.1 실기기).
+            .clip(shape)
             .kosmosSurface(
                 backgroundColor = KosmosTheme.colors.surface,
                 borderColor = KosmosTheme.colors.border,
-                shape = RoundedCornerShape(16.dp)
+                shape = shape
             )
     ) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -340,7 +344,7 @@ fun TodayEventCard(event: CalendarEvent, stripColor: Color, timeLabel: String? =
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(4.dp)
-                    .background(stripColor, RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
+                    .background(stripColor)
             )
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp).weight(1f)) {
                 Text(
