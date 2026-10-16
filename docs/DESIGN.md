@@ -233,7 +233,9 @@ icons:
 ## 유지
 
 - 이 문서가 UI 의 유일한 기준이다. 새 화면은 이를 따르고, 바꿀 때는 이 문서부터 고친다.
-- 회귀는 Roborazzi 기준 이미지로 잡는다(0.38.1~). 의도한 변경만 사용자 확인 후 갱신.
+- 회귀는 Roborazzi 기준 이미지로 잡는다 — `ScreenCatalogTest` 14장면 × 라이트·다크, 기준은 `app/src/test/screenshots/`(커밋).
+  `./gradlew test` 가 비교하고(`gradle.properties` 의 `roborazzi.test.verify`) 다르면 실패, 차이 이미지는 `app/build/outputs/roborazzi/`(`_compare`·`_actual`).
+  의도한 변경은 전후 비교를 사용자에게 보이고 확인받은 뒤 `./gradlew :app:recordRoborazziDebug` 로 다시 기록한다. 시각·시간대는 테스트가 고정한다(`LocalClock`).
 - 검색으로 지키는 지표: 테마 밖 하드코딩 색 0, 이모지·글자 기호 아이콘 0, 테마 밖 직접 `fontSize` 0.
 
 ## Known Gaps

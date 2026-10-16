@@ -1,19 +1,17 @@
 package com.kosmos.app.design
 
-import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
+import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
+import com.github.takahirom.roborazzi.captureScreenRoboImage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.AuditEvent
 import com.kosmos.app.domain.model.AuditEventType
@@ -26,6 +24,7 @@ import com.kosmos.app.domain.model.TaskItem
 import com.kosmos.app.domain.modelrunner.ModelInfo
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.ui.component.LocalClock
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.ThemeMode
 import dagger.hilt.android.testing.BindValue
@@ -36,7 +35,7 @@ import dagger.hilt.android.testing.UninstallModules
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
-import org.junit.Assume.assumeTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -46,16 +45,23 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowLooper
 import java.io.File
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.util.TimeZone
 import javax.inject.Inject
 
 /**
  * [ScreenCatalogTest]
- * 화면 카탈로그 — 0.38.0 디자인 감사(M0)용으로 주요 화면을 **실제 ViewModel + 가짜 데이터**로 라이트·다크 PNG 로 찍습니다.
+ * 화면 기준 이미지 — 주요 화면을 **실제 ViewModel + 가짜 데이터**로 라이트·다크 Roborazzi 이미지로 찍습니다(대화상자·시트 창 합성).
  *
  * [WHY] 에뮬레이터는 엔진 초기화가 끝나지 않아(2026-10-14) 스플래시를 못 지난다 — Hilt 테스트 그래프로 ViewModel 을 조립해
- * Robolectric 네이티브 그래픽으로 그린다(시스템 바·키보드·실제 글꼴 차이는 못 본다 → 실기기). 0.38.1 에서 Roborazzi 기준 이미지로 옮긴다.
- * `-Pcatalog` 일 때만 돈다(app/build.gradle.kts) — 출력은 `docs/design/audit-0.38/`(커밋 제외).
+ * Robolectric 네이티브 그래픽으로 그린다(시스템 바·키보드·실제 글꼴 차이는 못 본다 → 실기기).
+ * 기준 이미지는 `app/src/test/screenshots/`(커밋). 기록·검증 명령은 DESIGN.md "유지" 절. 시각·시간대는 고정한다(AGENTS §2-④).
  */
+@OptIn(ExperimentalRoborazziApi::class)
 @HiltAndroidTest
 @UninstallModules(com.kosmos.app.di.ModelModule::class)
 @RunWith(RobolectricTestRunner::class)
@@ -159,14 +165,12 @@ class ScreenCatalogTest {
         override fun close() {}
     }
 
-    private lateinit var outDir: File
     private var themeMode by mutableStateOf(ThemeMode.LIGHT)
+    private val defaultZone: TimeZone = TimeZone.getDefault()
 
     @Before
     fun setUp() {
-        val dir = System.getProperty("kosmos.catalog.dir")
-        assumeTrue("-Pcatalog 일 때만", dir != null)
-        outDir = File(requireNotNull(dir)).apply { mkdirs() }
+        TimeZone.setDefault(TimeZone.getTimeZone(ZONE))
         // [WHY] 일정 승인은 화면이 캘린더 권한을 먼저 확인한다 — 테스트 앱에서는 거부로 처리돼 승인 카드가 안 뜬다.
         org.robolectric.Shadows.shadowOf(ApplicationProvider.getApplicationContext<android.app.Application>()).grantPermissions(
             android.Manifest.permission.READ_CALENDAR, android.Manifest.permission.WRITE_CALENDAR, android.Manifest.permission.POST_NOTIFICATIONS
@@ -175,10 +179,15 @@ class ScreenCatalogTest {
         runBlocking { seed() }
     }
 
-    // ── 가짜 데이터 — 실제 대화가 아니다(§1: 실대화 파생 데이터 커밋 금지와 무관하게 출력도 커밋하지 않는다) ──
+    @After
+    fun tearDown() {
+        TimeZone.setDefault(defaultZone)
+    }
+
+    // ── 가짜 데이터 — 실제 대화가 아니다 ──
 
     private suspend fun seed() {
-        val now = System.currentTimeMillis()
+        val now = NOW
         sessionStore.saveActiveSessionId(SESSION)
         val episode = Episode(
             id = "ep-bike", sessionId = SESSION, status = EpisodeStatus.SUMMARIZED, title = "자전거 비밀번호 확인",
@@ -206,7 +215,7 @@ class ScreenCatalogTest {
         knowledgeRepository.save(KnowledgeNote(id = "k1", content = "자전거 비밀번호는 134", tags = listOf("자전거", "비밀번호"), createdAt = now - DAY * 3, updatedAt = now - DAY * 3))
         knowledgeRepository.save(KnowledgeNote(id = "k2", content = "아침엔 커피 대신 녹차를 마심", tags = listOf("녹차"), createdAt = now - DAY, updatedAt = now - DAY, source = KnowledgeNote.SOURCE_AUTO))
         knowledgeRepository.save(KnowledgeNote(id = "k3", content = "회사 주차는 B2 구역 117번", tags = listOf("주차"), createdAt = now, updatedAt = now))
-        taskRepository.save(TaskItem(id = "t1", title = "물 마시기", isCompleted = false, createdAt = now - 1_800_000, remindAtIso = "2026-10-16T13:56:00"))
+        taskRepository.save(TaskItem(id = "t1", title = "물 마시기", isCompleted = false, createdAt = now - 1_800_000, remindAtIso = "2026-10-15T13:56:00"))
         taskRepository.save(TaskItem(id = "t2", title = "치과 예약 전화하기", isCompleted = false, createdAt = now - DAY))
         taskRepository.save(TaskItem(id = "t3", title = "장보기", isCompleted = true, createdAt = now - DAY * 2))
         profileRepository.upsert("호칭", "진우님")
@@ -234,18 +243,16 @@ class ScreenCatalogTest {
         }
     }
 
-    private fun save(bitmap: Bitmap, name: String) {
-        File(outDir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-    }
-
-    /** 라이트로 찍고 같은 화면을 다크로 바꿔 다시 찍는다. 떠 있는 대화상자·시트도 따로 찍는다. */
+    /** 라이트로 찍고 같은 화면을 다크로 바꿔 다시 찍는다. 떠 있는 대화상자·시트는 화면 위에 합성된다. */
     private fun shoot(name: String, onSurface: Boolean = false, before: () -> Unit = {}, content: @Composable () -> Unit) {
         // [WHY] 앱처럼 배경을 깐다 — 화면들은 투명하고 MainActivity 의 Surface(background)가 바닥을 칠한다. 드로어는 surface 색 시트 위에 있다.
         rule.setContent {
-            KosmosTheme(themeMode = themeMode) {
-                androidx.compose.material3.Surface(
-                    color = if (onSurface) KosmosTheme.colors.surface else androidx.compose.material3.MaterialTheme.colorScheme.background
-                ) { content() }
+            CompositionLocalProvider(LocalClock provides CLOCK) {
+                KosmosTheme(themeMode = themeMode) {
+                    androidx.compose.material3.Surface(
+                        color = if (onSurface) KosmosTheme.colors.surface else androidx.compose.material3.MaterialTheme.colorScheme.background
+                    ) { content() }
+                }
             }
         }
         settle()
@@ -255,11 +262,7 @@ class ScreenCatalogTest {
             themeMode = mode
             settle()
             val tag = if (mode == ThemeMode.LIGHT) "light" else "dark"
-            save(rule.onRoot(useUnmergedTree = true).captureToImage().asAndroidBitmap(), "$name-$tag")
-            val dialogs = rule.onAllNodes(isDialog()).fetchSemanticsNodes().size
-            for (i in 0 until dialogs) {
-                save(rule.onAllNodes(isDialog())[i].captureToImage().asAndroidBitmap(), "$name-$tag-dialog$i")
-            }
+            captureScreenRoboImage("src/test/screenshots/$name-$tag.png")
         }
     }
 
@@ -338,7 +341,7 @@ class ScreenCatalogTest {
 
     @Test fun calendar() {
         val vm = com.kosmos.app.feature.calendar.CalendarViewModel(getTodayScheduleUseCase, summarizeScheduleUseCase)
-        shoot("07-calendar") { com.kosmos.app.feature.calendar.CalendarScreen(viewModel = vm) }
+        shoot("07-calendar", before = { vm.selectMonthDate(TODAY) }) { com.kosmos.app.feature.calendar.CalendarScreen(viewModel = vm) }
     }
 
     @Test fun documentHome() {
@@ -391,6 +394,10 @@ class ScreenCatalogTest {
     private companion object {
         const val SESSION = "s-catalog"
         const val DAY = 86_400_000L
+        const val ZONE = "Asia/Seoul"
+        val TODAY: LocalDate = LocalDate.of(2026, 10, 15)
+        val NOW: Long = ZonedDateTime.of(TODAY.atTime(13, 30), ZoneId.of(ZONE)).toInstant().toEpochMilli()
+        val CLOCK: Clock = Clock.fixed(Instant.ofEpochMilli(NOW), ZoneId.of(ZONE))
         val MODEL = ModelInfo("mock", "mock", "1.0", "Q4", 0L)
     }
 }

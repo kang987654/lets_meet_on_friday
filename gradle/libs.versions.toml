@@ -57,6 +57,8 @@ androidxTestExtJunit = "1.3.0"
 robolectric = "4.14"
 junit = "4.13.2"
 mockk = "1.14.11"
+# [WHY] 화면 기준 이미지(0.38.1 M0) — 테스트 스코프 전용이라 런타임에 실리지 않는다. Robolectric NATIVE 그래픽 위에서 찍는다.
+roborazzi = "1.76.0"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -66,6 +68,7 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
 
 [libraries]
 # Kotlinx Serialization
@@ -158,3 +161,5 @@ hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", vers
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExtJunit" }
 espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espressoCore" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose", version.ref = "roborazzi" }

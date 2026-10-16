@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
+    alias(libs.plugins.roborazzi)
 }
 
 android {
@@ -80,18 +81,12 @@ android {
                         excludeTestsMatching("com.kosmos.app.integration.VoiceChatIntegrationTest")
                         excludeTestsMatching("com.kosmos.app.integration.ChatSpeechIntegrationTest")
                         excludeTestsMatching("com.kosmos.app.assistant.agent.BaseAgentStreamTest")
+                        excludeTestsMatching("com.kosmos.app.design.ScreenCatalogTest")
                     }
                 }
             }
-            // [WHY] 화면 카탈로그(0.38.0 디자인 감사)는 PNG 를 쓰는 도구라 게이트에서 돌지 않는다 — `-Pcatalog` 일 때만, 그것만 돌린다.
-            all { test ->
-                if (project.hasProperty("catalog")) {
-                    test.filter { includeTestsMatching("com.kosmos.app.design.ScreenCatalogTest") }
-                    test.systemProperty("kosmos.catalog.dir", rootProject.file("docs/design/audit-0.38").absolutePath)
-                } else {
-                    test.filter { excludeTestsMatching("com.kosmos.app.design.ScreenCatalogTest") }
-                }
-            }
+            // [WHY] 대화상자 창까지 합성해 찍는 captureScreenRoboImage 의 정확도 권장값(Roborazzi README).
+            all { test -> test.systemProperty("robolectric.pixelCopyRenderMode", "hardware") }
         }
     }
     lint {
@@ -116,6 +111,11 @@ android {
         // adaptive icon 자산 작업 회차가 필요하다. PNG 파일이라 인라인 억제가 불가능해 여기서 끈다.
         disable += setOf("IconLauncherShape", "IconDuplicates")
     }
+}
+
+// [WHY] 기준 이미지는 저장소에 커밋한다(0.38.1 M0) — 비교 결과(_compare·_actual)는 build/ 아래로.
+roborazzi {
+    outputDir.set(file("src/test/screenshots"))
 }
 
 dependencies {
@@ -199,6 +199,8 @@ dependencies {
     testImplementation(libs.hilt.android.testing)
     kspTest(libs.hilt.compiler)
     testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.androidx.work.testing)
     testImplementation(libs.okhttp.mockwebserver)
