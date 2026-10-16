@@ -52,9 +52,12 @@ class AddScheduleToolExecutor @Inject constructor(
         val res = addScheduleUseCase(draft.title, draft.startTime, draft.endTime, draft.description)
         return if (res is AppResult.Success) {
             widgetRefresher.refresh()
-            ToolResultJson.success()
-                .put("message", "일정이 성공적으로 추가되었습니다.")
-                .toString()
+            ToolResultJson.withResult(
+                ToolResultJson.success().put("message", "일정이 성공적으로 추가되었습니다."),
+                kind = com.kosmos.app.domain.model.MessageResult.Kind.SCHEDULE.name,
+                // [WHY] 카드는 앱이 저장한 일정(task)을 조회한다 — 기기 캘린더 이벤트 id 는 쓰기 결과로 오지 않는다.
+                ref = res.data
+            ).toString()
         } else {
             ToolResultJson.error("일정 추가 실패")
         }

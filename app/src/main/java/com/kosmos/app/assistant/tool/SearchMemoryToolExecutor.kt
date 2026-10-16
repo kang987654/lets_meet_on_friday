@@ -100,7 +100,7 @@ class SearchMemoryToolExecutor @Inject constructor(
         // 보다 앞서는 기존 계약은 그대로 성립하고, 항이 온전히 들어 있는 정도까지 반영된다(exp33 원문).
         val ranked = rank(tokens, candidates.values)
         if (ranked.isNotEmpty()) {
-            return formatHits(ranked).let { successJson(it.text, episodeIds = it.episodeIds) }
+            return formatHits(ranked).let { successJson(it.text, episodeIds = it.episodeIds, recall = it.recall) }
         }
 
         // ── 3. 정밀 0건 → 바이그램 전수 스캔 ─────────────────────────────────────
@@ -119,7 +119,7 @@ class SearchMemoryToolExecutor @Inject constructor(
             minTermOverlap = Constants.BIGRAM_MIN_TERM_OVERLAP
         )
         if (scanned.isNotEmpty()) {
-            return formatHits(scanned).let { successJson(it.text, episodeIds = it.episodeIds) }
+            return formatHits(scanned).let { successJson(it.text, episodeIds = it.episodeIds, recall = it.recall) }
         }
 
         // ── 4. 태그 목록 폴백 ───────────────────────────────────────────────────
@@ -198,10 +198,25 @@ class SearchMemoryToolExecutor @Inject constructor(
         )
         val mixed = notes.isNotEmpty() && hits.any { it.episodeId != null }
         val body = lines.joinToString("\n")
-        return Formatted(if (mixed) "$MIXED_SOURCE_GUIDE\n$body" else body, kept.mapNotNull { it.episodeId })
+        return Formatted(if (mixed) "$MIXED_SOURCE_GUIDE\n$body" else body, kept.mapNotNull { it.episodeId }, recallOf(hits, contradicting, notes))
     }
 
-    private data class Formatted(val text: String, val episodeIds: List<String>)
+    /**
+     * 결과 카드의 근거(0.38.2) — 1순위 메모(없으면 과거 대화만), 메모와 다른 값을 적은 요약의 건수·값.
+     * 모델에게 가는 문구와 같은 판정([RecallConflict])을 쓴다 — 화면과 모델이 같은 사실을 본다.
+     */
+    private fun recallOf(hits: List<Hit>, contradicting: List<Hit>, notes: List<String>): JSONObject {
+        val topNote = hits.firstOrNull { it.episodeId == null }
+        val meta = JSONObject()
+        if (topNote != null) meta.put("noteAt", topNote.createdAt)
+        if (contradicting.isNotEmpty()) {
+            meta.put("conflictCount", contradicting.size)
+            meta.put("otherValues", org.json.JSONArray(RecallConflict.otherValues(contradicting.map(Hit::text), notes)))
+        }
+        return JSONObject().put("ref", topNote?.key.orEmpty()).put("meta", meta)
+    }
+
+    private data class Formatted(val text: String, val episodeIds: List<String>, val recall: JSONObject)
 
     private fun KnowledgeNote.toHit() = Hit(
         key = id, text = content, scoreText = searchText(), tags = tags, createdAt = createdAt, episodeId = null,
@@ -227,7 +242,7 @@ class SearchMemoryToolExecutor @Inject constructor(
     //
     // [WHY] meta.episodeIds 는 회수 칩(🧠)의 출처다. BaseAgent 가 뽑아 쓰고 **모델에게
     // 되돌리기 전에 제거**한다 — 모델이 id 를 답변에 에코하는 것을 막는다.
-    private fun successJson(data: String, episodeIds: List<String> = emptyList()): String {
+    private fun successJson(data: String, episodeIds: List<String> = emptyList(), recall: JSONObject? = null): String {
         val capped = com.kosmos.app.domain.util.SentenceTruncator.truncate(
             text = data,
             maxTokens = Constants.TOOL_RESULT_MAX_TOKENS - Constants.TOOL_RESULT_ENVELOPE_RESERVE_TOKENS,
@@ -237,6 +252,12 @@ class SearchMemoryToolExecutor @Inject constructor(
         val json = ToolResultJson.success().put("data", capped)
         if (episodeIds.isNotEmpty()) {
             json.put("meta", JSONObject().put("episodeIds", org.json.JSONArray(episodeIds)))
+        }
+        if (recall != null) {
+            ToolResultJson.withResult(
+                json, com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL.name,
+                ref = recall.getString("ref"), meta = recall.getJSONObject("meta")
+            )
         }
         return json.toString()
     }

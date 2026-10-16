@@ -52,8 +52,12 @@ class AddMemoryToolExecutor @Inject constructor(
         // memory: DbWriteError…" 영어 2/6, 한국어 번역 3/6) 모델이 오류를 무시하고 "기억해 두었습니다"
         // 라고 **거짓 성공**을 말했다 — 해야 할 행동을 적은 지시형은 0/6(+5토큰). 내부 오류 이름도
         // 모델 입력에서 뺐다(진단은 감사 로그가 맡는다). 성공 문구는 영/한 동등이라 다른 실행기와 맞췄다.
-        return when (saveKnowledgeUseCase(content, tags)) {
-            is AppResult.Success -> ToolResultJson.success().put("message", "기억에 저장했어요.").toString()
+        return when (val saved = saveKnowledgeUseCase(content, tags)) {
+            is AppResult.Success -> ToolResultJson.withResult(
+                ToolResultJson.success().put("message", "기억에 저장했어요."),
+                kind = com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_NOTE.name,
+                ref = saved.data.id
+            ).toString()
             is AppResult.Failure -> ToolResultJson.error(
                 "저장에 실패했습니다. 기억하지 못했다고 사용자에게 분명히 알리고, 다시 시도할지 물어보세요."
             )

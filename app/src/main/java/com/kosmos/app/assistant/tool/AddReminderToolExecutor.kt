@@ -71,9 +71,11 @@ class AddReminderToolExecutor internal constructor(
                     reminderAlarmScheduler.schedule(res.data.id, triggerAtMs)
                 }
                 widgetRefresher.refresh()
-                ToolResultJson.success()
-                    .put("message", "리마인더 등록: ${draft.displayTime}에 '${draft.content}' 알림")
-                    .toString()
+                ToolResultJson.withResult(
+                    ToolResultJson.success().put("message", "리마인더 등록: ${draft.displayTime}에 '${draft.content}' 알림"),
+                    kind = com.kosmos.app.domain.model.MessageResult.Kind.REMINDER.name,
+                    ref = res.data.id
+                ).toString()
             }
             is AppResult.Failure -> {
                 // [WHY] 과거 시각은 형식 오류가 아니라 의미 오류다 — 모델이 자가수정할 수 있게

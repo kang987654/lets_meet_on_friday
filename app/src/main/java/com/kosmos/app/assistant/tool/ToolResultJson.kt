@@ -25,6 +25,19 @@ object ToolResultJson {
 
     fun error(message: String): String = errorObject(message).toString()
 
+    /**
+     * 결과 카드(0.38.2)용 대상 정보를 `meta.result` 에 싣는다 — `{"kind","ref","meta"}`.
+     *
+     * [WHY] `meta` 는 BaseAgent 가 모델에게 되돌리기 전에 통째로 떼어 낸다 — 모델 입력(프롬프트 표면)은 그대로다.
+     */
+    fun withResult(json: JSONObject, kind: String, ref: String, meta: JSONObject? = null): JSONObject {
+        val result = JSONObject().put("kind", kind).put("ref", ref)
+        if (meta != null) result.put("meta", meta.toString())
+        val metaObj = json.optJSONObject("meta") ?: JSONObject().also { json.put("meta", it) }
+        metaObj.put("result", result)
+        return json
+    }
+
     /** 실행기가 돌려준 결과가 오류로 표시됐는가. 파싱이 안 되면 오류가 아닌 것으로 본다. */
     fun isError(resultJson: String): Boolean =
         runCatching { JSONObject(resultJson).optString(STATUS) == ERROR }.getOrDefault(false)

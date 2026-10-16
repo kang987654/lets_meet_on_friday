@@ -41,6 +41,7 @@ class AssistantMessageWriter(
         thinkingProcess: String? = null,
         episodeId: String? = null,
         recallEpisodeIds: List<String> = emptyList(),
+        result: com.kosmos.app.domain.model.MessageResult? = null,
         now: Long = System.currentTimeMillis()
     ): AppResult<Unit> = conversationRepository.save(
         ChatMessage(
@@ -53,7 +54,8 @@ class AssistantMessageWriter(
             createdAt = now,
             thinkingProcess = thinkingProcess,
             episodeId = episodeId,
-            recallEpisodeIds = recallEpisodeIds
+            recallEpisodeIds = recallEpisodeIds,
+            result = result
         )
     )
 

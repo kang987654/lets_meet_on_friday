@@ -145,4 +145,16 @@ class AddReminderToolExecutorTest {
 
         assertTrue("화면이 이 시점에 알림 권한을 요청한다(0.36.0 D4)", request.showsNotification)
     }
+
+    @Test
+    fun `성공 결과는 결과 카드 대상(리마인더·할 일 id)을 meta 에 싣는다`() = runTest {
+        val saved = TaskItem(id = "task-9", title = "물 마시기", isCompleted = false, createdAt = 0L, remindAtIso = "2026-08-29T15:00:00")
+        coEvery { useCase(any(), any(), any()) } returns AppResult.Success(saved)
+
+        val json = JSONObject(executor.execute(args("""{"time":"2026-08-29T15:00:00","content":"물 마시기"}"""), sessionId = "s1"))
+
+        val result = json.getJSONObject("meta").getJSONObject("result")
+        assertEquals("REMINDER", result.getString("kind"))
+        assertEquals("task-9", result.getString("ref"))
+    }
 }

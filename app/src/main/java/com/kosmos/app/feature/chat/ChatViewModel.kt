@@ -517,7 +517,9 @@ class ChatViewModel @Inject constructor(
                             searchUsed = agentResult.searchUsed,
                             // [WHY] 회수 칩(🧠) 데이터 — DB 에는 BaseAgent 가 이미 저장했고,
                             // 화면의 낙관적 메시지에도 실어야 재로드 없이 칩이 보인다 (M2-5 렌더).
-                            recallEpisodeIds = agentResult.recallEpisodeIds
+                            recallEpisodeIds = agentResult.recallEpisodeIds,
+                            // [WHY] 결과 카드(0.38.2)도 같은 이유 — 재로드 없이 카드가 보여야 한다.
+                            result = agentResult.result
                         )
                         // [WHY] 자동 낭독(0.29.0, 기본 꺼짐) — 대상은 모든 답변(사용자 결정 D2). 오류 턴은 읽지 않는다.
                         viewModelScope.launch {

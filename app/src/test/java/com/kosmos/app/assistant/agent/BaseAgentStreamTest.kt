@@ -424,4 +424,40 @@ class BaseAgentStreamTest {
             }
         }
     }
+
+    @Test
+    fun `툴 결과의 meta·result 는 결과 카드 대상으로 저장·반환되고 모델 회신에서는 제거된다`() {
+        // [WHY] 0.38.2 결과 카드 — 대상 id 가 메시지에 남아야 카드가 현재 상태를 조회한다. 모델 입력은 그대로(프롬프트 표면 무변경).
+        val harness = runAgent(
+            ModelTurn("", listOf(toolCall("SearchMemory", mapOf("keyword" to "자전거 비밀번호")))),
+            ModelTurn("134예요."),
+            allowedTools = listOf("SearchMemory"),
+            toolRegistry = registryWith(
+                "SearchMemory",
+                """{"status":"success","data":"- 자전거 비밀번호는 134","meta":{"result":{"kind":"MEMORY_RECALL","ref":"k1","meta":"{\"conflictCount\":1}"}}}"""
+            )
+        )
+
+        val expected = com.kosmos.app.domain.model.MessageResult(
+            com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL, "k1", """{"conflictCount":1}"""
+        )
+        assertEquals(expected, (harness.result as AgentResult.Text).result)
+        assertEquals(expected, harness.savedMessages.last { it.role == ChatMessage.Role.ASSISTANT }.result)
+        assertFalse("result 가 모델 회신에 남았다", harness.prompts[1].toolResponse!!.resultJson.contains("MEMORY_RECALL"))
+    }
+
+    @Test
+    fun `실패한 툴의 결과는 카드 대상이 되지 않는다`() {
+        val harness = runAgent(
+            ModelTurn("", listOf(toolCall("SearchMemory", mapOf("keyword" to "자전거")))),
+            ModelTurn("찾지 못했어요."),
+            allowedTools = listOf("SearchMemory"),
+            toolRegistry = registryWith(
+                "SearchMemory",
+                """{"status":"error","message":"실패","meta":{"result":{"kind":"MEMORY_RECALL","ref":"k1"}}}"""
+            )
+        )
+
+        assertEquals(null, (harness.result as AgentResult.Text).result)
+    }
 }

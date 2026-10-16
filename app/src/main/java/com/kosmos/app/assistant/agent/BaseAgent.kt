@@ -73,6 +73,7 @@ abstract class BaseAgent(
         var searchFailed = false
         // [WHY] SearchMemory 가 참조한 에피소드 출처 — 회수 칩(🧠)의 데이터 (ADR-022).
         val recallEpisodeIds = mutableListOf<String>()
+        var messageResult: com.kosmos.app.domain.model.MessageResult? = null
         while (true) {
             if (loopCount >= MAX_TOOL_LOOP_COUNT) {
                 // [WHY] 루프 상한 초과는 타임아웃이 아니므로 오해를 부르는 Timeout 대신 추론 오류로 보고한다.
@@ -197,6 +198,8 @@ abstract class BaseAgent(
                 if (call.name == ToolNames.SEARCH_MEMORY && outcome.succeeded) {
                     recallEpisodeIds += extractEpisodeIds(outcome.resultJson)
                 }
+                // [WHY] 결과 카드(0.38.2)의 대상 — 마지막으로 성공한 툴의 것. meta 와 함께 모델 입력에서 떼어 낸다.
+                if (outcome.succeeded) extractResult(outcome.resultJson)?.let { messageResult = it }
 
                 // [WHY] Conversation은 stateful이라 직전 입력/출력이 이미 컨텍스트에 있다.
                 // 툴 결과만 전용 응답 타입으로 되돌린다 — 이전에는 `<tool_response>` 텍스트를
@@ -234,7 +237,8 @@ abstract class BaseAgent(
             searchUsed = searchUsed,
             thinkingProcess = finalParsed.thinking,
             episodeId = request.episodeId,
-            recallEpisodeIds = recalled
+            recallEpisodeIds = recalled,
+            result = messageResult
         )
         if (saveResult is AppResult.Failure) {
             auditTrailService.logError(request.sessionId, "비서 응답 저장 실패: ${saveResult.error}")
@@ -245,7 +249,8 @@ abstract class BaseAgent(
             searchUsed = searchUsed,
             searchFailed = searchFailed,
             persistFailed = saveResult is AppResult.Failure,
-            recallEpisodeIds = recalled
+            recallEpisodeIds = recalled,
+            result = messageResult
         )
     }
 
@@ -344,6 +349,14 @@ abstract class BaseAgent(
         val ids = meta.optJSONArray("episodeIds") ?: return emptyList()
         (0 until ids.length()).map { ids.getString(it) }
     }.getOrDefault(emptyList())
+
+    /** 실행기가 `meta.result` 에 실은 결과 카드 대상(0.38.2). 없거나 모르는 종류면 null. */
+    private fun extractResult(resultJson: String): com.kosmos.app.domain.model.MessageResult? = runCatching {
+        val result = org.json.JSONObject(resultJson).optJSONObject("meta")?.optJSONObject("result") ?: return null
+        val kind = com.kosmos.app.domain.model.MessageResult.Kind.entries.firstOrNull { it.name == result.optString("kind") }
+            ?: return null
+        com.kosmos.app.domain.model.MessageResult(kind, result.optString("ref"), result.optString("meta").ifEmpty { null })
+    }.getOrNull()
 
     /** 모델에 되돌릴 툴 결과에서 meta 필드를 제거합니다. 파싱이 안 되면 원문 그대로. */
     private fun stripMeta(resultJson: String): String = runCatching {
