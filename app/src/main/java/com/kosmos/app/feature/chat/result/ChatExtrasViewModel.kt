@@ -42,13 +42,23 @@ import javax.inject.Inject
 class ChatExtrasViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val knowledgeRepository: KnowledgeRepository,
-    private val getTodaySchedule: GetTodayScheduleUseCase
+    private val getTodaySchedule: GetTodayScheduleUseCase,
+    private val reminderEditor: ReminderEditor
 ) : ViewModel() {
 
     private val _results = MutableStateFlow<Map<String, ResultCardState>>(emptyMap())
     val results: StateFlow<Map<String, ResultCardState>> = _results.asStateFlow()
 
     private val watching = mutableSetOf<String>()
+
+    /** 알림 시각(epoch ms) — 수정 시트의 시간 고르기 처음 값. 대상 흐름이 채운다. */
+    private val reminderTimes = mutableMapOf<String, Long>()
+
+    /** [taskId] 알림의 지금 시각(시·분). 모르면 지금 시각. */
+    fun currentTime(taskId: String, zone: ZoneId = ZoneId.systemDefault()): Pair<Int, Int> {
+        val at = Instant.ofEpochMilli(reminderTimes[taskId] ?: System.currentTimeMillis()).atZone(zone)
+        return at.hour to at.minute
+    }
 
     private val _summary = MutableStateFlow<ChatSummary?>(null)
     val summary: StateFlow<ChatSummary?> = _summary.asStateFlow()
@@ -63,7 +73,10 @@ class ChatExtrasViewModel @Inject constructor(
     }
 
     private fun stateFlowOf(result: MessageResult, today: LocalDate): Flow<ResultCardState> = when (result.kind) {
-        MessageResult.Kind.REMINDER -> taskRepository.observeById(result.ref).map { ResultCardMapper.reminder(it, today) }
+        MessageResult.Kind.REMINDER -> taskRepository.observeById(result.ref).map { task ->
+            task?.remindAtIso?.let { iso -> IsoDateTimeParser.toEpochMillis(iso)?.let { reminderTimes[result.ref] = it } }
+            ResultCardMapper.reminder(task, today)
+        }
         MessageResult.Kind.SCHEDULE -> taskRepository.observeById(result.ref).map { ResultCardMapper.schedule(it, today) }
         MessageResult.Kind.MEMORY_NOTE -> flow { emit(ResultCardMapper.note(noteOf(result.ref))) }
         MessageResult.Kind.MEMORY_RECALL -> flow { emit(ResultCardMapper.recall(result.ref.takeIf { it.isNotEmpty() }?.let { noteOf(it) }, result.meta)) }
@@ -87,6 +100,53 @@ class ChatExtrasViewModel @Inject constructor(
             val schedules = (getTodaySchedule(ScheduleData.RangeType.TODAY, now, zone) as? AppResult.Success)?.data?.events?.size ?: 0
             val pending = (taskRepository.getCounts() as? AppResult.Success)?.data?.pending ?: 0
             _summary.value = ChatSummary(nextReminder = nextLabel, todaySchedules = schedules, pendingTasks = pending)
+        }
+    }
+
+    // ── 알림 수정 시트(M4) ──
+
+    private val _editingReminder = MutableStateFlow<String?>(null)
+    /** 수정 시트를 연 알림의 할 일 id — null 이면 닫힘. */
+    val editingReminder: StateFlow<String?> = _editingReminder.asStateFlow()
+
+    private val _editError = MutableStateFlow<String?>(null)
+    val editError: StateFlow<String?> = _editError.asStateFlow()
+
+    fun openReminder(taskId: String) {
+        ensure(MessageResult(MessageResult.Kind.REMINDER, taskId))
+        _editError.value = null
+        _editingReminder.value = taskId
+    }
+
+    fun closeReminder() {
+        _editingReminder.value = null
+        _editError.value = null
+    }
+
+    /** 수정 결과로 저장된 비서 한 줄(D8)을 [onSaved] 로 넘긴다 — 화면이 대화 끝에 붙인다. */
+    fun snooze(taskId: String, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) =
+        edit(onSaved) { reminderEditor.snooze(taskId) }
+
+    fun reschedule(taskId: String, hour: Int, minute: Int, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) =
+        edit(onSaved) { reminderEditor.reschedule(taskId, hour, minute) }
+
+    fun cancelReminder(taskId: String, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) =
+        edit(onSaved) { reminderEditor.cancel(taskId) }
+
+    private fun edit(
+        onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit,
+        action: suspend () -> AppResult<com.kosmos.app.domain.model.ChatMessage>
+    ) {
+        viewModelScope.launch {
+            when (val result = action()) {
+                is AppResult.Success -> {
+                    onSaved(result.data)
+                    closeReminder()
+                    refreshSummary()
+                }
+                is AppResult.Failure -> _editError.value =
+                    (result.error as? com.kosmos.app.core.common.AppError.ValidationError)?.reason ?: "알림을 바꾸지 못했어요. 다시 시도해 주세요."
+            }
         }
     }
 

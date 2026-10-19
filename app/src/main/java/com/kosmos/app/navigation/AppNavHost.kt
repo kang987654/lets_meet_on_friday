@@ -65,7 +65,10 @@ fun AppNavHost(
                 androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
             val resultStates by extras.results.collectAsStateWithLifecycle()
             val summary by extras.summary.collectAsStateWithLifecycle()
+            // [WHY] ChatScreen 의 기본 hiltViewModel() 과 같은 인스턴스(같은 내비게이션 항목) — 수정 결과 한 줄을 대화 끝에 붙이려고 꺼낸다.
+            val chatViewModel: com.kosmos.app.feature.chat.ChatViewModel = androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
             ChatScreen(
+                viewModel = chatViewModel,
                 // [WHY] 설정 진입은 드로어 타일로 이동(M2-2) — ☰ 이 셸의 드로어를 연다.
                 onMenuClick = onOpenDrawer,
                 webSearchEnabled = webSearchEnabled,
@@ -77,7 +80,20 @@ fun AppNavHost(
                 summary = summary,
                 onRefreshSummary = { extras.refreshSummary() },
                 onOpenTasks = { navController.navigate(AppDestination.MemoryTasks.route) { launchSingleTop = true } },
-                onOpenCalendar = { navController.navigate(AppDestination.Calendar.route) { launchSingleTop = true } }
+                onOpenCalendar = { navController.navigate(AppDestination.Calendar.route) { launchSingleTop = true } },
+                // [WHY] 알림만 수정 시트, 일정·기억은 해당 화면으로 바로(사용자 결정 2026-10-19).
+                onResultClick = { message ->
+                    val result = message.result ?: return@ChatScreen
+                    when (result.kind) {
+                        com.kosmos.app.domain.model.MessageResult.Kind.REMINDER -> extras.openReminder(result.ref)
+                        com.kosmos.app.domain.model.MessageResult.Kind.SCHEDULE ->
+                            navController.navigate(AppDestination.Calendar.route) { launchSingleTop = true }
+                        com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_NOTE,
+                        com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL ->
+                            navController.navigate(AppDestination.Memory.route) { launchSingleTop = true }
+                    }
+                },
+                overlay = { com.kosmos.app.feature.chat.result.ReminderEditSheetHost(extras, onSaved = chatViewModel::appendLocalMessage) }
             )
         }
         

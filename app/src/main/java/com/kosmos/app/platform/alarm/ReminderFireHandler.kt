@@ -37,7 +37,8 @@ class ReminderFireHandler @Inject constructor(
             }
         } ?: return
         val remindAtIso = task.remindAtIso
-        if (remindAtIso == null || task.isCompleted || task.remindedAtMs != null) return
+        // [WHY] 취소한 알림(0.38.2)은 알람을 끄지만, 끄기 전에 이미 걸린 알람이 와도 울리지 않는다.
+        if (remindAtIso == null || task.isCompleted || task.remindedAtMs != null || task.cancelledAt != null) return
 
         // [WHY] 알림 먼저, 기록은 뒤 — 순서를 뒤집으면 기록 후 알림 실패 시 리마인더가 조용히
         // 사라진다. 이 순서에서는 기록 실패 시 재부팅 복원이 한 번 더 울릴 수 있을 뿐이다.

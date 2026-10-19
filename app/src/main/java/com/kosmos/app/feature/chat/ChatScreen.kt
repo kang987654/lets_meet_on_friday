@@ -97,7 +97,9 @@ fun ChatScreen(
     summary: com.kosmos.app.feature.chat.result.ChatSummary? = null,
     onRefreshSummary: () -> Unit = {},
     onOpenTasks: () -> Unit = {},
-    onOpenCalendar: () -> Unit = {}
+    onOpenCalendar: () -> Unit = {},
+    // [WHY] 결과 카드가 여는 시트(0.38.2 M4)를 셸이 채운다 — 기본값은 E2E 계약(단독 compose).
+    overlay: @Composable () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     // [WHY] 요약 타일은 대화로 알림·할 일이 생기거나 다른 화면에서 고친 뒤 돌아올 때 바뀐다 — 그때 다시 센다.
@@ -509,6 +511,8 @@ fun ChatScreen(
             footnote = if (inexact) NotificationAccess.INEXACT_NOTE else null
         )
     }
+
+    overlay()
 
     if (showStatusSheet) {
         StatusDetailSheet(

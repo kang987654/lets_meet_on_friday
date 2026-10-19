@@ -105,6 +105,7 @@ class ScreenCatalogTest {
     @Inject lateinit var documentAccess: com.kosmos.app.platform.document.DocumentAccess
     @Inject lateinit var cleanupRunner: com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
     @Inject lateinit var dataResetRepository: com.kosmos.app.domain.memory.DataResetRepository
+    @Inject lateinit var reminderEditor: com.kosmos.app.feature.chat.result.ReminderEditor
 
     @BindValue @JvmField
     val tokenizer: com.kosmos.app.domain.tool.Tokenizer = object : com.kosmos.app.domain.tool.Tokenizer {
@@ -325,7 +326,7 @@ class ScreenCatalogTest {
         )
     }
 
-    private fun extras() = com.kosmos.app.feature.chat.result.ChatExtrasViewModel(taskRepository, knowledgeRepository, getTodayScheduleUseCase)
+    private fun extras() = com.kosmos.app.feature.chat.result.ChatExtrasViewModel(taskRepository, knowledgeRepository, getTodayScheduleUseCase, reminderEditor)
 
     @Test fun chat() {
         val vm = chatViewModel()
@@ -348,6 +349,20 @@ class ScreenCatalogTest {
         val vm = chatViewModel()
         val extras = extras()
         shoot("16-chat-large-text") { ChatWithExtras(vm, extras) }
+    }
+
+    /** 알림 카드를 누르면 — 수정 시트(0.38.2 M4). 시트만 그린다(시각 고정). */
+    @Test fun reminderEditSheet() {
+        val state = com.kosmos.app.feature.chat.result.ResultCardMapper.reminder(
+            TaskItem(id = "t1", title = "물 마시기", isCompleted = false, createdAt = 0, remindAtIso = "2026-10-15T13:56:00"),
+            TODAY, ZoneId.of(ZONE)
+        )
+        shoot("17-reminder-edit-sheet") {
+            com.kosmos.app.feature.chat.result.ReminderEditSheet(
+                state = state, initialHour = 13, initialMinute = 56, error = null,
+                onSnooze = {}, onReschedule = { _, _ -> }, onCancelReminder = {}, onDismiss = {}
+            )
+        }
     }
 
     @Test fun chatApproval() {

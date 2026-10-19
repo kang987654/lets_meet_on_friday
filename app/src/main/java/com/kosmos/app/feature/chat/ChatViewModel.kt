@@ -605,6 +605,15 @@ class ChatViewModel @Inject constructor(
     }
 
     /** 말풍선 재생 버튼 — 읽고 있던 메시지면 멈추고, 아니면 그 메시지를 읽는다. */
+    /**
+     * 모델 턴이 아닌 곳에서 저장된 비서 한 줄(예: 화면에서 알림을 미룬 결과, 0.38.2 D8)을 대화 끝에 붙인다.
+     *
+     * [WHY] 라이브 테일은 이 ViewModel 이 붙인 메시지만 보인다 — DB 에만 쓰면 다시 열 때까지 화면에 안 나온다.
+     */
+    fun appendLocalMessage(message: ChatMessage) {
+        _uiState.update { it.copy(messages = (it.messages + message).toImmutableList()) }
+    }
+
     fun toggleSpeak(message: ChatMessage) {
         if (speechOutput.speakingMessageId.value == message.id) {
             speechOutput.stop()

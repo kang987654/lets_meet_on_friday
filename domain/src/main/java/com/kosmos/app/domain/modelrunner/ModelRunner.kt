@@ -44,4 +44,11 @@ interface ModelRunner {
     suspend fun cancel()
     suspend fun warmUp()
     fun close()
+
+    /**
+     * 다음 채팅 턴에서 대화 문맥을 DB 히스토리로 **다시 만들게** 한다 — 화면에서 고친 사실(예: 알림 미룸)을 모델이 알게(0.38.2 M4).
+     *
+     * [WHY] 기본 구현은 아무것도 하지 않는다 — 테스트 가짜 러너가 그대로 컴파일되게. 대화를 캐시하는 런타임이 덮어쓴다.
+     */
+    fun invalidateConversation() {}
 }

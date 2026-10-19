@@ -55,6 +55,16 @@ class ReminderFireHandlerTest {
     }
 
     @Test
+    fun `취소한 리마인더는 걸려 있던 알람이 와도 울리지 않는다(0·38·2)`() = runTest {
+        coEvery { repository.getById("t1") } returns AppResult.Success(reminder().copy(cancelledAt = 500L))
+
+        handler.fire("t1", now = 999L)
+
+        verify(exactly = 0) { notifier.notifyReminder(any(), any(), any()) }
+        coVerify(exactly = 0) { repository.markReminded(any(), any()) }
+    }
+
+    @Test
     fun `이미 발화된 리마인더는 다시 울리지 않는다`() = runTest {
         coEvery { repository.getById("t1") } returns AppResult.Success(reminder(remindedAtMs = 100L))
 

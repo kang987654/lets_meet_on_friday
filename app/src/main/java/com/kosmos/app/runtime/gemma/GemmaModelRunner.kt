@@ -121,6 +121,14 @@ class GemmaModelRunner @Inject constructor(
     private var conversation: Conversation? = null
     private var cachedKey: ConversationKey? = null
 
+    // [WHY] 화면에서 고친 사실(알림 미룸 등)은 DB 히스토리에만 있다 — 살아 있는 대화를 재사용하면 모델이 옛 값을 안다(0.38.2 M4, 사용자 결정).
+    // 다음 사용자 턴에서 한 번 다시 만든다. 툴 회신 턴은 그대로 이어 간다(턴 중간에 문맥을 바꾸면 회신이 엉뚱한 대화로 간다).
+    @Volatile private var conversationStale = false
+
+    override fun invalidateConversation() {
+        conversationStale = true
+    }
+
     // [WHY] 지금 send 중인 대화(캐시 채팅이든 oneShot 이든). cancel() 은 뮤텍스 밖에서 불리므로
     // @Volatile 로 가시성을 보장한다.
     @Volatile
@@ -489,7 +497,10 @@ class GemmaModelRunner @Inject constructor(
         if (prompt.oneShot) return currentEngine.createConversation(oneShotConversationConfig(prompt))
 
         val existing = conversation
-        val decision = decideConversation(cachedKey.takeIf { existing != null }, prompt) {
+        val stale = conversationStale && prompt.toolResponse == null
+        if (stale) conversationStale = false
+        // [WHY] 키를 비워 넘기면 재생성(리셋 사유 없음 — 주제가 끝난 사건이 아니라 에피소드 경계가 아니다).
+        val decision = decideConversation(cachedKey.takeIf { existing != null && !stale }, prompt) {
             val tokens = existing?.getTokenCount() ?: 0
             RuntimeDiagnostics.warnIfOverCeiling(tokens)
             tokens

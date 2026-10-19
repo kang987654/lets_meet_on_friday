@@ -22,6 +22,7 @@ import com.kosmos.app.ui.theme.KosmosTheme
  *
  * @param accent 주 버튼. 한 화면(시트)에 하나만 둔다. false 면 보조 버튼.
  * @param enabled false 면 누를 수 없고 가라앉은 면 + 흐린 글자가 된다.
+ * @param danger 되돌릴 수 없는 동작(취소·삭제) — 보조 버튼 모양에 옅은 빨강 테두리 + 빨간 글자. 박스를 없애면 경계가 흐려져 더 불안해 보였다(0.38.2 M4).
  */
 @Composable
 fun KosmosButton(
@@ -29,12 +30,14 @@ fun KosmosButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     accent: Boolean = false,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    danger: Boolean = false
 ) {
     val colors = KosmosTheme.colors
     val face = when {
         !enabled -> Modifier.background(colors.surfaceSunk, KosmosShapes.md)
         accent -> Modifier.background(colors.brandSoft, KosmosShapes.md)
+        danger -> Modifier.background(colors.surface, KosmosShapes.md).border(1.dp, colors.dangerText.copy(alpha = 0.35f), KosmosShapes.md)
         else -> Modifier.background(colors.surface, KosmosShapes.md).border(1.dp, colors.border, KosmosShapes.md)
     }
     Box(
@@ -50,6 +53,7 @@ fun KosmosButton(
             color = when {
                 !enabled -> colors.textMuted
                 accent -> colors.onBrandSoft
+                danger -> colors.dangerText
                 else -> colors.textPrimary
             },
             fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium,
