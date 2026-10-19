@@ -343,6 +343,20 @@ class ScreenCatalogTest {
         }) { ChatWithExtras(vm, extras) }
     }
 
+    /** 마지막 답이 충돌 있는 기억 카드 — 행동 칩 [과거 기록 정리][메모 보기](0.38.2 M6). */
+    @Test fun chatActionChips() {
+        kotlinx.coroutines.runBlocking {
+            conversationRepository.save(msg("m8", ChatMessage.Role.USER, "자전거 비밀번호 다시 알려 줘", NOW - 60_000))
+            conversationRepository.save(
+                msg("m9", ChatMessage.Role.ASSISTANT, "134예요. 예전 대화 한 건엔 4321로 적혀 있어요.", NOW - 50_000,
+                    result = MessageResult(MessageResult.Kind.MEMORY_RECALL, "k1", """{"noteAt":${NOW - DAY * 3},"conflictCount":1,"otherValues":["4321"],"conflictEpisodeIds":["ep-bike"]}"""))
+            )
+        }
+        val vm = chatViewModel()
+        val extras = extras()
+        shoot("20-chat-action-chips") { ChatWithExtras(vm, extras) }
+    }
+
     /** 채팅 글자 크기 "아주 크게"(0.38.2) — 목록 안만 커지고 상단 바·타일·입력바는 그대로. */
     @Test fun chatLargeText() {
         chatTextSize = com.kosmos.app.ui.theme.ChatTextSize.XLARGE

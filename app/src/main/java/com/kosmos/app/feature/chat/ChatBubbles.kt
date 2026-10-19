@@ -153,7 +153,10 @@ fun ChatBubbleAssistant(
     onToggleSpeak: (() -> Unit)? = null,
     // [WHY] 결과 행(0.38.2) — 카드 안 문장 아래. null 이면 글만(옛 메시지·스트리밍·E2E 단독 compose).
     result: com.kosmos.app.feature.chat.result.ResultCardState? = null,
-    onResultClick: (() -> Unit)? = null
+    onResultClick: (() -> Unit)? = null,
+    // [WHY] 상황 칩(0.38.2 M6) — 마지막 비서 답에만 화면이 넘긴다. 읽기 버튼 아래.
+    chips: List<com.kosmos.app.feature.chat.result.ChatChip> = emptyList(),
+    onChipClick: (com.kosmos.app.feature.chat.result.ChatChip) -> Unit = {}
 ) {
     var isThinkingExpanded by remember { mutableStateOf(false) }
     val recallInCard = recallChipLabel != null && result?.kind == com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL
@@ -303,9 +306,42 @@ fun ChatBubbleAssistant(
                     )
                 }
             }
+
+            if (chips.isNotEmpty()) {
+                ChatChipRow(chips, onChipClick, Modifier.padding(top = 4.dp))
+            }
         }
     }
 }
+/**
+ * 상황 칩 줄(0.38.2 M6) — 알약 모양 면, 진한 하늘 글자. 넘치면 다음 줄로.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun ChatChipRow(
+    chips: List<com.kosmos.app.feature.chat.result.ChatChip>,
+    onChipClick: (com.kosmos.app.feature.chat.result.ChatChip) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    androidx.compose.foundation.layout.FlowRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        chips.forEach { chip ->
+            Text(
+                text = chip.label,
+                color = KosmosTheme.colors.brandText,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier
+                    .kosmosSurface(shape = RoundedCornerShape(99.dp))
+                    .clickable(role = androidx.compose.ui.semantics.Role.Button) { onChipClick(chip) }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            )
+        }
+    }
+}
+
 @Composable
 fun TypingIndicator() {
     Row(

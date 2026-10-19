@@ -217,4 +217,19 @@ class SearchMemoryToolExecutorTest {
         assertEquals(1, meta.getInt("conflictCount"))
         assertEquals(listOf("1234", "4321"), (0 until meta.getJSONArray("otherValues").length()).map { meta.getJSONArray("otherValues").getString(it) })
     }
+
+    @Test
+    fun `충돌한 과거 대화 id 가 meta 에 실린다 — 상황 칩이 연다(0·38·2 M6)`() = runBlocking {
+        val manual = note("k-manual", "자전거 비밀번호는 134")
+        val eps = listOf(
+            episode("e1", "자전거 비밀번호 변경", "1234로 설정했으나 4321로 변경했다", listOf("자전거", "비밀번호")),
+            episode("e4", "자전거 비밀번호 질문", "비서는 134라고 답했다", listOf("자전거", "비밀번호"))
+        )
+        coEvery { repository.search(any(), any()) } returns AppResult.Success(listOf(manual))
+        coEvery { episodes.search(any(), any()) } returns AppResult.Success(eps)
+
+        val result = org.json.JSONObject(run("자전거 비밀번호")).getJSONObject("meta").getJSONObject("result")
+        val ids = org.json.JSONObject(result.getString("meta")).getJSONArray("conflictEpisodeIds")
+        assertEquals(listOf("e1"), (0 until ids.length()).map { ids.getString(it) })
+    }
 }

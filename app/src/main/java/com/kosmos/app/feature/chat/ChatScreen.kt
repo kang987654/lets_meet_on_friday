@@ -358,6 +358,13 @@ fun ChatScreen(
             )
         }
     ) { innerPadding ->
+        // [WHY] 칩은 마지막 비서 답에만 — 새 턴이 시작되면(사용자 메시지·응답 대기) 사라진다(0.38.2 M6).
+        val lastMessageId = (liveTail.firstOrNull() ?: if (history.itemCount > 0) history.peek(0) else null)?.id
+        val chipsFor: (ChatMessage) -> List<com.kosmos.app.feature.chat.result.ChatChip> = { message ->
+            if (message.id == lastMessageId && !uiState.isInFlight && uiState.streamingText == null) {
+                com.kosmos.app.feature.chat.result.ChatChipRules.of(message)
+            } else emptyList()
+        }
         val timelineRow: @Composable (ChatMessage, ChatMessage?) -> Unit = { message, older ->
             TimelineRow(
                 message = message,
@@ -372,7 +379,15 @@ fun ChatScreen(
                 onToggleSpeak = viewModel::toggleSpeak,
                 resultStates = resultStates,
                 onEnsureResult = onEnsureResult,
-                onResultClick = onResultClick
+                onResultClick = onResultClick,
+                chips = chipsFor(message),
+                onChipClick = { chip ->
+                    when (val action = chip.action) {
+                        is com.kosmos.app.feature.chat.result.ChatChip.Action.Send -> viewModel.sendMessage(action.text)
+                        is com.kosmos.app.feature.chat.result.ChatChip.Action.OpenEpisode -> openEpisodeId = action.episodeId
+                        com.kosmos.app.feature.chat.result.ChatChip.Action.OpenResult -> onResultClick(message)
+                    }
+                }
             )
         }
         Box(
@@ -541,7 +556,9 @@ private fun TimelineRow(
     onToggleSpeak: (ChatMessage) -> Unit = {},
     resultStates: Map<String, com.kosmos.app.feature.chat.result.ResultCardState> = emptyMap(),
     onEnsureResult: (com.kosmos.app.domain.model.MessageResult) -> Unit = {},
-    onResultClick: (ChatMessage) -> Unit = {}
+    onResultClick: (ChatMessage) -> Unit = {},
+    chips: List<com.kosmos.app.feature.chat.result.ChatChip> = emptyList(),
+    onChipClick: (com.kosmos.app.feature.chat.result.ChatChip) -> Unit = {}
 ) {
     message.result?.let { result -> LaunchedEffect(result) { onEnsureResult(result) } }
     val chipId = message.recallEpisodeIds.firstOrNull()
@@ -559,7 +576,9 @@ private fun TimelineRow(
         isSpeaking = message.id == speakingMessageId,
         onToggleSpeak = { onToggleSpeak(message) },
         result = message.result?.let { resultStates[com.kosmos.app.feature.chat.result.ChatExtrasViewModel.keyOf(it)] },
-        onResultClick = { onResultClick(message) }
+        onResultClick = { onResultClick(message) },
+        chips = chips,
+        onChipClick = onChipClick
     )
 }
 
@@ -575,7 +594,9 @@ private fun MessageWithDate(
     isSpeaking: Boolean = false,
     onToggleSpeak: () -> Unit = {},
     result: com.kosmos.app.feature.chat.result.ResultCardState? = null,
-    onResultClick: () -> Unit = {}
+    onResultClick: () -> Unit = {},
+    chips: List<com.kosmos.app.feature.chat.result.ChatChip> = emptyList(),
+    onChipClick: (com.kosmos.app.feature.chat.result.ChatChip) -> Unit = {}
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         val label = dateLabelIfBoundary(message, older, today)
@@ -609,7 +630,9 @@ private fun MessageWithDate(
                     isSpeaking = isSpeaking,
                     onToggleSpeak = onToggleSpeak,
                     result = result,
-                    onResultClick = onResultClick.takeIf { result != null }
+                    onResultClick = onResultClick.takeIf { result != null },
+                    chips = chips,
+                    onChipClick = onChipClick
                 )
             }
         }

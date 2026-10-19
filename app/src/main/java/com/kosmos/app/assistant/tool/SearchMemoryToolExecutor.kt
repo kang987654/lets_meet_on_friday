@@ -212,6 +212,8 @@ class SearchMemoryToolExecutor @Inject constructor(
         if (contradicting.isNotEmpty()) {
             meta.put("conflictCount", contradicting.size)
             meta.put("otherValues", org.json.JSONArray(RecallConflict.otherValues(contradicting.map(Hit::text), notes)))
+            // 화면 전용(모델 입력에서는 meta 를 뗀다) — 상황 칩 [과거 기록 정리]가 여는 대화(0.38.2 M6).
+            meta.put("conflictEpisodeIds", org.json.JSONArray(contradicting.mapNotNull(Hit::episodeId)))
         }
         return JSONObject().put("ref", topNote?.key.orEmpty()).put("meta", meta)
     }
