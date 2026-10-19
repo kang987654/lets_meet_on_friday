@@ -1,6 +1,7 @@
 package com.kosmos.app.assistant.tool
 
 import com.kosmos.app.domain.tool.ToolNames
+import com.kosmos.app.assistant.approval.ApprovalPreview
 import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
@@ -54,9 +55,9 @@ class AddReminderToolExecutor internal constructor(
             sessionId = sessionId,
             title = "리마인더 등록",
             // [WHY] ISO 원문을 사용자에게 노출하지 않는다 — toDisplayKorean 단일 출처 (0.19.2).
-            // calendarDraft 는 null — 기본 ApprovalSheet 가 뜬다 (전용 카드 없음, 사용자 결정).
             description = "${draft.displayTime}에 알림: '${draft.content}'",
-            showsNotification = true
+            showsNotification = true,
+            preview = ApprovalPreview(ApprovalPreview.Kind.REMINDER, draft.content, atIso = draft.time)
         )
     }
 

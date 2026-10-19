@@ -1,6 +1,7 @@
 package com.kosmos.app.assistant.tool
 
 import com.kosmos.app.domain.tool.ToolNames
+import com.kosmos.app.assistant.approval.ApprovalPreview
 import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.security.ApprovalRules
@@ -36,7 +37,8 @@ class AddMemoryToolExecutor @Inject constructor(
         return ApprovalRequest(
             sessionId = sessionId,
             title = "메모리 저장 승인",
-            description = "저장할 내용: $preview"
+            description = "저장할 내용: $preview",
+            preview = ApprovalPreview(ApprovalPreview.Kind.MEMORY, content)
         )
     }
 

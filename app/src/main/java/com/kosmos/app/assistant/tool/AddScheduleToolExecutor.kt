@@ -1,6 +1,7 @@
 package com.kosmos.app.assistant.tool
 
 import com.kosmos.app.domain.tool.ToolNames
+import com.kosmos.app.assistant.approval.ApprovalPreview
 import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.security.ApprovalRules
@@ -34,8 +35,10 @@ class AddScheduleToolExecutor @Inject constructor(
             sessionId = sessionId,
             title = "일정 추가 승인",
             description = "일정: '${draft.title}' (${draft.startTime})",
-            // [WHY] 캘린더 승인은 일반 다이얼로그 대신 플로팅 초안 카드(CalendarDraftCard)로
-            // 렌더링하기 위해 구조화된 초안을 함께 전달한다 (절충안, 2026-07-31).
+            preview = ApprovalPreview(
+                ApprovalPreview.Kind.SCHEDULE, draft.title, atIso = draft.startTime,
+                endIso = draft.endTime.takeIf { it.isNotBlank() }, note = draft.description
+            ),
             calendarDraft = com.kosmos.app.domain.model.CalendarDraft(
                 title = draft.title,
                 startIso = draft.startTime,

@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -460,48 +461,13 @@ fun ChatScreen(
                 }
             }
 
-            // [WHY] 캘린더 쓰기 승인(툴 콜)은 일반 다이얼로그 대신 구조화된 플로팅 초안 카드로
-            // 표시한다 (절충안, 2026-07-31). 승인/거절은 동일한 ApprovalCoordinator 경로를 사용한다.
-            val pendingDraft = uiState.pendingApproval?.calendarDraft
-            if (pendingDraft != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    contentAlignment = Alignment.BottomCenter
-                ) {
-                    CalendarDraftCard(
-                        draft = pendingDraft,
-                        onApprove = { viewModel.approvePendingRequest() },
-                        onReject = { viewModel.rejectPendingRequest() }
-                    )
-                }
-            }
-
-            // [WHY] 프로필 제안 카드(C′2)는 같은 자리(입력바 위 플로팅)에 뜬다 — 툴 승인이 대기 중이면
-            // 양보한다(이중 노출 금지). 제안은 테이블에 영속이라 승인이 끝나면 다시 올라온다.
-            val firstSuggestion = uiState.pendingSuggestions.firstOrNull()
-            if (uiState.pendingApproval == null && firstSuggestion != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    contentAlignment = Alignment.BottomCenter
-                ) {
-                    ProfileSuggestionCard(
-                        suggestion = firstSuggestion,
-                        remaining = uiState.pendingSuggestions.size - 1,
-                        onAccept = { viewModel.acceptSuggestion(firstSuggestion) },
-                        onReject = { viewModel.rejectSuggestion(firstSuggestion) }
-                    )
-                }
-            }
         }
     }
 
-    // 캘린더 초안이 없는 일반 승인(메모리 저장 등)만 승인 시트로 표시 — 초안 카드와 이중 노출 방지
+    // [WHY] 승인은 일정·알림·메모·프로필 모두 공통 승인 시트 하나다(0.38.2 M5) — 떠 있는 카드는 대화를 가렸다. 툴 승인이 대기 중이면
+    // 프로필 제안은 양보하고(이중 노출 금지), 답을 쓰는 중에는 띄우지 않는다. 끌어내린 제안은 이 화면에서만 접는다(테이블에 남는다).
     val request = uiState.pendingApproval
-    if (request != null && request.calendarDraft == null) {
+    if (request != null) {
         val inexact = request.showsNotification &&
             !NotificationAccess.canScheduleExact(context)
         com.kosmos.app.feature.approval.ApprovalSheet(
@@ -509,6 +475,17 @@ fun ChatScreen(
             onApprove = { viewModel.approvePendingRequest() },
             onReject = { viewModel.rejectPendingRequest() },
             footnote = if (inexact) NotificationAccess.INEXACT_NOTE else null
+        )
+    }
+    var laterSuggestionId by rememberSaveable { mutableStateOf<String?>(null) }
+    val firstSuggestion = uiState.pendingSuggestions.firstOrNull()
+    if (request == null && !uiState.isInFlight && firstSuggestion != null && firstSuggestion.id != laterSuggestionId) {
+        com.kosmos.app.feature.approval.ProfileSuggestionSheet(
+            suggestion = firstSuggestion,
+            remaining = uiState.pendingSuggestions.size - 1,
+            onAccept = { viewModel.acceptSuggestion(firstSuggestion) },
+            onReject = { viewModel.rejectSuggestion(firstSuggestion) },
+            onLater = { laterSuggestionId = firstSuggestion.id }
         )
     }
 

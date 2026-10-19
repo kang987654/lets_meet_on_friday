@@ -375,13 +375,38 @@ class ScreenCatalogTest {
 
     @Test fun reminderApprovalSheet() {
         val request = com.kosmos.app.assistant.approval.ApprovalRequest(
-            sessionId = SESSION, title = "리마인더 등록", description = "오늘 오후 1:56에 알림: '물 마시기'", showsNotification = true
+            sessionId = SESSION, title = "리마인더 등록", description = "오늘 오후 1:56에 알림: '물 마시기'", showsNotification = true,
+            preview = com.kosmos.app.assistant.approval.ApprovalPreview(
+                com.kosmos.app.assistant.approval.ApprovalPreview.Kind.REMINDER, "물 마시기", atIso = "2026-10-15T13:56:00"
+            )
         )
         shoot("03-approval-reminder") {
             com.kosmos.app.feature.approval.ApprovalSheet(
                 request = request, onApprove = {}, onReject = {},
                 footnote = com.kosmos.app.platform.notification.NotificationAccess.INEXACT_NOTE
             )
+        }
+    }
+
+    @Test fun memoryApprovalSheet() {
+        val request = com.kosmos.app.assistant.approval.ApprovalRequest(
+            sessionId = SESSION, title = "메모리 저장 승인", description = "저장할 내용: 자전거 자물쇠 비밀번호는 현관 서랍 수첩에 적어 둠",
+            preview = com.kosmos.app.assistant.approval.ApprovalPreview(
+                com.kosmos.app.assistant.approval.ApprovalPreview.Kind.MEMORY, "자전거 자물쇠 비밀번호는 현관 서랍 수첩에 적어 둠"
+            )
+        )
+        shoot("18-approval-memory") {
+            com.kosmos.app.feature.approval.ApprovalSheet(request = request, onApprove = {}, onReject = {})
+        }
+    }
+
+    @Test fun profileSuggestionSheet() {
+        val suggestion = com.kosmos.app.domain.model.ProfileSuggestion(
+            id = "ps1", key = "직업", value = "백엔드 개발자", episodeId = null,
+            status = com.kosmos.app.domain.model.ProfileSuggestionStatus.PENDING, createdAt = 0, updatedAt = 0
+        )
+        shoot("19-profile-suggestion") {
+            com.kosmos.app.feature.approval.ProfileSuggestionSheet(suggestion, remaining = 2, onAccept = {}, onReject = {}, onLater = {})
         }
     }
 
