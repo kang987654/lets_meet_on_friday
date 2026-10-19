@@ -348,11 +348,12 @@ fun TypingIndicator() {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start
     ) {
+        // [WHY] 응답 대기도 비서 카드와 같은 모양(받은 쪽 아래 모서리 4) — 곧 그 자리에 답 카드가 온다(0.38.2 M7).
         Box(
             modifier = Modifier
-                .kosmosSurface(shape = RoundedCornerShape(18.dp))
+                .kosmosSurface(shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp))
         ) {
-            com.kosmos.app.ui.component.ThinkingDots()
+            com.kosmos.app.ui.component.TwinkleStars()
         }
     }
 }

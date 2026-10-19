@@ -1,6 +1,8 @@
 package com.kosmos.app.design
 
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
@@ -355,6 +357,33 @@ class ScreenCatalogTest {
         val vm = chatViewModel()
         val extras = extras()
         shoot("20-chat-action-chips") { ChatWithExtras(vm, extras) }
+    }
+
+    /** 채팅 상태 표시 모음(0.38.2 M7) — 응답 대기·답 쓰는 중·입력바 네 상태(마이크·보내기·응답 중단·녹음 중). 부품만 쌓아 한 장에. */
+    @Test fun chatStates() {
+        shoot("21-chat-states") {
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier.padding(vertical = 16.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
+            ) {
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(horizontal = 16.dp)) {
+                    com.kosmos.app.feature.chat.TypingIndicator()
+                }
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(horizontal = 16.dp)) {
+                    com.kosmos.app.feature.chat.ChatBubbleAssistant(text = "오후 1시 56분에 알려 드릴")
+                }
+                val bar: @Composable (Boolean, Boolean, com.kosmos.app.platform.share.SharedInput?) -> Unit = { loading, recording, shared ->
+                    com.kosmos.app.feature.chat.ChatInputBar(
+                        isLoading = loading, isRecording = recording, sharedInput = shared, onClearSharedInput = {},
+                        onSend = {}, onMicClick = {}, onAttachClick = {}
+                    )
+                }
+                bar(false, false, null)
+                bar(false, false, com.kosmos.app.platform.share.SharedInput.Text("30분 뒤에 물 마시라고 알려줘"))
+                bar(true, false, null)
+                bar(false, true, null)
+            }
+        }
     }
 
     /** 채팅 글자 크기 "아주 크게"(0.38.2) — 목록 안만 커지고 상단 바·타일·입력바는 그대로. */

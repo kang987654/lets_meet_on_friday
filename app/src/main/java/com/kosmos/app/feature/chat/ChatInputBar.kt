@@ -150,9 +150,14 @@ fun ChatInputBar(
                     .padding(horizontal = 8.dp)
             ) {
                 if (textState.text.isEmpty()) {
+                    // [WHY] 입력란이 잠긴 이유를 그 자리에서 말한다 — 답을 쓰는 중·듣는 중에도 "메시지를 입력하세요"가 떠 있었다(0.38.2 M7).
                     Text(
-                        text = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.chat_input_hint),
-                        color = KosmosTheme.colors.textMuted,
+                        text = when {
+                            isRecording -> "듣고 있어요…"
+                            isLoading -> "답을 쓰는 중이에요…"
+                            else -> androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.chat_input_hint)
+                        },
+                        color = if (isRecording) KosmosTheme.colors.dangerText else KosmosTheme.colors.textMuted,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -204,7 +209,8 @@ fun ChatInputBar(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(androidx.compose.foundation.shape.CircleShape)
-                            .background(KosmosTheme.colors.brand)
+                            // [WHY] 주 버튼과 같은 채도 낮춘 하늘(brandSoft) — 진한 brand 면은 0.38.1 M6 에서 너무 진하다는 지적으로 바꾼 기준이다.
+                            .background(KosmosTheme.colors.brandSoft)
                             .clickable(enabled = !isLoading) {
                                 onSend(textState.text)
                                 textState = TextFieldValue("")
@@ -214,7 +220,7 @@ fun ChatInputBar(
                         Icon(
                             painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_arrow_up),
                             contentDescription = "Send",
-                            tint = KosmosTheme.colors.onBrand,
+                            tint = KosmosTheme.colors.onBrandSoft,
                             modifier = Modifier.size(20.dp)
                         )
                     }
