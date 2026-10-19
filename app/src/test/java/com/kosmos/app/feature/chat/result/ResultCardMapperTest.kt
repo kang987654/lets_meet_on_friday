@@ -62,8 +62,8 @@ class ResultCardMapperTest {
 
         assertEquals("자전거 비밀번호는 134", recall.title)
         assertNull("값은 메모 문장에 이미 있다 — 따로 크게 두지 않는다", recall.value)
-        assertEquals(listOf("근거 · 저장된 메모 (10월 12일)", "과거 대화 1건엔 4321 — 메모 값을 따랐어요"), recall.evidence)
+        assertEquals(listOf("10월 12일에 저장한 메모", "과거 대화 1건엔 4321, 메모 값을 따랐어요"), recall.evidence.map { it.text })
 
-        assertEquals(listOf("근거 · 과거 대화"), ResultCardMapper.recall(null, null, zone).evidence)
+        assertEquals(listOf("과거 대화에서 찾았어요"), ResultCardMapper.recall(null, null, zone).evidence.map { it.text })
     }
 }

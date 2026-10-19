@@ -12,6 +12,8 @@ data class ChatUiState(
     val messages: ImmutableList<ChatMessage> = persistentListOf(),
     val isInFlight: Boolean = false,
     val pendingApproval: ApprovalRequest? = null,
+    /** 승인 제한 시간을 처음부터 센 횟수 — 바뀌면 시트의 남은 시간 표시가 다시 시작한다(0.38.2). */
+    val approvalTimeoutEpoch: Int = 0,
     val sharedInput: com.kosmos.app.platform.share.SharedInput? = null,
     val error: AppError? = null,
     val streamingText: String? = null,

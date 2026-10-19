@@ -328,6 +328,9 @@ class ChatViewModel @Inject constructor(
                 _uiState.update { it.copy(pendingApproval = pending) }
             }
         }
+        viewModelScope.launch {
+            approvalCoordinator.timeoutEpoch.collect { epoch -> _uiState.update { it.copy(approvalTimeoutEpoch = epoch) } }
+        }
     }
 
     /**

@@ -239,7 +239,7 @@ fun ChatBubbleAssistant(
                     if (result.evidence.isNotEmpty()) {
                         androidx.compose.material3.HorizontalDivider(color = KosmosTheme.colors.border)
                         result.evidence.forEachIndexed { index, line ->
-                            Text(line, style = MaterialTheme.typography.labelMedium, color = KosmosTheme.colors.textSecondary)
+                            EvidenceLine(line)
                             // [WHY] 회수 칩을 근거 줄로 접는다 — 카드 밖 칩과 근거 줄이 같은 "어디서 찾았나"를 두 번 말했다(사용자 지적, 0.38.2 M3).
                             if (index == 0 && recallInCard) {
                                 Row(
@@ -249,8 +249,9 @@ fun ChatBubbleAssistant(
                                         .clickable(onClickLabel = "대화 열기", onClick = onRecallChipClick)
                                         .padding(vertical = 2.dp)
                                 ) {
+                                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_chat_text, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText, modifier = Modifier.padding(end = 8.dp))
                                     Text(
-                                        "함께 본 대화 · $recallChipLabel",
+                                        "함께 본 대화: $recallChipLabel",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = KosmosTheme.colors.brandText,
                                         modifier = Modifier.weight(1f)
@@ -314,6 +315,29 @@ fun ChatBubbleAssistant(
     }
 }
 /**
+ * 기억 카드의 근거 한 줄 — 아이콘으로 출처 종류를 보이고, 메모와 다른 값이 있었다는 줄은 옅은 주의 면으로 따로 띄운다(0.38.2 M7b).
+ */
+@Composable
+private fun EvidenceLine(line: com.kosmos.app.feature.chat.result.Evidence) {
+    val colors = KosmosTheme.colors
+    val conflict = line.kind == com.kosmos.app.feature.chat.result.Evidence.Kind.CONFLICT
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = if (conflict) {
+            Modifier.fillMaxWidth().background(colors.warningText.copy(alpha = 0.10f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 8.dp)
+        } else Modifier
+    ) {
+        val icon = when (line.kind) {
+            com.kosmos.app.feature.chat.result.Evidence.Kind.NOTE -> com.kosmos.app.R.drawable.ic_ph_note
+            com.kosmos.app.feature.chat.result.Evidence.Kind.CONVERSATION -> com.kosmos.app.R.drawable.ic_ph_chat_text
+            com.kosmos.app.feature.chat.result.Evidence.Kind.CONFLICT -> com.kosmos.app.R.drawable.ic_ph_warning_circle
+        }
+        com.kosmos.app.ui.component.KosmosIcon(icon, contentDescription = null, size = 16.dp, tint = if (conflict) colors.warningText else colors.textMuted, modifier = Modifier.padding(end = 8.dp))
+        Text(line.text, style = MaterialTheme.typography.labelMedium, color = if (conflict) colors.textPrimary else colors.textSecondary)
+    }
+}
+
+/**
  * 상황 칩 줄(0.38.2 M6) — 알약 모양 면, 진한 하늘 글자. 넘치면 다음 줄로.
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -329,15 +353,18 @@ private fun ChatChipRow(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         chips.forEach { chip ->
-            Text(
-                text = chip.label,
-                color = KosmosTheme.colors.brandText,
-                style = MaterialTheme.typography.labelLarge,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .kosmosSurface(shape = RoundedCornerShape(99.dp))
                     .clickable(role = androidx.compose.ui.semantics.Role.Button) { onChipClick(chip) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            )
+                    .padding(start = if (chip.icon != null) 12.dp else 14.dp, end = 14.dp, top = 8.dp, bottom = 8.dp)
+            ) {
+                chip.icon?.let {
+                    com.kosmos.app.ui.component.KosmosIcon(it, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText, modifier = Modifier.padding(end = 6.dp))
+                }
+                Text(text = chip.label, color = KosmosTheme.colors.brandText, style = MaterialTheme.typography.labelLarge)
+            }
         }
     }
 }

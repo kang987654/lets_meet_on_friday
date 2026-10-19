@@ -37,6 +37,10 @@ class ApprovalCoordinator @Inject constructor() {
     // [WHY] CONFLATED — 재시작 신호는 "한 번 더 60초"라는 사실만 전하면 된다(여러 번 쌓일 이유가 없다).
     private val timeoutRestart = Channel<Unit>(Channel.CONFLATED)
 
+    // 제한 시간을 처음부터 셀 때마다 1씩 오른다 — 승인 시트가 남은 시간 표시(취소 버튼이 차오름)를 다시 시작하는 신호다.
+    private val _timeoutEpoch = MutableStateFlow(0)
+    val timeoutEpoch: StateFlow<Int> = _timeoutEpoch.asStateFlow()
+
     private enum class Wait { APPROVED, REJECTED, RESTART }
 
     suspend fun requireApproval(request: ApprovalRequest): Boolean {
@@ -53,6 +57,7 @@ class ApprovalCoordinator @Inject constructor() {
             // 오면 시간을 새로 준다. 아무도 답하지 않으면 여전히 제한 시간 뒤 거절된다.
             var outcome: Wait
             do {
+                _timeoutEpoch.value += 1
                 outcome = withTimeoutOrNull(APPROVAL_TIMEOUT_MS) {
                     select {
                         deferred.onAwait { approved -> if (approved) Wait.APPROVED else Wait.REJECTED }
@@ -94,7 +99,7 @@ class ApprovalCoordinator @Inject constructor() {
         return current
     }
 
-    internal companion object {
+    companion object {
         const val APPROVAL_TIMEOUT_MS = 60_000L
     }
 }

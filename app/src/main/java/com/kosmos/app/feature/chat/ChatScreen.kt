@@ -12,6 +12,9 @@ import androidx.compose.material3.MaterialTheme
 import com.kosmos.app.ui.theme.scaled
 import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -404,12 +407,15 @@ fun ChatScreen(
                     // [WHY] reverseLayout — 선언 순서대로 index 0(바닥)부터 위로 쌓인다:
                     // 스트리밍/타이핑 → 라이브 테일(최신순) → 페이징된 과거(최신순 DESC 그대로).
                     // 과거로 스크롤하면 Paging 이 다음 페이지를 로드한다.
+                    // [WHY] 대화 기록이 하나도 없으면(첫 실행·초기화 후) 첫 화면(EmptyChat)을 띄운다(0.38.2 M7b).
+                    val showEmpty = liveTail.isEmpty() && history.itemCount == 0 &&
+                        history.loadState.refresh is androidx.paging.LoadState.NotLoading &&
+                        !uiState.isInFlight && uiState.streamingText == null
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     LazyColumn(
                         state = listState,
                         reverseLayout = true,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
+                        modifier = Modifier.fillMaxSize(),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
@@ -450,6 +456,10 @@ fun ChatScreen(
                             }
                         }
                     }
+                    if (showEmpty) {
+                        EmptyChat(onStarter = viewModel::sendMessage, modifier = Modifier.align(Alignment.Center))
+                    }
+                    }
                 }
             }
 
@@ -489,7 +499,8 @@ fun ChatScreen(
             request = request,
             onApprove = { viewModel.approvePendingRequest() },
             onReject = { viewModel.rejectPendingRequest() },
-            footnote = if (inexact) NotificationAccess.INEXACT_NOTE else null
+            footnote = if (inexact) NotificationAccess.INEXACT_NOTE else null,
+            timeoutKey = uiState.approvalTimeoutEpoch
         )
     }
     var laterSuggestionId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -640,7 +651,9 @@ private fun MessageWithDate(
 }
 
 /**
- * 채팅 상단 요약 타일 3칸(0.38.2 M3) — 다음 알림·오늘 일정·남은 할 일. 누르면 해당 화면(결정 2: 할 일 탭·일정 화면).
+ * 채팅 상단 요약 한 줄(0.38.2) — 다음 알림·오늘 일정·남은 할 일. 누르면 해당 화면(결정 2: 할 일 탭·일정 화면).
+ *
+ * [WHY] 타일 3칸이 대화 위를 크게 차지했다 — 아이콘이 든 캡슐 한 줄로 줄여 대화가 보이는 높이를 늘린다(M7b 시안, 사용자 선택).
  */
 @Composable
 private fun SummaryTiles(
@@ -650,32 +663,46 @@ private fun SummaryTiles(
 ) {
     Row(
         modifier = Modifier
+            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .height(44.dp)
+            .kosmosSurface(shape = RoundedCornerShape(99.dp)),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        SummaryTile("다음 알림", summary.nextReminder ?: "없음", onOpenTasks, Modifier.weight(1f))
-        SummaryTile("오늘 일정", "${summary.todaySchedules}", onOpenCalendar, Modifier.weight(1f))
-        SummaryTile("남은 할 일", "${summary.pendingTasks}", onOpenTasks, Modifier.weight(1f))
+        SummarySegment(com.kosmos.app.R.drawable.ic_ph_bell, "다음", summary.nextReminder ?: "없음", "다음 알림", onOpenTasks, Modifier.weight(1.3f))
+        SummaryDivider()
+        SummarySegment(com.kosmos.app.R.drawable.ic_ph_calendar_blank, "일정", "${summary.todaySchedules}", "오늘 일정", onOpenCalendar, Modifier.weight(1f))
+        SummaryDivider()
+        SummarySegment(com.kosmos.app.R.drawable.ic_ph_check_square, "할 일", "${summary.pendingTasks}", "남은 할 일", onOpenTasks, Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun SummaryTile(label: String, value: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
+private fun SummaryDivider() {
+    Box(Modifier.width(1.dp).height(20.dp).background(KosmosTheme.colors.border))
+}
+
+@Composable
+private fun SummarySegment(
+    @androidx.annotation.DrawableRes icon: Int,
+    label: String,
+    value: String,
+    accessibleLabel: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
         modifier = modifier
-            .kosmosSurface(shape = com.kosmos.app.ui.theme.KosmosShapes.md)
-            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "$label 보기", onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .fillMaxHeight()
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "$accessibleLabel 보기", onClick = onClick),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = KosmosTheme.colors.textMuted)
-        Text(
-            value,
-            style = MaterialTheme.typography.titleLarge,
-            color = KosmosTheme.colors.textPrimary,
-            maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-        )
+        com.kosmos.app.ui.component.KosmosIcon(icon, contentDescription = null, size = 18.dp, tint = KosmosTheme.colors.brandText)
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = KosmosTheme.colors.textSecondary)
+        Spacer(Modifier.width(4.dp))
+        Text(value, style = MaterialTheme.typography.titleSmall, color = KosmosTheme.colors.textPrimary, maxLines = 1)
     }
 }
 

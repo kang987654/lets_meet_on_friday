@@ -13,7 +13,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import com.kosmos.app.assistant.approval.ApprovalCoordinator
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -95,6 +101,7 @@ data class ApprovalSheetContent(
  * 버튼·머리 모양은 알림 수정 시트와 같다. 주 버튼은 하나(`accent`).
  *
  * @param footnote 경고 한 줄(정확 알람 불가 등) — 안내 줄 위에 경고색으로.
+ * @param timeoutKey 제한 시간이 있는 승인이면 그 회차 키 — 바뀌면 [거절] 버튼의 차오름이 처음부터 다시 시작한다. null 이면 없음(프로필 제안).
  * @param onDismiss 끌어내리거나 바깥을 눌렀을 때. 툴 승인은 거절과 같고, 프로필 제안은 "나중에"(제안은 남는다).
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,9 +111,17 @@ fun ApprovalSheetLayout(
     onApprove: () -> Unit,
     onReject: () -> Unit,
     onDismiss: () -> Unit = onReject,
-    footnote: String? = null
+    footnote: String? = null,
+    timeoutKey: Any? = null
 ) {
     val colors = KosmosTheme.colors
+    // [WHY] 툴 승인은 제한 시간이 지나면 저절로 취소된다 — 문구 대신 [거절] 버튼이 남은 시간만큼 차올라 "곧 취소됨"을 보인다(사용자 결정 2026-10-19).
+    val elapsed = remember(timeoutKey) { Animatable(0f) }
+    if (timeoutKey != null) {
+        LaunchedEffect(timeoutKey) {
+            elapsed.animateTo(1f, tween(ApprovalCoordinator.APPROVAL_TIMEOUT_MS.toInt(), easing = LinearEasing))
+        }
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -152,7 +167,7 @@ fun ApprovalSheetLayout(
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                KosmosButton(content.rejectLabel, onReject, Modifier.weight(1f))
+                KosmosButton(content.rejectLabel, onReject, Modifier.weight(1f), progress = if (timeoutKey != null) ({ elapsed.value }) else null)
                 KosmosButton(content.approveLabel, onApprove, Modifier.weight(1f), accent = true)
             }
             footnote?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.warningText) }
@@ -169,10 +184,11 @@ fun ApprovalSheet(
     request: ApprovalRequest,
     onApprove: () -> Unit,
     onReject: () -> Unit,
-    footnote: String? = null
+    footnote: String? = null,
+    timeoutKey: Any? = null
 ) {
     val today = rememberToday()
-    ApprovalSheetLayout(ApprovalSheetContent.of(request, today), onApprove, onReject, footnote = footnote)
+    ApprovalSheetLayout(ApprovalSheetContent.of(request, today), onApprove, onReject, footnote = footnote, timeoutKey = timeoutKey)
 }
 
 /**

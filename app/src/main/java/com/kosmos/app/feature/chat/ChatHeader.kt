@@ -84,20 +84,15 @@ fun CustomChatHeader(
             modifier = Modifier.padding(start = 4.dp, end = 8.dp)
         )
 
-        // 엔진 상태 점 — Ready=success / 로딩 계열=muted / 오류·발열 경고=danger·warning.
+        // 엔진 상태 별 — Ready=brand / 로딩 계열=muted / 오류·발열 경고=danger·warning. 응답 대기의 반짝이는 별과 같은 모양(0.38.2 M7b).
         val dotColor = when {
             warningMessage != null -> KosmosTheme.colors.warningText
-            engineState is ModelLoadState.Ready -> KosmosTheme.colors.successText
+            engineState is ModelLoadState.Ready -> KosmosTheme.colors.brand
             engineState is ModelLoadState.Error || engineState is ModelLoadState.NotFound ->
                 KosmosTheme.colors.dangerText
             else -> KosmosTheme.colors.textMuted
         }
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(androidx.compose.foundation.shape.CircleShape)
-                .background(dotColor)
-        )
+        com.kosmos.app.ui.component.StarGlyph(dotColor, Modifier.size(12.dp))
 
         Spacer(modifier = Modifier.weight(1f))
 

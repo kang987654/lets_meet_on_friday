@@ -386,6 +386,14 @@ class ScreenCatalogTest {
         }
     }
 
+    /** 첫 화면(0.38.2 M7b) — 대화 기록이 하나도 없을 때(처음 쓸 때·초기화 후). 타임라인은 세션과 무관하다(ADR-022). */
+    @Test fun chatEmpty() {
+        kotlinx.coroutines.runBlocking { dataResetRepository.reset(setOf(com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS)) }
+        val vm = chatViewModel()
+        val extras = extras()
+        shoot("22-chat-empty") { ChatWithExtras(vm, extras) }
+    }
+
     /** 채팅 글자 크기 "아주 크게"(0.38.2) — 목록 안만 커지고 상단 바·타일·입력바는 그대로. */
     @Test fun chatLargeText() {
         chatTextSize = com.kosmos.app.ui.theme.ChatTextSize.XLARGE

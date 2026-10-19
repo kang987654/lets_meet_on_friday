@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.chat.result
 
+import com.kosmos.app.R
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.MessageResult
 import org.json.JSONObject
@@ -7,7 +8,7 @@ import org.json.JSONObject
 /**
  * 마지막 비서 답 아래의 상황 칩(0.38.2 M6) — 누르면 [action] 을 한다.
  */
-data class ChatChip(val label: String, val action: Action) {
+data class ChatChip(val label: String, val action: Action, @param:androidx.annotation.DrawableRes val icon: Int? = null) {
     sealed interface Action {
         /** 그 글자로 한 턴을 보낸다(답 칩). */
         data class Send(val text: String) : Action
@@ -55,9 +56,9 @@ object ChatChipRules {
     }
 
     fun actionChips(result: MessageResult?): List<ChatChip> = when (result?.kind) {
-        MessageResult.Kind.MEMORY_RECALL -> listOfNotNull(conflictChip(result.meta), ChatChip("메모 보기", ChatChip.Action.OpenResult))
-        MessageResult.Kind.MEMORY_NOTE -> listOf(ChatChip("메모 보기", ChatChip.Action.OpenResult))
-        MessageResult.Kind.SCHEDULE -> listOf(ChatChip("캘린더에서 보기", ChatChip.Action.OpenResult))
+        MessageResult.Kind.MEMORY_RECALL -> listOfNotNull(conflictChip(result.meta), ChatChip("메모 보기", ChatChip.Action.OpenResult, R.drawable.ic_ph_note))
+        MessageResult.Kind.MEMORY_NOTE -> listOf(ChatChip("메모 보기", ChatChip.Action.OpenResult, R.drawable.ic_ph_note))
+        MessageResult.Kind.SCHEDULE -> listOf(ChatChip("캘린더에서 보기", ChatChip.Action.OpenResult, R.drawable.ic_ph_calendar_blank))
         MessageResult.Kind.REMINDER, null -> emptyList()
     }
 
@@ -66,6 +67,6 @@ object ChatChipRules {
         val ids = json.optJSONArray("conflictEpisodeIds") ?: return null
         val first = ids.optString(0).takeIf { it.isNotEmpty() } ?: return null
         val count = json.optInt("conflictCount", ids.length())
-        return ChatChip(if (count > 1) "과거 기록 ${count}건 정리" else "과거 기록 정리", ChatChip.Action.OpenEpisode(first))
+        return ChatChip(if (count > 1) "과거 기록 ${count}건 정리" else "과거 기록 정리", ChatChip.Action.OpenEpisode(first), R.drawable.ic_ph_chat_text)
     }
 }

@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +24,7 @@ import com.kosmos.app.ui.theme.KosmosTheme
  *
  * @param accent 주 버튼. 한 화면(시트)에 하나만 둔다. false 면 보조 버튼.
  * @param enabled false 면 누를 수 없고 가라앉은 면 + 흐린 글자가 된다.
+ * @param progress 0~1 — 버튼 면이 왼쪽부터 차오른다(보조 버튼만). 매 프레임 바뀌므로 람다로 받아 그리기 단계에서만 읽는다.
  * @param danger 되돌릴 수 없는 동작(취소·삭제) — 보조 버튼 모양에 옅은 빨강 테두리 + 빨간 글자. 박스를 없애면 경계가 흐려져 더 불안해 보였다(0.38.2 M4).
  */
 @Composable
@@ -31,7 +34,8 @@ fun KosmosButton(
     modifier: Modifier = Modifier,
     accent: Boolean = false,
     enabled: Boolean = true,
-    danger: Boolean = false
+    danger: Boolean = false,
+    progress: (() -> Float)? = null
 ) {
     val colors = KosmosTheme.colors
     val face = when {
@@ -44,6 +48,12 @@ fun KosmosButton(
         modifier = modifier
             .heightIn(min = 48.dp)
             .then(face)
+            .then(
+                if (progress == null) Modifier
+                else Modifier.clip(KosmosShapes.md).drawBehind {
+                    drawRect(colors.textMuted.copy(alpha = 0.14f), size = size.copy(width = size.width * progress().coerceIn(0f, 1f)))
+                }
+            )
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center

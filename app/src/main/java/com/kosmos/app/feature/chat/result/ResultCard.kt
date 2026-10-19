@@ -49,8 +49,15 @@ data class ResultCardState(
     val sub: String? = null,
     val muted: Boolean = false,
     val struck: Boolean = false,
-    val evidence: List<String> = emptyList()
+    val evidence: List<Evidence> = emptyList()
 )
+
+/**
+ * 기억 답의 근거 한 줄 — [kind] 가 아이콘과 강조(충돌은 주의 면)를 정한다.
+ */
+data class Evidence(val kind: Kind, val text: String) {
+    enum class Kind { NOTE, CONVERSATION, CONFLICT }
+}
 
 /** 채팅 상단 요약 타일(0.38.2) — 다음 알림·오늘 일정 수·남은 할 일 수. */
 data class ChatSummary(
@@ -117,16 +124,17 @@ object ResultCardMapper {
     fun recall(note: KnowledgeNote?, meta: String?, zone: ZoneId = ZoneId.systemDefault()): ResultCardState {
         val json = meta?.let { runCatching { JSONObject(it) }.getOrNull() }
         val evidence = buildList {
+            // [WHY] 가운뎃점으로 이은 정보 줄 대신 문장으로 — taste "AI 티" 목록(middle-dot strings), 0.38.2 M7b.
             if (note != null) {
                 val at = json?.optLong("noteAt", note.createdAt) ?: note.createdAt
-                add("근거 · 저장된 메모 (${IsoDateTimeParser.monthDayKorean(at, zone)})")
+                add(Evidence(Evidence.Kind.NOTE, "${IsoDateTimeParser.monthDayKorean(at, zone)}에 저장한 메모"))
             } else {
-                add("근거 · 과거 대화")
+                add(Evidence(Evidence.Kind.CONVERSATION, "과거 대화에서 찾았어요"))
             }
             val conflicts = json?.optInt("conflictCount", 0) ?: 0
             if (conflicts > 0) {
                 val values = json?.optJSONArray("otherValues")?.let { arr -> (0 until arr.length()).map { arr.getString(it) } }.orEmpty()
-                add("과거 대화 ${conflicts}건엔 ${values.joinToString(", ")} — 메모 값을 따랐어요")
+                add(Evidence(Evidence.Kind.CONFLICT, "과거 대화 ${conflicts}건엔 ${values.joinToString(", ")}, 메모 값을 따랐어요"))
             }
         }
         return ResultCardState(

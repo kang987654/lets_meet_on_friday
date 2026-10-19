@@ -60,11 +60,19 @@ fun TwinkleStars(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * 네 갈래 별 하나 — 헤더의 엔진 상태 표시(색이 상태)와 빈 채팅 별자리가 같은 모양을 쓴다(DESIGN.md "개성" ③).
+ */
+@Composable
+fun StarGlyph(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) { sparkle(center, size.minDimension / 2, color) }
+}
+
 private const val PERIOD_MS = 1500
 private val PHASES = listOf(0f, 1f / 3, 2f / 3)
 
 /** 네 갈래 별 — 꼭짓점 넷을 안으로 휜 곡선으로 잇는다. */
-private fun DrawScope.sparkle(o: Offset, r: Float, color: Color) {
+internal fun DrawScope.sparkle(o: Offset, r: Float, color: Color) {
     val w = r * 0.11f
     val path = Path().apply {
         moveTo(o.x, o.y - r)
