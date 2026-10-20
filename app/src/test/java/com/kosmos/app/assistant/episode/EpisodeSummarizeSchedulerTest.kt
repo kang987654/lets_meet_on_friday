@@ -57,7 +57,8 @@ class EpisodeSummarizeSchedulerTest {
 
     private val factExtractor: EpisodeFactExtractor = mockk(relaxed = true)
 
-    private val saved = mutableListOf<Episode>()
+    // [WHY] 스케줄러 코루틴이 쓰는 동안 테스트가 읽는다 — ArrayList 는 순회 중 추가에 ConcurrentModificationException(0.38.3 게이트에서 간헐 실패).
+    private val saved = java.util.concurrent.CopyOnWriteArrayList<Episode>()
 
     @org.junit.Before
     fun setUpDefaults() {
