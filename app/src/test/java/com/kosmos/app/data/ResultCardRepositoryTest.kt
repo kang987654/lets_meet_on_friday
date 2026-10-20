@@ -58,4 +58,20 @@ class ResultCardRepositoryTest {
         assertEquals(listOf("live"), repo.getActiveReminders().value().map { it.id })
         assertEquals(5L, repo.getById("gone").value()?.cancelledAt)
     }
+
+    @Test
+    fun `일정은 할 일 목록·개수에서 빠지고 전체 조회에는 남는다`() = runBlocking {
+        val repo = TaskRepositoryImpl(dbRule.db.taskDao())
+        repo.save(TaskItem(id = "todo", title = "물 마시기", isCompleted = false, createdAt = 3)).value()
+        repo.save(TaskItem(id = "meeting", title = "팀 회의", isCompleted = false, createdAt = 2, dueDateIso = "2026-10-16T15:00:00")).value()
+        repo.save(TaskItem(id = "doneTodo", title = "장보기", isCompleted = true, createdAt = 1)).value()
+        repo.save(TaskItem(id = "doneMeeting", title = "면접", isCompleted = true, createdAt = 0, dueDateIso = "2026-10-15T10:00:00")).value()
+
+        assertEquals(listOf("todo"), repo.getPendingTodosData(0, 10).value().map { it.id })
+        assertEquals(listOf("doneTodo"), repo.getCompletedTodosData(0, 10).value().map { it.id })
+        assertEquals(1, repo.getCounts().value().pending)
+        assertEquals(1, repo.getCounts().value().completed)
+        // 모델 입력(아침 브리핑)·오늘 일정은 일정을 포함한 전체를 본다.
+        assertEquals(listOf("todo", "meeting"), repo.getPendingTasksData(0, 10).value().map { it.id })
+    }
 }

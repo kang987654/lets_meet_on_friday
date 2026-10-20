@@ -44,7 +44,7 @@ class BriefingNotificationWorker @AssistedInject constructor(
         if (!settingsDataStore.briefingEnabledFlow.first()) return Result.success()
 
         val schedule = (getTodaySchedule(ScheduleData.RangeType.TODAY) as? AppResult.Success)?.data
-        val taskCount = (taskRepository.getPendingTasksData(0, MAX_TASK_COUNT) as? AppResult.Success)
+        val taskCount = (taskRepository.getPendingTodosData(0, MAX_TASK_COUNT) as? AppResult.Success)
             ?.data.orEmpty().count { !it.isCompleted }
 
         notifier.notifyPreview(

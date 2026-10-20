@@ -69,14 +69,14 @@ class MemoryViewModel @Inject constructor(
     val taskPagingData: Flow<PagingData<TaskItem>> =
         androidx.paging.Pager(androidx.paging.PagingConfig(pageSize = 20)) {
             DefaultPagingSource { offset, limit ->
-                taskRepository.getPendingTasksData(offset, limit).unwrapForPaging()
+                taskRepository.getPendingTodosData(offset, limit).unwrapForPaging()
             }
         }.flow.cachedIn(viewModelScope)
 
     val completedTaskPagingData: Flow<PagingData<TaskItem>> =
         androidx.paging.Pager(androidx.paging.PagingConfig(pageSize = 20)) {
             DefaultPagingSource { offset, limit ->
-                taskRepository.getCompletedTasksData(offset, limit).unwrapForPaging()
+                taskRepository.getCompletedTodosData(offset, limit).unwrapForPaging()
             }
         }.flow.cachedIn(viewModelScope)
 

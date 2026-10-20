@@ -20,6 +20,14 @@ interface TaskDao {
     @Query("SELECT * FROM task_item WHERE isCompleted = 1 AND cancelledAt IS NULL ORDER BY completedAt DESC, createdAt DESC LIMIT :limit OFFSET :offset")
     suspend fun getCompletedTasks(offset: Int, limit: Int): List<TaskEntity>
 
+    // [WHY] 할 일 탭·위젯·알림 개수는 일정(dueDateIso 있는 행)을 빼야 한다 — 일정은 일정 화면 몫이다(0.38.3 M2b).
+    // 모델 입력(아침 브리핑)·오늘 일정은 위의 전체 조회를 그대로 쓴다.
+    @Query("SELECT * FROM task_item WHERE isCompleted = 0 AND cancelledAt IS NULL AND dueDateIso IS NULL ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
+    suspend fun getPendingTodos(offset: Int, limit: Int): List<TaskEntity>
+
+    @Query("SELECT * FROM task_item WHERE isCompleted = 1 AND cancelledAt IS NULL AND dueDateIso IS NULL ORDER BY completedAt DESC, createdAt DESC LIMIT :limit OFFSET :offset")
+    suspend fun getCompletedTodos(offset: Int, limit: Int): List<TaskEntity>
+
     @Query("DELETE FROM task_item WHERE id = :taskId")
     suspend fun delete(taskId: String)
 
@@ -34,11 +42,11 @@ interface TaskDao {
     fun observeById(taskId: String): kotlinx.coroutines.flow.Flow<TaskEntity?>
 
     // [WHY] 기억 화면 통계("남은 일 N · 완료 M")는 전체 기준이어야 한다 — 페이징 목록은
-    // 미완료만, 그것도 로드된 페이지만 담아서 거기서 세면 완료 수가 늘 0이었다.
-    @Query("SELECT COUNT(*) FROM task_item WHERE isCompleted = 0 AND cancelledAt IS NULL")
+    // 미완료만, 그것도 로드된 페이지만 담아서 거기서 세면 완료 수가 늘 0이었다. 일정은 할 일 개수가 아니다(0.38.3 M2b).
+    @Query("SELECT COUNT(*) FROM task_item WHERE isCompleted = 0 AND cancelledAt IS NULL AND dueDateIso IS NULL")
     suspend fun countPending(): Int
 
-    @Query("SELECT COUNT(*) FROM task_item WHERE isCompleted = 1 AND cancelledAt IS NULL")
+    @Query("SELECT COUNT(*) FROM task_item WHERE isCompleted = 1 AND cancelledAt IS NULL AND dueDateIso IS NULL")
     suspend fun countCompleted(): Int
 
     // [WHY] remindAtIso 가 TEXT(ISO)라 SQL 시각 비교를 하지 않는다 — 시각 파싱·정렬은

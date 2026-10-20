@@ -43,7 +43,7 @@ internal fun buildWidgetSnapshot(
         dateLabel = dateLabel,
         eventLines = lines,
         overflowCount = (events.size - WIDGET_MAX_EVENTS).coerceAtLeast(0),
-        // [WHY] 방어적 필터 — getPendingTasksData 는 지금 DAO 에서 isCompleted = 0 으로 걸러 오지만,
+        // [WHY] 방어적 필터 — getPendingTodosData 는 지금 DAO 에서 isCompleted = 0 으로 걸러 오지만,
         // 위젯은 계약이 바뀌어도 완료 항목을 "할 일"로 세면 안 된다(필터 비용은 무시할 만하다).
         pendingTaskCount = pendingTasks.count { !it.isCompleted },
         // [WHY] 조회 실패(null)도 true — 위젯은 권한 요청 UI 를 못 띄우므로 이 표기가

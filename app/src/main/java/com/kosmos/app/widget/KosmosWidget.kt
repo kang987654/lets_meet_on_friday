@@ -72,7 +72,7 @@ class KosmosWidget : GlanceAppWidget() {
         val schedule = (entryPoint.getTodayScheduleUseCase()
             .invoke(ScheduleData.RangeType.TODAY) as? AppResult.Success)?.data
         val tasks = (entryPoint.taskRepository()
-            .getPendingTasksData(0, 100) as? AppResult.Success)?.data.orEmpty()
+            .getPendingTodosData(0, 100) as? AppResult.Success)?.data.orEmpty()
         val snapshot = buildWidgetSnapshot(schedule, tasks, System.currentTimeMillis())
 
         provideContent { WidgetContent(snapshot) }

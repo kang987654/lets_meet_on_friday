@@ -55,7 +55,7 @@ class BriefingNotificationWorkerTest {
         coEvery { getTodaySchedule(ScheduleData.RangeType.TODAY) } returns AppResult.Success(
             ScheduleData(events = persistentListOf(), summary = null, rangeType = ScheduleData.RangeType.TODAY)
         )
-        coEvery { taskRepository.getPendingTasksData(any(), any()) } returns AppResult.Success(
+        coEvery { taskRepository.getPendingTodosData(any(), any()) } returns AppResult.Success(
             listOf(TaskItem(id = "t1", title = "특강 준비", isCompleted = false, createdAt = 0L))
         )
     }
