@@ -20,6 +20,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.luminance
 import com.kosmos.app.R
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.model.MessageResult
@@ -171,6 +173,8 @@ fun ResultRow(state: ResultCardState, onClick: (() -> Unit)?, modifier: Modifier
             .fillMaxWidth()
             .clip(KosmosShapes.md)
             .background(colors.surfaceSunk)
+            // [WHY] 다크에서는 가라앉은 면과 카드 면의 밝기 차가 거의 없어 결과 행이 사라졌다 — 다크에서만 hairline(impeccable 점검 P2).
+            .then(if (colors.surface.luminance() < 0.5f) Modifier.border(1.dp, colors.border, KosmosShapes.md) else Modifier)
             .then(clickable)
             .padding(start = 12.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)

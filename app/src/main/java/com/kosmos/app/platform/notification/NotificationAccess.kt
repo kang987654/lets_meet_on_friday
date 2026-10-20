@@ -30,5 +30,9 @@ object NotificationAccess {
             context.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() != false
 
     const val DENIED_MESSAGE = "알림 권한이 꺼져 있어 알림이 화면에 뜨지 않아요. 설정 > 애플리케이션 > Kosmos > 알림에서 켤 수 있어요."
+    /** 정확한 알람 허용 화면 — 승인 시트의 "설정에서 켜기"(0.38.2 M8). API 31 미만은 늘 정확해서 부르지 않는다. */
+    fun exactAlarmSettingsIntent(context: Context): android.content.Intent =
+        android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, android.net.Uri.parse("package:${context.packageName}"))
+
     const val INEXACT_NOTE = "정확한 알람 권한이 없어 알림이 최대 10분 늦을 수 있어요."
 }

@@ -18,6 +18,11 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.runtime.remember
 import com.kosmos.app.assistant.approval.ApprovalCoordinator
 import androidx.compose.ui.Alignment
@@ -112,7 +117,8 @@ fun ApprovalSheetLayout(
     onReject: () -> Unit,
     onDismiss: () -> Unit = onReject,
     footnote: String? = null,
-    timeoutKey: Any? = null
+    timeoutKey: Any? = null,
+    onFootnoteAction: (() -> Unit)? = null
 ) {
     val colors = KosmosTheme.colors
     // [WHY] 툴 승인은 제한 시간이 지나면 저절로 취소된다 — 문구 대신 [거절] 버튼이 남은 시간만큼 차올라 "곧 취소됨"을 보인다(사용자 결정 2026-10-19).
@@ -167,11 +173,28 @@ fun ApprovalSheetLayout(
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                KosmosButton(content.rejectLabel, onReject, Modifier.weight(1f), progress = if (timeoutKey != null) ({ elapsed.value }) else null)
+                // 화면 읽기에는 남은 초를 알린다 — 차오르는 면은 눈으로만 보인다(impeccable 점검 P2).
+                val secondsLeft by remember(timeoutKey) {
+                    derivedStateOf { ((1f - elapsed.value) * ApprovalCoordinator.APPROVAL_TIMEOUT_MS / 1000).toInt() }
+                }
+                KosmosButton(
+                    content.rejectLabel, onReject,
+                    Modifier.weight(1f).then(if (timeoutKey != null) Modifier.semantics { stateDescription = "${secondsLeft}초 뒤 자동 취소" } else Modifier),
+                    progress = if (timeoutKey != null) ({ elapsed.value }) else null
+                )
                 KosmosButton(content.approveLabel, onApprove, Modifier.weight(1f), accent = true)
             }
-            footnote?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.warningText) }
-            content.hint?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.textMuted) }
+            if (footnote != null) {
+                // [WHY] 경고가 있으면 기본 안내("정한 시각에 울려요")를 숨긴다 — 둘이 서로 모순됐다(impeccable 점검 P1, 0.38.2 M8).
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(footnote, style = MaterialTheme.typography.labelMedium, color = colors.warningText, modifier = Modifier.weight(1f))
+                    if (onFootnoteAction != null) {
+                        TextButton(onClick = onFootnoteAction) { Text("설정에서 켜기", style = MaterialTheme.typography.labelLarge, color = colors.brandText) }
+                    }
+                }
+            } else {
+                content.hint?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.textMuted) }
+            }
         }
     }
 }
@@ -185,10 +208,11 @@ fun ApprovalSheet(
     onApprove: () -> Unit,
     onReject: () -> Unit,
     footnote: String? = null,
-    timeoutKey: Any? = null
+    timeoutKey: Any? = null,
+    onFootnoteAction: (() -> Unit)? = null
 ) {
     val today = rememberToday()
-    ApprovalSheetLayout(ApprovalSheetContent.of(request, today), onApprove, onReject, footnote = footnote, timeoutKey = timeoutKey)
+    ApprovalSheetLayout(ApprovalSheetContent.of(request, today), onApprove, onReject, footnote = footnote, timeoutKey = timeoutKey, onFootnoteAction = onFootnoteAction)
 }
 
 /**

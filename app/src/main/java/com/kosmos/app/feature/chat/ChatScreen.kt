@@ -58,7 +58,7 @@ import android.Manifest
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.rememberCoroutineScope
 import com.kosmos.app.core.mapper.ErrorMessages
 import com.kosmos.app.core.common.AppError
@@ -466,7 +466,8 @@ fun ChatScreen(
             // 최신으로 이동 FAB — 위로 스크롤한 상태에서만 노출 (C-3).
             // reverseLayout 에서 "위로 스크롤함" = canScrollBackward, 최신 = index 0.
             if (listState.canScrollBackward) {
-                SmallFloatingActionButton(
+                // [WHY] 그림자 없는 원형 + hairline — DESIGN Elevation "그림자를 쓰지 않는다"(impeccable 점검 P2).
+                IconButton(
                     onClick = {
                         userScrolledAway = false
                         snackbarScope.launch {
@@ -475,13 +476,15 @@ fun ChatScreen(
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 20.dp, bottom = 20.dp),
-                    containerColor = KosmosTheme.colors.surface,
-                    contentColor = KosmosTheme.colors.brandText
+                        .padding(end = 16.dp, bottom = 16.dp)
+                        .size(40.dp)
+                        .kosmosSurface(shape = androidx.compose.foundation.shape.CircleShape)
                 ) {
                     Icon(
                         painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_caret_down),
-                        contentDescription = "최신 메시지로"
+                        contentDescription = "최신 메시지로",
+                        tint = KosmosTheme.colors.brandText,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -500,7 +503,14 @@ fun ChatScreen(
             onApprove = { viewModel.approvePendingRequest() },
             onReject = { viewModel.rejectPendingRequest() },
             footnote = if (inexact) NotificationAccess.INEXACT_NOTE else null,
-            timeoutKey = uiState.approvalTimeoutEpoch
+            timeoutKey = uiState.approvalTimeoutEpoch,
+            onFootnoteAction = if (inexact) {
+                {
+                    runCatching { context.startActivity(NotificationAccess.exactAlarmSettingsIntent(context)) }
+                    // 설정 화면에 다녀오는 동안 시간이 흐르지 않게 제한 시간을 새로 준다(권한 대화상자와 같은 경로).
+                    viewModel.onApprovalObstructionCleared()
+                }
+            } else null
         )
     }
     var laterSuggestionId by rememberSaveable { mutableStateOf<String?>(null) }

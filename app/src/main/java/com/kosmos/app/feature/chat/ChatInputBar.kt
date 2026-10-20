@@ -157,7 +157,7 @@ fun ChatInputBar(
                             isLoading -> "답을 쓰는 중이에요…"
                             else -> androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.chat_input_hint)
                         },
-                        color = if (isRecording) KosmosTheme.colors.dangerText else KosmosTheme.colors.textMuted,
+                        color = if (isRecording) KosmosTheme.colors.textSecondary else KosmosTheme.colors.textMuted,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }

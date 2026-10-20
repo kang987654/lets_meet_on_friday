@@ -2,6 +2,7 @@ package com.kosmos.app.design
 
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -267,7 +268,9 @@ class ScreenCatalogTest {
         rule.setContent {
             CompositionLocalProvider(LocalClock provides CLOCK) {
                 KosmosTheme(themeMode = themeMode, chatTextSize = chatTextSize) {
+                    // [WHY] 바닥을 화면 전체에 깐다 — 시트만 있는 장면은 내용 크기가 0 이라 창 기본색(밝은 회색)이 비쳤다(impeccable 점검 P3).
                     androidx.compose.material3.Surface(
+                        modifier = androidx.compose.ui.Modifier.fillMaxSize(),
                         color = if (onSurface) KosmosTheme.colors.surface else androidx.compose.material3.MaterialTheme.colorScheme.background
                     ) { content() }
                 }
@@ -434,7 +437,7 @@ class ScreenCatalogTest {
         shoot("03-approval-reminder") {
             com.kosmos.app.feature.approval.ApprovalSheet(
                 request = request, onApprove = {}, onReject = {},
-                footnote = com.kosmos.app.platform.notification.NotificationAccess.INEXACT_NOTE
+                footnote = com.kosmos.app.platform.notification.NotificationAccess.INEXACT_NOTE, onFootnoteAction = {}
             )
         }
     }

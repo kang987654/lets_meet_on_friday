@@ -90,13 +90,19 @@ fun ReminderEditSheet(
                 )
                 KosmosButton("닫기", onDismiss, Modifier.fillMaxWidth())
             } else {
+                // [WHY] 다른 시트에서 왼쪽 아래는 '그만두기'다 — 같은 자리에 '알림 취소'를 두면 뜻이 정반대가 됐다(impeccable 점검 P1).
+                // 주 동작(10분 미루기)을 하나 세우고, 알림 취소·닫기는 아래 줄 오른쪽에 글자 버튼으로 모은다(안드로이드 대화상자 관례, 사용자 선택 "가").
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    KosmosButton("10분 미루기", onSnooze, Modifier.weight(1f))
                     KosmosButton("시간 바꾸기", { picking = true }, Modifier.weight(1f))
+                    KosmosButton("10분 미루기", onSnooze, Modifier.weight(1f), accent = true)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    KosmosButton("알림 취소", { confirmingCancel = true }, Modifier.weight(1f), danger = true)
-                    KosmosButton("닫기", onDismiss, Modifier.weight(1f))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { confirmingCancel = true }) {
+                        Text("알림 취소", style = MaterialTheme.typography.labelLarge, color = colors.dangerText)
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text("닫기", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                    }
                 }
                 error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.dangerText) }
                 Text(
