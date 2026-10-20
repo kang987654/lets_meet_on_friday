@@ -473,6 +473,14 @@ class ScreenCatalogTest {
         shoot("05-memory-notes") { com.kosmos.app.feature.memory.MemoryScreen(viewModel = vm, onBack = {}) }
     }
 
+    /** 메모 화면 ⋮ 메뉴 — 백업 내보내기·가져오기(0.38.3 M2 — 목록 아래 버튼에서 상단 바 메뉴로). */
+    @Test fun memoryBackupMenu() {
+        val vm = memoryViewModel()
+        shoot("29-memory-backup-menu", before = {
+            rule.onNode(androidx.compose.ui.test.hasContentDescription("더보기")).performClick()
+        }) { com.kosmos.app.feature.memory.MemoryScreen(viewModel = vm, onBack = {}) }
+    }
+
     @Test fun memoryTasks() {
         val vm = memoryViewModel()
         shoot("06-memory-tasks", before = {
@@ -537,6 +545,21 @@ class ScreenCatalogTest {
     @Test fun audit() {
         val vm = com.kosmos.app.feature.settings.AuditViewModel(auditRepository)
         shoot("13-audit") { com.kosmos.app.feature.settings.AuditScreen(viewModel = vm, onNavigateBack = {}) }
+    }
+
+    /** 기억 정리 검토 — 회고·합칠 기억·이어지는 대화(0.38.3 M2 — 시작 화면만 있던 장면에 검토 상태를 더한다). */
+    @Test fun memoryCleanupReview() {
+        fun note(id: String, content: String) = KnowledgeNote(id = id, content = content, createdAt = NOW, updatedAt = NOW)
+        val review = com.kosmos.app.assistant.cleanup.MemoryCleanupRunner.State.Review(
+            note("weekly", "이번 주는 치과 예약과 자전거 비밀번호 정리에 시간을 썼어요."),
+            listOf(com.kosmos.app.domain.cleanup.MergeProposal(listOf(note("c", "자전거 자물쇠 번호 4821"), note("d", "자전거 자물쇠 비밀번호는 4821")), "자전거 자물쇠 비밀번호는 4821이다."))
+        )
+        val runner = io.mockk.mockk<com.kosmos.app.assistant.cleanup.MemoryCleanupRunner>(relaxed = true) {
+            io.mockk.every { state } returns kotlinx.coroutines.flow.MutableStateFlow(review)
+        }
+        shoot("28-memory-cleanup-review") {
+            com.kosmos.app.feature.cleanup.MemoryCleanupScreen(viewModel = com.kosmos.app.feature.cleanup.MemoryCleanupViewModel(runner), onBack = {})
+        }
     }
 
     /** 공통 목록 부품(0.38.3 M0) — 묶음·행·섹션 제목·빈 화면·되돌리기 스낵바. 화면 적용 전 부품만. */

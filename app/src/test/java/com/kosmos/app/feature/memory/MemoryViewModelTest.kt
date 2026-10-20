@@ -145,4 +145,38 @@ class MemoryViewModelTest {
         io.mockk.verify(exactly = 0) { scheduler.cancel("t2") }
         assertNotNull(vm.uiState.value.actionError)
     }
+
+    // --- 지운 항목 되돌리기 (0.38.3 M2) ---
+
+    @Test
+    fun `지운 할 일을 되돌리면 같은 항목을 저장하고 미래 알림은 다시 예약한다`() = runTest(dispatcher.scheduler) {
+        val task = reminderTask(now + 60_000).copy(isCompleted = false)
+        coEvery { taskRepository.save(task) } returns AppResult.Success(Unit)
+        coEvery { taskRepository.getCounts() } returns AppResult.Success(com.kosmos.app.domain.memory.TaskCounts(1, 0))
+        var done = false
+
+        viewModel().undeleteTask(task, now) { done = true }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        coVerify(exactly = 1) { taskRepository.save(task) }
+        io.mockk.verify(exactly = 1) { scheduler.schedule("t1", now + 60_000) }
+        assertTrue(done)
+    }
+
+    @Test
+    fun `지운 메모를 되돌리면 같은 메모를 저장하고 실패는 actionError 로 알린다`() = runTest(dispatcher.scheduler) {
+        val note = com.kosmos.app.domain.model.KnowledgeNote(id = "k1", content = "자전거 비밀번호는 134", createdAt = 1, updatedAt = 1)
+        coEvery { knowledgeRepository.save(note) } returns AppResult.Success(Unit)
+        val vm = viewModel()
+        var done = false
+
+        vm.undeleteKnowledge(note) { done = true }
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(done)
+
+        coEvery { knowledgeRepository.save(note) } returns AppResult.Failure(AppError.DbWriteError("knowledge_note"))
+        vm.undeleteKnowledge(note)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertNotNull(vm.uiState.value.actionError)
+    }
 }

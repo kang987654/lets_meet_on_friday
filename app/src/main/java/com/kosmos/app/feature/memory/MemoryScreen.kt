@@ -2,6 +2,8 @@ package com.kosmos.app.feature.memory
 
 import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.theme.KosmosTheme
+import com.kosmos.app.ui.component.groupItem
+import com.kosmos.app.ui.component.showUndo
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,8 +45,6 @@ fun MemoryScreen(
     val knowledgeItems = viewModel.knowledgePagingData.collectAsLazyPagingItems()
     val taskItems = viewModel.taskPagingData.collectAsLazyPagingItems()
     val completedTaskItems = viewModel.completedTaskPagingData.collectAsLazyPagingItems()
-    var knowledgeToDelete by remember { mutableStateOf<com.kosmos.app.domain.model.KnowledgeNote?>(null) }
-    var taskToDelete by remember { mutableStateOf<com.kosmos.app.domain.model.TaskItem?>(null) }
     var confirmClearCompleted by remember { mutableStateOf(false) }
     var showCompleted by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val refreshTasks: () -> Unit = {
@@ -88,37 +88,6 @@ fun MemoryScreen(
         }
     }
 
-    // 지식 삭제 확인 (C′2 관리 장치) — 자동 저장 항목을 한 탭으로 되돌릴 수 있어야 G3 예외가 성립한다.
-    knowledgeToDelete?.let { note ->
-        ConfirmDialog(
-            title = "이 기억을 지울까요?",
-            body = note.content,
-            bodyMaxLines = 4,
-            confirmText = "지우기",
-            confirmColor = KosmosTheme.colors.dangerText,
-            onConfirm = {
-                viewModel.deleteKnowledge(note.id) { knowledgeItems.refresh() }
-                knowledgeToDelete = null
-            },
-            onDismiss = { knowledgeToDelete = null }
-        )
-    }
-
-    taskToDelete?.let { task ->
-        ConfirmDialog(
-            title = "이 할 일을 지울까요?",
-            body = task.title,
-            bodyMaxLines = 4,
-            confirmText = "지우기",
-            confirmColor = KosmosTheme.colors.dangerText,
-            onConfirm = {
-                viewModel.deleteTask(task.id, refreshTasks)
-                taskToDelete = null
-            },
-            onDismiss = { taskToDelete = null }
-        )
-    }
-
     if (confirmClearCompleted) {
         ConfirmDialog(
             title = "완료한 할 일을 모두 지울까요?",
@@ -134,6 +103,24 @@ fun MemoryScreen(
     }
 
     val snackbarScope = rememberCoroutineScope()
+    // [WHY] 한 건 삭제는 확인 창 대신 바로 지우고 "되돌리기"를 준다(0.38.3 M2 사용자 결정, ui-ux-pro-max `undo-support`) — 일괄 삭제·복원은 확인 창 유지.
+    // 자동 저장 메모를 한 탭으로 되돌릴 수 있어야 하는 C′2 관리 장치는 되돌리기로 계속 성립한다.
+    val deleteNote: (com.kosmos.app.domain.model.KnowledgeNote) -> Unit = { note ->
+        viewModel.deleteKnowledge(note.id) {
+            knowledgeItems.refresh()
+            snackbarScope.launch {
+                snackbarHostState.showUndo("메모를 지웠어요.") { viewModel.undeleteKnowledge(note) { knowledgeItems.refresh() } }
+            }
+        }
+    }
+    val deleteTask: (com.kosmos.app.domain.model.TaskItem) -> Unit = { task ->
+        viewModel.deleteTask(task.id) {
+            refreshTasks()
+            snackbarScope.launch {
+                snackbarHostState.showUndo("할 일을 지웠어요.") { viewModel.undeleteTask(task, onDone = refreshTasks) }
+            }
+        }
+    }
     // [WHY] 완료는 한 번의 터치라 실수할 수 있다 — 확인 대화상자 대신 사후 되돌리기를 둔다(0.36.2 사용자 결정).
     val completeWithUndo: (com.kosmos.app.domain.model.TaskItem) -> Unit = { task ->
         viewModel.completeTask(task.id) {
@@ -152,7 +139,17 @@ fun MemoryScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             // 드로어 타일("메모 · 할 일")과 같은 이름 — 진입점과 화면 제목이 다르면 길을 잃는다.
-            com.kosmos.app.ui.component.KosmosTopBar(title = "메모 · 할 일", onBack = onBack)
+            com.kosmos.app.ui.component.KosmosTopBar(
+                title = "메모 · 할 일",
+                onBack = onBack,
+                actions = {
+                    BackupMenu(
+                        backupState = backupState,
+                        onExportClick = { viewModel.requestExport() },
+                        onImportClick = { viewModel.requestImport() }
+                    )
+                }
+            )
             KosmosSegmentedControl(
                 options = listOf(MemoryFilterType.KNOWLEDGE to "메모", MemoryFilterType.TASK to "할 일"),
                 selected = uiState.selectedFilter,
@@ -167,40 +164,9 @@ fun MemoryScreen(
             }
             val taskCounts = uiState.taskCounts
             if (uiState.selectedFilter == MemoryFilterType.TASK && taskCounts != null) {
-                // [WHY] 통계는 DB 전체 기준이다 — 예전에는 페이징 스냅샷(미완료만·로드된 페이지만)에서
-                // 세어 "완료 0"과 빈 진행 바가 고정이었다.
-                val pendingCount = taskCounts.pending
-                val doneCount = taskCounts.completed
-                val totalCount = taskCounts.total
-                val progress = if (totalCount > 0) doneCount.toFloat() / totalCount else 0f
-
-                // Stats & Progress
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "남은 일 $pendingCount  ·  완료 $doneCount",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = KosmosTheme.colors.textSecondary
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(60.dp)
-                            .height(4.dp)
-                            .background(KosmosTheme.colors.surface, RoundedCornerShape(2.dp))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(progress)
-                                .background(KosmosTheme.colors.successText, RoundedCornerShape(2.dp))
-                        )
-                    }
-                }
+                // [WHY] 통계는 DB 전체 기준이다 — 예전에는 페이징 스냅샷(미완료만·로드된 페이지만)에서 세어 "완료 0"이 고정이었다.
+                // 가운뎃점 통계 줄·작은 진행 바 대신 섹션 제목(0.38.3 M2 — taste "가운뎃점 정보 줄"); 완료 수는 완료됨 머리에.
+                com.kosmos.app.ui.component.SectionHeader("남은 할 일 ${taskCounts.pending}", Modifier.padding(horizontal = 16.dp))
             }
 
             // Lists
@@ -209,10 +175,11 @@ fun MemoryScreen(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
                 // 마지막 카드가 화면 끝·제스처 바에 붙지 않게 두는 스크롤 여유(하단 내비 시절 값을 유지).
-                contentPadding = PaddingValues(bottom = 80.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(bottom = 80.dp)
             ) {
                 if (uiState.selectedFilter == MemoryFilterType.TASK) {
+                    // 남은 할 일 + 맨 아래 추가 줄이 한 묶음이다.
+                    val pendingRows = taskItems.itemCount + 1
                     items(
                         count = taskItems.itemCount,
                         key = taskItems.itemKey { it.id },
@@ -227,11 +194,20 @@ fun MemoryScreen(
                                 remindAtDisplay = task.remindAtIso?.let {
                                     com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayKorean(it)
                                 },
-                                onDelete = { taskToDelete = task }
+                                onDelete = { deleteTask(task) },
+                                position = com.kosmos.app.ui.component.groupPosition(index, pendingRows)
                             )
                         }
                     }
 
+                    if (taskItems.itemCount == 0 && taskItems.loadState.refresh is androidx.paging.LoadState.NotLoading) {
+                        item(key = "tasks-empty") {
+                            com.kosmos.app.ui.component.EmptyState(
+                                icon = com.kosmos.app.R.drawable.ic_ph_check_square,
+                                message = "남은 할 일이 없어요.\n아래에 적거나 채팅에서 \"장보기 할 일 추가해 줘\"라고 말해 보세요."
+                            )
+                        }
+                    }
                     item {
                         // 할 일 인라인 추가 — 예전에는 빈 스텁 버튼이었다 (MemoryViewModel.addTask [WHY]).
                         var newTaskText by androidx.compose.runtime.remember {
@@ -242,16 +218,13 @@ fun MemoryScreen(
                             viewModel.addTask(newTaskText) { taskItems.refresh() }
                             newTaskText = ""
                         }
+                        // [WHY] 추가 줄은 남은 할 일 묶음의 마지막 줄 — 따로 그린 테두리 상자였다(카드 문법 밖, 0.38.3 M2).
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .border(
-                                    width = 1.dp,
-                                    color = KosmosTheme.colors.border,
-                                    shape = RoundedCornerShape(16.dp)
-                                )
-                                .padding(16.dp)
+                                .groupItem(com.kosmos.app.ui.component.groupPosition(pendingRows - 1, pendingRows))
+                                .heightIn(min = 56.dp)
+                                .padding(horizontal = 16.dp, vertical = 14.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_plus, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 12.dp))
@@ -301,6 +274,7 @@ fun MemoryScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .padding(top = 16.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable { showCompleted = !showCompleted }
                                     .padding(horizontal = 8.dp, vertical = 12.dp),
@@ -308,9 +282,8 @@ fun MemoryScreen(
                             ) {
                                 Text(
                                     text = "완료됨 $completedCount",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = KosmosTheme.colors.textMuted,
-                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = KosmosTheme.colors.textPrimary,
                                     modifier = Modifier.weight(1f)
                                 )
                                 Text(
@@ -336,7 +309,8 @@ fun MemoryScreen(
                                         remindAtDisplay = task.remindAtIso?.let {
                                             com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayKorean(it)
                                         },
-                                        onDelete = { taskToDelete = task }
+                                        onDelete = { deleteTask(task) },
+                                        position = com.kosmos.app.ui.component.groupPosition(index, completedTaskItems.itemCount)
                                     )
                                 }
                             }
@@ -350,6 +324,15 @@ fun MemoryScreen(
                 }
 
                 if (uiState.selectedFilter == MemoryFilterType.KNOWLEDGE) {
+                    if (knowledgeItems.itemCount == 0 && knowledgeItems.loadState.refresh is androidx.paging.LoadState.NotLoading) {
+                        item(key = "notes-empty") {
+                            com.kosmos.app.ui.component.EmptyState(
+                                icon = com.kosmos.app.R.drawable.ic_ph_note,
+                                message = "아직 저장한 메모가 없어요.\n채팅에서 \"기억해 줘\"라고 말하면 여기 쌓여요."
+                            )
+                        }
+                    }
+                    // [WHY] 메모마다 카드였다 — 한 묶음 안의 행으로(0.38.3 M2, DESIGN "목록은 행"). 출처 "자동"·태그는 작은 면, 날짜는 글자.
                     items(
                         count = knowledgeItems.itemCount,
                         key = knowledgeItems.itemKey { it.id },
@@ -357,80 +340,20 @@ fun MemoryScreen(
                     ) { index ->
                         val note = knowledgeItems[index]
                         if (note != null) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .kosmosSurface(
-                                        backgroundColor = KosmosTheme.colors.surface,
-                                        borderColor = KosmosTheme.colors.border,
-                                        shape = RoundedCornerShape(16.dp)
-                                    )
+                            val position = com.kosmos.app.ui.component.groupPosition(index, knowledgeItems.itemCount)
+                            com.kosmos.app.ui.component.KosmosListRow(
+                                title = note.content,
+                                supporting = com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(note.createdAt),
+                                tags = listOfNotNull(if (note.source == com.kosmos.app.domain.model.KnowledgeNote.SOURCE_AUTO) "자동" else null) + note.tags,
+                                divider = position == com.kosmos.app.ui.component.GroupPosition.First || position == com.kosmos.app.ui.component.GroupPosition.Middle,
+                                modifier = Modifier.groupItem(position)
                             ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Row(verticalAlignment = Alignment.Top) {
-                                        Text(
-                                            text = note.content,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            color = KosmosTheme.colors.textPrimary,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        if (note.source == com.kosmos.app.domain.model.KnowledgeNote.SOURCE_AUTO) {
-                                            // 출처 배지 — 자동 추출(C′2) 항목. 수동·툴 콜 저장은 배지 없음.
-                                            Text(
-                                                text = "자동",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = KosmosTheme.colors.textMuted,
-                                                modifier = Modifier
-                                                    .padding(start = 8.dp)
-                                                    .background(
-                                                        color = KosmosTheme.colors.surface,
-                                                        shape = RoundedCornerShape(6.dp)
-                                                    )
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                                            )
-                                        }
-                                        androidx.compose.material3.IconButton(onClick = { knowledgeToDelete = note }) {
-                                            com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_x, contentDescription = "삭제", size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.dangerText)
-                                        }
-                                    }
-                                    if (note.tags.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-                                        androidx.compose.foundation.layout.FlowRow(
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            note.tags.forEach { tag ->
-                                                Box(
-                                                    modifier = Modifier
-                                                        .background(
-                                                            color = KosmosTheme.colors.brand.copy(alpha = 0.15f),
-                                                            shape = RoundedCornerShape(8.dp)
-                                                        )
-                                                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                                                ) {
-                                                    Text(
-                                                        text = tag,
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = KosmosTheme.colors.brandText
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                                com.kosmos.app.ui.component.DeleteIconButton(onClick = { deleteNote(note) })
                             }
                         }
                     }
                 }
 
-                item {
-                    BackupSection(
-                        backupState = backupState,
-                        onExportClick = { viewModel.requestExport() },
-                        onImportClick = { viewModel.requestImport() }
-                    )
-                }
             }
         }
         SnackbarHost(
@@ -451,11 +374,12 @@ fun MemoryScreen(
 }
 
 /**
- * [WHY] `prd.md` F8 은 "메모리 화면에서 export 선택"을 요구하는데 진입점이 아예 없었다.
- * `MemoryViewModel.exportData`/`importData` 는 구현돼 있었지만 호출자가 없어 도달 불가였다.
+ * 상단 바 ⋮ 메뉴의 백업 — 내보내기·가져오기(0.38.3 M2 사용자 결정: 자주 쓰지 않는 기능이라 목록 아래 큰 버튼 두 개 대신 메뉴로).
+ *
+ * [WHY] `prd.md` F8 은 "메모리 화면에서 export 선택"을 요구한다 — 진입점이 이 화면에 있어야 한다. 아이콘 두 개(↑↓)는 뜻이 모호해 글자 메뉴로.
  */
 @Composable
-private fun BackupSection(
+private fun BackupMenu(
     backupState: BackupState,
     onExportClick: () -> Unit,
     onImportClick: () -> Unit
@@ -463,18 +387,22 @@ private fun BackupSection(
     val busy = backupState is BackupState.Exporting ||
         backupState is BackupState.Importing ||
         backupState is BackupState.ReadyToSave
-
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-        Text(
-            text = "백업",
-            style = MaterialTheme.typography.labelMedium,
-            color = KosmosTheme.colors.textMuted,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            KosmosButton(if (backupState is BackupState.Exporting) "내보내는 중…" else "내보내기", onExportClick, Modifier.weight(1f), enabled = !busy)
-            KosmosButton(if (backupState is BackupState.Importing) "복원 중…" else "가져오기", onImportClick, Modifier.weight(1f), enabled = !busy)
+    var open by remember { mutableStateOf(false) }
+    Box {
+        androidx.compose.material3.IconButton(onClick = { open = true }) {
+            com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_dots_three_vertical, contentDescription = "더보기", tint = KosmosTheme.colors.textSecondary)
+        }
+        androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = KosmosTheme.colors.surface) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(if (backupState is BackupState.Exporting) "백업 내보내는 중…" else "백업 내보내기") },
+                onClick = { open = false; onExportClick() },
+                enabled = !busy
+            )
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(if (backupState is BackupState.Importing) "백업 복원 중…" else "백업 가져오기") },
+                onClick = { open = false; onImportClick() },
+                enabled = !busy
+            )
         }
     }
 }
@@ -542,7 +470,7 @@ private fun BackupDialogs(
     }
 }
 
-/** 확인 대화상자 — 백업·복원·기억 삭제가 같은 모양을 쓴다. */
+/** 확인 대화상자 — 백업·복원·완료 항목 일괄 삭제가 같은 모양을 쓴다(한 건 삭제는 되돌리기, 0.38.3 M2). */
 @Composable
 private fun ConfirmDialog(
     title: String,
@@ -588,17 +516,11 @@ fun TaskItemRow(
     onToggle: () -> Unit,
     // [WHY] 기본값 필수 — 기존 호출부·테스트가 이 파라미터 없이 compose 된다 (B1).
     remindAtDisplay: String? = null,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    // [WHY] 묶음 안의 자리(0.38.3 M2) — 행마다 카드였던 것을 묶음 한 조각으로. 기본값은 혼자 선 묶음.
+    position: com.kosmos.app.ui.component.GroupPosition = com.kosmos.app.ui.component.GroupPosition.Single
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .kosmosSurface(
-                backgroundColor = KosmosTheme.colors.surface,
-                borderColor = KosmosTheme.colors.border,
-                shape = RoundedCornerShape(16.dp)
-            )
-    ) {
+    Column(modifier = Modifier.fillMaxWidth().groupItem(position)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -657,11 +579,10 @@ fun TaskItemRow(
                 }
             }
 
-            if (onDelete != null) {
-                androidx.compose.material3.IconButton(onClick = onDelete) {
-                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_x, contentDescription = "삭제", size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.dangerText)
-                }
-            }
+            if (onDelete != null) com.kosmos.app.ui.component.DeleteIconButton(onClick = onDelete)
+        }
+        if (position == com.kosmos.app.ui.component.GroupPosition.First || position == com.kosmos.app.ui.component.GroupPosition.Middle) {
+            androidx.compose.material3.HorizontalDivider(Modifier.padding(start = 56.dp), color = KosmosTheme.colors.border)
         }
     }
 }

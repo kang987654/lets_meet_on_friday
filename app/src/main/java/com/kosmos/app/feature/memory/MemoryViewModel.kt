@@ -148,16 +148,7 @@ class MemoryViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = taskRepository.updateCompletion(task.id, false)) {
                 is AppResult.Success -> {
-                    val triggerAtMs = task.remindAtIso
-                        ?.takeIf { task.remindedAtMs == null }
-                        ?.let { com.kosmos.app.domain.util.IsoDateTimeParser.toEpochMillis(it) }
-                    if (triggerAtMs != null) {
-                        if (triggerAtMs > now) {
-                            reminderAlarmScheduler.schedule(task.id, triggerAtMs)
-                        } else {
-                            taskRepository.markReminded(task.id, now)
-                        }
-                    }
+                    rearmReminder(task, now)
                     widgetRefresher.refresh()
                     loadTaskCounts()
                     onDone()
@@ -166,6 +157,33 @@ class MemoryViewModel @Inject constructor(
                     _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
             }
         }
+    }
+
+    /**
+     * 지운 할 일을 되돌립니다 — 삭제 직후 스낵바 "되돌리기"(0.38.3 M2, 확인 창 대신 — 사용자 결정).
+     * 같은 항목을 다시 저장하고, 남은 할 일이면 알람도 [restoreTask] 와 같은 규칙으로 다시 건다.
+     */
+    fun undeleteTask(task: TaskItem, now: Long = System.currentTimeMillis(), onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            when (val result = taskRepository.save(task)) {
+                is AppResult.Success -> {
+                    if (!task.isCompleted) rearmReminder(task, now)
+                    widgetRefresher.refresh()
+                    loadTaskCounts()
+                    onDone()
+                }
+                is AppResult.Failure ->
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+            }
+        }
+    }
+
+    /** 아직 안 울린 알림이면 다시 예약하고, 시각이 지났으면 울리지 않고 발화 처리만 한다(재부팅 복원이 지난 알림을 울리지 않게). */
+    private suspend fun rearmReminder(task: TaskItem, now: Long) {
+        val triggerAtMs = task.remindAtIso
+            ?.takeIf { task.remindedAtMs == null && task.cancelledAt == null }
+            ?.let { com.kosmos.app.domain.util.IsoDateTimeParser.toEpochMillis(it) } ?: return
+        if (triggerAtMs > now) reminderAlarmScheduler.schedule(task.id, triggerAtMs) else taskRepository.markReminded(task.id, now)
     }
 
     /** 할 일 한 건을 지웁니다 — 리마인더 알람도 함께 취소한다. */
@@ -221,6 +239,17 @@ class MemoryViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = knowledgeRepository.delete(noteId)) {
                 is AppResult.Success -> onDeleted()
+                is AppResult.Failure ->
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+            }
+        }
+    }
+
+    /** 지운 메모를 되돌립니다 — 같은 항목을 다시 저장(0.38.3 M2). */
+    fun undeleteKnowledge(note: com.kosmos.app.domain.model.KnowledgeNote, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            when (val result = knowledgeRepository.save(note)) {
+                is AppResult.Success -> onDone()
                 is AppResult.Failure ->
                     _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
             }

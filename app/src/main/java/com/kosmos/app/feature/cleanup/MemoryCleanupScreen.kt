@@ -159,7 +159,8 @@ private fun ReviewContent(
     onToggleEpisode: (EpisodeMergeProposal) -> Unit,
     onApply: () -> Unit
 ) {
-    Text("이번 주 회고", color = KosmosTheme.colors.textSecondary, style = MaterialTheme.typography.labelLarge)
+    // [WHY] 섹션 제목은 subtitle 단계 문장체, 제안은 한 묶음 안의 행(0.38.3 M2) — 제안마다 카드였고 제목은 작은 회색 글씨였다.
+    com.kosmos.app.ui.component.SectionHeader("이번 주 회고")
     Card {
         Text(
             review?.content ?: "지난 7일 동안 정리된 대화가 없어 회고를 만들지 않았어요.",
@@ -168,96 +169,87 @@ private fun ReviewContent(
         )
     }
 
-    Text("합칠 수 있는 기억", color = KosmosTheme.colors.textSecondary, style = MaterialTheme.typography.labelLarge)
+    com.kosmos.app.ui.component.SectionHeader("합칠 수 있는 기억")
     if (proposals.isEmpty()) {
-        Card { Text("겹치는 기억이 없어요.", color = KosmosTheme.colors.textMuted) }
+        Text("겹치는 기억이 없어요.", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
     } else {
         Text(
             "합칠 것만 골라 주세요. 고르지 않은 기억은 그대로 둬요.",
             color = KosmosTheme.colors.textMuted,
             style = MaterialTheme.typography.bodySmall
         )
-        proposals.forEach { proposal ->
-            ProposalCard(proposal, isChecked = proposal.key in checked, onToggle = { onToggle(proposal) })
+        com.kosmos.app.ui.component.KosmosListGroup {
+            proposals.forEachIndexed { index, proposal ->
+                ProposalRow(
+                    lines = proposal.sources.map { it.content },
+                    result = proposal.mergedContent,
+                    resultEmphasis = true,
+                    isChecked = proposal.key in checked,
+                    divider = index < proposals.lastIndex,
+                    onToggle = { onToggle(proposal) }
+                )
+            }
         }
     }
-    Text("이어지는 대화", color = KosmosTheme.colors.textSecondary, style = MaterialTheme.typography.labelLarge)
+    com.kosmos.app.ui.component.SectionHeader("이어지는 대화")
     if (episodeProposals.isEmpty()) {
-        Card { Text("끊겨 있는 같은 대화가 없어요.", color = KosmosTheme.colors.textMuted) }
+        Text("끊겨 있는 같은 대화가 없어요.", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
     } else {
         Text(
             "같은 일이 끊겨 여러 대화로 나뉜 것 같아요. 고르면 하나로 합친 뒤 다시 요약해요.",
             color = KosmosTheme.colors.textMuted,
             style = MaterialTheme.typography.bodySmall
         )
-        episodeProposals.forEach { proposal ->
-            EpisodeProposalCard(proposal, isChecked = proposal.key in checkedEpisodes, onToggle = { onToggleEpisode(proposal) })
+        com.kosmos.app.ui.component.KosmosListGroup {
+            episodeProposals.forEachIndexed { index, proposal ->
+                ProposalRow(
+                    lines = proposal.episodes.map { ep -> "${com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(ep.startAt)} ${ep.title.orEmpty()}" },
+                    result = "하나의 대화로 합쳐 다시 요약",
+                    resultEmphasis = false,
+                    isChecked = proposal.key in checkedEpisodes,
+                    divider = index < episodeProposals.lastIndex,
+                    onToggle = { onToggleEpisode(proposal) }
+                )
+            }
         }
     }
     val count = proposals.count { it.key in checked } + episodeProposals.count { it.key in checkedEpisodes }
     KosmosButton(if (count > 0) "선택한 ${count}건 합치기" else "합치지 않고 마치기", onApply, Modifier.fillMaxWidth(), accent = true)
 }
 
+/**
+ * 제안 한 줄 — 체크 상자 · 합칠 원래 항목들 · 화살표 아이콘 + 합친 결과. 글자 기호 "→" 대신 Phosphor 화살표(DESIGN Icons, 0.38.3 M2 사용자 확인).
+ */
 @Composable
-private fun ProposalCard(proposal: MergeProposal, isChecked: Boolean, onToggle: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .kosmosSurface(shape = RoundedCornerShape(16.dp))
-            .clickable(onClick = onToggle)
-            .padding(12.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Checkbox(
-            checked = isChecked,
-            onCheckedChange = { onToggle() },
-            colors = CheckboxDefaults.colors(checkedColor = KosmosTheme.colors.brand)
-        )
-        Column(modifier = Modifier.weight(1f).padding(start = 4.dp, top = 12.dp)) {
-            proposal.sources.forEach { source ->
-                Text("· ${source.content}", color = KosmosTheme.colors.textSecondary, style = MaterialTheme.typography.bodySmall)
+private fun ProposalRow(lines: List<String>, result: String, resultEmphasis: Boolean, isChecked: Boolean, divider: Boolean, onToggle: () -> Unit) {
+    val colors = KosmosTheme.colors
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Checkbox(checked = isChecked, onCheckedChange = { onToggle() }, colors = CheckboxDefaults.colors(checkedColor = colors.brand))
+            Column(modifier = Modifier.weight(1f).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                lines.forEach { Text(it, color = colors.textSecondary, style = MaterialTheme.typography.bodySmall) }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_arrow_right, contentDescription = null, size = 16.dp, tint = colors.brandText, modifier = Modifier.padding(end = 6.dp))
+                    Text(
+                        result,
+                        color = if (resultEmphasis) colors.textPrimary else colors.textMuted,
+                        style = if (resultEmphasis) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall,
+                        fontWeight = if (resultEmphasis) FontWeight.Medium else FontWeight.Normal
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text("→ ${proposal.mergedContent}", color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold)
         }
+        if (divider) androidx.compose.material3.HorizontalDivider(Modifier.padding(start = 52.dp), color = colors.border)
     }
 }
 
-@Composable
-private fun EpisodeProposalCard(proposal: EpisodeMergeProposal, isChecked: Boolean, onToggle: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .kosmosSurface(shape = RoundedCornerShape(16.dp))
-            .clickable(onClick = onToggle)
-            .padding(12.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Checkbox(
-            checked = isChecked,
-            onCheckedChange = { onToggle() },
-            colors = CheckboxDefaults.colors(checkedColor = KosmosTheme.colors.brand)
-        )
-        Column(modifier = Modifier.weight(1f).padding(start = 4.dp, top = 12.dp)) {
-            proposal.episodes.forEach { ep ->
-                Text(
-                    "· ${com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(ep.startAt)} ${ep.title.orEmpty()}",
-                    color = KosmosTheme.colors.textPrimary,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text("→ 하나의 대화로 합쳐 다시 요약", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
-
+/** 안내·진행·회고 한 덩어리 — 공통 묶음 상자 하나에 여백(M3 `Card` 와 이름이 겹치지 않게 private). */
 @Composable
 private fun Card(content: @Composable () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .kosmosSurface(shape = RoundedCornerShape(16.dp))
-            .padding(16.dp)
-    ) { content() }
+    com.kosmos.app.ui.component.KosmosListGroup(Modifier) {
+        Column(Modifier.padding(16.dp)) { content() }
+    }
 }

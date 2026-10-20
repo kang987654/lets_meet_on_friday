@@ -24,6 +24,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -150,3 +153,43 @@ suspend fun SnackbarHostState.showUndo(message: String, onUndo: () -> Unit) {
     val result = showSnackbar(message = message, actionLabel = "되돌리기", withDismissAction = false, duration = SnackbarDuration.Short)
     if (result == SnackbarResult.ActionPerformed) onUndo()
 }
+
+/** 묶음 안에서의 자리 — 페이징 목록처럼 행이 따로 그려질 때 [groupItem] 이 위·아래 모서리를 고른다. */
+enum class GroupPosition { Single, First, Middle, Last }
+
+fun groupPosition(index: Int, count: Int): GroupPosition = when {
+    count <= 1 -> GroupPosition.Single
+    index == 0 -> GroupPosition.First
+    index == count - 1 -> GroupPosition.Last
+    else -> GroupPosition.Middle
+}
+
+/**
+ * 행 하나가 묶음 상자의 한 조각을 그린다 — LazyColumn 의 항목마다 따로 그려도 [KosmosListGroup] 과 같은 상자 하나로 보이게(0.38.3 M2).
+ *
+ * [WHY] 위·아래가 이어지는 조각은 둥근 사각형을 자기 밖까지 늘려 그리고 자기 영역으로 잘라, 이웃과 맞닿는 변의 선이 생기지 않게 한다.
+ */
+fun Modifier.groupItem(position: GroupPosition): Modifier = composed {
+    val colors = KosmosTheme.colors
+    val radius = 12.dp
+    clipToBounds().drawBehind {
+        val r = radius.toPx()
+        val stroke = 1.dp.toPx()
+        val (top, extra) = when (position) {
+            GroupPosition.Single -> 0f to 0f
+            GroupPosition.First -> 0f to 2 * r
+            GroupPosition.Middle -> -2 * r to 4 * r
+            GroupPosition.Last -> -2 * r to 2 * r
+        }
+        val corner = androidx.compose.ui.geometry.CornerRadius(r, r)
+        drawRoundRect(colors.surface, topLeft = androidx.compose.ui.geometry.Offset(0f, top), size = androidx.compose.ui.geometry.Size(size.width, size.height + extra), cornerRadius = corner)
+        drawRoundRect(
+            colors.border,
+            topLeft = androidx.compose.ui.geometry.Offset(stroke / 2, top + stroke / 2),
+            size = androidx.compose.ui.geometry.Size(size.width - stroke, size.height + extra - stroke),
+            cornerRadius = corner,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(stroke)
+        )
+    }
+}
+

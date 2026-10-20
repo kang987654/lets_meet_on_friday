@@ -60,7 +60,7 @@ class MemoryCleanupScreenTest {
     fun `체크한 제안만 적용한다`() {
         show()
 
-        composeRule.onNodeWithText("→ 자전거 자물쇠 비밀번호는 4821이다.").performScrollTo().performClick()
+        composeRule.onNodeWithText("자전거 자물쇠 비밀번호는 4821이다.").performScrollTo().performClick()
         composeRule.onNodeWithText("선택한 1건 합치기").performScrollTo().performClick()
         composeRule.waitForIdle()
 
