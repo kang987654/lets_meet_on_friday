@@ -1,6 +1,5 @@
 package com.kosmos.app.feature.settings
 
-import androidx.compose.ui.res.painterResource
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.kosmos.app.platform.notification.NotificationAccess
@@ -13,12 +12,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kosmos.app.ui.theme.scaled
-import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
@@ -43,334 +42,205 @@ fun SettingsScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         com.kosmos.app.ui.component.KosmosTopBar(title = "설정", onBack = onBack)
+        // [WHY] 섹션마다 큰 상자 + 톱니 아이콘 + 자간 넓힌 제목(eyebrow)이었다 — 섹션 제목 + 목록 묶음 + 각주로(0.38.3 M3 시안 A, impeccable "설정은 묶음 목록").
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(horizontal = 16.dp)
         ) {
+            Section("AI 모델") { ModelStatus(uiState.modelLoadState, onNavigateToModelManagement, viewModel::refreshModelState) }
 
-            // 1. Model Status Section
-            SectionBox(title = "로컬 AI 모델 (GEMMA)") {
-                when (val state = uiState.modelLoadState) {
-                    is ModelLoadState.Loading, is ModelLoadState.FileFound, is ModelLoadState.InitializingEngine -> {
-                        CircularProgressIndicator(color = KosmosTheme.colors.brand)
-                        Text(
-                            text = when (state) {
-                                is ModelLoadState.Loading -> "모델 상태 확인 중…"
-                                is ModelLoadState.FileFound -> "모델 파일 확인, 엔진 준비 중…"
-                                else -> "AI 엔진 초기화 중…"
-                            },
-                            color = KosmosTheme.colors.textMuted,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-                    is ModelLoadState.Ready -> {
-                        Text(
-                            text = "상태: 준비됨",
-                            color = KosmosTheme.colors.successText,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("모델: ${state.modelInfo.modelId}", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
-                        Text("버전: ${state.modelInfo.modelVersion}", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
-                        Text("양자화: ${state.modelInfo.quantization}", color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            text = "경로: ${state.modelInfo.modelPath}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = KosmosTheme.colors.textMuted,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        KosmosButton("모델 관리", onNavigateToModelManagement, Modifier.fillMaxWidth(), accent = true)
-                    }
-                    is ModelLoadState.NotFound -> {
-                        Text(
-                            text = "상태: 모델 없음",
-                            color = KosmosTheme.colors.dangerText,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "모델 파일을 찾을 수 없어요. 내려받으면 바로 사용할 수 있어요.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = KosmosTheme.colors.dangerText
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            KosmosButton("새로 고침", viewModel::refreshModelState, Modifier.weight(1f))
-                            KosmosButton("내려받기", onNavigateToModelManagement, Modifier.weight(1f), accent = true)
-                        }
-                    }
-                    is ModelLoadState.Error -> {
-                        Text(
-                            text = "상태: 오류",
-                            color = KosmosTheme.colors.dangerText,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = KosmosTheme.colors.dangerText,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
+            // [WHY] 고르는 값은 세그먼트로 바로 바꾼다(시안 A, 사용자 선택) — 값 행 + 시트는 한 번 더 눌러야 하고 글자 크기 미리보기가 시트로 숨는다.
+            Section("화면") {
+                Column(Modifier.padding(16.dp)) {
+                    ControlLabel("테마")
+                    com.kosmos.app.ui.component.KosmosSegmentedControl(
+                        options = com.kosmos.app.ui.theme.ThemeMode.entries.map { it to it.label },
+                        selected = themeMode,
+                        onSelect = themeViewModel::setThemeMode
+                    )
+                    // [WHY] 하다 라운드가 기본이지만 기기 글꼴을 쓰는 사람도 있다 — 크기·굵기 단계는 같고 글꼴만 바뀐다(DESIGN.md v3 Typography).
+                    ControlLabel("글꼴", top = 16.dp)
+                    com.kosmos.app.ui.component.KosmosSegmentedControl(
+                        options = com.kosmos.app.ui.theme.FontMode.entries.map { it to it.label },
+                        selected = fontMode,
+                        onSelect = themeViewModel::setFontMode
+                    )
+                    // [WHY] 채팅 메시지만 키운다(0.38.2 사용자 결정) — 화면 틀은 시스템 글자 크기를 따른다.
+                    ControlLabel("채팅 글자 크기", top = 16.dp)
+                    com.kosmos.app.ui.component.KosmosSegmentedControl(
+                        options = com.kosmos.app.ui.theme.ChatTextSize.entries.map { it to it.label },
+                        selected = chatTextSize,
+                        onSelect = themeViewModel::setChatTextSize
+                    )
+                    Text(
+                        text = "오후 1시 56분에 알려 드릴게요.",
+                        // 채팅 목록과 같은 배율 — 고른 크기를 그대로 미리 본다.
+                        style = MaterialTheme.typography.scaled(chatTextSize.scale).bodyLarge,
+                        color = KosmosTheme.colors.textPrimary,
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
                 }
             }
 
-            // 2. Appearance Section (ADR-005: 라이트/다크 테마 전환)
-            SectionBox(title = "화면 테마") {
-                com.kosmos.app.ui.component.KosmosSegmentedControl(
-                    options = com.kosmos.app.ui.theme.ThemeMode.entries.map { it to it.label },
-                    selected = themeMode,
-                    onSelect = themeViewModel::setThemeMode
-                )
-            }
-
-            // [WHY] 하다 라운드가 기본이지만 기기 글꼴을 쓰는 사람도 있다 — 크기·굵기 단계는 같고 글꼴만 바뀐다(DESIGN.md v3 Typography).
-            SectionBox(title = "글꼴") {
-                com.kosmos.app.ui.component.KosmosSegmentedControl(
-                    options = com.kosmos.app.ui.theme.FontMode.entries.map { it to it.label },
-                    selected = fontMode,
-                    onSelect = themeViewModel::setFontMode
-                )
-            }
-
-            // [WHY] 채팅 메시지만 키운다(0.38.2 사용자 결정) — 화면 틀은 시스템 글자 크기를 따른다.
-            SectionBox(title = "채팅 글자 크기") {
-                com.kosmos.app.ui.component.KosmosSegmentedControl(
-                    options = com.kosmos.app.ui.theme.ChatTextSize.entries.map { it to it.label },
-                    selected = chatTextSize,
-                    onSelect = themeViewModel::setChatTextSize
-                )
-                Text(
-                    text = "오후 1시 56분에 알려 드릴게요.",
-                    // 채팅 목록과 같은 배율 — 고른 크기를 그대로 미리 본다.
-                style = MaterialTheme.typography.scaled(chatTextSize.scale).bodyLarge,
-                    color = KosmosTheme.colors.textPrimary,
-                    modifier = Modifier.padding(top = 12.dp)
-                )
-            }
-
-            // 3. Response Style Section
-            SectionBox(title = "응답 스타일") {
-                // 저장값(영문 키)은 그대로 두고 표시만 한글화한다 — 키를 바꾸면 기존 설정이 깨진다.
-                val styles = listOf(ResponseStyle.CONCISE to "간결", ResponseStyle.DEFAULT to "기본", ResponseStyle.DETAILED to "자세히")
-                com.kosmos.app.ui.component.KosmosSegmentedControl(
-                    options = styles,
-                    selected = uiState.responseStyle,
-                    onSelect = viewModel::onResponseStyleChanged
-                )
-            }
-            
-            // 3. Prefill Budget Section
-            // [WHY] 예전 제목은 "CONTEXT WINDOW / Token Limit" 이었다. 이 값은 모델의 컨텍스트
-            // 윈도우가 아니다 — 우리가 매 턴 모델에게 실어 보내는 양(히스토리 예산)과 대화를 언제
-            // 재설정할지를 정한다. 이름이 실제 동작과 다르면 사용자는 만져도 아무 효과가 없다고
-            // 느끼게 된다.
-            //
-            // [WHY] 상한이 8000 이었다. 그런데 엔진 KV 는 4096 이므로 **슬라이더를 올릴 수 있는
-            // 범위의 절반 이상이 애초에 담기지 않는 값**이었다 — 사용자가 8000 으로 올리면 조용히
-            // 초과되어 품질이 떨어졌다. 실제로 담을 수 있는 천장까지만 노출한다
-            // (근거: `Constants.ENGINE_MAX_TOKENS`).
-            SectionBox(title = "대화 기억 범위") {
-                Column {
+            Section(
+                "대화",
+                footnote = "기억 범위를 올리면 이전 대화를 더 많이 참고하지만 응답이 느려지고 메모리를 더 써요. 모델이 한 번에 읽을 수 있는 전체 한도와는 달라요."
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    ControlLabel("응답 길이")
+                    // 저장값(영문 키)은 그대로 두고 표시만 한글화한다 — 키를 바꾸면 기존 설정이 깨진다.
+                    val styles = listOf(ResponseStyle.CONCISE to "간결", ResponseStyle.DEFAULT to "기본", ResponseStyle.DETAILED to "자세히")
+                    com.kosmos.app.ui.component.KosmosSegmentedControl(
+                        options = styles,
+                        selected = uiState.responseStyle,
+                        onSelect = viewModel::onResponseStyleChanged
+                    )
+                }
+                HorizontalDivider(color = KosmosTheme.colors.border)
+                // [WHY] 이 값은 모델의 컨텍스트 윈도우가 아니라 매 턴 싣는 히스토리 예산이다 — 이름이 동작과 다르면 만져도 효과가 없다고 느낀다.
+                // 범위는 엔진이 실제로 담을 수 있는 천장까지만(`Constants.MIN_CONTEXT_TOKENS`·`MAX_CONTEXT_TOKENS`, ADR-029).
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)) {
                     var sliderValue by remember(uiState.maxTokens) { mutableFloatStateOf(uiState.maxTokens.toFloat()) }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("한 번에 참고할 분량", color = KosmosTheme.colors.textPrimary)
-                        Text("${sliderValue.toInt()} 토큰", color = KosmosTheme.colors.brandText, fontWeight = FontWeight.Bold)
+                        Text("대화 기억 범위", style = MaterialTheme.typography.bodyLarge, color = KosmosTheme.colors.textPrimary)
+                        Text("%,d 토큰".format(sliderValue.toInt()), style = MaterialTheme.typography.bodyMedium, color = KosmosTheme.colors.textSecondary)
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    val sliderColors = SliderDefaults.colors(
+                        thumbColor = KosmosTheme.colors.brand,
+                        activeTrackColor = KosmosTheme.colors.brand,
+                        inactiveTrackColor = KosmosTheme.colors.surfaceSunk,
+                        // [WHY] 100 단위 눈금 수십 개와 끝 표시 점이 점선처럼 보인다 — 값은 오른쪽 숫자가 알려 준다.
+                        activeTickColor = androidx.compose.ui.graphics.Color.Transparent,
+                        inactiveTickColor = androidx.compose.ui.graphics.Color.Transparent
+                    )
                     Slider(
                         value = sliderValue,
                         onValueChange = { sliderValue = it },
                         onValueChangeFinished = { viewModel.onMaxTokensChanged(sliderValue.toInt()) },
-                        // [WHY] 범위의 근거는 Constants.MIN_CONTEXT_TOKENS·MAX_CONTEXT_TOKENS (ADR-029) — 상한은 툴 회신 턴이
-                        // 엔진 용량을 넘지 않는 값, 하한은 툴 선언을 늘릴 여지를 남기는 값이다.
                         valueRange = com.kosmos.app.core.common.Constants.MIN_CONTEXT_TOKENS.toFloat()..com.kosmos.app.core.common.Constants.MAX_CONTEXT_TOKENS.toFloat(),
                         steps = (com.kosmos.app.core.common.Constants.MAX_CONTEXT_TOKENS - com.kosmos.app.core.common.Constants.MIN_CONTEXT_TOKENS) / 100 - 1, // 100 단위
-                        colors = SliderDefaults.colors(
-                            thumbColor = KosmosTheme.colors.brand,
-                            activeTrackColor = KosmosTheme.colors.brand,
-                            inactiveTrackColor = KosmosTheme.colors.surface
-                        )
-                    )
-                    Text(
-                        text = "값을 올리면 이전 대화를 더 많이 참고하지만 응답이 느려지고 메모리를 더 씁니다. " +
-                            "모델이 한 번에 읽을 수 있는 전체 한도와는 다릅니다.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = KosmosTheme.colors.textMuted
+                        colors = sliderColors,
+                        track = { state -> SliderDefaults.Track(sliderState = state, colors = sliderColors, drawStopIndicator = null) }
                     )
                 }
             }
 
-            // 5. 아침 브리핑 (A4 — 알림은 미리보기, 본문은 앱을 열면 도착)
-            SectionBox(title = "아침 브리핑") {
-                var showTimePicker by remember { mutableStateOf(false) }
-                val briefingContext = LocalContext.current
-                var notificationDenied by remember { mutableStateOf(false) }
-                // [WHY] 브리핑은 알림으로 도착을 알린다 — 켜는 순간 알림 권한을 요청한다(0.36.0 D4). 거부해도 켜 두고, 카드는 앱을 열면 보인다.
-                val notificationPermissionLauncher = rememberLauncherForActivityResult(
-                    ActivityResultContracts.RequestPermission()
-                ) { granted -> notificationDenied = !granted }
-                SettingSwitchRow("매일 아침 브리핑 받기", uiState.briefingEnabled) { enabled ->
+            // 아침 브리핑 (A4 — 알림은 미리보기, 본문은 앱을 열면 도착)
+            var showTimePicker by remember { mutableStateOf(false) }
+            val briefingContext = LocalContext.current
+            var notificationDenied by remember { mutableStateOf(false) }
+            // [WHY] 브리핑은 알림으로 도착을 알린다 — 켜는 순간 알림 권한을 요청한다(0.36.0 D4). 거부해도 켜 두고, 카드는 앱을 열면 보인다.
+            val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { granted -> notificationDenied = !granted }
+            val briefingWarning = if (uiState.briefingEnabled && (notificationDenied || !NotificationAccess.canPost(briefingContext))) NotificationAccess.DENIED_MESSAGE else null
+            Section(
+                "아침 브리핑",
+                footnote = if (uiState.briefingEnabled) "정시에 일정·할 일 개수를 알려 드리고, 앱을 열면 브리핑이 대화로 도착해요." else null,
+                warning = briefingWarning
+            ) {
+                SettingSwitchRow("매일 아침 브리핑 받기", uiState.briefingEnabled, divider = uiState.briefingEnabled) { enabled ->
                     viewModel.onBriefingEnabledChanged(enabled)
                     val permission = NotificationAccess.runtimePermission
                     if (enabled && permission != null && !NotificationAccess.canPost(briefingContext)) {
                         notificationPermissionLauncher.launch(permission)
                     }
                 }
-                if (uiState.briefingEnabled && (notificationDenied || !NotificationAccess.canPost(briefingContext))) {
-                    Text(
-                        NotificationAccess.DENIED_MESSAGE,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = KosmosTheme.colors.warningText
-                    )
-                }
                 if (uiState.briefingEnabled) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("알림 시각", color = KosmosTheme.colors.textPrimary)
-                        Text(
-                            text = "%02d:%02d".format(
-                                uiState.briefingTimeMinutes / 60,
-                                uiState.briefingTimeMinutes % 60
-                            ),
-                            color = KosmosTheme.colors.brandText,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .kosmosSurface(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                                .clickable { showTimePicker = true }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "정시에 일정·할 일 개수를 알려드리고, 앱을 열면 브리핑이 대화로 도착해요.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = KosmosTheme.colors.textMuted
-                    )
-                }
-
-                if (showTimePicker) {
-                    val timeState = rememberTimePickerState(
-                        initialHour = uiState.briefingTimeMinutes / 60,
-                        initialMinute = uiState.briefingTimeMinutes % 60,
-                        is24Hour = true
-                    )
-                    AlertDialog(
-                        onDismissRequest = { showTimePicker = false },
-                        title = { Text("브리핑 시각") },
-                        text = { TimePicker(state = timeState) },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                viewModel.onBriefingTimeChanged(timeState.hour * 60 + timeState.minute)
-                                showTimePicker = false
-                            }) { Text("확인", color = KosmosTheme.colors.brandText) }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showTimePicker = false }) {
-                                Text("취소", color = KosmosTheme.colors.textMuted)
-                            }
-                        },
-                        containerColor = KosmosTheme.colors.surface,
-                        titleContentColor = KosmosTheme.colors.textPrimary
+                    com.kosmos.app.ui.component.KosmosListRow(
+                        title = "알림 시각",
+                        onClick = { showTimePicker = true },
+                        trailing = { ValueTrailing(com.kosmos.app.domain.util.IsoDateTimeParser.clockKorean(uiState.briefingTimeMinutes)) }
                     )
                 }
             }
 
-            // 5-b. 자동 기억 (C′2) — 대화가 정리될 때 기억할 사실을 골라 저장
-            SectionBox(title = "기억") {
-                SettingSwitchRow("대화에서 자동으로 기억하기", uiState.autoExtractEnabled) { viewModel.onAutoExtractEnabledChanged(it) }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "대화가 정리될 때 기억할 사실을 골라 저장해요. 이름·호칭 같은 항목은 먼저 물어보고 저장하고, 기억 화면에서 언제든 지울 수 있어요.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = KosmosTheme.colors.textMuted
+            if (showTimePicker) {
+                val timeState = rememberTimePickerState(
+                    initialHour = uiState.briefingTimeMinutes / 60,
+                    initialMinute = uiState.briefingTimeMinutes % 60,
+                    is24Hour = false
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                // [WHY] 수동 정리(0.30.0) — 야간 배치 대신 사용자가 누를 때만 돈다(백그라운드 모델 로드 금지, §2-⑥).
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .kosmosSurface(shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                        .clickable { onNavigateToMemoryCleanup() }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("기억 정리", color = KosmosTheme.colors.textPrimary, fontWeight = FontWeight.Bold)
-                        Text(
-                            "이번 주 회고를 만들고, 같은 내용이 여러 번 저장된 기억을 합쳐요.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = KosmosTheme.colors.textMuted
-                        )
-                    }
-                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_caret_right, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textMuted)
-                }
+                AlertDialog(
+                    onDismissRequest = { showTimePicker = false },
+                    title = { Text("브리핑 시각") },
+                    text = { TimePicker(state = timeState) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            viewModel.onBriefingTimeChanged(timeState.hour * 60 + timeState.minute)
+                            showTimePicker = false
+                        }) { Text("확인", color = KosmosTheme.colors.brandText) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showTimePicker = false }) {
+                            Text("취소", color = KosmosTheme.colors.textMuted)
+                        }
+                    },
+                    containerColor = KosmosTheme.colors.surface,
+                    titleContentColor = KosmosTheme.colors.textPrimary
+                )
             }
 
-            // 5-c. 음성 출력 (0.29.0, A2) — 내장 TTS 엔진으로 답변 낭독
+            // 자동 기억 (C′2) — 대화가 정리될 때 기억할 사실을 골라 저장
+            Section("기억", footnote = "대화가 정리될 때 기억할 사실을 골라 저장해요. 이름·호칭 같은 항목은 먼저 물어보고 저장하고, 메모 화면에서 언제든 지울 수 있어요.") {
+                SettingSwitchRow("대화에서 자동으로 기억하기", uiState.autoExtractEnabled, divider = true) { viewModel.onAutoExtractEnabledChanged(it) }
+                // [WHY] 수동 정리(0.30.0) — 야간 배치 대신 사용자가 누를 때만 돈다(백그라운드 모델 로드 금지, §2-⑥).
+                com.kosmos.app.ui.component.KosmosListRow(
+                    title = "기억 정리",
+                    supporting = "이번 주 회고, 겹친 기억 합치기",
+                    onClick = onNavigateToMemoryCleanup,
+                    trailing = { Chevron() }
+                )
+            }
+
+            // 음성 출력 (0.29.0, A2) — 내장 TTS 엔진으로 답변 낭독
             val ttsEngines by viewModel.ttsEngines.collectAsStateWithLifecycle()
             LaunchedEffect(Unit) { viewModel.loadTtsEngines() }
             val ttsContext = LocalContext.current
-            SectionBox(title = "음성") {
-                SettingSwitchRow("답변을 소리로 읽어 주기", uiState.ttsAutoRead) { viewModel.onTtsAutoReadChanged(it) }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "켜면 답변이 끝날 때마다 읽어 드려요. 꺼 두어도 말풍선의 재생 버튼으로 들을 수 있고, 녹음을 시작하면 바로 멈춰요.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = KosmosTheme.colors.textMuted
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("음성 엔진", color = KosmosTheme.colors.textSecondary, style = MaterialTheme.typography.labelLarge)
+            val voiceNotice = when (uiState.voiceStatus) {
+                com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE ->
+                    "이 엔진에는 기기 안에서 쓸 수 있는 한국어 음성이 없어요. 음성 데이터를 내려받거나 다른 엔진을 골라 주세요."
+                com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.INIT_FAILED ->
+                    "이 음성 엔진을 시작하지 못했어요. 다른 엔진을 골라 주세요."
+                else -> null
+            }
+            Section(
+                "음성",
+                footnote = "켜면 답변이 끝날 때마다 읽어 드려요. 꺼 두어도 말풍선의 재생 버튼으로 들을 수 있고, 녹음을 시작하면 바로 멈춰요.",
+                warning = voiceNotice
+            ) {
+                SettingSwitchRow("답변을 소리로 읽어 주기", uiState.ttsAutoRead, divider = true) { viewModel.onTtsAutoReadChanged(it) }
                 // [WHY] "시스템 기본" + 설치된 엔진(삼성·구글 등) — 목록이 비면 매니페스트 TTS_SERVICE queries 누락을 의심한다.
-                (listOf(com.kosmos.app.platform.speech.SpeechOutput.Engine("", "시스템 기본")) + ttsEngines).forEach { engine ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { viewModel.onTtsEngineChanged(engine.packageName) }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = uiState.ttsEngine == engine.packageName,
-                            onClick = { viewModel.onTtsEngineChanged(engine.packageName) },
-                            colors = RadioButtonDefaults.colors(selectedColor = KosmosTheme.colors.brand)
-                        )
-                        Text(engine.label, color = KosmosTheme.colors.textPrimary)
-                    }
+                val engines = listOf(com.kosmos.app.platform.speech.SpeechOutput.Engine("", "시스템 기본")) + ttsEngines
+                engines.forEachIndexed { index, engine ->
+                    com.kosmos.app.ui.component.KosmosListRow(
+                        title = engine.label,
+                        onClick = { viewModel.onTtsEngineChanged(engine.packageName) },
+                        divider = index < engines.lastIndex,
+                        trailing = {
+                            RadioButton(
+                                selected = uiState.ttsEngine == engine.packageName,
+                                onClick = { viewModel.onTtsEngineChanged(engine.packageName) },
+                                colors = RadioButtonDefaults.colors(selectedColor = KosmosTheme.colors.brand)
+                            )
+                        }
+                    )
                 }
-                val voiceNotice = when (uiState.voiceStatus) {
-                    com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE ->
-                        "이 엔진에는 기기 안에서 쓸 수 있는 한국어 음성이 없어요. 음성 데이터를 내려받거나 다른 엔진을 골라 주세요."
-                    com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.INIT_FAILED ->
-                        "이 음성 엔진을 시작하지 못했어요. 다른 엔진을 골라 주세요."
-                    else -> null
-                }
-                voiceNotice?.let { notice ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(notice, style = MaterialTheme.typography.bodySmall, color = KosmosTheme.colors.warningText)
-                    if (uiState.voiceStatus == com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE) {
-                        TextButton(onClick = {
-                            val intent = android.content.Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
-                                .apply { if (uiState.ttsEngine.isNotBlank()) setPackage(uiState.ttsEngine) }
-                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                            // [WHY] 엔진이 설치 화면을 제공하지 않을 수 있다 — 실패는 조용히 무시(안내 문구는 이미 보이고 있다).
-                            runCatching { ttsContext.startActivity(intent) }
-                        }) { Text("음성 데이터 설치", color = KosmosTheme.colors.brandText) }
-                    }
-                }
+            }
+            if (uiState.voiceStatus == com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE) {
+                TextButton(onClick = {
+                    val intent = android.content.Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                        .apply { if (uiState.ttsEngine.isNotBlank()) setPackage(uiState.ttsEngine) }
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    // [WHY] 엔진이 설치 화면을 제공하지 않을 수 있다 — 실패는 조용히 무시(안내 문구는 이미 보이고 있다).
+                    runCatching { ttsContext.startActivity(intent) }
+                }) { Text("음성 데이터 설치", color = KosmosTheme.colors.brandText) }
             }
 
             // 6. 리마인더 정확 알람 안내 (B1) — 권한이 없을 때만 노출
@@ -394,29 +264,19 @@ fun SettingsScreen(
                 onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
             }
             if (!exactAlarmAllowed) {
-                SectionBox(title = "리마인더") {
-                    Text(
-                        text = "정확한 알림 권한이 꺼져 있어 리마인더가 지정 시각보다 최대 10분 늦게 울릴 수 있어요.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = KosmosTheme.colors.textMuted
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "정확한 알림 허용하기",
-                        color = KosmosTheme.colors.brandText,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .kosmosSurface(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                            .clickable {
-                                context.startActivity(
-                                    android.content.Intent(
-                                        android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
-                                    ).apply {
-                                        data = android.net.Uri.parse("package:${context.packageName}")
-                                    }
-                                )
-                            }
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                Section("리마인더", footnote = "정확한 알림 권한이 꺼져 있어 리마인더가 지정 시각보다 최대 10분 늦게 울릴 수 있어요.") {
+                    com.kosmos.app.ui.component.KosmosListRow(
+                        title = "정확한 알림 허용하기",
+                        onClick = {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
+                                ).apply {
+                                    data = android.net.Uri.parse("package:${context.packageName}")
+                                }
+                            )
+                        },
+                        trailing = { Chevron() }
                     )
                 }
             }
@@ -436,63 +296,122 @@ fun SettingsScreen(
     }
 }
 
+/**
+ * 설정 한 섹션 — 섹션 제목 + 목록 묶음 + 묶음 아래 각주(Apple·Intercom 설정 문법, 0.38.3 M3).
+ *
+ * @param warning 각주 자리의 경고(권한 거부 등) — 각주보다 먼저, 경고색으로.
+ */
 @Composable
-private fun SectionBox(
+private fun Section(
     title: String,
+    footnote: String? = null,
+    warning: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .kosmosSurface(
-                backgroundColor = KosmosTheme.colors.surface,
-                borderColor = KosmosTheme.colors.border,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
-            )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_gear_six),
-                    contentDescription = null,
-                    tint = KosmosTheme.colors.textMuted,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = KosmosTheme.colors.textMuted,
-                    letterSpacing = 1.sp
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            content()
-        }
-    }
+    com.kosmos.app.ui.component.SectionHeader(title, Modifier.padding(top = 16.dp))
+    com.kosmos.app.ui.component.KosmosListGroup(content = content)
+    warning?.let { Footnote(it, KosmosTheme.colors.warningText) }
+    footnote?.let { Footnote(it, KosmosTheme.colors.textMuted) }
 }
 
-/** 라벨 + 스위치 한 줄 — 설정의 켜고 끄는 항목들. */
 @Composable
-private fun SettingSwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, color = KosmosTheme.colors.textPrimary)
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = KosmosTheme.colors.onBrand,
-                checkedTrackColor = KosmosTheme.colors.brand
+private fun Footnote(text: String, color: androidx.compose.ui.graphics.Color) =
+    Text(text, style = MaterialTheme.typography.bodySmall, color = color, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
+
+/** 묶음 안 세그먼트 위의 작은 이름표. */
+@Composable
+private fun ControlLabel(text: String, top: androidx.compose.ui.unit.Dp = 0.dp) =
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(top = top, bottom = 8.dp))
+
+@Composable
+private fun Chevron() = com.kosmos.app.ui.component.KosmosIcon(
+    com.kosmos.app.R.drawable.ic_ph_caret_right, contentDescription = null,
+    size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textMuted, modifier = Modifier.padding(end = 12.dp)
+)
+
+/** 값 행의 끝 — 현재 값 + 화살표. */
+@Composable
+private fun ValueTrailing(value: String) = Row(verticalAlignment = Alignment.CenterVertically) {
+    Text(value, style = MaterialTheme.typography.bodyMedium, color = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 4.dp))
+    Chevron()
+}
+
+/** 라벨 + 스위치 한 줄 — 행 전체를 눌러도 바뀐다(누르는 영역). */
+@Composable
+private fun SettingSwitchRow(label: String, checked: Boolean, divider: Boolean = false, onCheckedChange: (Boolean) -> Unit) {
+    com.kosmos.app.ui.component.KosmosListRow(
+        title = label,
+        onClick = { onCheckedChange(!checked) },
+        divider = divider,
+        trailing = {
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                modifier = Modifier.padding(end = 12.dp),
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = KosmosTheme.colors.onBrand,
+                    checkedTrackColor = KosmosTheme.colors.brand
+                )
             )
+        }
+    )
+}
+
+/**
+ * 모델 상태 — 준비됨이면 모델 이름 행(누르면 모델 관리), 자세한 정보는 접어 둔다. 확인 중에도 내용 한가운데 스피너를 두지 않는다(impeccable "spinner in content").
+ */
+@Composable
+private fun ModelStatus(state: ModelLoadState, onManage: () -> Unit, onRefresh: () -> Unit) {
+    when (state) {
+        is ModelLoadState.Loading, is ModelLoadState.FileFound, is ModelLoadState.InitializingEngine -> com.kosmos.app.ui.component.KosmosListRow(
+            title = "로컬 AI 모델",
+            supporting = when (state) {
+                is ModelLoadState.Loading -> "상태를 확인하고 있어요"
+                is ModelLoadState.FileFound -> "모델 파일을 찾았어요, 엔진을 준비하고 있어요"
+                else -> "AI 엔진을 준비하고 있어요"
+            },
+            tags = listOf("준비 중")
+        )
+        is ModelLoadState.Ready -> {
+            var detailsOpen by rememberSaveable { mutableStateOf(false) }
+            com.kosmos.app.ui.component.KosmosListRow(
+                title = state.modelInfo.modelId,
+                tags = listOf("준비됨"),
+                onClick = onManage,
+                divider = true,
+                trailing = { Chevron() }
+            )
+            com.kosmos.app.ui.component.KosmosListRow(
+                title = "모델 정보",
+                onClick = { detailsOpen = !detailsOpen },
+                trailing = {
+                    com.kosmos.app.ui.component.KosmosIcon(
+                        if (detailsOpen) com.kosmos.app.R.drawable.ic_ph_caret_up else com.kosmos.app.R.drawable.ic_ph_caret_down,
+                        contentDescription = if (detailsOpen) "접기" else "펼치기",
+                        size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textMuted, modifier = Modifier.padding(end = 12.dp)
+                    )
+                }
+            )
+            if (detailsOpen) {
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    listOf("버전 ${state.modelInfo.modelVersion}", "양자화 ${state.modelInfo.quantization}", state.modelInfo.modelPath).forEach {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = KosmosTheme.colors.textSecondary)
+                    }
+                }
+            }
+        }
+        is ModelLoadState.NotFound -> {
+            com.kosmos.app.ui.component.KosmosListRow(title = "모델이 없어요", supporting = "내려받으면 바로 사용할 수 있어요.")
+            Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                KosmosButton("새로 고침", onRefresh, Modifier.weight(1f))
+                KosmosButton("내려받기", onManage, Modifier.weight(1f), accent = true)
+            }
+        }
+        is ModelLoadState.Error -> com.kosmos.app.ui.component.KosmosListRow(
+            title = "모델을 불러오지 못했어요",
+            supporting = com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error),
+            onClick = onManage,
+            trailing = { Chevron() }
         )
     }
 }
@@ -520,21 +439,12 @@ private fun DataResetSection(
     onRestart: () -> Unit
 ) {
     var showPicker by remember { mutableStateOf(false) }
-    SectionBox(title = "데이터 초기화") {
-        Text(
-            text = "대화 기록·할 일·메모·프로필 중 고른 것을 지워요. 설정과 AI 모델은 그대로예요.",
-            style = MaterialTheme.typography.bodySmall,
-            color = KosmosTheme.colors.textMuted
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = "초기화할 항목 고르기",
-            color = KosmosTheme.colors.dangerText,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .kosmosSurface(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                .clickable { showPicker = true }
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+    Section("데이터") {
+        com.kosmos.app.ui.component.KosmosListRow(
+            title = "데이터 초기화",
+            supporting = "대화 기록·할 일·메모·프로필 중 골라서 지워요",
+            onClick = { showPicker = true },
+            trailing = { Chevron() }
         )
     }
 

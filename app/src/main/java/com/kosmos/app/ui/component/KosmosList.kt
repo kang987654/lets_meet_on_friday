@@ -61,6 +61,7 @@ fun KosmosListRow(
     tags: List<String> = emptyList(),
     @DrawableRes leadingIcon: Int? = null,
     titleMaxLines: Int = Int.MAX_VALUE,
+    supportingMaxLines: Int = Int.MAX_VALUE,
     onClick: (() -> Unit)? = null,
     divider: Boolean = false,
     trailing: (@Composable () -> Unit)? = null
@@ -80,7 +81,7 @@ fun KosmosListRow(
                 Text(title, style = MaterialTheme.typography.bodyLarge, color = colors.textPrimary, maxLines = titleMaxLines, overflow = TextOverflow.Ellipsis)
                 if (supporting != null || tags.isNotEmpty()) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        supporting?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.textMuted, modifier = Modifier.align(Alignment.CenterVertically)) }
+                        supporting?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.textMuted, maxLines = supportingMaxLines, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.CenterVertically)) }
                         tags.forEach { Tag(it) }
                     }
                 }

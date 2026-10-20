@@ -13,6 +13,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
@@ -238,9 +240,12 @@ class ScreenCatalogTest {
             remindAtIso = "2026-10-15T15:40:00", cancelledAt = now - 3_000_000))
         profileRepository.upsert("호칭", "진우님")
         profileRepository.upsert("직업", "개발자")
-        auditRepository.save(AuditEvent("a1", AuditEventType.TOOL_CALL, SESSION, "AddReminder 물 마시기 13:56", now - 1_790_000))
-        auditRepository.save(AuditEvent("a2", AuditEventType.APPROVAL_GRANTED, SESSION, "AddReminder 승인", now - 1_789_000))
-        auditRepository.save(AuditEvent("a3", AuditEventType.SEARCH_USED, SESSION, "search_memory 자전거 비밀번호", now - 595_000))
+        // 기록 원문은 AuditTrailService 형식 그대로(0.38.3 M3) — 화면이 이 형식을 한국어 표기로 바꾼다.
+        auditRepository.save(AuditEvent("a0", AuditEventType.APPROVAL_REJECTED, SESSION, "AddSchedule: 팀 회의 10월 19일 오전 10:00", now - 90_000_000))
+        auditRepository.save(AuditEvent("a2", AuditEventType.APPROVAL_GRANTED, SESSION, "AddReminder: 물 마시기 오후 1:56", now - 1_790_000))
+        auditRepository.save(AuditEvent("a1", AuditEventType.TOOL_CALL, SESSION, "Tool: AddReminder\nResult: {\"ok\":true,\"title\":\"물 마시기\"}", now - 1_789_000))
+        auditRepository.save(AuditEvent("a3", AuditEventType.TOOL_CALL, SESSION, "Tool: SearchMemory\nResult: {\"hits\":1}", now - 595_000))
+        auditRepository.save(AuditEvent("a4", AuditEventType.MODEL_RUN, SESSION, "Prompt: 자전거 비밀번호 뭐였지?\nOutput: 134예요. 예전 대화엔 4321도 있었는데, 직접 저장하신 메모가 134라서 그걸로 알려 드려요.", now - 590_000))
     }
 
     private fun msg(
@@ -523,6 +528,22 @@ class ScreenCatalogTest {
             dataResetRepository, taskRepository, reminderAlarmScheduler, widgetRefresher, sessionStore
         )
         shoot("09-settings") {
+            com.kosmos.app.feature.settings.SettingsScreen(viewModel = vm, themeViewModel = themeVm, dataResetViewModel = resetVm, onBack = {})
+        }
+    }
+
+    /** 설정 아래쪽 — 브리핑·기억·음성·데이터 묶음과 각주(0.38.3 M3, 첫 화면에는 위 세 묶음만 보인다). */
+    @Test fun settingsLower() {
+        val vm = com.kosmos.app.feature.settings.SettingsViewModel(
+            settingsDataStore, runtimeManager, modelRunner, briefingScheduler, io.mockk.mockk(relaxed = true)
+        )
+        val themeVm = com.kosmos.app.ui.theme.ThemeViewModel(settingsDataStore)
+        val resetVm = com.kosmos.app.feature.settings.DataResetViewModel(
+            dataResetRepository, taskRepository, reminderAlarmScheduler, widgetRefresher, sessionStore
+        )
+        shoot("30-settings-lower", before = {
+            rule.onNode(androidx.compose.ui.test.hasScrollAction()).performTouchInput { swipeUp(); swipeUp(); swipeUp() }
+        }) {
             com.kosmos.app.feature.settings.SettingsScreen(viewModel = vm, themeViewModel = themeVm, dataResetViewModel = resetVm, onBack = {})
         }
     }

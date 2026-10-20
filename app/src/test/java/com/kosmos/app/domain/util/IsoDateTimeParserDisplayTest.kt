@@ -50,4 +50,11 @@ class IsoDateTimeParserDisplayTest {
         assertEquals("8월 15일 종일", IsoDateTimeParser.toDisplayKorean("2026-08-15", seoul))
         assertEquals("시각이 있으면 그대로", "오후 3:00", IsoDateTimeParser.toDisplayTimeKorean("2026-08-15T15:00:00", seoul))
     }
+
+    @Test
+    fun `하루 중 분은 오전 오후 12시간제로 표기한다`() {
+        assertEquals("오전 8:30", IsoDateTimeParser.clockKorean(8 * 60 + 30))
+        assertEquals("오후 12:00", IsoDateTimeParser.clockKorean(12 * 60))
+        assertEquals("오전 12:05", IsoDateTimeParser.clockKorean(5))
+    }
 }

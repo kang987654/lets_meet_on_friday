@@ -91,6 +91,9 @@ object IsoDateTimeParser {
         return timeKorean(dt.hour, dt.minute)
     }
 
+    /** 하루 중 분(0..1439)의 "오전 8:30" 표기 — 설정의 브리핑 시각(0.38.3). */
+    fun clockKorean(minutesOfDay: Int): String = timeKorean(minutesOfDay / 60, minutesOfDay % 60)
+
     /**
      * 날짜 구분 라벨 — 오늘/어제/"9월 28일".
      * [WHY] [today] 를 인자로 받는다(AGENTS §2-④) — 판정을 벽시계에 묶으면 자정 경계에서 테스트가 갈린다.

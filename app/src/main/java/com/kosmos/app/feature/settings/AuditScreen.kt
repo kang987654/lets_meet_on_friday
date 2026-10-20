@@ -2,26 +2,24 @@ package com.kosmos.app.feature.settings
 
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
 import com.kosmos.app.domain.model.AuditEvent
-import com.kosmos.app.domain.model.AuditEventType
+import com.kosmos.app.domain.util.IsoDateTimeParser
+import com.kosmos.app.ui.component.GroupPosition
+import com.kosmos.app.ui.component.groupItem
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,28 +41,37 @@ fun AuditScreen(
                 .background(KosmosTheme.colors.bg)
         ) {
             if (auditLogItems.itemCount == 0) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("아직 기록된 활동이 없어요.", color = KosmosTheme.colors.textMuted)
-                }
+                com.kosmos.app.ui.component.EmptyState(com.kosmos.app.R.drawable.ic_ph_shield_check, "아직 기록된 활동이 없어요.\n모델 응답·도구 실행·승인이 여기에 남아요.")
             } else {
+                val today = com.kosmos.app.ui.component.rememberToday()
+                val zone = ZoneId.systemDefault()
+                fun dayOf(event: AuditEvent?): LocalDate? = event?.let { Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() }
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp)
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
                     items(
                         count = auditLogItems.itemCount,
                         key = auditLogItems.itemKey { it.id },
                         contentType = auditLogItems.itemContentType { "AuditLog" }
                     ) { index ->
-                        val event = auditLogItems[index]
-                        if (event != null) {
-                            AuditEventCard(event)
+                        val event = auditLogItems[index] ?: return@items
+                        // [WHY] 페이징 목록이라 날짜 묶음을 이웃 항목과 비교해 그린다 — 머리글은 날짜가 바뀌는 첫 행이 함께 그린다(0.38.3 M3).
+                        val day = dayOf(event)
+                        val first = index == 0 || dayOf(auditLogItems.peek(index - 1)) != day
+                        val last = index == auditLogItems.itemCount - 1 || dayOf(auditLogItems.peek(index + 1)).let { it != null && it != day }
+                        val position = when {
+                            first && last -> GroupPosition.Single
+                            first -> GroupPosition.First
+                            last -> GroupPosition.Last
+                            else -> GroupPosition.Middle
+                        }
+                        Column {
+                            if (first) {
+                                if (index > 0) Spacer(Modifier.height(16.dp))
+                                day?.let { com.kosmos.app.ui.component.SectionHeader(IsoDateTimeParser.dayLabelKorean(it, today)) }
+                            }
+                            AuditEventRow(event, divider = !last, modifier = Modifier.groupItem(position))
                         }
                     }
                 }
@@ -73,82 +80,40 @@ fun AuditScreen(
     }
 }
 
+/**
+ * 활동 기록 한 행 — 종류 아이콘 · 한국어 이름 · 내용 한 줄 · 시각(0.38.3 M3 시안 A). 누르면 기록 원문을 펼친다.
+ *
+ * [WHY] 세션 id 는 사용자에게 뜻이 없어 숨긴다 — 원문 펼침에도 넣지 않는다.
+ */
 @Composable
-fun AuditEventCard(event: AuditEvent) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, KosmosTheme.colors.border, RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = KosmosTheme.colors.surface)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val tagColors = getTagColors(event.type)
-                Surface(
-                    color = tagColors.first,
-                    shape = RoundedCornerShape(4.dp),
-                    modifier = Modifier.padding(bottom = 4.dp)
-                ) {
-                    Text(
-                        text = event.type.name,
-                        color = tagColors.second,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-                
+fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modifier) {
+    val colors = KosmosTheme.colors
+    val display = remember(event.id) { AuditLabels.of(event) }
+    var expanded by rememberSaveable(event.id) { mutableStateOf(false) }
+    Column(modifier) {
+        com.kosmos.app.ui.component.KosmosListRow(
+            title = display.title,
+            supporting = display.summary.takeIf { it.isNotEmpty() },
+            leadingIcon = display.icon,
+            supportingMaxLines = 1,
+            onClick = { expanded = !expanded },
+            trailing = {
                 Text(
-                    text = formatTimestamp(event.timestamp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = KosmosTheme.colors.textMuted
+                    IsoDateTimeParser.timeKorean(event.timestamp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.textMuted,
+                    modifier = Modifier.padding(end = 12.dp)
                 )
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
+        )
+        if (expanded) {
             Text(
-                text = event.details,
-                style = MaterialTheme.typography.bodyMedium,
-                color = KosmosTheme.colors.textPrimary
-            )
-            
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Session: ${event.sessionId.take(8)}...",
-                style = MaterialTheme.typography.labelSmall,
-                color = KosmosTheme.colors.textMuted
+                event.details,
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary,
+                modifier = Modifier.padding(start = 48.dp, end = 16.dp, bottom = 12.dp)
             )
         }
-    }
-}
-
-private fun formatTimestamp(timestamp: Long): String {
-    return try {
-        val instant = Instant.ofEpochMilli(timestamp)
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-            .withZone(ZoneId.systemDefault())
-        formatter.format(instant)
-    } catch (e: Exception) {
-        timestamp.toString()
-    }
-}
-
-@Composable
-private fun getTagColors(type: AuditEventType): Pair<Color, Color> {
-    return when (type) {
-        AuditEventType.MODEL_RUN -> KosmosTheme.colors.brand.copy(alpha=0.15f) to KosmosTheme.colors.brand
-        AuditEventType.TOOL_CALL -> KosmosTheme.colors.successText.copy(alpha=0.15f) to KosmosTheme.colors.successText
-        AuditEventType.APPROVAL_GRANTED -> KosmosTheme.colors.warningText.copy(alpha=0.15f) to KosmosTheme.colors.warningText
-        AuditEventType.APPROVAL_REJECTED -> KosmosTheme.colors.dangerText.copy(alpha=0.15f) to KosmosTheme.colors.dangerText
-        AuditEventType.ERROR -> KosmosTheme.colors.dangerText.copy(alpha=0.1f) to KosmosTheme.colors.dangerText
-        else -> KosmosTheme.colors.surface to KosmosTheme.colors.textMuted
+        if (divider) HorizontalDivider(Modifier.padding(start = 48.dp), color = colors.border)
     }
 }

@@ -7,8 +7,6 @@ import android.annotation.SuppressLint
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,7 +16,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.kosmos.app.ui.component.kosmosSurface
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,8 +54,7 @@ fun ModelManagementScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(horizontal = 16.dp)
         ) {
             // [WHY] 수 GB 다운로드를 모달 다이얼로그로 가두면 사용자가 앱을 쓸 수 없다.
             // 화면 내 진행 카드로 내려 취소·잔여 저장 공간을 함께 노출한다 (B-3 1단계).
@@ -79,51 +75,24 @@ fun ModelManagementScreen(
                 else -> Unit
             }
 
-            Text(
-                text = "기본 모델",
-                style = MaterialTheme.typography.titleMedium,
-                color = KosmosTheme.colors.textPrimary,
-                fontWeight = FontWeight.SemiBold
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .kosmosSurface(
-                        backgroundColor = KosmosTheme.colors.surface,
-                        borderColor = KosmosTheme.colors.border,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
-                    )
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Gemma 4 E4B", style = MaterialTheme.typography.titleMedium, color = KosmosTheme.colors.brandText, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(4.dp))
+            // [WHY] 섹션 제목·묶음·버튼을 공통 부품으로(0.38.3 M3) — URL 버튼만 손으로 만든 상자라 다른 버튼과 모양·비활성 표현이 달랐다.
+            com.kosmos.app.ui.component.SectionHeader("기본 모델")
+            com.kosmos.app.ui.component.KosmosListGroup {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Gemma 4 E4B", style = MaterialTheme.typography.titleMedium, color = KosmosTheme.colors.textPrimary)
                     Text(
-                        "LiteRT-LM 최적화 · 크기 약 3.6GB",
+                        "LiteRT-LM 최적화, 크기 약 3.6GB",
                         style = MaterialTheme.typography.bodySmall,
                         color = KosmosTheme.colors.textMuted
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     KosmosButton("내려받기", { startDownload(defaultModelUrl) }, Modifier.fillMaxWidth(), accent = true)
                 }
             }
 
-            Text(
-                text = "직접 URL 로 내려받기",
-                style = MaterialTheme.typography.titleMedium,
-                color = KosmosTheme.colors.textPrimary,
-                fontWeight = FontWeight.SemiBold
-            )
-            
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .kosmosSurface(
-                        backgroundColor = KosmosTheme.colors.surface,
-                        borderColor = KosmosTheme.colors.border,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
-                    )
-            ) {
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            com.kosmos.app.ui.component.SectionHeader("직접 URL로 내려받기", Modifier.padding(top = 16.dp))
+            com.kosmos.app.ui.component.KosmosListGroup {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = customUrl,
                         onValueChange = { customUrl = it },
@@ -137,23 +106,7 @@ fun ModelManagementScreen(
                         ),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                     )
-                    
-                    val canDownload = customUrl.isNotBlank()
-                    val btnBg = if (canDownload) KosmosTheme.colors.brandSoft else KosmosTheme.colors.surface
-                    val btnText = if (canDownload) KosmosTheme.colors.onBrandSoft else KosmosTheme.colors.textMuted
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .kosmosSurface(
-                                backgroundColor = btnBg,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                            )
-                            .clickable(enabled = canDownload) { startDownload(customUrl) }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("이 URL 로 내려받기", color = btnText, fontWeight = FontWeight.Bold)
-                    }
+                    KosmosButton("이 URL로 내려받기", { startDownload(customUrl) }, Modifier.fillMaxWidth(), accent = true, enabled = customUrl.isNotBlank())
                 }
             }
         }
@@ -218,17 +171,9 @@ private fun Long.toGigabytes(): Double = this / BYTES_PER_GB
 /** 카드의 공통 껍데기 — 진행/대기 카드가 같은 시각 언어를 쓰도록 묶습니다. */
 @Composable
 private fun DownloadCardShell(content: @Composable ColumnScope.() -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .kosmosSurface(
-                backgroundColor = KosmosTheme.colors.surface,
-                borderColor = KosmosTheme.colors.brand.copy(alpha = 0.4f),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
-            )
-    ) {
+    com.kosmos.app.ui.component.KosmosListGroup(Modifier.padding(top = 16.dp)) {
         Column(
-            modifier = Modifier.padding(20.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content
         )
