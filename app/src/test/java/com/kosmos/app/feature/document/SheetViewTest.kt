@@ -15,6 +15,8 @@ import com.kosmos.app.domain.document.SheetCell
 import com.kosmos.app.domain.document.SheetRow
 import com.kosmos.app.ui.theme.KosmosTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import androidx.compose.ui.test.onRoot
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -65,6 +67,21 @@ class SheetViewTest {
         composeRule.onNodeWithText("금액").assertIsDisplayed()
         composeRule.onNodeWithText("합계 — 이번 달 지출을 모두 더한 값입니다").assertIsDisplayed()
         composeRule.onNodeWithText("항목1").assertDoesNotExist()
+    }
+
+    @Test
+    fun `넓게 병합한 제목 칸은 화면 왼쪽에서 보인다`() {
+        val titled = Sheet(
+            name = "표",
+            rows = listOf(SheetRow(0, listOf(SheetCell(0, "포켓몬 GO 속성별 레이드 티어 종합표"))), SheetRow(1, (0 until 20).map { SheetCell(it, "값$it") })),
+            columnCount = 20,
+            merges = listOf(CellRange(0, 0, 0, 19))
+        )
+        show(DocumentViewerState.Spreadsheet("티어.xlsx", listOf("표"), selected = 0, sheet = titled))
+        // [WHY] 가로 스크롤 안의 칸은 화면 밖이어도 assertIsDisplayed 가 통과하고 boundsInRoot 는 잘린 값이다 — 칸(누르는 영역)이 아니라 글자 자체의 잘리지 않은 위치를 잰다.
+        val screenWidth = composeRule.onRoot().fetchSemanticsNode().size.width
+        val left = composeRule.onNodeWithText("포켓몬 GO 속성별 레이드 티어 종합표", useUnmergedTree = true).fetchSemanticsNode().positionInRoot.x
+        assertTrue("제목 왼쪽 끝 $left 이 화면 너비 $screenWidth 안", left < screenWidth / 2)
     }
 
     @Test

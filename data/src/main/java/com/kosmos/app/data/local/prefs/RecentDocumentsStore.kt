@@ -40,6 +40,11 @@ class RecentDocumentsStore @Inject constructor(
         return dropped
     }
 
+    /** 목록에서 뺀 문서를 원래 자리로 되돌린다(0.38.3 M4 되돌리기). */
+    suspend fun restore(document: RecentDocument) {
+        dataStore.edit { prefs -> prefs[KEY] = RecentDocuments.encode(RecentDocuments.restore(RecentDocuments.decode(prefs[KEY]), document)) }
+    }
+
     suspend fun remove(uri: String) {
         dataStore.edit { prefs -> prefs[KEY] = RecentDocuments.encode(RecentDocuments.remove(RecentDocuments.decode(prefs[KEY]), uri)) }
     }

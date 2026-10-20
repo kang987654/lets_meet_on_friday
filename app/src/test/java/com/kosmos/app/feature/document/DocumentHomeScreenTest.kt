@@ -4,8 +4,9 @@ import android.net.Uri
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
+import kotlinx.coroutines.flow.first
 import com.kosmos.app.data.local.prefs.RecentDocumentsStore
 import com.kosmos.app.domain.document.RecentDocument
 import com.kosmos.app.platform.document.DocumentAccess
@@ -19,7 +20,7 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * [DocumentHomeScreenTest]
- * 문서 홈 — 빈 목록 안내, 최근 문서 표시, 길게 눌러 "목록에서만" 지운다는 확인 (0.34.0 M3).
+ * 문서 홈 — 빈 목록 안내, 최근 문서 표시, 휴지통으로 빼고 되돌리기 (0.34.0 M3, 0.38.3 M4 — 길게 누르기 확인 창을 바꿨다, 사용자 확인).
  */
 @RunWith(RobolectricTestRunner::class)
 class DocumentHomeScreenTest {
@@ -47,13 +48,16 @@ class DocumentHomeScreenTest {
     }
 
     @Test
-    fun `최근 문서를 보여 주고 길게 누르면 목록에서만 지운다고 묻는다`() {
+    fun `최근 문서를 보여 주고 휴지통을 누르면 목록에서 빼고 되돌릴 수 있다`() {
         runBlocking { store.add(RecentDocument("content://a", "3분기 매출.xlsx", null, 0L)) }
         show()
 
         composeRule.onNodeWithText("3분기 매출.xlsx").assertIsDisplayed()
-        composeRule.onNodeWithText("3분기 매출.xlsx").performTouchInput { longClick() }
+        composeRule.onNodeWithContentDescription("최근 목록에서 빼기").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("'3분기 매출.xlsx'을(를) 최근 목록에서 지울까요? 파일은 지워지지 않아요.").assertIsDisplayed()
+        composeRule.onNodeWithText("'3분기 매출.xlsx'을(를) 목록에서 뺐어요").assertIsDisplayed()
+        composeRule.onNodeWithText("되돌리기").performClick()
+        composeRule.waitUntil(5_000) { runBlocking { store.recentFlow.first() }.isNotEmpty() }
+        composeRule.onNodeWithText("3분기 매출.xlsx").assertIsDisplayed()
     }
 }

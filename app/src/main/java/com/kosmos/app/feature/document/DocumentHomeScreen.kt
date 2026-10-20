@@ -3,55 +3,46 @@ package com.kosmos.app.feature.document
 import androidx.compose.material3.MaterialTheme
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kosmos.app.domain.document.DocumentType
 import com.kosmos.app.domain.document.RecentDocument
 import com.kosmos.app.domain.util.IsoDateTimeParser
-import com.kosmos.app.ui.component.kosmosSurface
+import com.kosmos.app.ui.component.GroupPosition
+import com.kosmos.app.ui.component.KosmosButton
+import com.kosmos.app.ui.component.groupItem
+import com.kosmos.app.ui.component.groupPosition
+import com.kosmos.app.ui.component.showUndo
 import com.kosmos.app.ui.theme.KosmosTheme
+import kotlinx.coroutines.launch
 
 /**
- * 문서 홈 (0.34.0) — 드로어 "📄 문서"의 목적지. 파일 열기 + 최근 문서 목록. 문서는 [DocumentViewerActivity] 가 연다.
+ * 문서 홈 (0.34.0) — 드로어 "문서"의 목적지. 파일 열기 + 최근 문서 목록. 문서는 [DocumentViewerActivity] 가 연다.
  *
- * [WHY] 상단은 TopAppBar(인셋 내장, AGENTS §2-③). 최근 문서를 길게 누르면 목록에서만 지운다(파일은 그대로) — 확인 문구로 그 차이를 알린다.
+ * [WHY] 최근 문서는 휴지통으로 바로 빼고 되돌리기를 준다(0.38.3 결정 2) — 길게 누르기는 보이지 않는 동작이었다. 목록에서만 빠지고 파일은 그대로라는 사실은 각주로 알린다.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentHomeScreen(
     viewModel: DocumentHomeViewModel = hiltViewModel(),
@@ -61,7 +52,7 @@ fun DocumentHomeScreen(
     val context = LocalContext.current
     val recent by viewModel.recent.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    var removing by remember { mutableStateOf<RecentDocument?>(null) }
+    val scope = rememberCoroutineScope()
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.onPicked(it) }
@@ -78,6 +69,19 @@ fun DocumentHomeScreen(
         }
     }
 
+    val hide: (RecentDocument) -> Unit = { document ->
+        viewModel.hide(document)
+        scope.launch {
+            var undone = false
+            // [WHY] 화면을 떠나 스낵바가 취소돼도 권한은 돌려준다 — finally 의 remove 는 viewModelScope 에서 돈다.
+            try {
+                snackbar.showUndo("'${document.name}'을(를) 목록에서 뺐어요") { undone = true; viewModel.restore(document) }
+            } finally {
+                if (!undone) viewModel.remove(document)
+            }
+        }
+    }
+
     Scaffold(
         containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbar) },
@@ -87,91 +91,63 @@ fun DocumentHomeScreen(
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
         ) {
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .kosmosSurface(shape = RoundedCornerShape(16.dp), backgroundColor = colors.brandContainer, borderColor = colors.brand)
-                        .combinedClickable(onClick = { picker.launch(DocumentType.PICKER_MIME_TYPES.toTypedArray()) })
-                        .padding(16.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_folder_open, contentDescription = null, tint = colors.brandText, modifier = Modifier.padding(end = 8.dp))
-                        Text("파일 열기", color = colors.textPrimary, style = MaterialTheme.typography.titleMedium)
-                    }
-                    Text(
-                        "PDF · 엑셀(xlsx) · CSV · 워드(docx) · 한글(hwpx) — AI 를 켜지 않고 가볍게 열어요",
-                        color = colors.textSecondary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-            }
-            item {
+                // [WHY] 파일 열기는 이 화면의 주 동작이라 주 버튼 — 하늘 면 + 하늘 테두리 상자는 버튼인지 안내인지 모호했다(0.38.3 M4 시안 A).
+                KosmosButton("파일 열기", { picker.launch(DocumentType.PICKER_MIME_TYPES.toTypedArray()) }, Modifier.fillMaxWidth(), accent = true)
                 Text(
-                    "최근 문서",
+                    "PDF, 엑셀, CSV, 워드, 한글 문서를 AI 없이 가볍게 열어요.",
                     color = colors.textMuted,
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(top = 12.dp, bottom = 2.dp, start = 4.dp)
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp)
                 )
             }
             if (recent.isEmpty()) {
                 item {
+                    com.kosmos.app.ui.component.EmptyState(
+                        com.kosmos.app.R.drawable.ic_ph_file,
+                        "여기서 연 문서가 쌓여요. 다른 앱에서 '연결 프로그램'으로 연 문서는 남지 않아요."
+                    )
+                }
+            } else {
+                item { com.kosmos.app.ui.component.SectionHeader("최근 문서", Modifier.padding(top = 16.dp)) }
+                itemsIndexed(recent, key = { _, document -> document.uri }) { index, document ->
+                    RecentRow(
+                        document = document,
+                        position = groupPosition(index, recent.size),
+                        onClick = { viewModel.open(document) },
+                        onRemove = { hide(document) }
+                    )
+                }
+                item {
                     Text(
-                        "여기서 연 문서가 쌓여요. 다른 앱에서 '연결 프로그램'으로 연 문서는 남지 않아요.",
+                        "목록에서만 빠지고 파일은 그대로예요.",
                         color = colors.textMuted,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(start = 4.dp)
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp)
                     )
                 }
             }
-            items(recent, key = { it.uri }) { document ->
-                RecentRow(
-                    document = document,
-                    onClick = { viewModel.open(document) },
-                    onLongClick = { removing = document }
-                )
-            }
         }
-    }
-
-    removing?.let { document ->
-        AlertDialog(
-            onDismissRequest = { removing = null },
-            text = { Text("'${document.name}'을(를) 최근 목록에서 지울까요? 파일은 지워지지 않아요.", color = colors.textPrimary) },
-            confirmButton = {
-                TextButton(onClick = { viewModel.remove(document); removing = null }) { Text("지우기", color = colors.dangerText) }
-            },
-            dismissButton = { TextButton(onClick = { removing = null }) { Text("취소") } },
-            containerColor = colors.surface
-        )
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RecentRow(document: RecentDocument, onClick: () -> Unit, onLongClick: () -> Unit) {
-    val colors = KosmosTheme.colors
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .kosmosSurface(shape = RoundedCornerShape(12.dp))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        com.kosmos.app.ui.component.KosmosIcon(documentIcon(document), contentDescription = null, tint = colors.textSecondary)
-        Column(Modifier.padding(start = 12.dp).weight(1f)) {
-            Text(document.name, color = colors.textPrimary, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                "${IsoDateTimeParser.monthDayKorean(document.openedAt)} · ${IsoDateTimeParser.timeKorean(document.openedAt)}",
-                color = colors.textMuted,
-                style = MaterialTheme.typography.labelMedium
-            )
-        }
-    }
+private fun RecentRow(document: RecentDocument, position: GroupPosition, onClick: () -> Unit, onRemove: () -> Unit) {
+    val today = com.kosmos.app.ui.component.rememberToday()
+    val zone = java.time.ZoneId.systemDefault()
+    val openedDay = java.time.Instant.ofEpochMilli(document.openedAt).atZone(zone).toLocalDate()
+    com.kosmos.app.ui.component.KosmosListRow(
+        title = document.name,
+        supporting = "${IsoDateTimeParser.dayLabelKorean(openedDay, today)} ${IsoDateTimeParser.timeKorean(document.openedAt)}",
+        leadingIcon = documentIcon(document),
+        titleMaxLines = 1,
+        onClick = onClick,
+        divider = position == GroupPosition.First || position == GroupPosition.Middle,
+        modifier = Modifier.groupItem(position),
+        trailing = { com.kosmos.app.ui.component.DeleteIconButton(onRemove, contentDescription = "최근 목록에서 빼기") }
+    )
 }
 
 @androidx.annotation.DrawableRes

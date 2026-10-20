@@ -42,4 +42,10 @@ class RecentDocumentsTest {
     fun `지우기`() {
         assertEquals(listOf("content://docs/1"), RecentDocuments.remove(listOf(doc(1), doc(2)), "content://docs/2").map { it.uri })
     }
+
+    @Test
+    fun `되돌리기는 연 시각 순서 자리로`() {
+        val list = listOf(doc(3), doc(1))
+        assertEquals(listOf("content://docs/3", "content://docs/2", "content://docs/1"), RecentDocuments.restore(list, doc(2)).map { it.uri })
+    }
 }

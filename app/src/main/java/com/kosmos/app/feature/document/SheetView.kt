@@ -165,7 +165,8 @@ private fun Segment(
             val end = minOf(merge.lastColumn, range.last)
             val width = (c..end).fold(0.dp) { acc, col -> acc + layout.width(col) }
             val text = if (rowIndex == merge.firstRow && c == merge.firstColumn) texts[c].orEmpty() else ""
-            GridCell(text, width, onLongPress = onCellLongPress, centered = true)
+            // [WHY] 병합 칸도 왼쪽부터 — 엑셀 기본 정렬이고, 넓게 병합한 제목(A1:T1)을 가운데에 두면 휴대폰 화면 밖에 그려져 빈 행으로 보였다(0.38.3 M4 실기기 제보).
+            GridCell(text, width, onLongPress = onCellLongPress)
             c = end + 1
         }
     }
@@ -177,7 +178,6 @@ private fun GridCell(
     text: String,
     width: Dp,
     header: Boolean = false,
-    centered: Boolean = false,
     onLongPress: ((String) -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
@@ -202,7 +202,7 @@ private fun GridCell(
             )
             .padding(horizontal = 6.dp),
         contentAlignment = when {
-            header || centered -> Alignment.Center
+            header -> Alignment.Center
             numeric -> Alignment.CenterEnd
             else -> Alignment.CenterStart
         }

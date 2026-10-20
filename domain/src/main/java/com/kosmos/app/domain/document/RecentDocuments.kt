@@ -23,6 +23,10 @@ object RecentDocuments {
 
     fun remove(list: List<RecentDocument>, uri: String): List<RecentDocument> = list.filterNot { it.uri == uri }
 
+    /** 되돌리기 — 연 시각 순서 자리로 돌려놓는다([add] 는 맨 위로 올린다). */
+    fun restore(list: List<RecentDocument>, item: RecentDocument): List<RecentDocument> =
+        (list.filterNot { it.uri == item.uri } + item).sortedByDescending { it.openedAt }.take(MAX)
+
     fun encode(list: List<RecentDocument>): String = list.joinToString("\n") { d ->
         listOf(d.uri, clean(d.name), d.mimeType.orEmpty(), d.openedAt.toString()).joinToString("\t")
     }

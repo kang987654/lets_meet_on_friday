@@ -519,6 +519,20 @@ class ScreenCatalogTest {
         shoot("08-documents") { com.kosmos.app.feature.document.DocumentHomeScreen(viewModel = vm, onBack = {}) }
     }
 
+    /** 최근 문서가 있는 문서 홈 — 형식 아이콘·연 날짜·휴지통(0.38.3 M4). */
+    @Test fun documentHomeRecent() {
+        runBlocking {
+            listOf(
+                com.kosmos.app.domain.document.RecentDocument("content://d/4", "주민센터 신청서.hwpx", null, NOW - 6 * 86_400_000L),
+                com.kosmos.app.domain.document.RecentDocument("content://d/3", "회의록 10월 2주차.docx", null, NOW - 86_400_000L - 3_600_000L),
+                com.kosmos.app.domain.document.RecentDocument("content://d/2", "임대차 계약서.pdf", "application/pdf", NOW - 86_400_000L),
+                com.kosmos.app.domain.document.RecentDocument("content://d/1", "가계부.xlsx", null, NOW - 1_200_000L)
+            ).forEach { recentDocumentsStore.add(it) }
+        }
+        val vm = com.kosmos.app.feature.document.DocumentHomeViewModel(recentDocumentsStore, documentAccess)
+        shoot("31-documents-recent") { com.kosmos.app.feature.document.DocumentHomeScreen(viewModel = vm, onBack = {}) }
+    }
+
     @Test fun settings() {
         val vm = com.kosmos.app.feature.settings.SettingsViewModel(
             settingsDataStore, runtimeManager, modelRunner, briefingScheduler, io.mockk.mockk(relaxed = true)

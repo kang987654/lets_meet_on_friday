@@ -3,6 +3,10 @@ package com.kosmos.app.feature.document
 import androidx.compose.material3.MaterialTheme
 import android.content.ClipData
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -179,31 +183,55 @@ private fun SelectionBar(selection: ChatSelection, actions: SelectionActions) {
     }
 }
 
+/**
+ * 시트 탭 — [com.kosmos.app.ui.component.KosmosSegmentedControl] 과 같은 모양(가라앉은 막대 위 흰 칸 + 하늘 글자), 시트가 많으면 가로 스크롤.
+ *
+ * [WHY] 세그먼트는 칸을 같은 너비로 나눠 스크롤이 안 된다 — 모양만 맞추고 칸은 글자 너비(0.38.3 M4 시안 A). 진한 하늘 면 + 흰 글자는 다른 탭과 문법이 달랐다.
+ */
 @Composable
 private fun SheetTabs(names: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     val colors = KosmosTheme.colors
-    Row(
-        modifier = Modifier
+    Box(
+        Modifier
             .fillMaxWidth()
-            .background(colors.surfaceSunk)
+            .background(colors.surface)
             .navigationBarsPadding()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        names.forEachIndexed { index, name ->
-            val isSelected = index == selected
-            Text(
-                text = name,
-                color = if (isSelected) colors.onBrand else colors.textSecondary,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                maxLines = 1,
-                modifier = Modifier
-                    .background(if (isSelected) colors.brand else colors.surface, RoundedCornerShape(8.dp))
-                    .clickable { onSelect(index) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            )
+        Row(
+            modifier = Modifier
+                .background(colors.surfaceSunk, com.kosmos.app.ui.theme.KosmosShapes.md)
+                .horizontalScroll(rememberScrollState())
+                .padding(4.dp)
+                .selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            names.forEachIndexed { index, name ->
+                val isSelected = index == selected
+                val cell = if (isSelected) {
+                    Modifier
+                        .background(colors.surface, com.kosmos.app.ui.theme.KosmosShapes.sm)
+                        .border(1.dp, colors.border, com.kosmos.app.ui.theme.KosmosShapes.sm)
+                } else {
+                    Modifier
+                }
+                Box(
+                    modifier = Modifier
+                        .heightIn(min = 40.dp)
+                        .then(cell)
+                        .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(index) })
+                        .padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = name,
+                        color = if (isSelected) colors.brandText else colors.textSecondary,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1
+                    )
+                }
+            }
         }
     }
 }

@@ -66,6 +66,21 @@ class DocumentHomeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 휴지통 — 목록에서 바로 빼되 읽기 권한은 쥐고 있는다. 되돌리기가 끝나면 [restore] 또는 [remove] 가 마무리한다.
+     *
+     * [WHY] 권한을 먼저 돌려주면 되돌려도 그 문서를 다시 열 수 없다 — 파일 고르기를 거친 권한은 다시 받을 수 없다(0.38.3 M4).
+     */
+    fun hide(document: RecentDocument) {
+        viewModelScope.launch { store.remove(document.uri) }
+    }
+
+    /** 되돌리기 — 원래 자리로. */
+    fun restore(document: RecentDocument) {
+        viewModelScope.launch { store.restore(document) }
+    }
+
+    /** 목록에서 빼고 읽기 권한을 돌려준다 — 되돌리기 시간이 지난 뒤의 마무리이기도 하다. */
     fun remove(document: RecentDocument) {
         viewModelScope.launch {
             store.remove(document.uri)
