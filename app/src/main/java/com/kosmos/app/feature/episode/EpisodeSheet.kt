@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -24,11 +23,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.kosmos.app.domain.model.Episode
-import com.kosmos.app.ui.component.kosmosSurface
+import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.theme.KosmosTheme
 
 /**
@@ -97,28 +95,18 @@ fun EpisodeSheet(
                 Text(
                     text = current.title ?: "(제목 없음)",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
                     color = KosmosTheme.colors.textPrimary
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = formatRange(current),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelMedium,
                     color = KosmosTheme.colors.textMuted
                 )
                 if (current.tags.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        current.tags.take(5).forEach { tag ->
-                            Text(
-                                text = tag,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = KosmosTheme.colors.textSecondary,
-                                modifier = Modifier
-                                    .kosmosSurface(shape = RoundedCornerShape(99.dp))
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
+                        current.tags.take(5).forEach { tag -> com.kosmos.app.ui.component.Tag(tag) }
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
@@ -127,22 +115,25 @@ fun EpisodeSheet(
                     style = MaterialTheme.typography.bodyMedium,
                     color = KosmosTheme.colors.textSecondary
                 )
-                Spacer(modifier = Modifier.height(20.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // [WHY] 0.38.2 알림 수정 시트와 같은 배치(0.38.3 M5 시안 A) — 주 동작 두 개는 버튼, 되돌리기 어려운 삭제는 오른쪽 아래 글자 버튼.
+                // 예전에는 빨간 "삭제"가 줄 맨 앞이라 가장 먼저 눈과 손이 갔다.
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    KosmosButton("원문 대화 보기", {
+                        onDismiss()
+                        onJumpToTimeline(current.startAt)
+                    }, Modifier.weight(1f))
+                    KosmosButton("수정", { editing = true }, Modifier.weight(1f), accent = true)
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = { confirmDelete = true }) {
                         Text("삭제", color = KosmosTheme.colors.dangerText)
                     }
-                    TextButton(onClick = { editing = true }) {
-                        Text("수정", color = KosmosTheme.colors.textSecondary)
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
-                    TextButton(onClick = {
-                        onDismiss()
-                        onJumpToTimeline(current.startAt)
-                    }) {
-                        Text("원문 대화 보기", color = KosmosTheme.colors.brandText)
-                    }
                 }
+                Text(
+                    text = "요약만 지워져요. 원문 대화는 타임라인에 그대로 있어요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = KosmosTheme.colors.textMuted
+                )
             }
         }
     }
@@ -187,10 +178,9 @@ private fun EditForm(
         OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("제목") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = tags, onValueChange = { tags = it }, label = { Text("태그 (쉼표 구분)") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = summary, onValueChange = { summary = it }, label = { Text("요약") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
-        Row {
-            Spacer(modifier = Modifier.weight(1f))
-            TextButton(onClick = onCancel) { Text("취소", color = KosmosTheme.colors.textMuted) }
-            TextButton(onClick = { onSave(title, tags, summary) }) { Text("저장", color = KosmosTheme.colors.brandText) }
+        Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            KosmosButton("취소", onCancel, Modifier.weight(1f))
+            KosmosButton("저장", { onSave(title, tags, summary) }, Modifier.weight(1f), accent = true)
         }
     }
 }
@@ -200,5 +190,5 @@ private fun EditForm(
 private fun formatRange(episode: Episode): String {
     val start = "${com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt)} ${com.kosmos.app.domain.util.IsoDateTimeParser.timeKorean(episode.startAt)}"
     val end = episode.endAt?.let { com.kosmos.app.domain.util.IsoDateTimeParser.timeKorean(it) }
-    return if (end != null) "$start – $end · ${episode.messageCount}개 대화" else start
+    return if (end != null) "$start – $end, 대화 ${episode.messageCount}개" else start
 }

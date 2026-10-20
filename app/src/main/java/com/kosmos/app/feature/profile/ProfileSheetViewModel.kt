@@ -84,6 +84,16 @@ class ProfileSheetViewModel @Inject constructor(
         }
     }
 
+    /** 되돌리기 — 지운 항목을 출처(직접/자동)까지 그대로 다시 저장한다(0.38.3 M5). */
+    fun restore(entry: com.kosmos.app.domain.model.ProfileEntry) {
+        viewModelScope.launch {
+            when (val result = profileRepository.upsert(entry.key, entry.value, entry.source)) {
+                is AppResult.Success -> _error.value = null
+                is AppResult.Failure -> _error.value = ErrorMessages.userMessage(result.error)
+            }
+        }
+    }
+
     fun dismissError() {
         _error.value = null
     }

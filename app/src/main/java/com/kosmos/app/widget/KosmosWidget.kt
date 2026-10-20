@@ -124,9 +124,10 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
         } else {
             snapshot.eventLines.forEach { line ->
                 Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                    // [WHY] 시각은 보조 글자 — 일정 화면 "오늘" 탭 행과 같은 색(0.38.3 M5). 하늘 글자는 누르는 것(열기·마이크)에만.
                     Text(
                         text = line.time,
-                        style = TextStyle(color = WidgetPalette.brandText, fontSize = 13.sp)
+                        style = TextStyle(color = WidgetPalette.textSecondary, fontSize = 13.sp)
                     )
                     Spacer(modifier = GlanceModifier.width(8.dp))
                     Text(

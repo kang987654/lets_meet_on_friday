@@ -136,4 +136,12 @@ class ProfileSheetViewModelTest {
 
         assertNotNull(viewModel.error.value)
     }
+
+    @Test
+    fun `되돌리기는 지운 항목을 출처까지 그대로 다시 저장한다`() = runTest(dispatcher.scheduler) {
+        viewModel.restore(ProfileEntry(key = "직업", value = "개발자", source = ProfileEntry.SOURCE_AUTO))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        io.mockk.coVerify { repository.upsert("직업", "개발자", ProfileEntry.SOURCE_AUTO) }
+    }
 }
