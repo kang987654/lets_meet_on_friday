@@ -68,7 +68,14 @@ class ChatExtrasViewModel @Inject constructor(
         val key = keyOf(result)
         if (!watching.add(key)) return
         viewModelScope.launch {
-            stateFlowOf(result, today).collect { state -> _results.update { it + (key to state) } }
+            var previous: ResultCardState? = null
+            stateFlowOf(result, today).collect { state ->
+                _results.update { it + (key to state) }
+                // [WHY] 알람이 울리거나 시트·다른 화면에서 바뀌어도 대화 수는 그대로라 요약이 지난 시각을 "다음"으로 보였다(0.38.2 실기기) —
+                // 지켜보는 할 일의 상태가 바뀌면 요약도 다시 센다. 첫 값은 지금 상태일 뿐이라 세지 않는다.
+                if (previous != null && previous != state) refreshSummary()
+                previous = state
+            }
         }
     }
 
