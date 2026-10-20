@@ -24,6 +24,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.kosmos.app.assistant.approval.ApprovalCoordinator
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -141,17 +143,25 @@ fun ApprovalSheetLayout(
                 .padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // [WHY] 제목이 길거나 글자를 키우면 큰 시각이 폭을 가져가 제목이 낱말 중간에서 끊겼다 — 제목이 한 줄에 안 들어가면
+            // 큰 시각을 제목 아래 줄로 내린다(0.38.3 M0, 0.38.2 이월). 글자 배율로 판정하면 보통 크기의 긴 제목을 놓친다.
+            var stacked by remember(content.title, content.value) { mutableStateOf(false) }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 KosmosIcon(content.icon, contentDescription = null, size = IconSize.large, tint = colors.brandText)
                 Column(Modifier.weight(1f)) {
                     Text(content.label, style = MaterialTheme.typography.labelMedium, color = colors.brandText)
                     Text(
                         content.title, style = MaterialTheme.typography.titleLarge, color = colors.textPrimary,
-                        maxLines = 6, overflow = TextOverflow.Ellipsis
+                        maxLines = 6, overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { if (!stacked && content.value != null && it.lineCount > 1) stacked = true }
                     )
                     content.sub?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary) }
+                    if (stacked) content.value?.let { value ->
+                        Text(value, style = MaterialTheme.typography.displaySmall, color = colors.textPrimary, modifier = Modifier.padding(top = 4.dp))
+                        content.valueSub?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary) }
+                    }
                 }
-                content.value?.let { value ->
+                if (!stacked) content.value?.let { value ->
                     // [WHY] 끝 시각은 큰 시각 아래에 — 왼쪽 날짜 줄에 붙이면 다른 날 일정에서 줄이 넘쳤다.
                     Column(horizontalAlignment = Alignment.End) {
                         Text(value, style = MaterialTheme.typography.displaySmall, color = colors.textPrimary)

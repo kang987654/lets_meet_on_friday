@@ -136,6 +136,8 @@ fun ChatScreen(
 
     // 새 메시지·스트리밍 시작 시 바닥(최신)으로 — reverseLayout 에서 바닥 = index 0.
     LaunchedEffect(uiState.messages.size, uiState.isInFlight) {
+        // [WHY] 위로 올려 둔 채 보내면 새 답을 따라 내려가지 않았다(0.38.2 실기기) — 내가 막 보낸 턴이면 바닥으로 돌아간다.
+        if (uiState.isInFlight && uiState.messages.lastOrNull()?.role == ChatMessage.Role.USER) userScrolledAway = false
         if (!userScrolledAway) {
             listState.animateScrollToItem(0)
         }

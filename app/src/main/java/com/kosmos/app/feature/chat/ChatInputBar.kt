@@ -115,13 +115,15 @@ fun ChatInputBar(
                     shape = RoundedCornerShape(28.dp),
                     borderColor = KosmosTheme.colors.border
                 )
-                .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                // [WHY] 아이콘 버튼 높이를 48dp(DESIGN·M3 누르는 영역)로 — 폭은 40 그대로 두어 아이콘 간격이 벌어지지 않게 하고(사용자 지적),
+                // 세로 여백을 줄여 입력바 높이도 그대로다(0.38.3 M0, 0.38.2 이월). 왼쪽 여백 6 — 아이콘을 왼쪽으로 붙인다(사용자 요청).
+                .padding(start = 6.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = { onAttachClick() },
                 enabled = !isLoading,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(width = 40.dp, height = 48.dp)
             ) {
                 Icon(
                     painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_paperclip),
@@ -134,7 +136,7 @@ fun ChatInputBar(
             // 웹 검색 허용 토글 — ON: 승인 없이 검색 허용 / OFF(기본): 모델에 툴 미노출 + 실행 차단
             IconButton(
                 onClick = { onToggleWebSearch(!webSearchEnabled) },
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(width = 40.dp, height = 48.dp)
             ) {
                 Icon(
                     painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_globe),
@@ -183,7 +185,8 @@ fun ChatInputBar(
 
             androidx.compose.animation.Crossfade(
                 targetState = inputAction,
-                modifier = Modifier.size(40.dp),
+                // 보이는 원은 40, 높이만 48 — 위아래 4dp 씩 여유.
+                modifier = Modifier.size(width = 40.dp, height = 48.dp).padding(vertical = 4.dp),
                 animationSpec = androidx.compose.animation.core.tween(durationMillis = 200),
                 label = "send_mic_transition"
             ) { action ->

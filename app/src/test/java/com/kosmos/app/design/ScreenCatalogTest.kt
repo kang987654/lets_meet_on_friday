@@ -526,6 +526,85 @@ class ScreenCatalogTest {
         shoot("13-audit") { com.kosmos.app.feature.settings.AuditScreen(viewModel = vm, onNavigateBack = {}) }
     }
 
+    /** 공통 목록 부품(0.38.3 M0) — 묶음·행·섹션 제목·빈 화면·되돌리기 스낵바. 화면 적용 전 부품만. */
+    @Test fun listParts() {
+        shoot("23-list-parts") {
+          // 스낵바는 실제처럼 화면 아래에 붙인다(부품 모음이라도 위치를 오해하지 않게).
+          androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier.padding(vertical = 8.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+            ) {
+                com.kosmos.app.ui.component.SectionHeader("메모 3", androidx.compose.ui.Modifier.padding(horizontal = 16.dp), actionLabel = "모두 보기", onAction = {})
+                com.kosmos.app.ui.component.KosmosListGroup(androidx.compose.ui.Modifier.padding(horizontal = 16.dp)) {
+                    val rows = listOf(Triple("자전거 비밀번호는 134", "10월 12일", listOf("자전거")), Triple("회사 주차는 B2 구역 117번", "오늘", listOf("주차")), Triple("아침엔 커피 대신 녹차", "어제", listOf("자동")))
+                    rows.forEachIndexed { i, (t, d, tags) ->
+                        com.kosmos.app.ui.component.KosmosListRow(t, supporting = d, tags = tags, divider = i < rows.lastIndex) {
+                            com.kosmos.app.ui.component.DeleteIconButton(onClick = {})
+                        }
+                    }
+                }
+                com.kosmos.app.ui.component.SectionHeader("이동", androidx.compose.ui.Modifier.padding(horizontal = 16.dp))
+                com.kosmos.app.ui.component.KosmosListGroup(androidx.compose.ui.Modifier.padding(horizontal = 16.dp)) {
+                    com.kosmos.app.ui.component.KosmosListRow("메모 · 할 일", leadingIcon = com.kosmos.app.R.drawable.ic_ph_note, onClick = {}, divider = true)
+                    com.kosmos.app.ui.component.KosmosListRow("문서", leadingIcon = com.kosmos.app.R.drawable.ic_ph_file_text, onClick = {})
+                }
+                com.kosmos.app.ui.component.EmptyState(
+                    com.kosmos.app.R.drawable.ic_ph_note, "아직 저장한 메모가 없어요.\n채팅에서 \"기억해 줘\"라고 말하면 여기 쌓여요.",
+                    actionLabel = "채팅으로 가기", onAction = {}
+                )
+            }
+            androidx.compose.material3.Snackbar(
+                modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(16.dp),
+                action = { androidx.compose.material3.TextButton({}) { androidx.compose.material3.Text("되돌리기") } }
+            ) { androidx.compose.material3.Text("메모를 지웠어요.") }
+          }
+        }
+    }
+
+    /** 모델 관리(0.38.3 M0 — 카탈로그에 없던 화면). */
+    @Test fun modelManagement() {
+        // [WHY] 실제 내려받기 예약기는 WorkManager 를 요구한다(테스트 앱에는 없음) — 대기 상태만 내는 가짜로.
+        val useCase = io.mockk.mockk<com.kosmos.app.domain.usecase.DownloadModelUseCase>(relaxed = true) {
+            io.mockk.every { status } returns kotlinx.coroutines.flow.flowOf(com.kosmos.app.domain.tool.ModelDownloadStatus.Idle)
+        }
+        val vm = com.kosmos.app.feature.settings.ModelManagementViewModel(useCase)
+        shoot("24-model-management") { com.kosmos.app.feature.settings.ModelManagementScreen(viewModel = vm, onBack = {}) }
+    }
+
+    /** 문서 뷰어 — 스프레드시트(0.38.3 M0 — 카탈로그에 없던 화면). */
+    @Test fun documentViewer() {
+        val sheet = com.kosmos.app.domain.document.Sheet(
+            name = "1월",
+            rows = listOf(com.kosmos.app.domain.document.SheetRow(0, listOf(
+                com.kosmos.app.domain.document.SheetCell(0, "날짜"), com.kosmos.app.domain.document.SheetCell(1, "항목"), com.kosmos.app.domain.document.SheetCell(2, "금액")
+            ))) + (1..30).map { r ->
+                com.kosmos.app.domain.document.SheetRow(r, listOf(
+                    com.kosmos.app.domain.document.SheetCell(0, "10-$r"), com.kosmos.app.domain.document.SheetCell(1, "항목$r"), com.kosmos.app.domain.document.SheetCell(2, "${r * 1000}")
+                ))
+            },
+            columnCount = 3,
+            frozenRows = 1
+        )
+        val state = com.kosmos.app.feature.document.DocumentViewerState.Spreadsheet("가계부.xlsx", listOf("1월", "2월", "3월"), selected = 0, sheet = sheet)
+        shoot("25-document-viewer") { com.kosmos.app.feature.document.DocumentViewerScreen(state = state, onSelectSheet = {}, onClose = {}) }
+    }
+
+    /** 큰 글자(시스템 1.3배)에서 일정 승인 — 큰 시각이 제목 아래로(0.38.3 M0, 0.38.2 이월). */
+    @Test fun approvalLargeFont() {
+        val request = com.kosmos.app.assistant.approval.ApprovalRequest(
+            sessionId = SESSION, title = "일정 추가 승인", description = "",
+            preview = com.kosmos.app.assistant.approval.ApprovalPreview(
+                com.kosmos.app.assistant.approval.ApprovalPreview.Kind.SCHEDULE, "분기 실적 정리 회의", "2026-10-19T10:00:00", "2026-10-19T11:30:00", "3층 대회의실"
+            )
+        )
+        shoot("26-approval-large-font") {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(androidx.compose.ui.platform.LocalDensity.current.density, 1.3f)
+            ) { com.kosmos.app.feature.approval.ApprovalSheet(request = request, onApprove = {}, onReject = {}) }
+        }
+    }
+
     @Test fun splash() {
         val vm = com.kosmos.app.feature.splash.SplashViewModel(
             object : ModelRunner by modelRunner {
