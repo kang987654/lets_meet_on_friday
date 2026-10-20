@@ -5,15 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
-import com.kosmos.app.domain.util.IsoDateTimeParser
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
@@ -22,27 +17,29 @@ import javax.inject.Inject
 
 /**
  * [CalendarViewModel]
- * 캘린더 화면의 탭(월/목록), 월 그리드 조회, 목록 탭의 조회 범위(오늘/이번 주)와 날짜 선택 필터를 관리하는 뷰모델입니다.
+ * 일정 화면의 탭(오늘/월), "오늘" 탭의 일정·알림·할 일 조회와 할 일 완료·알림 수정, 월 그리드 조회를 맡는 뷰모델입니다.
  *
  * ### Architecture Context
  * - **Layer**: Feature / Presentation (Calendar)
- * - **Dependencies**: [GetTodayScheduleUseCase], [IsoDateTimeParser]
+ * - **Dependencies**: [GetTodayScheduleUseCase], TaskRepository, ReminderEditor(0.38.2 수정 시트), WidgetRefresher
  *
  * ### Key Flow
- * 1. [loadSchedule]이 선택된 범위의 일정을 조회해 내부 상태에 보관합니다(로컬 DB + 기기 캘린더 병합, ADR-004).
- * 2. [onDateSelected]로 특정 날짜를 고르면 해당 일자만 남기고, 같은 날짜를 다시 누르면 필터가 해제됩니다.
- * 3. [uiState]는 조회 결과와 날짜 필터를 합성해 화면에 노출할 최종 상태를 만듭니다.
- * 4. 월 탭: [showMonth]가 그 달 1일~말일을 조회해 [monthState]로 내보내고, [selectMonthDate]로 고른 날의 일정을 화면이 보여 준다.
+ * 1. [loadSchedule]이 오늘 포함 7일의 일정(로컬 DB + 기기 캘린더, ADR-004)과 할 일·알림을 읽는다 — 묶음은 화면이 [TodayComposer] 로 만든다.
+ * 2. 할 일 체크 원은 [completeTask], 알림 줄은 [openReminder] → 0.38.2 수정 시트(미루기·시간 바꾸기·취소).
+ * 3. 월 탭은 [showMonth]·[selectMonthDate].
  */
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
     private val getTodayScheduleUseCase: GetTodayScheduleUseCase,
-    private val summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase
+    private val taskRepository: com.kosmos.app.domain.memory.TaskRepository,
+    private val reminderEditor: com.kosmos.app.feature.chat.result.ReminderEditor,
+    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher
 ) : ViewModel() {
 
     private val _loadedState = MutableStateFlow<CalendarUiState>(CalendarUiState.Idle)
 
-    private val _tab = MutableStateFlow(CalendarTab.MONTH)
+    // [WHY] 첫 탭이자 기본 탭은 "오늘"(0.38.3 M1 사용자 결정 — 0.28.0 의 "월 기본"을 바꿨다).
+    private val _tab = MutableStateFlow(CalendarTab.TODAY)
     val tab: StateFlow<CalendarTab> = _tab.asStateFlow()
 
     private val _visibleMonth = MutableStateFlow(YearMonth.now())
@@ -56,85 +53,87 @@ class CalendarViewModel @Inject constructor(
 
     private var monthJob: kotlinx.coroutines.Job? = null
 
-    private val _selectedRange = MutableStateFlow(ScheduleData.RangeType.TODAY)
-    val selectedRange: StateFlow<ScheduleData.RangeType> = _selectedRange.asStateFlow()
+    /** "오늘" 탭의 일정 조회 결과(오늘 포함 7일 — 오늘 묶음과 다가오는 일정이 나눠 쓴다). */
+    val uiState: StateFlow<CalendarUiState> = _loadedState.asStateFlow()
 
-    /** null이면 조회 범위 전체를 표시합니다. */
-    private val _selectedDate = MutableStateFlow<LocalDate?>(null)
-    val selectedDate: StateFlow<LocalDate?> = _selectedDate.asStateFlow()
+    private val _reminders = MutableStateFlow<List<com.kosmos.app.domain.model.TaskItem>>(emptyList())
+    /** 아직 울리지 않은 알림 — 오늘 것만 화면이 고른다([TodayComposer]). */
+    val reminders: StateFlow<List<com.kosmos.app.domain.model.TaskItem>> = _reminders.asStateFlow()
 
-    // [WHY] 날짜 필터는 재조회 없이 즉시 반영되어야 하므로, 조회 결과와 필터를 합성해 파생 상태로 만든다.
-    val uiState: StateFlow<CalendarUiState> = combine(_loadedState, _selectedDate) { loaded, date ->
-        applyDateFilter(loaded, date)
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = CalendarUiState.Idle
-    )
+    private val _pendingTasks = MutableStateFlow<List<com.kosmos.app.domain.model.TaskItem>>(emptyList())
+    val pendingTasks: StateFlow<List<com.kosmos.app.domain.model.TaskItem>> = _pendingTasks.asStateFlow()
 
     /**
-     * 일정을 조회해 **먼저 목록을 내보내고**, AI 요약은 뒤이어 도착하면 덧붙입니다.
+     * "오늘" 탭을 채운다 — 일정(오늘 포함 7일)과 할 일·알림을 함께 읽는다.
      *
-     * [WHY] 예전에는 요약 추론(~10초)이 끝날 때까지 목록을 내보내지 않아 캘린더 화면이 그 시간
-     * 내내 스피너였다. 게다가 그 요약을 화면이 **읽지도 않았다** — 매번 결과를 버릴 추론을
-     * 기다린 셈이다(2026-08-12 실기기). 조회와 요약을 두 단계로 나누면 목록은 즉시 뜨고 요약은
-     * 준비되는 대로 채워진다 (PRD F4).
+     * [WHY] 일정이 0건이어도 `Success` 를 낸다. 예전에는 `Empty` 를 내면서 `ScheduleData` 를 버려 `deviceCalendarFailed` 가 사라졌다 —
+     * 기기 캘린더를 못 읽는데 앱 일정마저 없을 때, 즉 안내가 가장 필요한 순간에만 안내가 없어졌다.
+     * "이번 주 요약"(AI 요약)은 0.38.3 M1 에서 뺐다 — 채팅 아침 브리핑과 겹친다(사용자 결정).
      *
-     * [WHY] 요약 실패는 화면에 알리지 않는다. 요약은 목록의 보조 정보이고, 실패했다고 일정
-     * 자체를 못 보게 만들 이유가 없다 — 자리를 비워 두는 것이 정확한 표현이다.
+     * @param now 화면 기준 시각(카탈로그 고정 시계) — null 이면 유스케이스가 벽시계를 읽는다.
      */
-    fun loadSchedule(rangeType: ScheduleData.RangeType = _selectedRange.value) {
+    fun loadSchedule(
+        rangeType: ScheduleData.RangeType = ScheduleData.RangeType.WEEK,
+        now: Long? = null,
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ) {
         viewModelScope.launch {
-            _selectedRange.value = rangeType
             _loadedState.value = CalendarUiState.Loading
-
-            // [WHY] 일정이 0건이어도 `Success` 를 낸다. 예전에는 `Empty` 를 내면서 `ScheduleData`
-            // 를 버려 `deviceCalendarFailed` 가 사라졌다 — 기기 캘린더를 못 읽는데 앱 일정마저
-            // 없을 때, 즉 안내가 가장 필요한 순간에만 안내가 없어졌다.
-            val loaded = when (val result = getTodayScheduleUseCase(rangeType)) {
+            val result = if (now == null) getTodayScheduleUseCase(rangeType) else getTodayScheduleUseCase(rangeType, now, zoneId)
+            _loadedState.value = when (result) {
                 is AppResult.Success -> CalendarUiState.Success(result.data)
                 is AppResult.Failure -> CalendarUiState.Error(result.error)
             }
-            _loadedState.value = loaded
+        }
+        loadTasks()
+    }
 
-            // [WHY] 요약은 이번 주(오늘부터 7일)만 — 오늘 요약은 목록만 봐도 충분해 ~10초 추론 값을 못 한다(사용자 결정, 0.28.0).
-            if (rangeType == ScheduleData.RangeType.WEEK &&
-                loaded is CalendarUiState.Success && loaded.scheduleData.events.isNotEmpty()
-            ) {
-                val summary = summarizeScheduleUseCase(loaded.scheduleData.events, rangeType)
-                if (summary is AppResult.Success && summary.data.isNotBlank()) {
-                    // [WHY] 요약이 도착하는 동안 사용자가 범위를 바꿨을 수 있다. 그때 낡은 요약을
-                    // 덮어쓰면 다른 범위의 요약이 붙으므로, 현재 상태가 그대로일 때만 갱신한다.
-                    val current = _loadedState.value
-                    if (current === loaded) {
-                        _loadedState.value =
-                            CalendarUiState.Success(loaded.scheduleData.copy(summary = summary.data))
-                    }
-                }
+    private fun loadTasks() {
+        viewModelScope.launch {
+            (taskRepository.getActiveReminders() as? AppResult.Success)?.let { _reminders.value = it.data }
+            (taskRepository.getPendingTasksData(0, TODAY_TASK_LIMIT) as? AppResult.Success)?.let { _pendingTasks.value = it.data }
+        }
+    }
+
+    /** 오늘 탭의 체크 원 — 할 일을 끝낸다(위젯의 남은 할 일 수도 갱신). */
+    fun completeTask(taskId: String) {
+        viewModelScope.launch {
+            if (taskRepository.updateCompletion(taskId, true) is AppResult.Success) {
+                widgetRefresher.refresh()
+                loadTasks()
             }
         }
     }
 
-    /** 조회 범위를 변경하고 즉시 재조회합니다. 범위가 바뀌면 날짜 필터는 초기화합니다. */
-    fun onRangeSelected(rangeType: ScheduleData.RangeType) {
-        if (_selectedRange.value == rangeType) return
-        _selectedDate.value = null
-        loadSchedule(rangeType)
+    // ── 알림 수정 시트(0.38.2 수정 시트 재사용) ──
+
+    private val _editingReminder = MutableStateFlow<String?>(null)
+    val editingReminder: StateFlow<String?> = _editingReminder.asStateFlow()
+
+    private val _editError = MutableStateFlow<String?>(null)
+    val editError: StateFlow<String?> = _editError.asStateFlow()
+
+    fun openReminder(taskId: String) {
+        _editError.value = null
+        _editingReminder.value = taskId
     }
 
-    /**
-     * 날짜 스트립에서 날짜를 선택합니다. 같은 날짜를 다시 누르면 필터가 해제됩니다.
-     * [WHY] 오늘이 아닌 날짜는 TODAY 범위 데이터에 존재하지 않으므로 주간 범위로 자동 확장해
-     * "탭했는데 아무것도 없는" 상황을 막는다.
-     */
-    fun onDateSelected(date: LocalDate) {
-        if (_selectedDate.value == date) {
-            _selectedDate.value = null
-            return
-        }
-        _selectedDate.value = date
-        if (date != LocalDate.now() && _selectedRange.value != ScheduleData.RangeType.WEEK) {
-            loadSchedule(ScheduleData.RangeType.WEEK)
+    fun closeReminder() {
+        _editingReminder.value = null
+        _editError.value = null
+    }
+
+    fun snooze(taskId: String) = editReminder { reminderEditor.snooze(taskId) }
+    fun reschedule(taskId: String, hour: Int, minute: Int) = editReminder { reminderEditor.reschedule(taskId, hour, minute) }
+    fun cancelReminder(taskId: String) = editReminder { reminderEditor.cancel(taskId) }
+
+    private fun editReminder(action: suspend () -> AppResult<com.kosmos.app.domain.model.ChatMessage>) {
+        viewModelScope.launch {
+            when (val result = action()) {
+                is AppResult.Success -> { closeReminder(); loadTasks() }
+                is AppResult.Failure -> _editError.value =
+                    (result.error as? com.kosmos.app.core.common.AppError.ValidationError)?.reason ?: "알림을 바꾸지 못했어요. 다시 시도해 주세요."
+            }
         }
     }
 
@@ -173,15 +172,8 @@ class CalendarViewModel @Inject constructor(
         _monthSelectedDate.value = date
     }
 
-    private fun applyDateFilter(state: CalendarUiState, date: LocalDate?): CalendarUiState {
-        if (date == null || state !is CalendarUiState.Success) return state
-
-        val filtered = state.scheduleData.events.filter { event ->
-            IsoDateTimeParser.toLocalDate(event.startIso) == date
-        }
-        // [WHY] 결과가 비어도 `scheduleData` 를 유지한다. 예전에는 `Empty` 로 떨어뜨려
-        // `deviceCalendarFailed` 를 버렸으므로, **일정 없는 날짜를 눌러 본 것만으로** 기기 캘린더
-        // 안내가 사라졌다.
-        return CalendarUiState.Success(state.scheduleData.copy(events = filtered.toImmutableList()))
+    private companion object {
+        /** 오늘 탭 할 일 목록 상한 — 개인 1인 규모라 한 번에 읽는다. */
+        const val TODAY_TASK_LIMIT = 100
     }
 }

@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -18,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kosmos.app.domain.model.CalendarEvent
@@ -38,17 +39,19 @@ fun CalendarScreen(
     // [WHY] 기기 캘린더 병합 조회(ADR-004)를 위해 화면 진입 시 READ_CALENDAR를 요청한다.
     // 거부 시 로컬 일정만 표시되며, 권한 승인 직후 재조회한다.
     val context = androidx.compose.ui.platform.LocalContext.current
+    // 카탈로그 고정 시계와 같은 기준 시각 — 앱에서는 기기 시계다.
+    val clock = com.kosmos.app.ui.component.LocalClock.current
     val readCalendarLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            viewModel.loadSchedule()
+            viewModel.loadSchedule(now = clock.millis())
             viewModel.showMonth(viewModel.visibleMonth.value, force = true)
         }
     }
 
     LaunchedEffect(Unit) {
-        viewModel.loadSchedule()
+        viewModel.loadSchedule(now = clock.millis())
         viewModel.showMonth(java.time.YearMonth.from(today))
         if (androidx.core.content.ContextCompat.checkSelfPermission(
                 context, android.Manifest.permission.READ_CALENDAR
@@ -61,9 +64,9 @@ fun CalendarScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         com.kosmos.app.ui.component.KosmosTopBar(title = "일정", onBack = onBack)
 
-        // [WHY] 월 / 목록 탭(사용자 결정, 0.28.0) — 목록 탭은 기존 화면(오늘·이번 주 + 날짜 띠)을 그대로 옮겼다.
+        // [WHY] 오늘 / 월 탭(0.38.3 M1 사용자 결정) — 옛 목록 탭의 오늘·이번 주 두 겹 분할 버튼을 "오늘" 탭 하나로 흡수했다.
         com.kosmos.app.ui.component.KosmosSegmentedControl(
-            options = listOf(CalendarTab.MONTH to "월", CalendarTab.LIST to "목록"),
+            options = listOf(CalendarTab.TODAY to "오늘", CalendarTab.MONTH to "월"),
             selected = tab,
             onSelect = viewModel::onTabSelected,
             modifier = Modifier.padding(horizontal = 20.dp)
@@ -91,102 +94,196 @@ fun CalendarScreen(
                 }
                 MonthCalendarTab(viewModel = viewModel, today = today)
             }
-            CalendarTab.LIST -> ListTab(viewModel = viewModel, today = today, onOpenSettings = openSettings)
+            CalendarTab.TODAY -> TodayTab(viewModel = viewModel, today = today, onOpenSettings = openSettings, onRetry = { viewModel.loadSchedule(now = clock.millis()) })
         }
     }
 }
 
-/** 목록 탭 — 0.27.x 까지의 일정 화면 본문(오늘 / 이번 주 세그먼트, 7일 날짜 띠, 목록·이번 주 요약). */
+/**
+ * "오늘" 탭(0.38.3 M1, Things 3 의 오늘 화면 모티브) — 오늘 일정과 오늘 울릴 알림을 시간순으로 한 묶음에, 그 아래 날짜 없는 할 일(체크 원),
+ * 그 밑에 "다가오는 일정"(이번 주 남은 날). 알림 줄을 누르면 0.38.2 수정 시트, 체크 원을 누르면 할 일 완료.
+ *
+ * [WHY] 묶음은 둘(오늘·다가오는 일정)만 — 섹션마다 상자를 두는 안은 상자가 넷이라 taste "상자 더미"에 걸렸다(시안 B, 사용자 선택).
+ */
 @Composable
-private fun ListTab(viewModel: CalendarViewModel, today: java.time.LocalDate, onOpenSettings: () -> Unit) {
+private fun TodayTab(viewModel: CalendarViewModel, today: java.time.LocalDate, onOpenSettings: () -> Unit, onRetry: () -> Unit) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val selectedRange by viewModel.selectedRange.collectAsStateWithLifecycle()
-    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Range Segment (오늘 / 이번 주)
-        com.kosmos.app.ui.component.KosmosSegmentedControl(
-            options = listOf(ScheduleData.RangeType.TODAY to "오늘", ScheduleData.RangeType.WEEK to "이번 주"),
-            selected = selectedRange,
-            onSelect = viewModel::onRangeSelected,
-            modifier = Modifier.padding(horizontal = 20.dp)
-        )
+    val reminders by viewModel.reminders.collectAsStateWithLifecycle()
+    val pending by viewModel.pendingTasks.collectAsStateWithLifecycle()
+    val zone = remember { java.time.ZoneId.systemDefault() }
+    val schedule = (uiState as? CalendarUiState.Success)?.scheduleData
+    val model = remember(schedule, reminders, pending, today) { TodayComposer.compose(schedule, reminders, pending, today, zone) }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Date Strip — 탭하면 해당 날짜만 필터링, 같은 날짜 재탭 시 해제
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            val days = (0..6).map { i -> today.plusDays(i.toLong()) }
-            items(days.size, key = { days[it].toEpochDay() }) { i ->
-                val date = days[i]
-                DatePill(
-                    dayOfWeek = date.dayOfWeek.getDisplayName(
-                        java.time.format.TextStyle.SHORT, java.util.Locale.KOREAN
-                    ),
-                    dayOfMonth = date.dayOfMonth.toString(),
-                    // [WHY] 주간 탭에서는 필터를 걸었을 때만 강조한다 — 필터 없이 오늘 칸을
-                    // 강조하면 "오늘만 보는 중"처럼 읽히는데 목록은 주 전체라 헷갈린다
-                    // (2026-08-15 사용자 피드백). 오늘 표시는 점(isFiltered 아님)이 계속 맡는다.
-                    isSelected = if (selectedRange == ScheduleData.RangeType.WEEK) {
-                        date == selectedDate
-                    } else {
-                        date == (selectedDate ?: today)
-                    },
-                    isFiltered = date == selectedDate,
-                    isToday = date == today,
-                    onClick = { viewModel.onDateSelected(date) }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 80.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(bottom = 4.dp)) {
+                Text("오늘", style = MaterialTheme.typography.titleLarge, color = KosmosTheme.colors.textPrimary)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    com.kosmos.app.domain.util.IsoDateTimeParser.longDateKorean(today.atStartOfDay(zone).toInstant().toEpochMilli(), zone),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = KosmosTheme.colors.textSecondary
                 )
             }
         }
-
-        // [WHY] 기기 캘린더를 못 읽었을 때 **조용히 넘어가지 않는다.** 예전에는 앱 안의 일정만
-        // 보여 주고 아무 말도 하지 않아, 사용자는 기기 일정이 없다고 믿었다. 권한 거부와
-        // Provider 오류가 모두 여기로 온다 (PRD EC2·EC4).
-        val deviceCalendarFailed = (uiState as? CalendarUiState.Success)?.scheduleData?.deviceCalendarFailed == true
-        if (deviceCalendarFailed) {
-            DeviceCalendarNotice(
-                onRetry = { viewModel.loadSchedule() },
-                onOpenSettings = onOpenSettings
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Box(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-            when (val state = uiState) {
-                is CalendarUiState.Idle, is CalendarUiState.Loading -> {
-                    CircularProgressIndicator(color = KosmosTheme.colors.brand, modifier = Modifier.align(Alignment.Center))
-                }
-                is CalendarUiState.Error -> {
-                    Text(
-                        com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error),
-                        color = KosmosTheme.colors.dangerText,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
-                // [WHY] "비었다"는 판단을 여기서 한다 — 별도 상태로 두었더니 그 상태가
-                // `ScheduleData` 를 버려 기기 캘린더 안내가 사라졌다.
-                is CalendarUiState.Success -> if (state.scheduleData.events.isEmpty()) {
-                    Text(
-                        "일정이 없습니다.",
-                        color = KosmosTheme.colors.textMuted,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                } else {
-                    val sectionLabel = when {
-                        selectedDate != null && selectedDate == today -> "오늘"
-                        selectedDate != null -> selectedDate?.let { com.kosmos.app.domain.util.IsoDateTimeParser.dayLabelKorean(it, today) }.orEmpty()
-                        selectedRange == ScheduleData.RangeType.WEEK -> "이번 주"
-                        else -> "오늘"
+        // [WHY] 기기 캘린더를 못 읽었을 때 **조용히 넘어가지 않는다** — 앱 일정만 보여 주고 말이 없으면 기기 일정이 없다고 믿는다(PRD EC2·EC4).
+        if (model.deviceCalendarFailed) item { DeviceCalendarNotice(onRetry = onRetry, onOpenSettings = onOpenSettings) }
+        when (val state = uiState) {
+            is CalendarUiState.Idle, is CalendarUiState.Loading -> item {
+                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = KosmosTheme.colors.brand) }
+            }
+            is CalendarUiState.Error -> item {
+                Text(com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error), color = KosmosTheme.colors.dangerText, modifier = Modifier.padding(16.dp))
+            }
+            is CalendarUiState.Success -> {
+                if (model.isEmpty) {
+                    item {
+                        com.kosmos.app.ui.component.EmptyState(
+                            icon = com.kosmos.app.R.drawable.ic_ph_calendar_blank,
+                            message = "오늘은 일정도 할 일도 없어요.\n채팅에서 \"내일 3시에 회의 잡아줘\"처럼 말해 보세요."
+                        )
                     }
-                    ScheduleContent(state.scheduleData, sectionLabel)
+                } else {
+                    item {
+                        com.kosmos.app.ui.component.KosmosListGroup {
+                            val last = model.timeline.size + model.tasks.size - 1
+                            model.timeline.forEachIndexed { index, entry ->
+                                TodayTimeRow(entry, divider = index < last, onClick = (entry as? TodayEntry.Reminder)?.let { { viewModel.openReminder(it.task.id) } })
+                            }
+                            model.tasks.forEachIndexed { index, task ->
+                                TodayTaskRow(task.title, divider = model.timeline.size + index < last, onComplete = { viewModel.completeTask(task.id) })
+                            }
+                        }
+                    }
+                }
+                if (model.upcoming.isNotEmpty()) {
+                    item { com.kosmos.app.ui.component.SectionHeader("다가오는 일정", Modifier.padding(top = 8.dp)) }
+                    item {
+                        com.kosmos.app.ui.component.KosmosListGroup {
+                            model.upcoming.forEachIndexed { index, entry ->
+                                UpcomingRow(entry, divider = index < model.upcoming.lastIndex)
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+
+    ReminderEditHost(viewModel = viewModel, reminders = reminders, today = today)
+}
+
+/** 오늘 묶음의 일정·알림 한 줄 — 알림 줄은 누르면 수정 시트. */
+@Composable
+private fun TodayTimeRow(entry: TodayEntry, divider: Boolean, onClick: (() -> Unit)?) {
+    val isReminder = entry is TodayEntry.Reminder
+    ScheduleRow(
+        timeLabel = entry.timeLabel,
+        title = entry.title,
+        sub = when (entry) {
+            is TodayEntry.Reminder -> "알림"
+            is TodayEntry.Event -> eventSubLine(entry.endLabel, entry.event.source)
+        },
+        icon = if (isReminder) com.kosmos.app.R.drawable.ic_ph_bell else com.kosmos.app.R.drawable.ic_ph_calendar_blank,
+        accentTime = isReminder,
+        divider = divider,
+        onClick = onClick
+    )
+}
+
+/** 일정의 보조 줄 — 끝 시각과 출처. 출처는 색이 아니라 글자로(ui-ux-pro-max `color-not-only`). */
+internal fun eventSubLine(endLabel: String?, source: CalendarEvent.Source): String? =
+    listOfNotNull(endLabel, if (source == CalendarEvent.Source.DEVICE) "기기 캘린더" else null).joinToString("  ").ifEmpty { null }
+
+/**
+ * 일정 화면의 한 줄 — 왼쪽 시각 칸, 제목·보조 줄, 오른쪽 종류 아이콘. "오늘" 탭과 월 탭 선택한 날이 같이 쓴다(0.38.3 M1).
+ */
+@Composable
+internal fun ScheduleRow(
+    timeLabel: String,
+    title: String,
+    sub: String?,
+    @androidx.annotation.DrawableRes icon: Int?,
+    divider: Boolean,
+    accentTime: Boolean = false,
+    onClick: (() -> Unit)? = null
+) {
+    val colors = KosmosTheme.colors
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (onClick != null) Modifier.clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick) else Modifier)
+                .heightIn(min = 56.dp)
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(timeLabel, style = MaterialTheme.typography.titleSmall, color = if (accentTime) colors.brandText else colors.textPrimary, modifier = Modifier.width(TIME_COLUMN))
+            Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, color = colors.textPrimary)
+                sub?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.textMuted) }
+            }
+            icon?.let { com.kosmos.app.ui.component.KosmosIcon(it, contentDescription = null, size = 18.dp, tint = colors.textMuted) }
+        }
+        if (divider) HorizontalDivider(Modifier.padding(start = TIME_COLUMN + 16.dp), color = colors.border)
+    }
+}
+
+/** 날짜 없는 할 일 — 체크 원(48dp 영역)을 누르면 끝낸다. */
+@Composable
+private fun TodayTaskRow(title: String, divider: Boolean, onComplete: () -> Unit) {
+    val colors = KosmosTheme.colors
+    Column {
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 4.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onComplete) {
+                Box(Modifier.size(22.dp).border(1.5.dp, colors.textMuted, androidx.compose.foundation.shape.CircleShape)
+                    .semantics { contentDescription = "$title 완료" })
+            }
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = colors.textPrimary, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
+        }
+        if (divider) HorizontalDivider(Modifier.padding(start = 52.dp), color = colors.border)
+    }
+}
+
+/** 다가오는 일정 한 줄 — "16일 금" · 제목 · 시각. */
+@Composable
+private fun UpcomingRow(entry: UpcomingEntry, divider: Boolean) {
+    val colors = KosmosTheme.colors
+    Column {
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(entry.dayLabel, style = MaterialTheme.typography.titleSmall, color = colors.textSecondary, modifier = Modifier.width(TIME_COLUMN))
+            Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
+                Text(entry.event.title, style = MaterialTheme.typography.bodyLarge, color = colors.textPrimary)
+                Text(entry.timeLabel, style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
+            }
+        }
+        if (divider) HorizontalDivider(Modifier.padding(start = TIME_COLUMN + 16.dp), color = colors.border)
+    }
+}
+
+/** 오늘 탭에서 연 알림의 수정 시트 — 0.38.2 [com.kosmos.app.feature.chat.result.ReminderEditSheet] 그대로. */
+@Composable
+private fun ReminderEditHost(viewModel: CalendarViewModel, reminders: List<com.kosmos.app.domain.model.TaskItem>, today: java.time.LocalDate) {
+    val editing by viewModel.editingReminder.collectAsStateWithLifecycle()
+    val error by viewModel.editError.collectAsStateWithLifecycle()
+    val id = editing ?: return
+    val task = reminders.firstOrNull { it.id == id } ?: return
+    val at = task.remindAtIso?.let { com.kosmos.app.domain.util.IsoDateTimeParser.toEpochMillis(it) }
+        ?.let { java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()) }
+    com.kosmos.app.feature.chat.result.ReminderEditSheet(
+        state = com.kosmos.app.feature.chat.result.ResultCardMapper.reminder(task, today),
+        initialHour = at?.hour ?: 9,
+        initialMinute = at?.minute ?: 0,
+        error = error,
+        onSnooze = { viewModel.snooze(id) },
+        onReschedule = { h, m -> viewModel.reschedule(id, h, m) },
+        onCancelReminder = { viewModel.cancelReminder(id) },
+        onDismiss = viewModel::closeReminder
+    )
 }
 
 /**
@@ -225,145 +322,5 @@ private fun DeviceCalendarNotice(
     }
 }
 
-@Composable
-fun DatePill(
-    dayOfWeek: String,
-    dayOfMonth: String,
-    isSelected: Boolean,
-    isFiltered: Boolean = false,
-    // [WHY] 오늘 점 표시를 강조(isSelected)에서 분리했다 — 주간 탭은 필터 전까지 아무 칸도
-    // 강조하지 않지만 오늘이 어디인지는 계속 보여야 한다.
-    isToday: Boolean = false,
-    onClick: () -> Unit = {}
-) {
-    // 필터가 걸린 날짜는 테두리를 강조해 "이 날짜만 보고 있음"을 드러낸다
-    val bgColor = if (isSelected) KosmosTheme.colors.brand.copy(alpha = 0.1f) else KosmosTheme.colors.surface
-    val borderColor = when {
-        isFiltered -> KosmosTheme.colors.brand
-        isSelected -> KosmosTheme.colors.brand.copy(alpha = 0.5f)
-        else -> KosmosTheme.colors.border
-    }
-    Box(
-        modifier = Modifier
-            .width(60.dp)
-            .height(80.dp)
-            .kosmosSurface(backgroundColor = bgColor, borderColor = borderColor, shape = RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = dayOfWeek, color = if (isSelected) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted, style = MaterialTheme.typography.labelMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = dayOfMonth, color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            if (isSelected || isToday) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Box(modifier = Modifier.size(4.dp).background(KosmosTheme.colors.brand, androidx.compose.foundation.shape.CircleShape))
-            }
-        }
-    }
-}
-
-@Composable
-fun ScheduleContent(data: ScheduleData, sectionLabel: String = "오늘") {
-    // [WHY] LazyListScope 람다는 @Composable이 아니므로 테마 토큰을 바깥에서 읽어둔다.
-    val eventAccents = listOf(KosmosTheme.colors.brand, KosmosTheme.colors.successText, KosmosTheme.colors.warningText)
-
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // Today section
-        item {
-            Text(
-                text = "$sectionLabel  ·  일정 ${data.events.size}건",
-                color = KosmosTheme.colors.textMuted,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
-        }
-
-        // [WHY] PRD F4 는 "일정 목록 + 요약 텍스트"를 요구하는데 이 화면은 `summary` 를 읽는
-        // 코드가 한 줄도 없었다 — 유스케이스가 10초짜리 추론으로 만든 값을 매번 버리고 있었다
-        // (2026-08-12 실기기).
-        //
-        // [WHY] 요약이 없으면 자리를 만들지 않는다. 요약은 목록 뒤에 도착하므로, 빈 카드를 먼저
-        // 그리면 목록이 아래로 밀려 내려가는 레이아웃 점프가 생긴다.
-        data.summary?.takeIf { it.isNotBlank() }?.let { summary ->
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .kosmosSurface(shape = RoundedCornerShape(16.dp))
-                        .padding(16.dp)
-                ) {
-                    // [WHY] 요약은 이번 주에만 만든다(0.28.0) — 날짜 띠로 하루를 골라도 요약은 7일 전체라 라벨로 범위를 밝힌다.
-                    Text(
-                        text = "이번 주 요약",
-                        color = KosmosTheme.colors.textMuted,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
-                    Text(text = summary, color = KosmosTheme.colors.textSecondary, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        }
-
-        // [WHY] 키에 인덱스를 붙인다 — 앱 일정(UUID)과 기기 캘린더 일정(숫자 id)이 섞이는 목록이라
-        // id 충돌이 이론상 없어도, 중복 키는 LazyColumn 을 즉시 죽이므로 방어적으로 유일성을 보장한다.
-        items(data.events.size, key = { "${data.events[it].id}_$it" }) { index ->
-            val event = data.events[index]
-            val color = eventAccents[index % eventAccents.size]
-            TodayEventCard(event, color)
-        }
-
-        // 마지막 일정이 제스처 바·화면 끝에 붙지 않게 두는 스크롤 여유(하단 내비는 M2-2 에서 제거됐다).
-        item { Spacer(modifier = Modifier.height(80.dp)) }
-    }
-}
-
-@Composable
-fun TodayEventCard(event: CalendarEvent, stripColor: Color, timeLabel: String? = null) {
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min)
-            // [WHY] 카드 모양으로 잘라야 왼쪽 출처 띠가 둥근 모서리를 따라간다 — 띠가 제 모서리를 따로 그리면 위아래가 카드 밖으로 삐져나왔다(0.38.1 실기기).
-            .clip(shape)
-            .kosmosSurface(
-                backgroundColor = KosmosTheme.colors.surface,
-                borderColor = KosmosTheme.colors.border,
-                shape = shape
-            )
-    ) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(4.dp)
-                    .background(stripColor)
-            )
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp).weight(1f)) {
-                Text(
-                    text = timeLabel ?: formatIsoString(event.startIso),
-                    color = stripColor,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(text = event.title, color = KosmosTheme.colors.textPrimary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-
-
-// [WHY] 표기 규칙은 IsoDateTimeParser 가 단일 출처다 — 같은 파싱·12시간 변환 로직을 여기서
-// 사설 복제하고 있던 것을 0.22.0 에서 흡수했다. 실패 시 ISO 원문 폴백은 이 화면의 기존 계약.
-private fun formatIsoString(iso: String): String =
-    com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayTimeKorean(iso) ?: iso
+/** 시각·날짜 칸 폭 — "오후 12:00"이 제목에 붙지 않는 폭(0.38.3 M1 렌더). */
+private val TIME_COLUMN = 84.dp

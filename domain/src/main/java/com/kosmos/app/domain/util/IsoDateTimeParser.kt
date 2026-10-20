@@ -111,6 +111,9 @@ object IsoDateTimeParser {
         return "%d월 %d일 %s요일".format(dt.monthValue, dt.dayOfMonth, weekdayKorean(dt.dayOfWeek))
     }
 
+    /** "16일 금" — 일정 화면 "다가오는 일정"의 날짜 칸(0.38.3). */
+    fun dayWeekdayKorean(date: LocalDate): String = "%d일 %s".format(date.dayOfMonth, weekdayKorean(date.dayOfWeek))
+
     /** "수" 처럼 한 글자 요일. */
     fun weekdayKorean(dayOfWeek: java.time.DayOfWeek): String =
         "월화수목금토일"[dayOfWeek.value - 1].toString()

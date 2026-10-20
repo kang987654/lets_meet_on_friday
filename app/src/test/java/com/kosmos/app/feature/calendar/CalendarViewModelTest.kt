@@ -40,13 +40,14 @@ import java.time.LocalDate
 class CalendarViewModelTest {
 
     private val useCase: GetTodayScheduleUseCase = mockk()
-    private val summarize: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase = mockk()
+    private val tasks: com.kosmos.app.domain.memory.TaskRepository = mockk(relaxed = true)
+    private val widget: com.kosmos.app.widget.WidgetRefresher = mockk(relaxed = true)
 
     @Before
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
-        // 기본은 "요약 없음" — 요약을 보는 테스트만 따로 덮어쓴다.
-        coEvery { summarize(any(), any()) } returns AppResult.Success("")
+        coEvery { tasks.getActiveReminders() } returns AppResult.Success(emptyList())
+        coEvery { tasks.getPendingTasksData(any(), any()) } returns AppResult.Success(emptyList())
     }
 
     @After
@@ -57,7 +58,7 @@ class CalendarViewModelTest {
     @Test
     fun `일정이 0건이어도 기기 캘린더 실패 플래그가 유지된다`() = runTest {
         givenSchedule(events = persistentListOf(), deviceCalendarFailed = true)
-        val viewModel = CalendarViewModel(useCase, summarize)
+        val viewModel = CalendarViewModel(useCase, tasks, mockk(relaxed = true), widget)
         val states = collect(viewModel)
 
         viewModel.loadSchedule()
@@ -70,90 +71,33 @@ class CalendarViewModelTest {
         )
     }
 
-    @Test
-    fun `날짜 필터가 0건을 만들어도 플래그가 유지된다`() = runTest {
-        // [WHY] applyDateFilter 에도 같은 붕괴가 있었다 — 필터 결과가 비면 Empty 로 떨어뜨려
-        // scheduleData 를 버렸다. 다른 날짜를 골라 본 것만으로 안내가 사라지는 셈이다.
-        givenSchedule(
-            events = listOf(event("2026-08-12T20:00")).toImmutableList(),
-            deviceCalendarFailed = true
-        )
-        val viewModel = CalendarViewModel(useCase, summarize)
-        val states = collect(viewModel)
-
-        viewModel.loadSchedule()
-        viewModel.onDateSelected(LocalDate.of(2026, 8, 15)) // 일정이 없는 날
-
-        val success = states.filterIsInstance<CalendarUiState.Success>().last()
-        assertTrue(success.scheduleData.events.isEmpty())
-        assertTrue(success.scheduleData.deviceCalendarFailed)
-    }
+    // --- 오늘 탭 (0.38.3 M1) ---
 
     @Test
-    fun `날짜 필터는 해당 일자만 남긴다`() = runTest {
-        givenSchedule(
-            events = listOf(event("2026-08-12T20:00"), event("2026-08-15T09:00")).toImmutableList(),
-            deviceCalendarFailed = false
-        )
-        val viewModel = CalendarViewModel(useCase, summarize)
-        val states = collect(viewModel)
-
-        viewModel.loadSchedule()
-        viewModel.onDateSelected(LocalDate.of(2026, 8, 15))
-
-        val success = states.filterIsInstance<CalendarUiState.Success>().last()
-        assertEquals(1, success.scheduleData.events.size)
-        assertEquals("2026-08-15T09:00", success.scheduleData.events.single().startIso)
-    }
-
-    @Test
-    fun `요약을 기다리지 않고 목록을 먼저 내보낸다`() = runTest {
-        // [WHY] 예전에는 요약 추론(~10초)이 끝난 뒤에야 목록이 나왔다. 게다가 화면은 그 요약을
-        // 읽지도 않았으니, 매번 결과를 버릴 추론을 사용자가 기다린 셈이다(2026-08-12 실기기).
-        givenSchedule(
-            events = listOf(event("2026-08-12T20:00")).toImmutableList(),
-            deviceCalendarFailed = false
-        )
-        val gate = kotlinx.coroutines.CompletableDeferred<AppResult<String>>()
-        io.mockk.coEvery { summarize(any(), any()) } coAnswers { gate.await() }
-
-        val viewModel = CalendarViewModel(useCase, summarize)
-        val states = collect(viewModel)
-
-        // [WHY] 0.28.0 에서 오늘 요약을 없앴다(사용자 결정) — 요약이 도는 이번 주 범위로 호출한다(사용자 확인 후 수정, 단언 불변).
-        viewModel.loadSchedule(ScheduleData.RangeType.WEEK)
-
-        val beforeSummary = states.filterIsInstance<CalendarUiState.Success>().last()
-        assertEquals("요약이 오기 전에 이미 목록이 있어야 한다", 1, beforeSummary.scheduleData.events.size)
-        org.junit.Assert.assertNull("아직 요약은 없다", beforeSummary.scheduleData.summary)
-
-        gate.complete(AppResult.Success(SUMMARY))
-
-        val afterSummary = states.filterIsInstance<CalendarUiState.Success>().last()
-        assertEquals(SUMMARY, afterSummary.scheduleData.summary)
-        assertEquals("요약이 붙어도 목록은 그대로다", 1, afterSummary.scheduleData.events.size)
-    }
-
-    @Test
-    fun `일정이 없으면 요약을 시도하지 않는다`() = runTest {
+    fun `오늘 탭을 열면 일정과 함께 알림·남은 할 일을 읽는다`() = runTest {
         givenSchedule(events = persistentListOf(), deviceCalendarFailed = false)
-        val viewModel = CalendarViewModel(useCase, summarize)
-        collect(viewModel)
+        val reminder = com.kosmos.app.domain.model.TaskItem(id = "r1", title = "물 마시기", isCompleted = false, createdAt = 0, remindAtIso = "2026-10-15T13:56:00")
+        val todo = com.kosmos.app.domain.model.TaskItem(id = "t1", title = "장보기", isCompleted = false, createdAt = 0)
+        coEvery { tasks.getActiveReminders() } returns AppResult.Success(listOf(reminder))
+        coEvery { tasks.getPendingTasksData(any(), any()) } returns AppResult.Success(listOf(reminder, todo))
+        val viewModel = CalendarViewModel(useCase, tasks, mockk(relaxed = true), widget)
 
         viewModel.loadSchedule()
 
-        io.mockk.coVerify(exactly = 0) { summarize(any(), any()) }
+        assertEquals(listOf(reminder), viewModel.reminders.value)
+        assertEquals(listOf(reminder, todo), viewModel.pendingTasks.value)
+        assertEquals(CalendarTab.TODAY, viewModel.tab.value)
     }
 
     @Test
-    fun `오늘 범위는 요약하지 않는다`() = runTest {
-        givenSchedule(events = listOf(event("2026-08-12T20:00")).toImmutableList(), deviceCalendarFailed = false)
-        val viewModel = CalendarViewModel(useCase, summarize)
-        collect(viewModel)
+    fun `체크 원으로 할 일을 끝내면 저장하고 위젯을 갱신한다`() = runTest {
+        coEvery { tasks.updateCompletion("t1", true) } returns AppResult.Success(Unit)
+        val viewModel = CalendarViewModel(useCase, tasks, mockk(relaxed = true), widget)
 
-        viewModel.loadSchedule(ScheduleData.RangeType.TODAY)
+        viewModel.completeTask("t1")
 
-        io.mockk.coVerify(exactly = 0) { summarize(any(), any()) }
+        io.mockk.coVerify { tasks.updateCompletion("t1", true) }
+        io.mockk.coVerify { widget.refresh() }
     }
 
     // --- 월 탭 (0.28.0) ---
@@ -162,21 +106,20 @@ class CalendarViewModelTest {
     fun `월 조회는 그 달을 읽고 요약하지 않는다`() = runTest {
         val october = java.time.YearMonth.of(2026, 10)
         givenMonth(october)
-        val viewModel = CalendarViewModel(useCase, summarize)
+        val viewModel = CalendarViewModel(useCase, tasks, mockk(relaxed = true), widget)
 
         viewModel.showMonth(october, zoneId = java.time.ZoneId.of("UTC"))
 
         val state = viewModel.monthState.value as MonthUiState.Success
         assertEquals(october, state.schedule.month)
         io.mockk.coVerify(exactly = 1) { useCase.month(october, any()) }
-        io.mockk.coVerify(exactly = 0) { summarize(any(), any()) }
     }
 
     @Test
     fun `같은 달을 다시 보이면 재조회하지 않고 force 면 다시 읽는다`() = runTest {
         val october = java.time.YearMonth.of(2026, 10)
         givenMonth(october)
-        val viewModel = CalendarViewModel(useCase, summarize)
+        val viewModel = CalendarViewModel(useCase, tasks, mockk(relaxed = true), widget)
 
         viewModel.showMonth(october)
         viewModel.showMonth(october)
@@ -192,7 +135,7 @@ class CalendarViewModelTest {
         val september = java.time.YearMonth.of(2026, 9)
         givenMonth(october)
         givenMonth(september)
-        val viewModel = CalendarViewModel(useCase, summarize)
+        val viewModel = CalendarViewModel(useCase, tasks, mockk(relaxed = true), widget)
         viewModel.showMonth(october)
 
         viewModel.selectMonthDate(LocalDate.of(2026, 9, 30))
@@ -229,9 +172,6 @@ class CalendarViewModelTest {
         endIso = startIso
     )
 
-    private companion object {
-        const val SUMMARY = "오늘은 저녁 약속이 하나 있습니다."
-    }
 
     /**
      * `uiState` 는 `WhileSubscribed` 라 구독자가 있어야 흐른다.

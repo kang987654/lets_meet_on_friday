@@ -50,7 +50,7 @@ class MonthCalendarTabTest {
         )
         coEvery { month(YearMonth.of(2026, 11), any()) } returns AppResult.Success(MonthSchedule(YearMonth.of(2026, 11), persistentListOf()))
     }
-    private val viewModel = CalendarViewModel(useCase, mockk(relaxed = true))
+    private val viewModel = CalendarViewModel(useCase, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true))
 
     private fun show() {
         viewModel.showMonth(october, zoneId = utc)

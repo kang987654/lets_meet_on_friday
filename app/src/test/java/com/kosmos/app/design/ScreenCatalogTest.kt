@@ -103,7 +103,6 @@ class ScreenCatalogTest {
     @Inject lateinit var reminderAlarmScheduler: com.kosmos.app.platform.alarm.ReminderAlarmScheduler
     @Inject lateinit var widgetRefresher: com.kosmos.app.widget.WidgetRefresher
     @Inject lateinit var getTodayScheduleUseCase: com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
-    @Inject lateinit var summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase
     @Inject lateinit var recentDocumentsStore: com.kosmos.app.data.local.prefs.RecentDocumentsStore
     @Inject lateinit var documentAccess: com.kosmos.app.platform.document.DocumentAccess
     @Inject lateinit var cleanupRunner: com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
@@ -483,10 +482,24 @@ class ScreenCatalogTest {
         }) { com.kosmos.app.feature.memory.MemoryScreen(viewModel = vm, onBack = {}) }
     }
 
+    /** 일정 "오늘" 탭(0.38.3 M1 — 기본 탭). */
     @Test fun calendar() {
-        val vm = com.kosmos.app.feature.calendar.CalendarViewModel(getTodayScheduleUseCase, summarizeScheduleUseCase)
-        shoot("07-calendar", before = { vm.selectMonthDate(TODAY) }) { com.kosmos.app.feature.calendar.CalendarScreen(viewModel = vm, onBack = {}) }
+        val vm = calendarViewModel()
+        shoot("07-calendar") { com.kosmos.app.feature.calendar.CalendarScreen(viewModel = vm, onBack = {}) }
     }
+
+    /** 일정 월 탭(0.38.3 M1 — 기본 탭이 "오늘"이 되어 따로 찍는다). */
+    @Test fun calendarMonth() {
+        val vm = calendarViewModel()
+        shoot("27-calendar-month", before = {
+            vm.onTabSelected(com.kosmos.app.feature.calendar.CalendarTab.MONTH)
+            vm.selectMonthDate(TODAY)
+        }) { com.kosmos.app.feature.calendar.CalendarScreen(viewModel = vm, onBack = {}) }
+    }
+
+    private fun calendarViewModel() = com.kosmos.app.feature.calendar.CalendarViewModel(
+        getTodayScheduleUseCase, taskRepository, reminderEditor, io.mockk.mockk(relaxed = true)
+    )
 
     @Test fun documentHome() {
         val vm = com.kosmos.app.feature.document.DocumentHomeViewModel(recentDocumentsStore, documentAccess)

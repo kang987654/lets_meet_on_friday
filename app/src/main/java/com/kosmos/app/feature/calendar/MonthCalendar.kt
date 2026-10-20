@@ -261,23 +261,32 @@ private fun SelectedDayEvents(date: LocalDate, events: List<CalendarEvent>, zone
         if (events.isEmpty()) {
             Text("일정이 없어요.", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                events.forEach { event ->
+            // [WHY] "오늘" 탭과 같은 묶음 하나 안의 행(0.38.3 M1) — 카드마다 색 띠를 두던 것은 상자 더미였고, 출처를 색으로만 나눴다.
+            com.kosmos.app.ui.component.KosmosListGroup {
+                events.forEachIndexed { index, event ->
                     val days = com.kosmos.app.ui.calendar.spanDays(event, zoneId)
-                    // [WHY] 여러 날 일정은 시각 대신 기간 — "10월 3일 ~ 10월 5일"(D-C1). 하루짜리는 기존 시각 표기.
-                    val label = if (days.size > 1) {
-                        "${days.first().monthValue}월 ${days.first().dayOfMonth}일 ~ ${days.last().monthValue}월 ${days.last().dayOfMonth}일"
+                    // [WHY] 여러 날 일정은 시각 대신 기간 — "10월 3일 ~ 10월 5일"(D-C1). 하루짜리는 시각.
+                    val (time, end) = if (days.size > 1) {
+                        "${days.first().monthValue}/${days.first().dayOfMonth}~" to "${days.last().monthValue}월 ${days.last().dayOfMonth}일까지"
                     } else {
-                        null
+                        (IsoDateTimeParser.toDisplayTimeKorean(event.startIso, zoneId) ?: "종일") to
+                            event.endIso.takeIf { !IsoDateTimeParser.isDateOnly(it) && it != event.startIso }
+                                ?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zoneId) }?.let { "${it}까지" }
                     }
-                    TodayEventCard(event, sourceColor(event.source), timeLabel = label)
+                    ScheduleRow(
+                        timeLabel = time,
+                        title = event.title,
+                        sub = eventSubLine(end, event.source),
+                        icon = com.kosmos.app.R.drawable.ic_ph_calendar_blank,
+                        divider = index < events.lastIndex
+                    )
                 }
             }
         }
     }
 }
 
-/** 일정 출처별 점·띠 색 — 앱 일정은 brand, 기기 캘린더는 회색(사용자 결정 D2 의 출처 구분 — 보라는 DESIGN.md v3 에서 폐기). */
+/** 일정 출처별 점 색 — 앱 일정은 brand, 기기 캘린더는 회색(사용자 결정 D2 의 출처 구분 — 보라는 DESIGN.md v3 에서 폐기). */
 @Composable
 internal fun sourceColor(source: CalendarEvent.Source): Color = when (source) {
     CalendarEvent.Source.APP -> KosmosTheme.colors.brand

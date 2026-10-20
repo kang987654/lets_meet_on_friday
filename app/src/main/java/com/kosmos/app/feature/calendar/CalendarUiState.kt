@@ -20,8 +20,8 @@ sealed class CalendarUiState {
     data class Error(val error: AppError) : CalendarUiState()
 }
 
-/** 일정 화면 상단 탭 — 월 그리드 / 기존 목록(오늘·이번 주). 사용자 결정(0.28.0): 둘 다 두고 월이 기본. */
-enum class CalendarTab { MONTH, LIST }
+/** 일정 화면 상단 탭 — 오늘(기본, Things 3 의 오늘 화면 모티브) / 월 그리드. 0.38.3 M1 사용자 결정(목록 탭의 오늘·이번 주를 오늘 탭으로 흡수). */
+enum class CalendarTab { TODAY, MONTH }
 
 /** 월 탭의 조회 상태. 요약은 없다(사용자 결정 — 월 단위 AI 요약 불필요). */
 sealed class MonthUiState {
