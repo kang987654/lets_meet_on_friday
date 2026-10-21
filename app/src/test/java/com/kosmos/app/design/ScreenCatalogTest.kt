@@ -625,10 +625,21 @@ class ScreenCatalogTest {
                     actionLabel = "채팅으로 가기", onAction = {}
                 )
             }
+            // [WHY] 앱의 showUndo 와 같은 경로(SnackbarData → 기본 액션 색 inversePrimary)로 그린다 — 손으로 만든 TextButton 은 primary 색이라
+            // 다크 "되돌리기" 대비 결함을 장면이 보여 주지 못했다(0.38.3 M6).
             androidx.compose.material3.Snackbar(
-                modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(16.dp),
-                action = { androidx.compose.material3.TextButton({}) { androidx.compose.material3.Text("되돌리기") } }
-            ) { androidx.compose.material3.Text("메모를 지웠어요.") }
+                snackbarData = object : androidx.compose.material3.SnackbarData {
+                    override val visuals = object : androidx.compose.material3.SnackbarVisuals {
+                        override val message = "메모를 지웠어요."
+                        override val actionLabel: String? = "되돌리기"
+                        override val withDismissAction = false
+                        override val duration = androidx.compose.material3.SnackbarDuration.Short
+                    }
+                    override fun performAction() = Unit
+                    override fun dismiss() = Unit
+                },
+                modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(16.dp)
+            )
           }
         }
     }

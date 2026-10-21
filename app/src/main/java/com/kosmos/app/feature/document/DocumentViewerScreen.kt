@@ -255,9 +255,9 @@ private fun CellDetailDialog(text: String, onDismiss: () -> Unit) {
                     clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("셀 내용", text)))
                     onDismiss()
                 }
-            }) { Text("복사") }
+            }) { Text("복사", color = KosmosTheme.colors.brandText) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("닫기") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("닫기", color = KosmosTheme.colors.textSecondary) } },
         containerColor = KosmosTheme.colors.surface
     )
 }

@@ -69,7 +69,8 @@ fun CalendarScreen(
             options = listOf(CalendarTab.TODAY to "오늘", CalendarTab.MONTH to "월"),
             selected = tab,
             onSelect = viewModel::onTabSelected,
-            modifier = Modifier.padding(horizontal = 20.dp)
+            // [WHY] 화면 좌우 여백은 16 하나 — 20 이라 아래 묶음(16)과 끝선이 어긋났다(0.38.3 M6 점검 P1).
+            modifier = Modifier.padding(horizontal = 16.dp)
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -300,7 +301,7 @@ private fun DeviceCalendarNotice(
 ) {
     Column(
         modifier = Modifier
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 16.dp)
             .fillMaxWidth()
             .kosmosSurface(
                 backgroundColor = KosmosTheme.colors.warningText.copy(alpha = 0.15f),

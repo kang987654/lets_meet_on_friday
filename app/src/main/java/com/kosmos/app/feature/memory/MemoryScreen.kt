@@ -170,9 +170,11 @@ fun MemoryScreen(
             }
 
             // Lists
+            // [WHY] 목록 끝의 "할 일 추가" 입력이 키보드에 깔렸다 — edge-to-edge 라 창이 줄지 않는다(0.38.3 M6 점검 P1).
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    .imePadding()
                     .padding(horizontal = 16.dp),
                 // 마지막 카드가 화면 끝·제스처 바에 붙지 않게 두는 스크롤 여유(하단 내비 시절 값을 유지).
                 contentPadding = PaddingValues(bottom = 80.dp)
@@ -255,14 +257,10 @@ fun MemoryScreen(
                                     }
                                 )
                                 if (newTaskText.isNotBlank()) {
-                                    Text(
-                                        text = "추가",
-                                        color = KosmosTheme.colors.brandText,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        modifier = Modifier
-                                            .clickable { submitNewTask() }
-                                            .padding(start = 12.dp)
-                                    )
+                                    // [WHY] 글자에 clickable 만 붙이면 누르는 영역이 약 20dp 였다 — 글자 버튼(48dp, 0.38.3 M6 점검 P1).
+                                    TextButton(onClick = { submitNewTask() }) {
+                                        Text(text = "추가", color = KosmosTheme.colors.brandText, style = MaterialTheme.typography.labelLarge)
+                                    }
                                 }
                             }
                         }
@@ -277,7 +275,8 @@ fun MemoryScreen(
                                     .padding(top = 16.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable { showCompleted = !showCompleted }
-                                    .padding(horizontal = 8.dp, vertical = 12.dp),
+                                    // [WHY] "남은 할 일" 섹션 제목·묶음과 시작점을 맞춘다 — 8dp 더 들어가 있었다(0.38.3 M6 점검 P1).
+                                    .padding(vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(

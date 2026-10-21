@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,6 +55,9 @@ fun ModelManagementScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                // [WHY] 진행 카드 + 두 섹션 + URL 입력이 큰 글자·키보드에서 잘렸다(0.38.3 M6 점검 P1).
+                .imePadding()
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
             // [WHY] 수 GB 다운로드를 모달 다이얼로그로 가두면 사용자가 앱을 쓸 수 없다.
@@ -98,12 +102,7 @@ fun ModelManagementScreen(
                         onValueChange = { customUrl = it },
                         label = { Text("URL (.litertlm 파일)", color = KosmosTheme.colors.textMuted) },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = KosmosTheme.colors.brand,
-                            unfocusedBorderColor = KosmosTheme.colors.border,
-                            focusedTextColor = KosmosTheme.colors.textPrimary,
-                            unfocusedTextColor = KosmosTheme.colors.textPrimary
-                        ),
+                        colors = com.kosmos.app.ui.component.kosmosTextFieldColors(),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                     )
                     KosmosButton("이 URL로 내려받기", { startDownload(customUrl) }, Modifier.fillMaxWidth(), accent = true, enabled = customUrl.isNotBlank())

@@ -348,9 +348,14 @@ private fun SettingSwitchRow(label: String, checked: Boolean, divider: Boolean =
                 checked = checked,
                 onCheckedChange = onCheckedChange,
                 modifier = Modifier.padding(end = 12.dp),
+                // [WHY] 꺼짐은 손잡이·테두리를 textMuted 로(흰 묶음 위에서 비텍스트 대비 3:1), 켜짐 손잡이는 면 색(검은 손잡이가 너무 무거웠다) — 0.38.3 M6 점검 P1.
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = KosmosTheme.colors.onBrand,
-                    checkedTrackColor = KosmosTheme.colors.brand
+                    checkedThumbColor = KosmosTheme.colors.surface,
+                    checkedTrackColor = KosmosTheme.colors.brand,
+                    checkedBorderColor = KosmosTheme.colors.brand,
+                    uncheckedThumbColor = KosmosTheme.colors.textMuted,
+                    uncheckedTrackColor = KosmosTheme.colors.surface,
+                    uncheckedBorderColor = KosmosTheme.colors.textMuted
                 )
             )
         }

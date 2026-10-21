@@ -75,7 +75,9 @@ private fun schemeOf(colors: KosmosColors): ColorScheme {
         onPrimary = colors.onBrand,
         primaryContainer = colors.brandContainer,
         onPrimaryContainer = colors.textPrimary,
-        inversePrimary = colors.brandText,
+        // [WHY] 스낵바 액션(되돌리기)은 반전 면(inverseSurface) 위 글자다 — 같은 테마의 brandText 는 다크에서 밝은 면 위 밝은 하늘(약 2:1)이었다(0.38.3 M6 점검 P1).
+        // 반대 테마의 brandText 가 반전 면 위 대비를 갖는다.
+        inversePrimary = if (colors.isLight) DarkColors.brandText else LightColors.brandText,
         secondary = colors.brandText,
         onSecondary = colors.surface,
         secondaryContainer = colors.brandContainer,

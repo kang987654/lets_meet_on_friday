@@ -133,6 +133,7 @@ icons:
 - 단계는 위 7개뿐. 화면에서 `fontSize` 를 직접 쓰지 않는다. 숫자는 `number` 단계와 tabular 숫자.
   구현: `ui/theme/Type.kt` 가 7단계를 Material3 역할 15개에 모두 싣는다(표는 그 파일 KDoc) — 화면은 `MaterialTheme.typography.<역할>`.
   `BasicTextField` 는 기본 글자 스타일을 물려받지 않으니 `textStyle = MaterialTheme.typography.<역할>.copy(...)` 로 준다.
+- **한국어는 어절 단위로 줄바꿈** — 모든 단계가 `LineBreak.Paragraph` + `WordBreak.Phrase`, locale 한국어 고정(기기 언어가 영어여도). 안드로이드 13+ 에서만 동작하고 그 아래는 음절 단위(0.38.3 M6 — "있었/는데"처럼 낱말 중간에서 끊겼다).
 - 예외: 문서 뷰어 본문(`FlowView`·`SheetView` 의 셀)은 확대 배율을 곱하는 읽기용 글자라 직접 크기를 쓴다(글꼴은 단계와 같다).
 - 한자는 글꼴에 없어 시스템 글꼴로 섞여 보인다(알려진 한계).
 - 위젯(Glance)은 Compose 단계를 쓸 수 없어 시스템 글꼴 + 직접 크기(같은 수치를 따른다).
@@ -142,8 +143,12 @@ icons:
 
 ## Layout
 
-- 모바일 단일 컬럼, 좌우 여백 `md`(16). 묶음 사이 `lg`(24), 묶음 안 `xs`~`sm`.
+- 모바일 단일 컬럼, 좌우 여백 `md`(16) **하나** — 분할 버튼·안내 상자도 같은 끝선(0.38.3 M6, 일정 화면만 20 이었다). 바텀시트 안 좌우는 20(승인·알림·프로필·에피소드 시트 같은 값). 묶음 사이 `lg`(24), 묶음 안 `xs`~`sm`.
 - **목록은 카드 더미가 아니라 행** — 한 묶음(`surface` + `border` + `rounded.md`) 안에 행을 hairline 으로 나눈다. 행 높이는 내용 + 세로 12, 행 끝 동작은 48dp 아이콘 버튼.
+  구현: `ui/component/KosmosList.kt` — `KosmosListGroup`(묶음), `KosmosListRow`(앞 아이콘·제목·보조 줄 + `Tag`·끝 동작, 구분선은 들여씀), `SectionHeader`, `EmptyState`, `DeleteIconButton`, `showUndo`.
+  페이징 목록처럼 행이 따로 그려지면 `Modifier.groupItem(groupPosition(i, n))` 로 묶음 조각을 그린다.
+- **화면 문법(0.38.3)** — 섹션 제목(`SectionHeader`) → 묶음 → 묶음 아래 각주(`caption` textMuted, 경고면 같은 자리에 `warningText`). 설정·모델 관리·활동 기록·메모·할 일·문서 홈·드로어가 이 문법이다.
+  행의 보조 정보는 가운뎃점으로 잇지 않는다 — 날짜는 글자, 분류는 `Tag` 면, 나열은 쉼표.
 - **카드는 결과에만** — 알림·일정·기억처럼 "처리된 결과"가 카드다. 설정 섹션·메모 하나하나를 카드로 감싸지 않는다.
 - 제목 위 작은 라벨을 두지 않는다. 섹션이 필요하면 `subtitle` 단계 제목으로.
 
@@ -175,8 +180,11 @@ icons:
 - 아이콘 버튼: 48dp 영역, 아이콘 24, `contentDescription` 필수. 글자 기호(✕ › ▾ +)를 버튼으로 쓰지 않는다.
 
 **분할 버튼(탭 전환)** — `KosmosSegmentedControl`: `surfaceSunk` 트랙(안쪽 여백 4) 위에 선택 칸만 `surface` + `border`, `rounded.md`/`sm`, 글자 `button`(선택 칸 `brandText` 굵게). [WHY] M3 `SegmentedButton` 은 체크 아이콘·외곽선 칸 구분이 기본이라 이 모양을 내려면 덮어쓸 것이 더 많다(0.38.1 M5).
+문서 뷰어 시트 탭도 같은 모양 — 칸은 글자 너비, 시트가 많으면 가로 스크롤(0.38.3 M4).
 
-**입력** — `surface`(또는 `surfaceSunk`) + `border` + `rounded.md`, 높이 ≥48, 포커스는 `brand` 테두리 1.5. 예외: 채팅 입력바는 알약 모양(`rounded.full`), 입력란 안내가 상태를 말한다("답을 쓰는 중이에요…"·"듣고 있어요…" — 위험색 아님).
+**스위치** — 켜짐: `brand` 트랙 + `surface` 손잡이, 꺼짐: `surface` 트랙 + `textMuted` 테두리·손잡이(흰 묶음 위에서도 보이게, 0.38.3 M6). 행 전체를 눌러도 바뀐다.
+
+**입력** — `surface`(또는 `surfaceSunk`) + `border` + `rounded.md`, 높이 ≥48, 포커스 테두리·라벨·커서는 `brandText`(`kosmosTextFieldColors()` — 색을 안 넘기면 M3 primary = `brand` 라 라벨 대비가 약 2:1, 0.38.3 M6). 예외: 채팅 입력바는 알약 모양(`rounded.full`), 입력란 안내가 상태를 말한다("답을 쓰는 중이에요…"·"듣고 있어요…" — 위험색 아님).
 
 **말풍선** — 사용자: `brandContainer`→`brandContainerEnd` 같은 색 그라데이션(대각선) + 옅은 테두리 — 개성 자리(아래 "개성"), `rounded.lg`(보낸 쪽 아래 모서리 4). 비서 답은 **카드**(`surface` + `border`, 받은 쪽 아래 모서리 4) 안에 문장과 결과 행(`surfaceSunk`, 누르면 시트)을 담는다 — 0.38.2 M0 결정. 읽기 버튼과 칩은 카드 밖 아래.
 
@@ -191,8 +199,11 @@ icons:
 **첫 화면** — 대화 기록이 하나도 없을 때(처음 쓸 때·초기화 후 — 타임라인은 세션과 무관, ADR-022): 작은 별자리 + `title` 인사 + 한 줄 설명 + 눌러서 바로 보내는 예시 세 개(알림·일정·기억).
 
 **목록 행** — `body` 내용 + `label` 메타(textMuted) + 끝 동작(48dp 아이콘). 할 일 완료는 왼쪽 원형 체크(48dp)만(0.36.2).
+한 항목 삭제는 옅은 휴지통(`textMuted`) → 바로 삭제 → 스낵바 "되돌리기"(메모·할 일·프로필 항목·최근 문서 — 0.38.3 결정 2). 일괄 삭제·데이터 초기화·에피소드 요약 삭제는 확인 창.
 
-**스낵바** — 일시 안내·되돌리기. 결정이 필요한 것만 대화상자.
+**스낵바** — 일시 안내·되돌리기. 결정이 필요한 것만 대화상자. 액션 글자는 반전 면 위 글자라 **반대 테마의** `brandText`(`inversePrimary`, 0.38.3 M6 — 같은 테마 값은 다크에서 약 2:1).
+
+**일정 "오늘" 탭** — 일정 화면 첫 탭(기본). 묶음 하나에 오늘 일정·오늘 울릴 알림을 시간순(시각 칸 84dp, 보조 글자 색), 아래에 날짜·알림 없는 할 일 체크 원, 그 아래 "다가오는 일정"(내일~이번 주). 알림 줄 → 알림 수정 시트(0.38.3 M1). 위젯도 같은 순서(날짜 → 일정 시간순 → 할 일 수).
 
 **빈 화면·오류** — 아이콘(32, Light) + 한 줄 + 행동 버튼. 일러스트 없음.
 
@@ -206,7 +217,7 @@ icons:
 - **Phosphor** 한 세트(MIT). 다른 세트·이모지와 섞지 않는다(Material 아이콘 라이브러리는 0.38.1 M4 에서 의존성째 뺐다).
   구현: `res/drawable/ic_ph_<이름>.xml`(쓰는 것만, Iconify `ph` 세트에서 변환 — 이름은 Phosphor 이름의 `-` 를 `_` 로), 화면은 `ui/component/KosmosIcon`.
   상태바·빠른 설정 타일 아이콘(`ic_stat_*`, `ic_mic`)은 같은 모양을 흰색 단색으로. 고지 `app/src/main/assets/licenses/Phosphor-MIT.txt`.
-- 눌리는 아이콘은 `IconButton`(48dp) 안에 — 글자 기호(✕ ›)에 `clickable` 만 붙이지 않는다. 예외: 문서 뷰어 본문의 목록 기호(• ◦)는 문서 내용이다. 기억 정리 제안의 "→ 합친 내용"은 `MemoryCleanupScreenTest` 가 그 글자로 찾으므로 0.38.2 구조 작업까지 글자로 둔다.
+- 눌리는 아이콘은 `IconButton`(48dp) 안에 — 글자 기호(✕ ›)에 `clickable` 만 붙이지 않는다. 예외: 문서 뷰어 본문의 목록 기호(• ◦)는 문서 내용이다. 기억 정리 제안의 "→"는 0.38.3 M2 에서 `ic_ph_arrow_right` 로 바꿨다.
 - 크기: 글자 옆 20, 기본 24, 빈 화면 32.
 - 굵기: 기본 **Regular**, 선택된 탭·켜진 상태 **Fill**, 결과 카드 대표 아이콘(알림·일정·기억) **Duotone**(면은 `brandContainer` 계열이 되도록 확인). 빈 화면은 Light.
 - 색: `textPrimary` 기본, 강조 `brandText`, 위험 `dangerText`.
@@ -234,7 +245,7 @@ icons:
 ## Accessibility
 
 - 글자 대비 4.5:1(큰 글자 3:1) — 위 토큰을 쓰면 자동으로 지켜진다. 새 조합은 재서 넣는다.
-- 터치 영역 48×48dp, 사이 8dp.
+- 터치 영역 48×48dp, 사이 8dp. 보이는 크기를 작게 둬야 하는 캡슐·칩은 `minimumInteractiveComponentSize()` 로 누르는 영역만 키우고 `Role.Button` 을 붙인다(0.38.3 M6).
 - 눌리는 것은 버튼 역할(`Button`/`IconButton`/`Role.Button`)과 설명을 가진다. 글자에 `clickable` 만 붙이지 않는다.
 - 글자 크기는 sp — 시스템 글자 크기 1.3배에서 잘리지 않게(실기기 확인).
 - 색만으로 상태를 전하지 않는다.
@@ -251,14 +262,15 @@ icons:
 ## 유지
 
 - 이 문서가 UI 의 유일한 기준이다. 새 화면은 이를 따르고, 바꿀 때는 이 문서부터 고친다.
-- 회귀는 Roborazzi 기준 이미지로 잡는다 — `ScreenCatalogTest` 14장면 × 라이트·다크, 기준은 `app/src/test/screenshots/`(커밋).
+- 회귀는 Roborazzi 기준 이미지로 잡는다 — `ScreenCatalogTest` 31장면 × 라이트·다크(0.38.3 기준), 기준은 `app/src/test/screenshots/`(커밋).
   `./gradlew test` 가 비교하고(`gradle.properties` 의 `roborazzi.test.verify`) 다르면 실패, 차이 이미지는 `app/build/outputs/roborazzi/`(`_compare`·`_actual`).
   의도한 변경은 전후 비교를 사용자에게 보이고 확인받은 뒤 `./gradlew :app:recordRoborazziDebug` 로 다시 기록한다. 시각·시간대는 테스트가 고정한다(`LocalClock`).
 - 검색으로 지키는 지표: 테마 밖 하드코딩 색 0, 이모지·글자 기호 아이콘 0, 테마 밖 직접 `fontSize` 0.
 
 ## Known Gaps
 
-- 비서 답의 모양(맨 문장 / 카드)·칩·시트 — 0.38.2, 드로어·메모·설정·문서 홈·일정 "오늘" 등 나머지 화면 구조 — 0.38.3 에서 정해 이 문서에 반영
+- 0.38.3 M6 점검 P2·P3(계획서 M6 결과) — 남은 가운뎃점·줄표 문구, "토큰" 표기, 브리핑 카드 eyebrow, 버튼 어휘(스플래시·뷰어·모델 관리), 스크린리더 heading·liveRegion·토글 역할, "애니메이션 제거"에서 승인 카운트다운 — 0.38.4
+- 엑셀 셀 서식(배경색·글자색·굵기·정렬) 표시 — 별도 회차(0.38.3 M4 넘김)
 - 움직임 수치, 브랜드 마크 그림 — 0.38.4
 - 말투 상세 가이드 — 0.38.5
 - 보라 계열 등 추가 테마 — 추후 후보

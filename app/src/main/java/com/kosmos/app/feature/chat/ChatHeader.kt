@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.chat
 
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.res.painterResource
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
@@ -62,10 +63,7 @@ fun CustomChatHeader(
             .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(
-            onClick = onMenuClick,
-            modifier = Modifier.size(40.dp)
-        ) {
+        IconButton(onClick = onMenuClick) {
             androidx.compose.material3.Icon(
                 painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_list),
                 contentDescription = "메뉴",
@@ -105,8 +103,10 @@ fun CustomChatHeader(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
+                    // [WHY] 보이는 캡슐은 작게 두고 누르는 영역만 48dp(0.38.3 M6 점검 P1).
+                    .minimumInteractiveComponentSize()
                     .kosmosSurface(shape = RoundedCornerShape(99.dp))
-                    .clickable(onClick = onStatusClick)
+                    .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "기기 상태 보기", onClick = onStatusClick)
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             ) {
                 if (warning || deviceStatus.temperatureCelsius > 0f) {

@@ -479,7 +479,7 @@ fun ChatScreen(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(end = 16.dp, bottom = 16.dp)
-                        .size(40.dp)
+                        .size(48.dp)
                         .kosmosSurface(shape = androidx.compose.foundation.shape.CircleShape)
                 ) {
                     Icon(

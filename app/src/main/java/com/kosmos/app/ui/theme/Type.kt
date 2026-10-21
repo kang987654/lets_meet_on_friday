@@ -5,6 +5,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.intl.LocaleList
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.sp
 import com.kosmos.app.R
 
@@ -31,8 +33,14 @@ val HadaRound = FontFamily(
  * [WHY] 쓰지 않는 역할도 모두 채운다 — 비워 두면 M3 기본값(Roboto 크기표)이 남아 컴포넌트마다 크기가 제각각이 된다.
  */
 private fun typographyOf(family: FontFamily): Typography {
+    // [WHY] 한국어를 어절 단위로 줄바꿈한다 — 기본값은 음절 단위라 "있었/는데"처럼 낱말 중간에서 끊겼다(0.38.3 M6 점검 P1).
+    // 어절 줄바꿈은 안드로이드 13+ 이 한국어 locale 에서만 하므로 locale 을 한국어로 고정한다(기기 언어가 영어여도 앱 글은 한국어). 13 미만은 음절 단위 그대로.
     fun style(size: Int, line: Int, weight: FontWeight) =
-        TextStyle(fontFamily = family, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
+        TextStyle(
+            fontFamily = family, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp,
+            lineBreak = LineBreak.Paragraph.copy(wordBreak = LineBreak.WordBreak.Phrase),
+            localeList = LocaleList("ko-KR")
+        )
     val number = style(28, 32, FontWeight.Bold)
     val title = style(20, 28, FontWeight.Bold)
     val subtitle = style(17, 24, FontWeight.Medium)

@@ -1,6 +1,7 @@
 package com.kosmos.app.feature.episode
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -62,7 +63,13 @@ fun EpisodeSheet(
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         val current = (state as? EpisodeSheetState.Loaded)?.episode
-        Column(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+        // [WHY] 수정 폼(요약 여러 줄) + 키보드에서 [저장]이 잘렸다 — 스크롤(0.38.3 M6 점검 P1). 좌우 20 은 승인·알림 시트와 같은 값.
+        Column(
+            modifier = Modifier
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp)
+        ) {
             actionError?.let { message ->
                 Text(
                     text = message,
@@ -155,7 +162,7 @@ fun EpisodeSheet(
                 }) { Text("삭제", color = KosmosTheme.colors.dangerText) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("취소") }
+                TextButton(onClick = { confirmDelete = false }) { Text("취소", color = KosmosTheme.colors.textSecondary) }
             },
             containerColor = KosmosTheme.colors.surface,
             titleContentColor = KosmosTheme.colors.textPrimary,
@@ -175,9 +182,10 @@ private fun EditForm(
     var summary by remember { mutableStateOf(episode.summary.orEmpty()) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("제목") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = tags, onValueChange = { tags = it }, label = { Text("태그 (쉼표 구분)") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = summary, onValueChange = { summary = it }, label = { Text("요약") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+        val fieldColors = com.kosmos.app.ui.component.kosmosTextFieldColors()
+        OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("제목") }, modifier = Modifier.fillMaxWidth(), colors = fieldColors)
+        OutlinedTextField(value = tags, onValueChange = { tags = it }, label = { Text("태그 (쉼표 구분)") }, modifier = Modifier.fillMaxWidth(), colors = fieldColors)
+        OutlinedTextField(value = summary, onValueChange = { summary = it }, label = { Text("요약") }, modifier = Modifier.fillMaxWidth(), minLines = 3, colors = fieldColors)
         Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             KosmosButton("취소", onCancel, Modifier.weight(1f))
             KosmosButton("저장", { onSave(title, tags, summary) }, Modifier.weight(1f), accent = true)

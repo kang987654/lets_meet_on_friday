@@ -1,6 +1,7 @@
 package com.kosmos.app.feature.profile
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -65,9 +66,11 @@ fun ProfileSheet(
         containerColor = colors.surface,
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
+        // [WHY] 시트 내용이 길면(항목 + 입력 2개 + 키보드) [저장]이 화면 밖으로 잘렸다 — 스크롤(0.38.3 M6 점검 P1). 좌우 20 은 승인·알림 시트와 같은 값.
         Column(
             modifier = Modifier
-                .padding(horizontal = 24.dp)
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                .padding(horizontal = 20.dp)
                 .padding(bottom = 32.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -125,6 +128,7 @@ fun ProfileSheet(
                     onValueChange = { keyInput = it },
                     label = { Text("항목 (예: 이름)") },
                     singleLine = true,
+                    colors = com.kosmos.app.ui.component.kosmosTextFieldColors(),
                     modifier = Modifier.width(140.dp)
                 )
                 OutlinedTextField(
@@ -132,6 +136,7 @@ fun ProfileSheet(
                     onValueChange = { valueInput = it },
                     label = { Text("내용") },
                     singleLine = true,
+                    colors = com.kosmos.app.ui.component.kosmosTextFieldColors(),
                     modifier = Modifier.weight(1f)
                 )
             }

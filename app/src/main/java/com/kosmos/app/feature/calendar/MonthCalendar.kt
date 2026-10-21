@@ -108,14 +108,10 @@ fun MonthCalendarTab(
                 modifier = Modifier.weight(1f)
             )
             if (visibleMonth != YearMonth.from(today)) {
-                Text(
-                    text = "오늘",
-                    color = KosmosTheme.colors.brandText,
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier
-                        .clickable { viewModel.selectMonthDate(today) }
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
-                )
+                // [WHY] 글자 clickable 은 누르는 영역이 약 32dp 였다 — 글자 버튼(0.38.3 M6 점검 P1).
+                androidx.compose.material3.TextButton(onClick = { viewModel.selectMonthDate(today) }) {
+                    Text(text = "오늘", color = KosmosTheme.colors.brandText, style = MaterialTheme.typography.labelLarge)
+                }
             }
             IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } }) {
                 Icon(painterResource(id = com.kosmos.app.R.drawable.ic_ph_caret_right), contentDescription = "다음 달", tint = KosmosTheme.colors.textSecondary)
@@ -246,7 +242,7 @@ private fun DayCell(
 
 @Composable
 private fun SelectedDayEvents(date: LocalDate, events: List<CalendarEvent>, zoneId: ZoneId) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Text(
             text = IsoDateTimeParser.longDateKorean(date.atStartOfDay(zoneId).toInstant().toEpochMilli(), zoneId),
             color = KosmosTheme.colors.textPrimary,

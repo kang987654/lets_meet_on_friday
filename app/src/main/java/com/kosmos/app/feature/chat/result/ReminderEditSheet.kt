@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.chat.result
 
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,10 +62,12 @@ fun ReminderEditSheet(
         shape = KosmosShapes.sheet,
         containerColor = colors.surface
     ) {
+        // [WHY] 가로 화면·큰 글자에서 [승인]/[미루기]가 화면 밖으로 잘렸다 — 승인은 시간이 지나면 자동 취소라 누를 수 없게 됐다(0.38.3 M6 점검 P1).
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {

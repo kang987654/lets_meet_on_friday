@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.chat
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.res.painterResource
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
@@ -177,7 +179,8 @@ fun ChatBubbleAssistant(
                             backgroundColor = KosmosTheme.colors.surfaceSunk,
                             shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 0.dp, bottomEnd = 0.dp)
                         )
-                        .clickable { isThinkingExpanded = !isThinkingExpanded }
+                        .clickable(role = androidx.compose.ui.semantics.Role.Button) { isThinkingExpanded = !isThinkingExpanded }
+                        .heightIn(min = 48.dp)
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -246,7 +249,8 @@ fun ChatBubbleAssistant(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable(onClickLabel = "대화 열기", onClick = onRecallChipClick)
+                                        .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "대화 열기", onClick = onRecallChipClick)
+                                        .heightIn(min = 48.dp)
                                         .padding(vertical = 2.dp)
                                 ) {
                                     com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_chat_text, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText, modifier = Modifier.padding(end = 8.dp))
@@ -287,8 +291,9 @@ fun ChatBubbleAssistant(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .padding(start = 14.dp, top = 4.dp)
+                        .minimumInteractiveComponentSize()
                         .kosmosSurface(shape = RoundedCornerShape(99.dp))
-                        .clickable(onClick = onRecallChipClick)
+                        .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onRecallChipClick)
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_clock_counter_clockwise, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 4.dp))
@@ -301,7 +306,8 @@ fun ChatBubbleAssistant(
             }
 
             if (onToggleSpeak != null) {
-                IconButton(onClick = onToggleSpeak, modifier = Modifier.size(36.dp)) {
+                // [WHY] 답마다 붙는 버튼이라 48dp 누르는 영역(0.38.3 M6 점검 P1) — 아이콘 크기는 그대로.
+                IconButton(onClick = onToggleSpeak) {
                     Icon(
                         painter = painterResource(id = if (isSpeaking) com.kosmos.app.R.drawable.ic_ph_stop_fill else com.kosmos.app.R.drawable.ic_ph_speaker_high),
                         contentDescription = if (isSpeaking) "읽기 멈추기" else "답변 읽기",
