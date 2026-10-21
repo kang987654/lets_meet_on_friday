@@ -32,6 +32,7 @@ object Motion {
     /** 화면 전환·결과 등장. */
     const val MEDIUM_MS = 250
 
+    fun <T> press(): FiniteAnimationSpec<T> = tween(PRESS_MS, easing = EaseOut)
     fun <T> short(): FiniteAnimationSpec<T> = tween(SHORT_MS, easing = EaseOut)
     fun <T> medium(): FiniteAnimationSpec<T> = tween(MEDIUM_MS, easing = EaseOut)
 
@@ -49,13 +50,13 @@ object Motion {
             slideInHorizontally(tween(MEDIUM_MS, easing = EaseOut)) { shift } + fadeIn(tween(MEDIUM_MS, easing = EaseOut))
 
         fun exit(): ExitTransition = if (reduced) ExitTransition.None else
-            slideOutHorizontally(tween(MEDIUM_MS, easing = EaseOut)) { -shift } + fadeOut(tween(SHORT_MS))
+            slideOutHorizontally(tween(MEDIUM_MS, easing = EaseOut)) { -shift } + fadeOut(tween(SHORT_MS, easing = EaseOut))
 
         fun popEnter(): EnterTransition = if (reduced) EnterTransition.None else
             slideInHorizontally(tween(MEDIUM_MS, easing = EaseOut)) { -shift } + fadeIn(tween(MEDIUM_MS, easing = EaseOut))
 
         fun popExit(): ExitTransition = if (reduced) ExitTransition.None else
-            slideOutHorizontally(tween(MEDIUM_MS, easing = EaseOut)) { shift } + fadeOut(tween(SHORT_MS))
+            slideOutHorizontally(tween(MEDIUM_MS, easing = EaseOut)) { shift } + fadeOut(tween(SHORT_MS, easing = EaseOut))
     }
 }
 

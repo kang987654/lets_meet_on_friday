@@ -23,7 +23,7 @@ import com.kosmos.app.ui.theme.Motion
 fun Modifier.pressScale(source: InteractionSource): Modifier {
     val reduced = rememberReducedMotion()
     val pressed by source.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed && !reduced) 0.97f else 1f, Motion.short(), label = "pressScale")
+    val scale by animateFloatAsState(if (pressed && !reduced) 0.97f else 1f, Motion.press(), label = "pressScale")
     return graphicsLayer { scaleX = scale; scaleY = scale }
 }
 

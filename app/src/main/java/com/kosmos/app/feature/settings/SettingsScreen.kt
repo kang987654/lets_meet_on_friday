@@ -55,7 +55,7 @@ fun SettingsScreen(
             Section("AI 모델") { ModelStatus(uiState.modelLoadState, onNavigateToModelManagement, viewModel::refreshModelState) }
 
             // [WHY] 고르는 값은 세그먼트로 바로 바꾼다(시안 A, 사용자 선택) — 값 행 + 시트는 한 번 더 눌러야 하고 글자 크기 미리보기가 시트로 숨는다.
-            Section("화면") {
+            Section("화면", footnote = "시작 화면은 다음에 앱을 열 때부터 바뀌어요.") {
                 Column(Modifier.padding(16.dp)) {
                     ControlLabel("테마")
                     com.kosmos.app.ui.component.KosmosSegmentedControl(
