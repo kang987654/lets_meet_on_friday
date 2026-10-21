@@ -58,6 +58,17 @@ class ThemeViewModel @Inject constructor(
         .map { ChatTextSize.fromKey(it) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, ChatTextSize.DEFAULT)
 
+    /** 저장값을 읽기 전에는 null — 스플래시가 기본 장면을 한 번 그렸다가 바꾸지 않게. */
+    val splashStyle: StateFlow<SplashStyle?> = settingsDataStore.splashStyleFlow
+        .map<String, SplashStyle?> { SplashStyle.fromKey(it) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun setSplashStyle(style: SplashStyle) {
+        viewModelScope.launch {
+            settingsDataStore.saveSplashStyle(style.key)
+        }
+    }
+
     fun setChatTextSize(size: ChatTextSize) {
         viewModelScope.launch {
             settingsDataStore.saveChatTextSize(size.key)

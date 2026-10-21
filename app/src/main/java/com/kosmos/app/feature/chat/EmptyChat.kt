@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.chat
 
+import com.kosmos.app.feature.splash.splashAnchor
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -34,7 +35,7 @@ import com.kosmos.app.ui.theme.KosmosTheme
 fun EmptyChat(onStarter: (String) -> Unit, modifier: Modifier = Modifier) {
     val colors = KosmosTheme.colors
     Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp).splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.EMPTY),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

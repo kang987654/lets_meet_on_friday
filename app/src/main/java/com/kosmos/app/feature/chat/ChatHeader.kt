@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kosmos.app.ui.component.kosmosSurface
+import com.kosmos.app.feature.splash.splashAnchor
 
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 // [WHY] ChatScreen.kt(1,200여 줄, 12개 컴포저블 동거)를 응집 단위로 분리했다
@@ -82,6 +83,7 @@ fun CustomChatHeader(
             letterSpacing = 1.sp,
             color = KosmosTheme.colors.textPrimary,
             modifier = Modifier.padding(start = 4.dp, end = 8.dp)
+                .splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.TITLE)
         )
 
         // 엔진 상태 별 — Ready=brand / 로딩 계열=muted / 오류·발열 경고=danger·warning. 응답 대기의 반짝이는 별과 같은 모양(0.38.2 M7b).
@@ -93,7 +95,12 @@ fun CustomChatHeader(
             else -> KosmosTheme.colors.textMuted
         }
         // [WHY] 별 색만으로 엔진 상태를 전했다 — 화면 읽기에도 말한다(DESIGN "색만으로 상태를 전하지 않는다", 0.38.3 점검 P2).
-        com.kosmos.app.ui.component.StarGlyph(dotColor, Modifier.size(12.dp).semantics { contentDescription = engineStateDescription(engineState) })
+        // 시작 화면 전환에서 우리 별이 이 자리에 앉는다(0.38.4 M6).
+        com.kosmos.app.ui.component.StarGlyph(
+            dotColor,
+            Modifier.size(12.dp).splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.HEADER_STAR)
+                .semantics { contentDescription = engineStateDescription(engineState) }
+        )
 
         Spacer(modifier = Modifier.weight(1f))
 

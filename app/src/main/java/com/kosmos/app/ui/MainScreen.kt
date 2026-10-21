@@ -15,6 +15,16 @@ import com.kosmos.app.feature.drawer.AppDrawerContent
 import com.kosmos.app.navigation.AppDestination
 import com.kosmos.app.navigation.AppNavHost
 import com.kosmos.app.ui.theme.KosmosTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
+import com.kosmos.app.feature.splash.LocalSplashHandoff
+import com.kosmos.app.feature.splash.SplashHandoff
+import com.kosmos.app.feature.splash.SplashOverlay
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.isSpecified
 import kotlinx.coroutines.launch
 
 /**
@@ -28,7 +38,10 @@ import kotlinx.coroutines.launch
  * compose 하므로 드로어를 화면 안에 넣으면 테스트마다 딸려온다.
  */
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    // 설정의 시작 화면 장면 — 저장값을 읽기 전에는 null.
+    splashStyle: com.kosmos.app.ui.theme.SplashStyle? = com.kosmos.app.ui.theme.SplashStyle.PLANET
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -52,35 +65,57 @@ fun MainScreen() {
         navController.navigate(route) { launchSingleTop = true }
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        // [WHY] 엣지 스와이프는 채팅(루트)에서만 — 푸시된 화면(캘린더 등)에서 스와이프로
-        // 드로어가 열리면 뒤로가기 제스처와 충돌한다.
-        gesturesEnabled = currentRoute == AppDestination.Chat.route,
-        drawerContent = {
-            ModalDrawerSheet(
-                drawerContainerColor = KosmosTheme.colors.surface,
-                drawerContentColor = KosmosTheme.colors.textPrimary
-            ) {
-                AppDrawerContent(
-                    onNavigateToCalendar = { navigateFromDrawer(AppDestination.Calendar.route) },
-                    onNavigateToAudit = { navigateFromDrawer(AppDestination.Audit.route) },
-                    onNavigateToSettings = { navigateFromDrawer(AppDestination.Settings.route) },
-                    onNavigateToMemory = { navigateFromDrawer(AppDestination.Memory.route) },
-                    onNavigateToDocuments = { navigateFromDrawer(AppDestination.Documents.route) },
-                    onJumpToTimeline = { startAt ->
-                        pendingJumpTimestamp = startAt
-                        scope.launch { drawerState.close() }
+    // [WHY] 스플래시에서 채팅으로 넘어갈 때 장면을 채팅 위로 이어 그린다(0.38.4 M6) — 셸 층이라 내비게이션 전환과 무관하게 한 장면으로 이어진다.
+    val splashHandoff = remember { SplashHandoff() }
+
+    CompositionLocalProvider(LocalSplashHandoff provides splashHandoff) {
+        Box {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                // [WHY] 엣지 스와이프는 채팅(루트)에서만 — 푸시된 화면(캘린더 등)에서 스와이프로
+                // 드로어가 열리면 뒤로가기 제스처와 충돌한다.
+                gesturesEnabled = currentRoute == AppDestination.Chat.route,
+                drawerContent = {
+                    ModalDrawerSheet(
+                        drawerContainerColor = KosmosTheme.colors.surface,
+                        drawerContentColor = KosmosTheme.colors.textPrimary
+                    ) {
+                        AppDrawerContent(
+                            onNavigateToCalendar = { navigateFromDrawer(AppDestination.Calendar.route) },
+                            onNavigateToAudit = { navigateFromDrawer(AppDestination.Audit.route) },
+                            onNavigateToSettings = { navigateFromDrawer(AppDestination.Settings.route) },
+                            onNavigateToMemory = { navigateFromDrawer(AppDestination.Memory.route) },
+                            onNavigateToDocuments = { navigateFromDrawer(AppDestination.Documents.route) },
+                            onJumpToTimeline = { startAt ->
+                                pendingJumpTimestamp = startAt
+                                scope.launch { drawerState.close() }
+                            }
+                        )
                     }
-                )
+                }
+            ) {
+                // 은하 전환은 채팅을 별 자리 기준으로 줌인한다 — 그리기 단계에서만 읽어 재구성이 없다.
+                Box(
+                    Modifier.graphicsLayer {
+                        val s = splashHandoff.chatScale
+                        scaleX = s
+                        scaleY = s
+                        val o = splashHandoff.chatOrigin
+                        if (o.isSpecified && size.width > 0f && size.height > 0f) {
+                            transformOrigin = TransformOrigin(o.x / size.width, o.y / size.height)
+                        }
+                    }
+                ) {
+                    AppNavHost(
+                        navController = navController,
+                        splashStyle = splashStyle,
+                        onOpenDrawer = { scope.launch { drawerState.open() } },
+                        jumpToTimestamp = pendingJumpTimestamp,
+                        onJumpConsumed = { pendingJumpTimestamp = null }
+                    )
+                }
             }
+            SplashOverlay(splashHandoff)
         }
-    ) {
-        AppNavHost(
-            navController = navController,
-            onOpenDrawer = { scope.launch { drawerState.open() } },
-            jumpToTimestamp = pendingJumpTimestamp,
-            onJumpConsumed = { pendingJumpTimestamp = null }
-        )
     }
 }

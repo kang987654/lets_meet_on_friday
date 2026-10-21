@@ -70,14 +70,16 @@ private val PHASES = listOf(0f, 1f / 3, 2f / 3)
 
 /** 네 갈래 별 — 꼭짓점 넷을 안으로 휜 곡선으로 잇는다. */
 internal fun DrawScope.sparkle(o: Offset, r: Float, color: Color) {
-    val w = r * 0.11f
-    val path = Path().apply {
-        moveTo(o.x, o.y - r)
-        quadraticTo(o.x + w, o.y - w, o.x + r, o.y)
-        quadraticTo(o.x + w, o.y + w, o.x, o.y + r)
-        quadraticTo(o.x - w, o.y + w, o.x - r, o.y)
-        quadraticTo(o.x - w, o.y - w, o.x, o.y - r)
-        close()
-    }
-    drawPath(path, color)
+    drawPath(sparklePath(o, r), color)
+}
+
+/** 네 갈래 별 윤곽. [waist] 는 반지름에 대한 허리 굵기 — 기본 0.11 이 별 아이콘, 키우면 둥글어진다. */
+internal fun sparklePath(o: Offset, r: Float, waist: Float = 0.11f): Path = Path().apply {
+    val w = r * waist
+    moveTo(o.x, o.y - r)
+    quadraticTo(o.x + w, o.y - w, o.x + r, o.y)
+    quadraticTo(o.x + w, o.y + w, o.x, o.y + r)
+    quadraticTo(o.x - w, o.y + w, o.x - r, o.y)
+    quadraticTo(o.x - w, o.y - w, o.x, o.y - r)
+    close()
 }

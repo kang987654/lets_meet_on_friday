@@ -63,6 +63,19 @@ enum class FontMode(val key: String, val label: String) {
 }
 
 /**
+ * [SplashStyle]
+ * 설정에서 고르는 시작 화면 장면(0.38.4 M6, 사용자 결정 — 두 안 모두 확정, 기본 행성).
+ */
+enum class SplashStyle(val key: String, val label: String) {
+    PLANET("PLANET", "행성"),
+    GALAXY("GALAXY", "은하");
+
+    companion object {
+        fun fromKey(key: String?): SplashStyle = entries.firstOrNull { it.key == key } ?: PLANET
+    }
+}
+
+/**
  * Material3 컴포넌트가 읽는 색 역할을 [KosmosColors] 로만 채운다.
  *
  * [WHY] 비워 둔 역할(surfaceContainer* 등)은 M3 기본 보라 계열로 채워져 시트·메뉴·대화상자가 앱 팔레트와 어긋났다.

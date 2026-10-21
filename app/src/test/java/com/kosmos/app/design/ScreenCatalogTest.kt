@@ -710,13 +710,26 @@ class ScreenCatalogTest {
         }
     }
 
+    private fun splashViewModel() = com.kosmos.app.feature.splash.SplashViewModel(
+        object : ModelRunner by modelRunner {
+            override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(ModelLoadState.InitializingEngine)
+        }
+    )
+
+    // 장면은 다 모이고 별까지 나온 시각에 멈춰 찍는다.
     @Test fun splash() {
-        val vm = com.kosmos.app.feature.splash.SplashViewModel(
-            object : ModelRunner by modelRunner {
-                override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(ModelLoadState.InitializingEngine)
-            }
-        )
-        shoot("14-splash") { com.kosmos.app.feature.splash.SplashScreen(viewModel = vm, onInitializationComplete = {}) }
+        val vm = splashViewModel()
+        shoot("14-splash") { com.kosmos.app.feature.splash.SplashScreen(viewModel = vm, onInitializationComplete = {}, previewTimeMs = 3000L) }
+    }
+
+    @Test fun splashGalaxy() {
+        val vm = splashViewModel()
+        shoot("34-splash-galaxy") {
+            com.kosmos.app.feature.splash.SplashScreen(
+                viewModel = vm, onInitializationComplete = {},
+                splashStyle = com.kosmos.app.ui.theme.SplashStyle.GALAXY, previewTimeMs = 3000L
+            )
+        }
     }
 
     private companion object {

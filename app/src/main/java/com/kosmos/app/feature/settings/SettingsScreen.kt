@@ -40,6 +40,7 @@ fun SettingsScreen(
     val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
     val fontMode by themeViewModel.fontMode.collectAsStateWithLifecycle()
     val chatTextSize by themeViewModel.chatTextSize.collectAsStateWithLifecycle()
+    val splashStyle by themeViewModel.splashStyle.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -82,6 +83,13 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.scaled(chatTextSize.scale).bodyLarge,
                         color = KosmosTheme.colors.textPrimary,
                         modifier = Modifier.padding(top = 12.dp)
+                    )
+                    // [WHY] 두 장면을 모두 확정했다(0.38.4 M6 사용자 결정) — 다음에 앱을 열 때부터 바뀐다.
+                    ControlLabel("시작 화면", top = 16.dp)
+                    com.kosmos.app.ui.component.KosmosSegmentedControl(
+                        options = com.kosmos.app.ui.theme.SplashStyle.entries.map { it to it.label },
+                        selected = splashStyle ?: com.kosmos.app.ui.theme.SplashStyle.PLANET,
+                        onSelect = themeViewModel::setSplashStyle
                     )
                 }
             }

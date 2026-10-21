@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.chat
 
+import com.kosmos.app.feature.splash.splashAnchor
 import com.kosmos.app.ui.component.appearOnce
 import com.kosmos.app.ui.component.pressScale
 import androidx.compose.foundation.layout.heightIn
@@ -93,6 +94,7 @@ fun ChatBubbleUser(
         Box(
             modifier = Modifier
                 .widthIn(max = 280.dp)
+                .splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.BUBBLE)
                 .combinedClickable(onClick = { if (attachedBody != null) expanded = !expanded }, onLongClick = onLongPress)
                 .background(
                     brush = androidx.compose.ui.graphics.Brush.linearGradient(
@@ -224,6 +226,7 @@ fun ChatBubbleAssistant(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.BUBBLE)
                     .kosmosSurface(shape = shape)
                     .combinedClickable(onClick = {}, onLongClick = onLongPress)
                     .padding(horizontal = 14.dp, vertical = 12.dp),

@@ -19,7 +19,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.kosmos.app.domain.modelrunner.ModelLoadState
-import com.kosmos.app.ui.component.OrbPulse
+import com.kosmos.app.ui.theme.SplashStyle
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 
 @Composable
 fun SplashScreen(
@@ -28,12 +32,41 @@ fun SplashScreen(
     // [WHY] AC8 은 "모델 파일 없음 → 설정 화면 이동" 을 요구하는데, 안내 문구는 "설정 > 모델
     // 관리에서 내려받아 주세요" 라고 말하면서 이동 수단은 Retry 버튼뿐이었다 — 하단 탭 우회로가
     // 있어 갇히지는 않지만 안내와 동선이 어긋났다(MVP 감사 ac5-8).
-    onNavigateToModelManagement: () -> Unit = {}
+    onNavigateToModelManagement: () -> Unit = {},
+    // 설정의 시작 화면 장면 — null 이면 저장값을 아직 읽지 못한 것이라 장면을 그리지 않고 기다린다(기본 장면이 한 번 비치지 않게).
+    splashStyle: SplashStyle? = SplashStyle.PLANET,
+    // 장면을 이 시각(ms)에 멈춰 그린다 — 카탈로그 캡처용. null 이면 움직인다.
+    previewTimeMs: Long? = null
 ) {
     val loadState by viewModel.loadState.collectAsStateWithLifecycle()
+    val handoff = LocalSplashHandoff.current
+    val reduced = com.kosmos.app.ui.component.rememberReducedMotion()
+    // [WHY] 앱을 열 때 이미 Ready(잠깐 나갔다 온 경우)면 장면 없이 바로 채팅(사용자 결정) — 매번 2초 넘게 기다리지 않게.
+    val readyAtStart = remember { viewModel.loadState.value is ModelLoadState.Ready }
+    val loading = loadState !is ModelLoadState.Error && loadState !is ModelLoadState.NotFound
+    val animate = previewTimeMs == null && !reduced && splashStyle != null
+    var sceneStart by remember { mutableLongStateOf(-1L) }
+    var frame by remember { mutableLongStateOf(-1L) }
+    // Ready 순간에는 안내 문구가 비므로 마지막 문구를 덮개에 넘긴다(그리기용 기억이라 상태로 두지 않는다).
+    val last = remember { LastStatus() }
+
+    // [WHY] 장면은 엔진을 기다리는 동안만 돈다(DESIGN Motion) — 위치는 프레임 수가 아니라 흐른 시간으로 정해 GPU 로딩 중 프레임이 밀려도 속도가 같다.
+    LaunchedEffect(animate, loading) {
+        if (!animate || !loading) return@LaunchedEffect
+        while (true) {
+            withFrameMillis {
+                if (sceneStart < 0) sceneStart = it
+                frame = it
+            }
+        }
+    }
 
     LaunchedEffect(loadState) {
         if (loadState is ModelLoadState.Ready) {
+            val style = splashStyle
+            if (handoff != null && animate && style != null && !readyAtStart && sceneStart >= 0) {
+                handoff.begin(SplashExit(style, sceneStart, frame - sceneStart, last.text))
+            }
             onInitializationComplete()
         }
     }
@@ -68,42 +101,24 @@ fun SplashScreen(
                 com.kosmos.app.ui.component.KosmosButton("다시 시도", { viewModel.retry() }, Modifier.fillMaxWidth())
             }
         } else {
-            // [WHY] 오브만 있으면 어두운 배경에서 "빈 화면"으로 오인된다(2026-08-15 실기기 문의).
-            // 워드마크와 지금 무엇을 하는 중인지를 함께 보여 살아 있음을 드러낸다 — 엔진
-            // 재초기화는 실측 9~12초라(0.16.2) 그 시간 동안의 침묵이 가장 큰 불안 요소다.
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                OrbPulse()
-                Spacer(modifier = Modifier.height(40.dp))
-                Text(
-                    text = "KOSMOS",
-                    style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    letterSpacing = androidx.compose.ui.unit.TextUnit(
-                        6f, androidx.compose.ui.unit.TextUnitType.Sp
-                    ),
-                    color = KosmosTheme.colors.textPrimary
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "기기 안에서만 생각하는 AI 비서",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                    color = KosmosTheme.colors.textMuted
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                val statusText = when (loadState) {
-                    is ModelLoadState.Loading -> "모델 상태를 확인하고 있어요…"
-                    is ModelLoadState.FileFound -> "모델 파일을 찾았어요. 엔진을 준비하고 있어요…"
-                    is ModelLoadState.InitializingEngine -> "AI 엔진을 깨우는 중이에요 (10초 정도)…"
-                    else -> ""
-                }
-                if (statusText.isNotEmpty()) {
-                    Text(
-                        text = statusText,
-                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                        color = KosmosTheme.colors.textSecondary
-                    )
-                }
+            // [WHY] 장면만 있으면 "빈 화면"으로 오인된다(2026-08-15 실기기 문의) — 워드마크와 지금 무엇을 하는 중인지를 함께 보여
+            // 살아 있음을 드러낸다. 엔진 재초기화는 실측 9~12초라(0.16.2) 그 시간 동안의 침묵이 가장 큰 불안 요소다.
+            val statusText = when (loadState) {
+                is ModelLoadState.Loading -> "모델 상태를 확인하고 있어요…"
+                is ModelLoadState.FileFound -> "모델 파일을 찾았어요. 엔진을 준비하고 있어요…"
+                is ModelLoadState.InitializingEngine -> "AI 엔진을 깨우는 중이에요 (10초 정도)…"
+                else -> ""
             }
+            if (statusText.isNotEmpty()) last.text = statusText
+            SplashStage(
+                style = splashStyle,
+                time = { previewTimeMs ?: if (!animate) STATIC_SCENE_MS else if (sceneStart < 0) 0L else frame - sceneStart },
+                status = statusText.ifEmpty { last.text }
+            )
         }
     }
+}
+
+private class LastStatus {
+    var text: String = ""
 }

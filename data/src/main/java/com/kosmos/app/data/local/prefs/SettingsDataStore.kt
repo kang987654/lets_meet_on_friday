@@ -24,6 +24,7 @@ class SettingsDataStore @Inject constructor(
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         private val FONT_MODE_KEY = stringPreferencesKey("font_mode")
         private val CHAT_TEXT_SIZE_KEY = stringPreferencesKey("chat_text_size")
+        private val SPLASH_STYLE_KEY = stringPreferencesKey("splash_style")
         private val BRIEFING_ENABLED_KEY = booleanPreferencesKey("briefing_enabled")
         private val BRIEFING_TIME_MINUTES_KEY = intPreferencesKey("briefing_time_minutes")
         private val AUTO_EXTRACT_ENABLED_KEY = booleanPreferencesKey("auto_extract_enabled")
@@ -125,6 +126,17 @@ class SettingsDataStore @Inject constructor(
     suspend fun saveChatTextSize(size: String) {
         dataStore.edit { prefs ->
             prefs[CHAT_TEXT_SIZE_KEY] = size
+        }
+    }
+
+    /** 시작 화면 장면(행성·은하, 0.38.4 M6). */
+    val splashStyleFlow: Flow<String> = dataStore.data.map {
+        it[SPLASH_STYLE_KEY] ?: "PLANET"
+    }
+
+    suspend fun saveSplashStyle(style: String) {
+        dataStore.edit { prefs ->
+            prefs[SPLASH_STYLE_KEY] = style
         }
     }
 

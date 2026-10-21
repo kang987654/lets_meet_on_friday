@@ -17,6 +17,8 @@ fun AppNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
     startDestination: String = AppDestination.Splash.route,
+    /** 설정의 시작 화면 장면 — 저장값을 읽기 전에는 null. */
+    splashStyle: com.kosmos.app.ui.theme.SplashStyle? = com.kosmos.app.ui.theme.SplashStyle.PLANET,
     /** 셸(MainScreen)의 드로어 열기 — 채팅 헤더 ☰ 이 부른다 (시안 A′). */
     onOpenDrawer: () -> Unit = {},
     /** 드로어 에피소드 시트의 "원문 대화 보기" 요청 시각 — ChatScreen 이 소비한다 (M2-5). */
@@ -43,13 +45,15 @@ fun AppNavHost(
         navController = navController,
         startDestination = startDestination,
         modifier = modifier,
-        enterTransition = { nav.enter() },
-        exitTransition = { nav.exit() },
+        // [WHY] 스플래시 → 채팅은 내비게이션 전환 없이 바로 바꾼다 — 셸의 덮개(SplashOverlay)가 장면을 이어 그리며 채팅을 드러낸다.
+        enterTransition = { if (initialState.destination.route == AppDestination.Splash.route) androidx.compose.animation.EnterTransition.None else nav.enter() },
+        exitTransition = { if (initialState.destination.route == AppDestination.Splash.route) androidx.compose.animation.ExitTransition.None else nav.exit() },
         popEnterTransition = { nav.popEnter() },
         popExitTransition = { nav.popExit() }
     ) {
         composable(route = AppDestination.Splash.route) {
             com.kosmos.app.feature.splash.SplashScreen(
+                splashStyle = splashStyle,
                 onInitializationComplete = {
                     navController.navigate(AppDestination.Chat.route) {
                         popUpTo(AppDestination.Splash.route) { inclusive = true }

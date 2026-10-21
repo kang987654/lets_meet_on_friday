@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.chat
 
+import com.kosmos.app.feature.splash.splashAnchor
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -87,6 +88,7 @@ fun ChatInputBar(
             // E2E 계약(셀렉터·단독 compose)에 영향 없다.
             .navigationBarsPadding()
             .imePadding()
+            .splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.INPUT_BAR)
     ) {
         when (sharedInput) {
             is com.kosmos.app.platform.share.SharedInput.Image -> AttachmentPreview(
