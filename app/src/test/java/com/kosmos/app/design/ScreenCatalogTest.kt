@@ -245,7 +245,7 @@ class ScreenCatalogTest {
         auditRepository.save(AuditEvent("a2", AuditEventType.APPROVAL_GRANTED, SESSION, "AddReminder: 물 마시기 오후 1:56", now - 1_790_000))
         auditRepository.save(AuditEvent("a1", AuditEventType.TOOL_CALL, SESSION, "Tool: AddReminder\nResult: {\"ok\":true,\"title\":\"물 마시기\"}", now - 1_789_000))
         auditRepository.save(AuditEvent("a3", AuditEventType.TOOL_CALL, SESSION, "Tool: SearchMemory\nResult: {\"hits\":1}", now - 595_000))
-        auditRepository.save(AuditEvent("a4", AuditEventType.MODEL_RUN, SESSION, "Prompt: 자전거 비밀번호 뭐였지?\nOutput: 134예요. 예전 대화엔 4321도 있었는데, 직접 저장하신 메모가 134라서 그걸로 알려 드려요.", now - 590_000))
+        auditRepository.save(AuditEvent("a4", AuditEventType.MODEL_RUN, SESSION, "Prompt: 자전거 비밀번호 뭐였지?\nOutput: 134예요. 예전 대화엔 4321도 있었는데, 직접 저장하신 메모가 134라서 그걸로 알려 드려요.\nTools declared: [AddSchedule, GetSchedule, AddMemory, SearchMemory, AddReminder]", now - 590_000))
     }
 
     private fun msg(
@@ -580,6 +580,14 @@ class ScreenCatalogTest {
     @Test fun audit() {
         val vm = com.kosmos.app.feature.settings.AuditViewModel(auditRepository)
         shoot("13-audit") { com.kosmos.app.feature.settings.AuditScreen(viewModel = vm, onNavigateBack = {}) }
+    }
+
+    /** 활동 기록 펼침 — 물은 말·답·쓸 수 있던 도구, 그 아래 "원문 보기"(0.38.4 M2). */
+    @Test fun auditExpanded() {
+        val vm = com.kosmos.app.feature.settings.AuditViewModel(auditRepository)
+        shoot("32-audit-expanded", before = {
+            rule.onNodeWithText("모델 응답").performClick()
+        }) { com.kosmos.app.feature.settings.AuditScreen(viewModel = vm, onNavigateBack = {}) }
     }
 
     /** 기억 정리 검토 — 회고·합칠 기억·이어지는 대화(0.38.3 M2 — 시작 화면만 있던 장면에 검토 상태를 더한다). */

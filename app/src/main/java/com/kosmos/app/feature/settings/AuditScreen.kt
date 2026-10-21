@@ -85,6 +85,7 @@ fun AuditScreen(
  *
  * [WHY] 세션 id 는 사용자에게 뜻이 없어 숨긴다 — 원문 펼침에도 넣지 않는다.
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modifier) {
     val colors = KosmosTheme.colors
@@ -107,12 +108,37 @@ fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modi
             }
         )
         if (expanded) {
-            Text(
-                event.details,
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.textSecondary,
-                modifier = Modifier.padding(start = 48.dp, end = 16.dp, bottom = 12.dp)
-            )
+            // [WHY] 펼치면 사람 말로 정리한 항목(물은 말·답·결과…)을 먼저, 기록 원문은 "원문 보기"를 한 번 더 눌러야(0.38.4 M2 결정 5 — AGENTS §4-7 예외).
+            var showRaw by rememberSaveable(event.id) { mutableStateOf(false) }
+            Column(Modifier.padding(start = 48.dp, end = 16.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                display.fields.forEach { f ->
+                    Column {
+                        Text(f.label, style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
+                        Text(f.value, style = MaterialTheme.typography.bodyMedium, color = colors.textPrimary)
+                    }
+                }
+                if (display.tags.isNotEmpty()) {
+                    Column {
+                        Text("쓸 수 있던 도구", style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) { display.tags.forEach { com.kosmos.app.ui.component.Tag(it) } }
+                    }
+                }
+                if (showRaw) {
+                    Text(
+                        event.details,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.textSecondary,
+                        modifier = Modifier.fillMaxWidth().background(colors.surfaceSunk, com.kosmos.app.ui.theme.KosmosShapes.sm).padding(12.dp)
+                    )
+                }
+            }
+            TextButton(onClick = { showRaw = !showRaw }, modifier = Modifier.padding(start = 36.dp)) {
+                Text(if (showRaw) "원문 접기" else "원문 보기", style = MaterialTheme.typography.labelLarge, color = colors.brandText)
+            }
         }
         if (divider) HorizontalDivider(Modifier.padding(start = 48.dp), color = colors.border)
     }

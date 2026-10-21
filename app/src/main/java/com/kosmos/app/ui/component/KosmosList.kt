@@ -154,7 +154,8 @@ fun DeleteIconButton(onClick: () -> Unit, contentDescription: String = "삭제")
  * 확인 창 대신 쓴다(사용자 결정 2026-10-20, ui-ux-pro-max `undo-support`). 일괄 삭제·초기화는 확인 창을 유지한다.
  */
 suspend fun SnackbarHostState.showUndo(message: String, onUndo: () -> Unit) {
-    val result = showSnackbar(message = message, actionLabel = "되돌리기", withDismissAction = false, duration = SnackbarDuration.Short)
+    // [WHY] 약 10초(Long) — 4초(Short)는 누르기 전에 사라졌다(0.38.3 에뮬레이터 확인, 0.38.4 결정 4).
+    val result = showSnackbar(message = message, actionLabel = "되돌리기", withDismissAction = false, duration = SnackbarDuration.Long)
     if (result == SnackbarResult.ActionPerformed) onUndo()
 }
 
