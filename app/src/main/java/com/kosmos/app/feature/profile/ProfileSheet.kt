@@ -88,7 +88,8 @@ fun ProfileSheet(
                 )
             }
             Text(
-                text = "여기 적은 내용은 비서가 항상 기억해요. 예: 이름, 호칭, 말투, 직업.",
+                // 예시는 둘째 줄로 — 한 줄에 이어 쓰면 "직업."만 다음 줄로 넘어갔다(사용자 지적).
+                text = "여기 적은 내용은 비서가 항상 기억해요.\n예: 이름, 호칭, 말투, 직업.",
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textMuted,
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
@@ -126,10 +127,12 @@ fun ProfileSheet(
                 OutlinedTextField(
                     value = keyInput,
                     onValueChange = { keyInput = it },
-                    label = { Text("항목 (예: 이름)") },
+                    // [WHY] 폭 140 고정에 "항목 (예: 이름)" 라벨이 글자 1.3배에서 두 줄로 잘렸다 — 라벨은 짧게, 예시는 자리 표시로, 폭은 비율로(0.38.4 M0).
+                    label = { Text("항목") },
+                    placeholder = { Text("예: 이름") },
                     singleLine = true,
                     colors = com.kosmos.app.ui.component.kosmosTextFieldColors(),
-                    modifier = Modifier.width(140.dp)
+                    modifier = Modifier.weight(2f)
                 )
                 OutlinedTextField(
                     value = valueInput,
@@ -137,7 +140,7 @@ fun ProfileSheet(
                     label = { Text("내용") },
                     singleLine = true,
                     colors = com.kosmos.app.ui.component.kosmosTextFieldColors(),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(3f)
                 )
             }
             error?.let {

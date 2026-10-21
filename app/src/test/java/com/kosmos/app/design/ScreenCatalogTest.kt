@@ -617,7 +617,7 @@ class ScreenCatalogTest {
                 }
                 com.kosmos.app.ui.component.SectionHeader("이동", androidx.compose.ui.Modifier.padding(horizontal = 16.dp))
                 com.kosmos.app.ui.component.KosmosListGroup(androidx.compose.ui.Modifier.padding(horizontal = 16.dp)) {
-                    com.kosmos.app.ui.component.KosmosListRow("메모 · 할 일", leadingIcon = com.kosmos.app.R.drawable.ic_ph_note, onClick = {}, divider = true)
+                    com.kosmos.app.ui.component.KosmosListRow("메모·할 일", leadingIcon = com.kosmos.app.R.drawable.ic_ph_note, onClick = {}, divider = true)
                     com.kosmos.app.ui.component.KosmosListRow("문서", leadingIcon = com.kosmos.app.R.drawable.ic_ph_file_text, onClick = {})
                 }
                 com.kosmos.app.ui.component.EmptyState(

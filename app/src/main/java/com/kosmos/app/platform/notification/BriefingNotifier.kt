@@ -37,7 +37,7 @@ class AndroidBriefingNotifier @Inject constructor(
 
     override fun notifyPreview(eventCount: Int, taskCount: Int, deviceCalendarFailed: Boolean) {
         val body = buildString {
-            append("오늘 일정 ${eventCount}건 · 남은 할 일 ${taskCount}건")
+            append("오늘 일정 ${eventCount}건, 남은 할 일 ${taskCount}건")
             if (deviceCalendarFailed) append("\n기기 캘린더는 확인하지 못했어요.")
         }
         val notification = NotificationCompat.Builder(context, NotificationChannels.BRIEFING)

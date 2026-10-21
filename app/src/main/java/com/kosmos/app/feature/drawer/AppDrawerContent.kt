@@ -146,7 +146,7 @@ fun AppDrawerContent(
         Spacer(modifier = Modifier.height(8.dp))
         // [WHY] 메뉴는 아이콘 + 글자 한 줄(M3 내비게이션 드로어 항목, mobile-android-design) — 타일 3개와 목록 2줄로 나뉘어 있던 것을 한 목록으로.
         DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_calendar_blank, "일정", onNavigateToCalendar)
-        DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_note, "메모 · 할 일", onNavigateToMemory)
+        DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_note, "메모·할 일", onNavigateToMemory)
         DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_file_text, "문서", onNavigateToDocuments)
         DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_shield_check, "활동 기록", onNavigateToAudit)
         DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_gear_six, "설정", onNavigateToSettings)
@@ -194,7 +194,7 @@ private fun ProfileButton(hasSuggestions: Boolean, onClick: () -> Unit) {
 @Composable
 private fun EpisodeRow(episode: Episode, divider: Boolean, onClick: () -> Unit) {
     com.kosmos.app.ui.component.KosmosListRow(
-        title = episode.title ?: "(제목 없음)",
+        title = episode.title ?: "제목 없음",
         supporting = com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt),
         tags = episode.tags.take(2),
         titleMaxLines = 1,

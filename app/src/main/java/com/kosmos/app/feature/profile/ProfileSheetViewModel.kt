@@ -60,7 +60,7 @@ class ProfileSheetViewModel @Inject constructor(
             // 합계 초과를 못 막는다. 초과분은 저장 자체를 차단해 예산 불변식을 지킨다.
             val estimated = projectedProfileTokens(entries.value, trimmedKey, trimmedValue, tokenizer)
             if (estimated > Constants.PROFILE_MAX_TOKENS) {
-                _error.value = "프로필이 너무 길어요 (${estimated}/${Constants.PROFILE_MAX_TOKENS}토큰) — 항목을 줄이거나 짧게 써 주세요."
+                _error.value = "프로필이 너무 길어요(${estimated}/${Constants.PROFILE_MAX_TOKENS}토큰). 항목을 줄이거나 짧게 써 주세요."
                 return@launch
             }
             when (val result = profileRepository.upsert(trimmedKey, trimmedValue)) {

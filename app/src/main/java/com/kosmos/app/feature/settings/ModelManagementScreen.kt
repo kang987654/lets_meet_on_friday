@@ -105,7 +105,7 @@ fun ModelManagementScreen(
                         colors = com.kosmos.app.ui.component.kosmosTextFieldColors(),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                     )
-                    KosmosButton("이 URL로 내려받기", { startDownload(customUrl) }, Modifier.fillMaxWidth(), accent = true, enabled = customUrl.isNotBlank())
+                    KosmosButton("이 URL로 내려받기", { startDownload(customUrl) }, Modifier.fillMaxWidth(), enabled = customUrl.isNotBlank())
                 }
             }
         }

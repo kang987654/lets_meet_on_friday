@@ -119,7 +119,7 @@ private fun Intro(onStart: () -> Unit) {
     Card {
         Text(
             "지난 7일의 대화로 이번 주 회고를 만들어 기억에 저장하고, 같은 내용이 여러 번 저장된 기억을 찾아 합칠지 물어봐요. " +
-                "기억이 많으면 몇 분 걸릴 수 있어요 — 앱을 닫으면 멈추고, 다시 누르면 처음부터 해요.",
+                "기억이 많으면 몇 분 걸릴 수 있어요. 앱을 닫으면 멈추고, 다시 누르면 처음부터 해요.",
             color = KosmosTheme.colors.textSecondary,
             style = MaterialTheme.typography.bodyMedium
         )

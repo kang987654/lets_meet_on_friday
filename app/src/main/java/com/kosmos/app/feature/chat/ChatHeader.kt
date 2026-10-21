@@ -158,7 +158,7 @@ fun StatusDetailSheet(
             )
             Spacer(modifier = Modifier.height(8.dp))
             val engineLabel = when (engineState) {
-                is ModelLoadState.Ready -> "엔진 준비됨 (${engineState.modelInfo.modelId})"
+                is ModelLoadState.Ready -> "엔진 준비됨 (${com.kosmos.app.ui.modelDisplayName(engineState.modelInfo.modelId)})"
                 is ModelLoadState.Error -> "엔진 오류"
                 is ModelLoadState.NotFound -> "모델 파일 없음"
                 else -> "엔진 준비 중"
@@ -181,24 +181,23 @@ fun StatusDetailSheet(
     }
 }
 
-/** 캡슐용 축약 포맷 — `36° · 4.1GB · 9.6t/s`(온도 아이콘은 화면이 앞에 붙인다). 상세 수치는 [formatDeviceStatus](시트)가 담당한다. */
+/** 캡슐용 축약 포맷 — `36° · 4.1GB`(온도 아이콘은 화면이 앞에 붙인다). 생성 속도는 기술 수치라 시트에만(0.38.4 M0). */
 internal fun formatStatusCapsule(status: com.kosmos.app.runtime.metrics.DeviceStatus): String {
     val parts = mutableListOf<String>()
     if (status.temperatureCelsius > 0f) parts += "%.0f°".format(status.temperatureCelsius)
     // 앱 PSS — 3.6GB 모델이 차지하는 몫. 시스템 전체 사용량은 시트에서 (사용자 요청 2026-08-15).
     if (status.appMemoryBytes > 0L) parts += "%.1fGB".format(status.appMemoryBytes.toGigabytes())
-    status.tokensPerSecond?.let { parts += "%.1ft/s".format(it) }
     return parts.joinToString(" · ")
 }
 
-/** `온도 41.2°C · RAM 3.4/8.0GB(앱 4.1GB) · 12.4 tok/s` */
+/** 한 줄에 하나 — `온도 41.2°C` / `메모리 3.4/8.0GB(앱 4.1GB)` / `생성 속도 12.4 tok/s`. 세 항목 이상을 가운뎃점으로 잇지 않는다(DESIGN). */
 internal fun formatDeviceStatus(status: com.kosmos.app.runtime.metrics.DeviceStatus): String {
     val parts = mutableListOf<String>()
     if (status.temperatureCelsius > 0f) {
         parts += "온도 %.1f°C".format(status.temperatureCelsius)
     }
     if (status.memoryTotalBytes > 0L) {
-        val ram = "RAM %.1f/%.1fGB".format(
+        val ram = "메모리 %.1f/%.1fGB".format(
             status.memoryUsedBytes.toGigabytes(),
             status.memoryTotalBytes.toGigabytes()
         )
@@ -210,8 +209,8 @@ internal fun formatDeviceStatus(status: com.kosmos.app.runtime.metrics.DeviceSta
             ram
         }
     }
-    status.tokensPerSecond?.let { parts += "%.1f tok/s".format(it) }
-    return parts.joinToString("  ·  ")
+    status.tokensPerSecond?.let { parts += "생성 속도 %.1f tok/s".format(it) }
+    return parts.joinToString("\n")
 }
 
 private fun Long.toGigabytes(): Double = this / 1024.0 / 1024.0 / 1024.0

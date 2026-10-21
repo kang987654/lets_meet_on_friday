@@ -210,7 +210,7 @@ class ChatViewModel @Inject constructor(
     fun acceptSuggestion(suggestion: ProfileSuggestion) {
         viewModelScope.launch {
             val notice = when (val result = suggestionResolver.accept(suggestion)) {
-                is AppResult.Success -> "프로필에 저장했어요 — ${suggestion.key}: ${suggestion.value}"
+                is AppResult.Success -> "프로필에 저장했어요. ${suggestion.key}: ${suggestion.value}"
                 // [WHY] 상한 초과는 ValidationError.reason 에 "N/100토큰" 안내가 담겨 있다 —
                 // 일반 매핑("입력을 확인해주세요")보다 그 문장이 조치 가능하다.
                 is AppResult.Failure -> (result.error as? AppError.ValidationError)?.reason

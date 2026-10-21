@@ -296,7 +296,7 @@ fun ChatBubbleAssistant(
                 ) {
                     com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_clock_counter_clockwise, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 4.dp))
                     Text(
-                        text = "기억에서 — $recallChipLabel",
+                        text = "기억: $recallChipLabel",
                         color = KosmosTheme.colors.textSecondary,
                         style = MaterialTheme.typography.labelSmall
                     )

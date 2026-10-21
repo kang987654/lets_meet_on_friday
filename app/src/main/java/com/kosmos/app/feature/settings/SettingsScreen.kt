@@ -109,7 +109,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("대화 기억 범위", style = MaterialTheme.typography.bodyLarge, color = KosmosTheme.colors.textPrimary)
-                        Text("%,d 토큰".format(sliderValue.toInt()), style = MaterialTheme.typography.bodyMedium, color = KosmosTheme.colors.textSecondary)
+                        Text("%,d".format(sliderValue.toInt()), style = MaterialTheme.typography.bodyMedium, color = KosmosTheme.colors.textSecondary)
                     }
                     val sliderColors = SliderDefaults.colors(
                         thumbColor = KosmosTheme.colors.brand,
@@ -380,7 +380,7 @@ private fun ModelStatus(state: ModelLoadState, onManage: () -> Unit, onRefresh: 
         is ModelLoadState.Ready -> {
             var detailsOpen by rememberSaveable { mutableStateOf(false) }
             com.kosmos.app.ui.component.KosmosListRow(
-                title = state.modelInfo.modelId,
+                title = com.kosmos.app.ui.modelDisplayName(state.modelInfo.modelId),
                 tags = listOf("준비됨"),
                 onClick = onManage,
                 divider = true,

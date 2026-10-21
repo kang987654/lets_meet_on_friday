@@ -100,7 +100,7 @@ fun EpisodeSheet(
                 )
             } else {
                 Text(
-                    text = current.title ?: "(제목 없음)",
+                    text = current.title ?: "제목 없음",
                     style = MaterialTheme.typography.titleMedium,
                     color = KosmosTheme.colors.textPrimary
                 )

@@ -45,8 +45,8 @@ fun BriefingCard(
             .fillMaxWidth()
             .kosmosSurface(
                 backgroundColor = KosmosTheme.colors.surface,
-                borderColor = KosmosTheme.colors.brand.copy(alpha = 0.35f),
-                shape = RoundedCornerShape(20.dp)
+                borderColor = KosmosTheme.colors.border,
+                shape = com.kosmos.app.ui.theme.KosmosShapes.md
             )
             .combinedClickable(onClick = {}, onLongClick = onLongPress)
             .padding(horizontal = 16.dp, vertical = 14.dp)
@@ -56,11 +56,10 @@ fun BriefingCard(
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_sun, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText)
+            // [WHY] 결과 카드와 같은 종류 줄(label, brandText) — 자간 넓힌 굵은 작은 글자(eyebrow)는 DESIGN 금지(0.38.3 점검 P2).
             Text(
                 text = "아침 브리핑",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp,
+                style = MaterialTheme.typography.labelMedium,
                 color = KosmosTheme.colors.brandText
             )
         }

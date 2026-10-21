@@ -140,7 +140,7 @@ fun MemoryScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             // 드로어 타일("메모 · 할 일")과 같은 이름 — 진입점과 화면 제목이 다르면 길을 잃는다.
             com.kosmos.app.ui.component.KosmosTopBar(
-                title = "메모 · 할 일",
+                title = "메모·할 일",
                 onBack = onBack,
                 actions = {
                     BackupMenu(
@@ -418,9 +418,9 @@ private fun BackupDialogs(
         // [WHY] prd.md F8 정책 — 백업 파일에 개인정보가 포함됨을 UI에서 명시해야 한다.
         // v1은 암호화를 의도적으로 넣지 않았으므로 이 경고가 유일한 보호막이다.
         ConfirmDialog(
-            title = "백업에 개인정보가 포함됩니다",
-            body = "내보낼 파일에는 대화 내용, 지식 노트, 프로필, 감사 로그가 " +
-                "암호화 없이 그대로 담깁니다. 신뢰할 수 있는 위치에만 저장하세요.",
+            title = "백업에 개인정보가 들어 있어요",
+            body = "내보낼 파일에는 대화 내용, 메모, 프로필, 활동 기록이 " +
+                "암호화 없이 그대로 담겨요. 믿을 수 있는 곳에만 저장하세요.",
             confirmText = "계속",
             onConfirm = onConfirmExport,
             onDismiss = onDismiss
@@ -430,9 +430,9 @@ private fun BackupDialogs(
 
     if (uiState.showImportWarning) {
         ConfirmDialog(
-            title = "기존 데이터를 덮어씁니다",
-            body = "복원하면 현재 기기의 대화·지식·일정이 백업 파일의 내용으로 " +
-                "완전히 교체되며 되돌릴 수 없습니다. 계속하시겠습니까?",
+            title = "지금 데이터를 덮어써요",
+            body = "복원하면 지금 기기의 대화, 메모, 일정이 백업 파일의 내용으로 " +
+                "모두 바뀌고 되돌릴 수 없어요. 계속할까요?",
             confirmText = "파일 선택",
             confirmColor = KosmosTheme.colors.dangerText,
             onConfirm = onConfirmImport,

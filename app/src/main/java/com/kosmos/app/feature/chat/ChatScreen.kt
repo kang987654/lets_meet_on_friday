@@ -358,7 +358,7 @@ fun ChatScreen(
                 webSearchEnabled = webSearchEnabled,
                 onToggleWebSearch = { enabled ->
                     onToggleWebSearch(enabled)
-                    notify(if (enabled) "웹 검색 허용됨 — 위키피디아 검색을 사용할 수 있어요." else "웹 검색 차단됨 — 기기 안에서만 답변해요.")
+                    notify(if (enabled) "웹 검색을 켰어요. 위키백과를 찾아볼 수 있어요." else "웹 검색을 껐어요. 기기 안에서만 답해요.")
                 }
             )
         }

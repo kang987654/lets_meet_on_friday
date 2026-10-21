@@ -37,7 +37,7 @@ class ProfileSuggestionResolver @Inject constructor(
             return AppResult.Failure(
                 AppError.ValidationError(
                     "profile",
-                    "프로필이 너무 길어요 (${estimated}/${Constants.PROFILE_MAX_TOKENS}토큰) — 항목을 줄이면 저장할 수 있어요."
+                    "프로필이 너무 길어요(${estimated}/${Constants.PROFILE_MAX_TOKENS}토큰). 항목을 줄이면 저장할 수 있어요."
                 )
             )
         }

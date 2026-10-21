@@ -176,9 +176,10 @@ private fun SelectionBar(selection: ChatSelection, actions: SelectionActions) {
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Text(message, color = if (preview?.truncated == true) colors.warningText else colors.textSecondary, style = MaterialTheme.typography.bodyMedium)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = actions.cancel) { Text("취소", color = colors.textSecondary) }
-            TextButton(onClick = actions.send, enabled = preview != null) { Text("채팅으로 보내기", color = if (preview != null) colors.brandText else colors.textMuted) }
+        // [WHY] 이 막대의 주 동작은 보내기 — 시트·승인과 같은 [보조][주] 버튼(0.38.3 점검 P2 버튼 어휘).
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            com.kosmos.app.ui.component.KosmosButton("취소", actions.cancel, Modifier.weight(1f))
+            com.kosmos.app.ui.component.KosmosButton("채팅으로 보내기", actions.send, Modifier.weight(1f), accent = true, enabled = preview != null)
         }
     }
 }
@@ -283,11 +284,11 @@ private fun Message(text: String) {
 
 /** 읽기 실패 사유 → 사용자 안내. */
 internal fun documentErrorMessage(error: DocumentError): String = when (error) {
-    DocumentError.UNSUPPORTED -> "이 형식은 아직 열 수 없어요.\nPDF · 엑셀(xlsx) · CSV · 워드(docx) · 한글(hwpx)을 열 수 있어요."
+    DocumentError.UNSUPPORTED -> "이 형식은 아직 열 수 없어요.\nPDF, 엑셀(xlsx), CSV, 워드(docx), 한글(hwpx)을 열 수 있어요."
     DocumentError.UNREADABLE -> "파일을 열 수 없어요.\n권한이 만료됐거나 파일이 옮겨졌을 수 있어요."
     DocumentError.TOO_LARGE -> "파일이 너무 커서 열 수 없어요."
     DocumentError.CORRUPT -> "파일이 손상됐거나 내용이 형식과 달라요."
-    DocumentError.ENCRYPTED -> "암호가 걸린 문서이거나 지원하지 않는 옛 형식(xls · doc · hwp)이에요."
+    DocumentError.ENCRYPTED -> "암호가 걸린 문서이거나 지원하지 않는 옛 형식(xls, doc, hwp)이에요."
 }
 
 internal fun nextZoom(zoom: Float): Float = when {

@@ -109,7 +109,7 @@ fun ReminderEditSheet(
                 }
                 error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.dangerText) }
                 Text(
-                    "바꾸면 대화에도 한 줄 남아요 — 비서가 바뀐 시각을 알아요.",
+                    "바꾸면 대화에도 한 줄 남아서 비서가 바뀐 시각을 알아요.",
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.textMuted
                 )

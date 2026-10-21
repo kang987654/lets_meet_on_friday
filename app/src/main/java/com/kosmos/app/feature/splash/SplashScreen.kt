@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.splash
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,7 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,7 +44,7 @@ fun SplashScreen(
             val errorMessage = when (val state = loadState) {
                 is ModelLoadState.Error -> com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error)
                 is ModelLoadState.NotFound ->
-                    "AI 모델 파일이 없어요. 설정 > 모델 관리에서 내려받아 주세요.\n(경로: ${state.expectedPath})"
+                    "AI 모델 파일이 없어요. 모델 관리에서 내려받아 주세요."
                 else -> ""
             }
             
@@ -62,14 +62,10 @@ fun SplashScreen(
                 val canRedownload = loadState is ModelLoadState.NotFound ||
                     (loadState as? ModelLoadState.Error)?.error is com.kosmos.app.core.common.AppError.ModelLoadFailed
                 if (canRedownload) {
-                    Button(onClick = onNavigateToModelManagement) {
-                        Text(text = "모델 내려받기")
-                    }
+                    com.kosmos.app.ui.component.KosmosButton("모델 내려받기", onNavigateToModelManagement, Modifier.fillMaxWidth(), accent = true)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
-                Button(onClick = { viewModel.retry() }) {
-                    Text(text = "다시 시도")
-                }
+                com.kosmos.app.ui.component.KosmosButton("다시 시도", { viewModel.retry() }, Modifier.fillMaxWidth())
             }
         } else {
             // [WHY] 오브만 있으면 어두운 배경에서 "빈 화면"으로 오인된다(2026-08-15 실기기 문의).
@@ -96,7 +92,7 @@ fun SplashScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 val statusText = when (loadState) {
                     is ModelLoadState.Loading -> "모델 상태를 확인하고 있어요…"
-                    is ModelLoadState.FileFound -> "모델 파일 확인 — 엔진을 준비하고 있어요…"
+                    is ModelLoadState.FileFound -> "모델 파일을 찾았어요. 엔진을 준비하고 있어요…"
                     is ModelLoadState.InitializingEngine -> "AI 엔진을 깨우는 중이에요 (10초 정도)…"
                     else -> ""
                 }
