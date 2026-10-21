@@ -180,7 +180,6 @@ fun ChatBubbleAssistant(
                             shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 0.dp, bottomEnd = 0.dp)
                         )
                         .clickable(role = androidx.compose.ui.semantics.Role.Button) { isThinkingExpanded = !isThinkingExpanded }
-                        .heightIn(min = 48.dp)
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -250,7 +249,6 @@ fun ChatBubbleAssistant(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "대화 열기", onClick = onRecallChipClick)
-                                        .heightIn(min = 48.dp)
                                         .padding(vertical = 2.dp)
                                 ) {
                                     com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_chat_text, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText, modifier = Modifier.padding(end = 8.dp))
@@ -306,8 +304,8 @@ fun ChatBubbleAssistant(
             }
 
             if (onToggleSpeak != null) {
-                // [WHY] 답마다 붙는 버튼이라 48dp 누르는 영역(0.38.3 M6 점검 P1) — 아이콘 크기는 그대로.
-                IconButton(onClick = onToggleSpeak) {
+                // [WHY] 보이는 크기는 36 — 답마다 붙어 48 이면 대화가 위아래로 늘어진다(0.38.3 사용자 지적). 누르는 영역은 Compose 가 48 까지 넓힌다(minimumTouchTargetSize).
+                IconButton(onClick = onToggleSpeak, modifier = Modifier.size(36.dp)) {
                     Icon(
                         painter = painterResource(id = if (isSpeaking) com.kosmos.app.R.drawable.ic_ph_stop_fill else com.kosmos.app.R.drawable.ic_ph_speaker_high),
                         contentDescription = if (isSpeaking) "읽기 멈추기" else "답변 읽기",
