@@ -1,5 +1,6 @@
 package com.kosmos.app.design
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -580,6 +581,20 @@ class ScreenCatalogTest {
     @Test fun audit() {
         val vm = com.kosmos.app.feature.settings.AuditViewModel(auditRepository)
         shoot("13-audit") { com.kosmos.app.feature.settings.AuditScreen(viewModel = vm, onNavigateBack = {}) }
+    }
+
+    /** 녹음 중 입력바 — 소리 크기가 흐르는 파형(0.38.4 M5, 사용자 선택 B). 크기는 고정 값을 시간에 따라 바꿔 넣는다. */
+    @Test fun chatRecording() {
+        var t = 0
+        shoot("33-chat-recording") {
+            Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.BottomCenter) {
+                com.kosmos.app.feature.chat.ChatInputBar(
+                    isLoading = false, isRecording = true, sharedInput = null, onClearSharedInput = {},
+                    onSend = {}, onMicClick = {}, onAttachClick = {},
+                    recordingLevel = { t++; listOf(0.1f, 0.5f, 0.8f, 0.6f, 0.3f, 0.9f, 0.4f, 0.05f)[t % 8] }
+                )
+            }
+        }
     }
 
     /** 활동 기록 펼침 — 물은 말·답·쓸 수 있던 도구, 그 아래 "원문 보기"(0.38.4 M2). */

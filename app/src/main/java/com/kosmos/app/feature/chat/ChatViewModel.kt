@@ -69,6 +69,10 @@ class ChatViewModel @Inject constructor(
     private val speechOutput: com.kosmos.app.platform.speech.SpeechOutput
 ) : ViewModel() {
 
+    /** 녹음 중 소리 크기(0..1) — 입력바 파형(0.38.4 M5). */
+    val recordingLevel: kotlinx.coroutines.flow.StateFlow<Float> get() = audioRecorder.level
+
+
     /** 지금 읽고 있는 메시지 id — 말풍선 재생/정지 아이콘 (0.29.0). */
     val speakingMessageId: StateFlow<String?> = speechOutput.speakingMessageId
 

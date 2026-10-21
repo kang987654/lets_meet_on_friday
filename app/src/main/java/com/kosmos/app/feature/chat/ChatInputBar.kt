@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.chat
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
@@ -63,7 +65,9 @@ fun ChatInputBar(
     webSearchEnabled: Boolean = false,
     onToggleWebSearch: (Boolean) -> Unit = {},
     // 문서 파일(xlsx·docx·hwpx·PDF)을 읽는 중 — 기본값은 E2E 계약(단독 compose) 때문에 필수다(0.35.0 M4).
-    attachmentExtracting: Boolean = false
+    attachmentExtracting: Boolean = false,
+    // 녹음 중 소리 크기(0..1) — 파형(0.38.4 M5). 기본값은 E2E 계약(단독 compose) 때문에.
+    recordingLevel: () -> Float = { 0f }
 ) {
     var textState by remember { mutableStateOf(TextFieldValue("")) }
 
@@ -156,7 +160,14 @@ fun ChatInputBar(
                     .weight(1f)
                     .padding(horizontal = 8.dp)
             ) {
-                if (textState.text.isEmpty()) {
+                val reduced = com.kosmos.app.ui.component.rememberReducedMotion()
+                if (isRecording && !reduced) {
+                    // [WHY] 듣는 중에는 지나온 소리가 흐르는 파형 — 글자만으로는 실제로 들리는지 알 수 없었다(0.38.4 M5, 사용자 선택 B). 화면 읽기에는 같은 말을 알린다.
+                    RecordingWave(recordingLevel, Modifier.fillMaxWidth().height(28.dp).semantics {
+                        contentDescription = "듣고 있어요"
+                        liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite
+                    })
+                } else if (textState.text.isEmpty()) {
                     // [WHY] 입력란이 잠긴 이유를 그 자리에서 말한다 — 답을 쓰는 중·듣는 중에도 "메시지를 입력하세요"가 떠 있었다(0.38.2 M7).
                     Text(
                         text = when {
@@ -318,3 +329,37 @@ private fun AttachmentPreview(
         }
     }
 }
+
+/**
+ * 녹음 중 파형 — 80ms 마다 소리 크기를 하나 받아 오른쪽에 붙이고 왼쪽으로 흘린다(최근이 오른쪽). 조용하면 낮은 회색 점.
+ * 녹음하는 동안만 돈다(DESIGN Motion "계속 도는 애니메이션은 진행 중일 때만").
+ */
+@Composable
+private fun RecordingWave(level: () -> Float, modifier: Modifier = Modifier) {
+    val history = remember { androidx.compose.runtime.mutableStateListOf<Float>().apply { repeat(WAVE_BARS) { add(0f) } } }
+    LaunchedEffect(Unit) {
+        while (true) {
+            history.removeAt(0)
+            history.add(level().coerceIn(0f, 1f))
+            kotlinx.coroutines.delay(WAVE_TICK_MS)
+        }
+    }
+    val active = KosmosTheme.colors.brand
+    val quiet = KosmosTheme.colors.textMuted.copy(alpha = 0.4f)
+    androidx.compose.foundation.Canvas(modifier.padding(end = 8.dp)) {
+        val w = 3.dp.toPx()
+        val gap = (size.width - w * WAVE_BARS) / (WAVE_BARS - 1)
+        history.forEachIndexed { i, lv ->
+            val h = (size.height * (0.12f + 0.88f * lv)).coerceAtLeast(w)
+            drawRoundRect(
+                if (lv > 0.05f) active else quiet,
+                androidx.compose.ui.geometry.Offset(i * (w + gap), (size.height - h) / 2),
+                androidx.compose.ui.geometry.Size(w, h),
+                androidx.compose.ui.geometry.CornerRadius(w / 2)
+            )
+        }
+    }
+}
+
+private const val WAVE_BARS = 24
+private const val WAVE_TICK_MS = 80L

@@ -341,9 +341,11 @@ fun ChatScreen(
             }
         },
         bottomBar = {
+            val recordingLevel by viewModel.recordingLevel.collectAsStateWithLifecycle()
             ChatInputBar(
                 isLoading = uiState.isInFlight,
                 isRecording = uiState.isRecording,
+                recordingLevel = { recordingLevel },
                 sharedInput = uiState.sharedInput,
                 onClearSharedInput = { viewModel.clearSharedInput() },
                 attachmentExtracting = attachmentExtracting,

@@ -44,6 +44,13 @@ open class AudioRecorder @Inject constructor(
     @Volatile
     private var isRecording = false
 
+    private val _level = kotlinx.coroutines.flow.MutableStateFlow(0f)
+
+    /**
+     * 지금 들리는 소리 크기(0..1) — 입력바 파형이 읽는다(0.38.4 M5). 녹음하던 버퍼에서 바로 계산해 추가 권한·스레드가 없다. 녹음이 아니면 0.
+     */
+    open val level: kotlinx.coroutines.flow.StateFlow<Float> = _level
+
     companion object {
         private const val TAG = "AudioRecorder"
         private const val SAMPLE_RATE = 16000
@@ -103,6 +110,7 @@ open class AudioRecorder @Inject constructor(
             isRecording = false
             recordingJob?.cancelAndJoin()
             recordingJob = null
+            _level.value = 0f
 
             audioRecord?.apply {
                 stop()
@@ -138,6 +146,26 @@ open class AudioRecorder @Inject constructor(
      * [WHY] 초과분을 버릴 때 버퍼 전체를 버리지 않고 남은 만큼만 쓴다 — 버퍼 크기가 상한과 딱
      * 맞아떨어지지 않으면 마지막 조각이 통째로 사라져 30초보다 눈에 띄게 짧아진다.
      */
+    /**
+     * 16비트 PCM 버퍼의 RMS 를 dB 로 바꿔 0..1 로 — -50dBFS 이하 0, 0dBFS 1. 사람 목소리가 화면에서 잘 보이는 범위.
+     */
+    internal fun levelOf(data: ByteArray, length: Int): Float {
+        var sum = 0.0
+        var n = 0
+        var i = 0
+        while (i + 1 < length) {
+            val sample = ((data[i + 1].toInt() shl 8) or (data[i].toInt() and 0xFF)).toShort().toDouble()
+            sum += sample * sample
+            n++
+            i += 2
+        }
+        if (n == 0) return 0f
+        val rms = kotlin.math.sqrt(sum / n)
+        if (rms < 1.0) return 0f
+        val db = 20 * kotlin.math.log10(rms / Short.MAX_VALUE)
+        return ((db + 50) / 50).toFloat().coerceIn(0f, 1f)
+    }
+
     private fun writeAudioDataToFile(bufferSize: Int) {
         val data = ByteArray(bufferSize)
         val file = outputFile ?: return
@@ -154,6 +182,7 @@ open class AudioRecorder @Inject constructor(
             while (isRecording && audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                 val read = audioRecord?.read(data, 0, bufferSize) ?: 0
                 if (read > 0) {
+                    _level.value = levelOf(data, read)
                     val allowed = minOf(read.toLong(), maxBytes - written).toInt()
                     if (allowed > 0) {
                         os.write(data, 0, allowed)
