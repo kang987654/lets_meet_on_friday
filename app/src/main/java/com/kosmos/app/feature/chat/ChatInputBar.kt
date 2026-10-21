@@ -194,7 +194,7 @@ fun ChatInputBar(
                 targetState = inputAction,
                 // 보이는 원은 40, 높이만 48 — 위아래 4dp 씩 여유.
                 modifier = Modifier.size(width = 40.dp, height = 48.dp).padding(vertical = 4.dp),
-                animationSpec = androidx.compose.animation.core.tween(durationMillis = 200),
+                animationSpec = com.kosmos.app.ui.theme.Motion.short(),
                 label = "send_mic_transition"
             ) { action ->
                 if (action == InputAction.STOP) {

@@ -33,10 +33,20 @@ fun AppNavHost(
         }
     }
 
+    // [WHY] 전환을 정하지 않으면 내비게이션 기본(페이드 700ms)이라 두 화면이 겹쳐 비쳤다 — 공유 축 250ms(0.38.4 M3, 사용자 선택 B).
+    // pop 쪽을 따로 주면 시스템 예측 뒤로(끌기)가 같은 움직임을 따라간다.
+    val nav = com.kosmos.app.ui.theme.Motion.NavTransitions(
+        androidx.compose.ui.platform.LocalDensity.current,
+        com.kosmos.app.ui.component.rememberReducedMotion()
+    )
     NavHost(
         navController = navController,
         startDestination = startDestination,
-        modifier = modifier
+        modifier = modifier,
+        enterTransition = { nav.enter() },
+        exitTransition = { nav.exit() },
+        popEnterTransition = { nav.popEnter() },
+        popExitTransition = { nav.popExit() }
     ) {
         composable(route = AppDestination.Splash.route) {
             com.kosmos.app.feature.splash.SplashScreen(
