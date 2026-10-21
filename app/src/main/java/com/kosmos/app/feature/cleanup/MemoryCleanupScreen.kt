@@ -1,5 +1,8 @@
 package com.kosmos.app.feature.cleanup
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.foundation.selection.toggleable
 import com.kosmos.app.ui.component.KosmosButton
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -130,7 +133,7 @@ private fun Intro(onStart: () -> Unit) {
 @Composable
 private fun Progress(label: String, fraction: Float?, onCancel: (() -> Unit)?) {
     Card {
-        Text(label, color = KosmosTheme.colors.textPrimary)
+        Text(label, color = KosmosTheme.colors.textPrimary, modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite })
         Spacer(modifier = Modifier.height(12.dp))
         if (fraction != null) {
             LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth(), color = KosmosTheme.colors.brand)
@@ -225,10 +228,10 @@ private fun ProposalRow(lines: List<String>, result: String, resultEmphasis: Boo
     val colors = KosmosTheme.colors
     Column {
         Row(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
+            modifier = Modifier.fillMaxWidth().toggleable(value = isChecked, role = androidx.compose.ui.semantics.Role.Checkbox) { onToggle() }.padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
             verticalAlignment = Alignment.Top
         ) {
-            Checkbox(checked = isChecked, onCheckedChange = { onToggle() }, colors = CheckboxDefaults.colors(checkedColor = colors.brand))
+            Checkbox(checked = isChecked, onCheckedChange = null, modifier = Modifier.padding(12.dp), colors = CheckboxDefaults.colors(checkedColor = colors.brand))
             Column(modifier = Modifier.weight(1f).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 lines.forEach { Text(it, color = colors.textSecondary, style = MaterialTheme.typography.bodySmall) }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {

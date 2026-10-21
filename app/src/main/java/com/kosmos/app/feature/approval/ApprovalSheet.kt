@@ -40,6 +40,9 @@ import com.kosmos.app.domain.util.IsoDateTimeParser
 import com.kosmos.app.ui.component.IconSize
 import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.component.KosmosIcon
+import com.kosmos.app.ui.component.SheetHeader
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.withFrameMillis
 import com.kosmos.app.ui.component.rememberToday
 import com.kosmos.app.ui.theme.KosmosShapes
 import com.kosmos.app.ui.theme.KosmosTheme
@@ -125,10 +128,19 @@ fun ApprovalSheetLayout(
 ) {
     val colors = KosmosTheme.colors
     // [WHY] 툴 승인은 제한 시간이 지나면 저절로 취소된다 — 문구 대신 [거절] 버튼이 남은 시간만큼 차올라 "곧 취소됨"을 보인다(사용자 결정 2026-10-19).
-    val elapsed = remember(timeoutKey) { Animatable(0f) }
+    // [WHY] 남은 시간은 프레임 시계로 잰다 — `Animatable.animateTo(tween(60초))` 는 시스템 애니메이션 배율을 따라 "애니메이션 제거"면 곧바로 차서
+    // 화면 읽기가 "0초 뒤 자동 취소"라고 했다(0.38.3 점검 P2). 실제 제한 시간은 [ApprovalCoordinator] 가 따로 센다. 애니메이션 제거면 1초에 한 번만 갱신(조용한 단계 채움).
+    val reduceMotion = com.kosmos.app.ui.component.rememberReducedMotion()
+    var elapsedFraction by remember(timeoutKey) { mutableFloatStateOf(0f) }
     if (timeoutKey != null) {
         LaunchedEffect(timeoutKey) {
-            elapsed.animateTo(1f, tween(ApprovalCoordinator.APPROVAL_TIMEOUT_MS.toInt(), easing = LinearEasing))
+            val start = withFrameMillis { it }
+            while (elapsedFraction < 1f) {
+                if (reduceMotion) kotlinx.coroutines.delay(1_000)
+                withFrameMillis { now ->
+                    elapsedFraction = ((now - start).toFloat() / ApprovalCoordinator.APPROVAL_TIMEOUT_MS).coerceAtMost(1f)
+                }
+            }
         }
     }
     ModalBottomSheet(
@@ -146,32 +158,7 @@ fun ApprovalSheetLayout(
                 .padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // [WHY] 제목이 길거나 글자를 키우면 큰 시각이 폭을 가져가 제목이 낱말 중간에서 끊겼다 — 제목이 한 줄에 안 들어가면
-            // 큰 시각을 제목 아래 줄로 내린다(0.38.3 M0, 0.38.2 이월). 글자 배율로 판정하면 보통 크기의 긴 제목을 놓친다.
-            var stacked by remember(content.title, content.value) { mutableStateOf(false) }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                KosmosIcon(content.icon, contentDescription = null, size = IconSize.large, tint = colors.brandText)
-                Column(Modifier.weight(1f)) {
-                    Text(content.label, style = MaterialTheme.typography.labelMedium, color = colors.brandText)
-                    Text(
-                        content.title, style = MaterialTheme.typography.titleLarge, color = colors.textPrimary,
-                        maxLines = 6, overflow = TextOverflow.Ellipsis,
-                        onTextLayout = { if (!stacked && content.value != null && it.lineCount > 1) stacked = true }
-                    )
-                    content.sub?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary) }
-                    if (stacked) content.value?.let { value ->
-                        Text(value, style = MaterialTheme.typography.displaySmall, color = colors.textPrimary, modifier = Modifier.padding(top = 4.dp))
-                        content.valueSub?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary) }
-                    }
-                }
-                if (!stacked) content.value?.let { value ->
-                    // [WHY] 끝 시각은 큰 시각 아래에 — 왼쪽 날짜 줄에 붙이면 다른 날 일정에서 줄이 넘쳤다.
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(value, style = MaterialTheme.typography.displaySmall, color = colors.textPrimary)
-                        content.valueSub?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary) }
-                    }
-                }
-            }
+            SheetHeader(content.icon, content.label, content.title, sub = content.sub, value = content.value, valueSub = content.valueSub)
             content.note?.let {
                 Text(
                     it,
@@ -188,12 +175,12 @@ fun ApprovalSheetLayout(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // 화면 읽기에는 남은 초를 알린다 — 차오르는 면은 눈으로만 보인다(impeccable 점검 P2).
                 val secondsLeft by remember(timeoutKey) {
-                    derivedStateOf { ((1f - elapsed.value) * ApprovalCoordinator.APPROVAL_TIMEOUT_MS / 1000).toInt() }
+                    derivedStateOf { ((1f - elapsedFraction) * ApprovalCoordinator.APPROVAL_TIMEOUT_MS / 1000).toInt() }
                 }
                 KosmosButton(
                     content.rejectLabel, onReject,
                     Modifier.weight(1f).then(if (timeoutKey != null) Modifier.semantics { stateDescription = "${secondsLeft}초 뒤 자동 취소" } else Modifier),
-                    progress = if (timeoutKey != null) ({ elapsed.value }) else null
+                    progress = if (timeoutKey != null) ({ elapsedFraction }) else null
                 )
                 KosmosButton(content.approveLabel, onApprove, Modifier.weight(1f), accent = true)
             }

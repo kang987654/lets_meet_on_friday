@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.chat
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.res.painterResource
 import com.kosmos.app.ui.theme.KosmosTheme
@@ -90,7 +92,8 @@ fun CustomChatHeader(
                 KosmosTheme.colors.dangerText
             else -> KosmosTheme.colors.textMuted
         }
-        com.kosmos.app.ui.component.StarGlyph(dotColor, Modifier.size(12.dp))
+        // [WHY] 별 색만으로 엔진 상태를 전했다 — 화면 읽기에도 말한다(DESIGN "색만으로 상태를 전하지 않는다", 0.38.3 점검 P2).
+        com.kosmos.app.ui.component.StarGlyph(dotColor, Modifier.size(12.dp).semantics { contentDescription = engineStateDescription(engineState) })
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -179,6 +182,14 @@ fun StatusDetailSheet(
             }
         }
     }
+}
+
+/** 헤더 별의 화면 읽기 설명 — 별 색과 같은 상태. */
+internal fun engineStateDescription(state: ModelLoadState): String = when (state) {
+    is ModelLoadState.Ready -> "AI 엔진 준비됨"
+    is ModelLoadState.Error -> "AI 엔진 오류"
+    is ModelLoadState.NotFound -> "AI 모델 없음"
+    else -> "AI 엔진 준비 중"
 }
 
 /** 캡슐용 축약 포맷 — `36° · 4.1GB`(온도 아이콘은 화면이 앞에 붙인다). 생성 속도는 기술 수치라 시트에만(0.38.4 M0). */

@@ -71,19 +71,14 @@ fun ReminderEditSheet(
                 .padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                KosmosIcon(state.icon, contentDescription = null, size = IconSize.large, tint = if (state.muted) colors.textMuted else colors.brandText)
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        listOfNotNull(state.label, state.status).joinToString(" · "),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (state.muted) colors.textMuted else colors.brandText
-                    )
-                    Text(state.title, style = MaterialTheme.typography.titleLarge, color = colors.textPrimary)
-                    state.sub?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary) }
-                }
-                state.value?.let { Text(it, style = MaterialTheme.typography.displaySmall, color = colors.textPrimary) }
-            }
+            com.kosmos.app.ui.component.SheetHeader(
+                icon = state.icon,
+                label = listOfNotNull(state.label, state.status).joinToString(" · "),
+                title = state.title,
+                sub = state.sub,
+                value = state.value,
+                accentColor = if (state.muted) colors.textMuted else colors.brandText
+            )
 
             if (state.muted) {
                 Text(

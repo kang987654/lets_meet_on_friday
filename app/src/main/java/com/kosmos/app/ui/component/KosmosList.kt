@@ -28,6 +28,8 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -112,7 +114,8 @@ fun Tag(text: String, modifier: Modifier = Modifier) {
 fun SectionHeader(title: String, modifier: Modifier = Modifier, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
     val colors = KosmosTheme.colors
     Row(modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, style = MaterialTheme.typography.titleMedium, color = colors.textPrimary, modifier = Modifier.weight(1f))
+        // [WHY] 화면 읽기의 "제목 단위 이동"이 섹션을 건너뛸 수 있게(0.38.3 점검 P2).
+        Text(title, style = MaterialTheme.typography.titleMedium, color = colors.textPrimary, modifier = Modifier.weight(1f).semantics { heading() })
         if (actionLabel != null && onAction != null) {
             TextButton(onClick = onAction) { Text(actionLabel, style = MaterialTheme.typography.labelLarge, color = colors.brandText) }
         }

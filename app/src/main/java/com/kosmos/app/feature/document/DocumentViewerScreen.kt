@@ -1,5 +1,8 @@
 package com.kosmos.app.feature.document
 
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.MaterialTheme
 import android.content.ClipData
 import androidx.compose.foundation.background
@@ -74,6 +77,8 @@ fun DocumentViewerScreen(
     var detailText by remember { mutableStateOf<String?>(null) }
 
     val title = state.fileName ?: "문서"
+    // [WHY] 고르는 중에 시스템 뒤로를 누르면 뷰어가 통째로 닫혔다 — 먼저 고르기를 취소한다(0.38.3 점검 P2).
+    androidx.activity.compose.BackHandler(enabled = selection != null) { selectionActions.cancel() }
 
     Scaffold(
         containerColor = colors.bg,
@@ -89,12 +94,12 @@ fun DocumentViewerScreen(
                         TextButton(onClick = selectionActions.start) { Text("채팅으로", color = colors.brandText) }
                     }
                     if (state is DocumentViewerState.Flow) {
-                        TextButton(onClick = { onTextScale(-1) }, enabled = textScaleStep > 0) { Text("가−", color = colors.brandText, style = MaterialTheme.typography.labelMedium) }
-                        TextButton(onClick = { onTextScale(1) }, enabled = textScaleStep < 2) { Text("가+", color = colors.brandText, style = MaterialTheme.typography.titleMedium) }
+                        TextButton(onClick = { onTextScale(-1) }, enabled = textScaleStep > 0, modifier = Modifier.semantics { contentDescription = "글자 작게" }) { Text("가−", color = colors.brandText, style = MaterialTheme.typography.labelMedium) }
+                        TextButton(onClick = { onTextScale(1) }, enabled = textScaleStep < 2, modifier = Modifier.semantics { contentDescription = "글자 크게" }) { Text("가+", color = colors.brandText, style = MaterialTheme.typography.titleMedium) }
                     }
                     if (state is DocumentViewerState.Pdf) {
                         // 버튼은 1배 → 1.5배 → 2배 → 1배로 돈다(두 손가락 확대와 같은 값을 쓴다).
-                        TextButton(onClick = { zoom = nextZoom(zoom) }) {
+                        TextButton(onClick = { zoom = nextZoom(zoom) }, modifier = Modifier.semantics { contentDescription = "확대 ${(zoom * 100).toInt()}%, 누르면 바꾸기" }) {
                             Text("${(zoom * 100).toInt()}%", color = colors.brandText)
                         }
                     }
@@ -175,7 +180,8 @@ private fun SelectionBar(selection: ChatSelection, actions: SelectionActions) {
             .navigationBarsPadding()
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        Text(message, color = if (preview?.truncated == true) colors.warningText else colors.textSecondary, style = MaterialTheme.typography.bodyMedium)
+        Text(message, color = if (preview?.truncated == true) colors.warningText else colors.textSecondary, style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite })
         // [WHY] 이 막대의 주 동작은 보내기 — 시트·승인과 같은 [보조][주] 버튼(0.38.3 점검 P2 버튼 어휘).
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             com.kosmos.app.ui.component.KosmosButton("취소", actions.cancel, Modifier.weight(1f))

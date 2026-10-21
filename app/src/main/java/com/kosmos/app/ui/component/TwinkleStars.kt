@@ -34,10 +34,7 @@ import kotlin.math.cos
 @Composable
 fun TwinkleStars(modifier: Modifier = Modifier) {
     val color = KosmosTheme.colors.brand
-    val context = LocalContext.current
-    val reduceMotion = remember(context) {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-    }
+    val reduceMotion = rememberReducedMotion()
     val t by if (reduceMotion) remember { androidx.compose.runtime.mutableFloatStateOf(1f / 3) } else {
         rememberInfiniteTransition(label = "twinkle").animateFloat(
             initialValue = 0f, targetValue = 1f,

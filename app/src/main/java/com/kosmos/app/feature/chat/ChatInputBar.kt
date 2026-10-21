@@ -1,5 +1,8 @@
 package com.kosmos.app.feature.chat
 
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -134,9 +137,11 @@ fun ChatInputBar(
             }
 
             // 웹 검색 허용 토글 — ON: 승인 없이 검색 허용 / OFF(기본): 모델에 툴 미노출 + 실행 차단
+            // [WHY] 켜짐·꺼짐을 색으로만 보였다 — 토글 역할과 상태 설명(0.38.3 점검 P2). 설명 "웹 검색"은 그대로.
             IconButton(
                 onClick = { onToggleWebSearch(!webSearchEnabled) },
                 modifier = Modifier.size(width = 40.dp, height = 48.dp)
+                    .semantics { stateDescription = if (webSearchEnabled) "켜짐" else "꺼짐" }
             ) {
                 Icon(
                     painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_globe),
@@ -160,6 +165,8 @@ fun ChatInputBar(
                             else -> androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.chat_input_hint)
                         },
                         color = if (isRecording) KosmosTheme.colors.textSecondary else KosmosTheme.colors.textMuted,
+                        // 상태가 바뀌면(듣는 중·답을 쓰는 중·끝) 화면 읽기가 알린다(0.38.3 점검 P2).
+                        modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }

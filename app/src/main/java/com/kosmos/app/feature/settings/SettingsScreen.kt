@@ -7,6 +7,8 @@ import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.core.common.ResponseStyle
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -221,12 +223,18 @@ fun SettingsScreen(
                 engines.forEachIndexed { index, engine ->
                     com.kosmos.app.ui.component.KosmosListRow(
                         title = engine.label,
-                        onClick = { viewModel.onTtsEngineChanged(engine.packageName) },
+                        modifier = Modifier.selectable(
+                            selected = uiState.ttsEngine == engine.packageName,
+                            role = androidx.compose.ui.semantics.Role.RadioButton,
+                            onClick = { viewModel.onTtsEngineChanged(engine.packageName) }
+                        ),
                         divider = index < engines.lastIndex,
                         trailing = {
                             RadioButton(
                                 selected = uiState.ttsEngine == engine.packageName,
-                                onClick = { viewModel.onTtsEngineChanged(engine.packageName) },
+                                onClick = null,
+                                // 행이 누르는 영역이라 버튼의 48dp 여백이 빠진다 — 예전 자리(끝에서 28dp 가운데)에 맞춘다.
+                                modifier = Modifier.padding(end = 14.dp),
                                 colors = RadioButtonDefaults.colors(selectedColor = KosmosTheme.colors.brand)
                             )
                         }
@@ -339,14 +347,15 @@ private fun ValueTrailing(value: String) = Row(verticalAlignment = Alignment.Cen
 /** 라벨 + 스위치 한 줄 — 행 전체를 눌러도 바뀐다(누르는 영역). */
 @Composable
 private fun SettingSwitchRow(label: String, checked: Boolean, divider: Boolean = false, onCheckedChange: (Boolean) -> Unit) {
+    // [WHY] 행과 스위치가 따로 포커스를 잡아 화면 읽기가 두 번 읽었다 — 행 하나가 스위치 역할(0.38.3 점검 P3).
     com.kosmos.app.ui.component.KosmosListRow(
         title = label,
-        onClick = { onCheckedChange(!checked) },
+        modifier = Modifier.toggleable(value = checked, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onCheckedChange),
         divider = divider,
         trailing = {
             Switch(
                 checked = checked,
-                onCheckedChange = onCheckedChange,
+                onCheckedChange = null,
                 modifier = Modifier.padding(end = 12.dp),
                 // [WHY] 꺼짐은 손잡이·테두리를 textMuted 로(흰 묶음 위에서 비텍스트 대비 3:1), 켜짐 손잡이는 면 색(검은 손잡이가 너무 무거웠다) — 0.38.3 M6 점검 P1.
                 colors = SwitchDefaults.colors(
@@ -466,7 +475,7 @@ private fun DataResetSection(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(enabled = !running) {
+                                .toggleable(value = checked, enabled = !running, role = androidx.compose.ui.semantics.Role.Checkbox) {
                                     selected = if (checked) selected - option.target else selected + option.target
                                 }
                                 .padding(vertical = 4.dp),

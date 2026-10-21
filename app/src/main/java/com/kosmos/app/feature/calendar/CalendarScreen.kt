@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.calendar
 
+import androidx.compose.foundation.selection.toggleable
 import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
@@ -240,9 +241,13 @@ private fun TodayTaskRow(title: String, divider: Boolean, onComplete: () -> Unit
     val colors = KosmosTheme.colors
     Column {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 4.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onComplete) {
-                Box(Modifier.size(22.dp).border(1.5.dp, colors.textMuted, androidx.compose.foundation.shape.CircleShape)
-                    .semantics { contentDescription = "$title 완료" })
+            // [WHY] 완료 원은 체크 상자 — 버튼으로 읽혔다(0.38.3 점검 P2).
+            Box(
+                Modifier.size(48.dp).toggleable(value = false, role = androidx.compose.ui.semantics.Role.Checkbox, onValueChange = { onComplete() })
+                    .semantics { contentDescription = "$title 완료" },
+                contentAlignment = Alignment.Center
+            ) {
+                Box(Modifier.size(22.dp).border(1.5.dp, colors.textMuted, androidx.compose.foundation.shape.CircleShape))
             }
             Text(title, style = MaterialTheme.typography.bodyLarge, color = colors.textPrimary, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
         }

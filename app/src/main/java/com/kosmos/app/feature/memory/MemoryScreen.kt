@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.memory
 
+import androidx.compose.foundation.selection.toggleable
 import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.component.groupItem
@@ -347,7 +348,7 @@ fun MemoryScreen(
                                 divider = position == com.kosmos.app.ui.component.GroupPosition.First || position == com.kosmos.app.ui.component.GroupPosition.Middle,
                                 modifier = Modifier.groupItem(position)
                             ) {
-                                com.kosmos.app.ui.component.DeleteIconButton(onClick = { deleteNote(note) })
+                                com.kosmos.app.ui.component.DeleteIconButton(onClick = { deleteNote(note) }, contentDescription = "${note.content.take(20)} 메모 삭제")
                             }
                         }
                     }
@@ -530,7 +531,8 @@ fun TaskItemRow(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .clickable(onClickLabel = if (isCompleted) "되살리기" else "완료") { onToggle() },
+                    // [WHY] 완료 원은 체크 상자다 — 일반 버튼으로 읽혔다(0.38.3 점검 P2). 설명은 행 제목이 맡는다.
+                    .toggleable(value = isCompleted, role = androidx.compose.ui.semantics.Role.Checkbox) { onToggle() },
                 contentAlignment = Alignment.Center
             ) {
                 Box(
@@ -578,7 +580,7 @@ fun TaskItemRow(
                 }
             }
 
-            if (onDelete != null) com.kosmos.app.ui.component.DeleteIconButton(onClick = onDelete)
+            if (onDelete != null) com.kosmos.app.ui.component.DeleteIconButton(onClick = onDelete, contentDescription = "$title 삭제")
         }
         if (position == com.kosmos.app.ui.component.GroupPosition.First || position == com.kosmos.app.ui.component.GroupPosition.Middle) {
             androidx.compose.material3.HorizontalDivider(Modifier.padding(start = 56.dp), color = KosmosTheme.colors.border)

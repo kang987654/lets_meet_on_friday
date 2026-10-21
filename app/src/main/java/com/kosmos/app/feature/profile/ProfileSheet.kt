@@ -195,7 +195,7 @@ private fun EntryRow(entry: com.kosmos.app.domain.model.ProfileEntry, divider: B
                 }
                 Text(entry.value, style = MaterialTheme.typography.bodyLarge, color = colors.textPrimary)
             }
-            com.kosmos.app.ui.component.DeleteIconButton(onDelete)
+            com.kosmos.app.ui.component.DeleteIconButton(onDelete, contentDescription = "${entry.key} 삭제")
         }
         if (divider) androidx.compose.material3.HorizontalDivider(Modifier.padding(start = 16.dp), color = colors.border)
     }
