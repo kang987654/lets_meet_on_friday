@@ -44,9 +44,13 @@ fun KosmosButton(
         danger -> Modifier.background(colors.surface, KosmosShapes.md).border(1.dp, colors.dangerText.copy(alpha = 0.35f), KosmosShapes.md)
         else -> Modifier.background(colors.surface, KosmosShapes.md).border(1.dp, colors.border, KosmosShapes.md)
     }
+    val source = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Box(
         modifier = modifier
+            // [WHY] 누르는 동안 살짝 줄어든다(0.38.4 M4). 물결은 둥근 모서리 안으로 — 잘라 주지 않아 네모로 퍼졌다.
+            .pressScale(source)
             .heightIn(min = 48.dp)
+            .clip(KosmosShapes.md)
             .then(face)
             .then(
                 if (progress == null) Modifier
@@ -54,7 +58,7 @@ fun KosmosButton(
                     drawRect(colors.brand.copy(alpha = 0.18f), size = size.copy(width = size.width * progress().coerceIn(0f, 1f)))
                 }
             )
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .clickable(interactionSource = source, indication = androidx.compose.material3.ripple(), enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {

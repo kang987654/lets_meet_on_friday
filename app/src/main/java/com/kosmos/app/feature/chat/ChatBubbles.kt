@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.chat
 
+import com.kosmos.app.ui.component.appearOnce
+import com.kosmos.app.ui.component.pressScale
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.res.painterResource
@@ -158,7 +160,9 @@ fun ChatBubbleAssistant(
     onResultClick: (() -> Unit)? = null,
     // [WHY] 상황 칩(0.38.2 M6) — 마지막 비서 답에만 화면이 넘긴다. 읽기 버튼 아래.
     chips: List<com.kosmos.app.feature.chat.result.ChatChip> = emptyList(),
-    onChipClick: (com.kosmos.app.feature.chat.result.ChatChip) -> Unit = {}
+    onChipClick: (com.kosmos.app.feature.chat.result.ChatChip) -> Unit = {},
+    // [WHY] 방금 생긴 답의 결과 행만 아래에서 올라오며 나타난다(0.38.4 M4) — 스크롤로 다시 보일 때는 움직이지 않는다. 기본 false(E2E 단독 compose 그대로).
+    animateResult: Boolean = false
 ) {
     var isThinkingExpanded by remember { mutableStateOf(false) }
     val recallInCard = recallChipLabel != null && result?.kind == com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL
@@ -237,7 +241,7 @@ fun ChatBubbleAssistant(
                     }
                 }
                 if (result != null) {
-                    com.kosmos.app.feature.chat.result.ResultRow(result, onClick = onResultClick)
+                    Box(Modifier.appearOnce(animateResult)) { com.kosmos.app.feature.chat.result.ResultRow(result, onClick = onResultClick) }
                     if (result.evidence.isNotEmpty()) {
                         androidx.compose.material3.HorizontalDivider(color = KosmosTheme.colors.border)
                         result.evidence.forEachIndexed { index, line ->
@@ -361,11 +365,14 @@ private fun ChatChipRow(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         chips.forEach { chip ->
+            val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
+                    .pressScale(source)
+                    .clip(RoundedCornerShape(99.dp))
                     .kosmosSurface(shape = RoundedCornerShape(99.dp))
-                    .clickable(role = androidx.compose.ui.semantics.Role.Button) { onChipClick(chip) }
+                    .clickable(interactionSource = source, indication = androidx.compose.material3.ripple(), role = androidx.compose.ui.semantics.Role.Button) { onChipClick(chip) }
                     .padding(start = if (chip.icon != null) 12.dp else 14.dp, end = 14.dp, top = 8.dp, bottom = 8.dp)
             ) {
                 chip.icon?.let {

@@ -655,12 +655,16 @@ private fun MessageWithDate(
                     result = result,
                     onResultClick = onResultClick.takeIf { result != null },
                     chips = chips,
-                    onChipClick = onChipClick
+                    onChipClick = onChipClick,
+                    // 방금(10초 안) 저장된 답만 — 대화를 다시 열거나 위로 올렸다 내려올 때는 움직이지 않는다.
+                    animateResult = com.kosmos.app.ui.component.LocalClock.current.millis() - message.createdAt < NEW_RESULT_WINDOW_MS
                 )
             }
         }
     }
 }
+
+private const val NEW_RESULT_WINDOW_MS = 10_000L
 
 /**
  * 채팅 상단 요약 한 줄(0.38.2) — 다음 알림·오늘 일정·남은 할 일. 누르면 해당 화면(결정 2: 할 일 탭·일정 화면).

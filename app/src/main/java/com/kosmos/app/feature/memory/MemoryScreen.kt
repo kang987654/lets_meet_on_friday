@@ -549,7 +549,13 @@ fun TaskItemRow(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (isCompleted) {
+                    // [WHY] 체크가 작게 커지며 나타난다(0.38.4 M4 — 결과가 생길 때만 움직임). 애니메이션 제거면 바로.
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isCompleted,
+                        enter = if (com.kosmos.app.ui.component.rememberReducedMotion()) androidx.compose.animation.EnterTransition.None
+                            else androidx.compose.animation.scaleIn(com.kosmos.app.ui.theme.Motion.short(), initialScale = 0.4f) + androidx.compose.animation.fadeIn(com.kosmos.app.ui.theme.Motion.short()),
+                        exit = androidx.compose.animation.ExitTransition.None
+                    ) {
                         com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_check, contentDescription = null, size = 14.dp, tint = KosmosTheme.colors.successText)
                     }
                 }
