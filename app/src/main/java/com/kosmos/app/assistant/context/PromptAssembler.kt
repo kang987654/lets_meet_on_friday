@@ -119,9 +119,20 @@ class PromptAssembler @Inject constructor() {
             appendLine("[System]")
             appendLine("You are a $systemRole")
             appendLine("Always respond in Korean unless the user speaks another language.")
+            appendLine(voiceInstruction(responseStyle))
             styleInstruction(responseStyle)?.let { appendLine(it) }
         }.trimEnd()
     }
+
+    /**
+     * 답 말투 — 해요체, 기본은 짧게(exp55 A-short: 실제 입력 해요체 18→100%, 답 평균 70→33토큰, 툴 스모크 12/12, 거짓 성공 0).
+     *
+     * [WHY] 지시가 없으면 툴을 부른 뒤의 답이 거의 합니다체였다(실기기 비서 답 64%). "자세히" 설정이면 "Answer thoroughly"와
+     * 부딪히지 않게 briefly 만 뺀다(사용자 결정). 툴 결과 문구만 해요체로 바꾸는 안(B)은 효과가 없었다.
+     */
+    private fun voiceInstruction(responseStyle: String): String =
+        if (responseStyle == ResponseStyle.DETAILED) "Reply in polite 해요체 (…해요, …했어요), not 합니다체."
+        else "Reply briefly in polite 해요체 (…해요, …했어요), not 합니다체."
 
     /**
      * 응답 스타일 설정을 **모델이 따를 수 있는 지시문**으로 바꿉니다.

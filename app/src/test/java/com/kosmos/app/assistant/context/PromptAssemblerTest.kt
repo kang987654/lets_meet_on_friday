@@ -194,6 +194,19 @@ class PromptAssemblerTest {
     }
 
     @Test
+    fun `말투는 해요체, 자세히 설정에서만 짧게를 뺀다`() {
+        // [WHY] exp55 A-short — "자세히"의 "Answer thoroughly"와 "briefly"가 부딪히지 않게(0.38.5 사용자 결정).
+        val default = prompt(responseStyle = "DEFAULT").systemInstruction
+        val concise = prompt(responseStyle = "CONCISE").systemInstruction
+        val detailed = prompt(responseStyle = "DETAILED").systemInstruction
+
+        assertTrue(default.contains("Reply briefly in polite 해요체"))
+        assertTrue(concise.contains("Reply briefly in polite 해요체"))
+        assertTrue(detailed.contains("Reply in polite 해요체"))
+        assertFalse(detailed.contains("briefly"))
+    }
+
+    @Test
     fun `설정 화면에 없는 자유 문장 스타일은 그대로 전달된다`() {
         val testStyle = "친절하게 이모지 많이 써줘"
         val instruction = prompt(responseStyle = testStyle).systemInstruction
