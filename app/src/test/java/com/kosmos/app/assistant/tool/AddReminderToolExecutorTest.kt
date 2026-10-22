@@ -67,7 +67,7 @@ class AddReminderToolExecutorTest {
             sessionId = "s1"
         )
 
-        assertEquals("리마인더 등록", request.title)
+        assertEquals("알림 등록", request.title)
         assertTrue(request.description.contains("8월 29일 오후 3:00"))
         assertTrue(request.description.contains("약 먹기"))
         assertFalse("ISO 원문이 사용자에게 노출되면 안 된다", request.description.contains("2026-08-29T"))

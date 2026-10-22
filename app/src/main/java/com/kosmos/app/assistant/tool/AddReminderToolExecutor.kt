@@ -53,7 +53,7 @@ class AddReminderToolExecutor internal constructor(
         }
         return ApprovalRequest(
             sessionId = sessionId,
-            title = "리마인더 등록",
+            title = "알림 등록",
             // [WHY] ISO 원문을 사용자에게 노출하지 않는다 — toDisplayKorean 단일 출처 (0.19.2).
             description = "${draft.displayTime}에 알림: '${draft.content}'",
             showsNotification = true,

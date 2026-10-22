@@ -434,7 +434,7 @@ class ScreenCatalogTest {
 
     @Test fun reminderApprovalSheet() {
         val request = com.kosmos.app.assistant.approval.ApprovalRequest(
-            sessionId = SESSION, title = "리마인더 등록", description = "오늘 오후 1:56에 알림: '물 마시기'", showsNotification = true,
+            sessionId = SESSION, title = "알림 등록", description = "오늘 오후 1:56에 알림: '물 마시기'", showsNotification = true,
             preview = com.kosmos.app.assistant.approval.ApprovalPreview(
                 com.kosmos.app.assistant.approval.ApprovalPreview.Kind.REMINDER, "물 마시기", atIso = "2026-10-15T13:56:00"
             )
@@ -449,7 +449,7 @@ class ScreenCatalogTest {
 
     @Test fun memoryApprovalSheet() {
         val request = com.kosmos.app.assistant.approval.ApprovalRequest(
-            sessionId = SESSION, title = "메모리 저장 승인", description = "저장할 내용: 자전거 자물쇠 비밀번호는 현관 서랍 수첩에 적어 둠",
+            sessionId = SESSION, title = "메모 저장", description = "저장할 내용: 자전거 자물쇠 비밀번호는 현관 서랍 수첩에 적어 둠",
             preview = com.kosmos.app.assistant.approval.ApprovalPreview(
                 com.kosmos.app.assistant.approval.ApprovalPreview.Kind.MEMORY, "자전거 자물쇠 비밀번호는 현관 서랍 수첩에 적어 둠"
             )

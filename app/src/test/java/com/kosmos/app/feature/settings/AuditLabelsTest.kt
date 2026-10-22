@@ -18,7 +18,7 @@ class AuditLabelsTest {
     @Test
     fun `툴 실행은 한국어 툴 이름, 결과 JSON 은 내용 줄에 두지 않는다`() {
         val display = AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: AddReminder\nResult: {\"ok\":true}"))
-        assertEquals("리마인더 추가 실행", display.title)
+        assertEquals("알림 추가 실행", display.title)
         assertEquals("", display.summary)
         assertEquals(R.drawable.ic_ph_bell, display.icon)
     }

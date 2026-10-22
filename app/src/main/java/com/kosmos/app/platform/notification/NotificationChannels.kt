@@ -35,10 +35,10 @@ object NotificationChannels {
         // [WHY] 진행률 바가 소리나 진동을 내면 수십 분간 사용자를 괴롭히므로 IMPORTANCE_LOW + 무음.
         val channel = NotificationChannel(
             MODEL_DOWNLOAD,
-            "모델 다운로드",
+            "모델 내려받기",
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "AI 모델 파일 다운로드 진행 상황을 표시합니다."
+            description = "AI 모델 파일을 내려받는 진행 상황을 보여 줘요."
             setShowBadge(false)
             setSound(null, null)
             enableVibration(false)
@@ -52,7 +52,7 @@ object NotificationChannels {
             "아침 브리핑",
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "매일 아침 일정과 할 일 미리보기를 알립니다."
+            description = "매일 아침 오늘 일정과 할 일을 미리 알려 줘요."
         }
         manager.createNotificationChannel(briefing)
 
@@ -60,10 +60,10 @@ object NotificationChannels {
         // 과하다고 느끼면 사용자가 채널 설정에서 낮출 수 있다 (B1).
         val reminder = NotificationChannel(
             REMINDER,
-            "리마인더",
+            "정한 시각 알림",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "지정한 시각에 등록한 리마인더를 알립니다."
+            description = "부탁한 알림을 정한 시각에 울려요."
         }
         manager.createNotificationChannel(reminder)
     }

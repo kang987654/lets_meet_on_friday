@@ -1,5 +1,5 @@
-# 🗓️ lets_meet_on_friday (KOSMOS)
-> **완전 온디바이스로 동작하는 개인정보 보호형 AI 비서 — 자동 분절되는 에피소드 기억을 가진 연속 대화 비서**
+# lets_meet_on_friday (KOSMOS)
+> **휴대폰 안에서만 동작하는 개인정보 보호형 AI 비서. 대화를 주제별 에피소드로 나눠 기억하며 이어서 대화해요.**
 
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?style=flat-square&logo=kotlin)
 ![AGP](https://img.shields.io/badge/AGP-9.3-3DDC84?style=flat-square&logo=android)

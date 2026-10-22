@@ -348,7 +348,7 @@ fun MemoryScreen(
                                 divider = position == com.kosmos.app.ui.component.GroupPosition.First || position == com.kosmos.app.ui.component.GroupPosition.Middle,
                                 modifier = Modifier.groupItem(position)
                             ) {
-                                com.kosmos.app.ui.component.DeleteIconButton(onClick = { deleteNote(note) }, contentDescription = "${note.content.take(20)} 메모 삭제")
+                                com.kosmos.app.ui.component.DeleteIconButton(onClick = { deleteNote(note) }, contentDescription = "${note.content.take(20)} 메모 지우기")
                             }
                         }
                     }
@@ -434,7 +434,7 @@ private fun BackupDialogs(
             title = "지금 데이터를 덮어써요",
             body = "복원하면 지금 기기의 대화, 메모, 일정이 백업 파일의 내용으로 " +
                 "모두 바뀌고 되돌릴 수 없어요. 계속할까요?",
-            confirmText = "파일 선택",
+            confirmText = "파일 고르기",
             confirmColor = KosmosTheme.colors.dangerText,
             onConfirm = onConfirmImport,
             onDismiss = onDismiss
@@ -448,8 +448,8 @@ private fun BackupDialogs(
             // 자동 타이머로 프로세스를 죽이던 기존 방식과 달리, 사용자가 누른 시점에만 죽인다.
             ConfirmDialog(
                 title = "복원 완료",
-                body = "데이터를 적용하려면 앱을 다시 시작해야 합니다.",
-                confirmText = "재시작",
+                body = "복원한 데이터를 쓰려면 앱을 다시 시작해야 해요.",
+                confirmText = "다시 시작",
                 onConfirm = onRestartApp,
                 onDismiss = {},
                 showCancel = false
@@ -586,7 +586,7 @@ fun TaskItemRow(
                 }
             }
 
-            if (onDelete != null) com.kosmos.app.ui.component.DeleteIconButton(onClick = onDelete, contentDescription = "$title 삭제")
+            if (onDelete != null) com.kosmos.app.ui.component.DeleteIconButton(onClick = onDelete, contentDescription = "$title 지우기")
         }
         if (position == com.kosmos.app.ui.component.GroupPosition.First || position == com.kosmos.app.ui.component.GroupPosition.Middle) {
             androidx.compose.material3.HorizontalDivider(Modifier.padding(start = 56.dp), color = KosmosTheme.colors.border)

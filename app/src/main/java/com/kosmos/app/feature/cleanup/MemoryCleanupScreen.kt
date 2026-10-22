@@ -217,7 +217,7 @@ private fun ReviewContent(
         }
     }
     val count = proposals.count { it.key in checked } + episodeProposals.count { it.key in checkedEpisodes }
-    KosmosButton(if (count > 0) "선택한 ${count}건 합치기" else "합치지 않고 마치기", onApply, Modifier.fillMaxWidth(), accent = true)
+    KosmosButton(if (count > 0) "고른 ${count}건 합치기" else "합치지 않고 마치기", onApply, Modifier.fillMaxWidth(), accent = true)
 }
 
 /**

@@ -34,5 +34,5 @@ object NotificationAccess {
     fun exactAlarmSettingsIntent(context: Context): android.content.Intent =
         android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, android.net.Uri.parse("package:${context.packageName}"))
 
-    const val INEXACT_NOTE = "정확한 알람 권한이 없어 알림이 최대 10분 늦을 수 있어요."
+    const val INEXACT_NOTE = "알람 및 리마인더 권한이 없어 알림이 최대 10분 늦을 수 있어요."
 }

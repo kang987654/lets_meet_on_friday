@@ -36,8 +36,8 @@ object AuditLabels {
         ToolNames.ADD_MEMORY to "메모 저장",
         ToolNames.SEARCH_MEMORY to "기억 검색",
         ToolNames.SEARCH_WIKIPEDIA to "위키백과 검색",
-        ToolNames.ADD_REMINDER to "리마인더 추가",
-        "ReminderEdit(화면)" to "리마인더 수정",
+        ToolNames.ADD_REMINDER to "알림 추가",
+        "ReminderEdit(화면)" to "알림 수정",
         // 기억 정리 실행기(0.30.0) — 모델 툴이 아니라 정리 화면이 남긴다.
         "MemoryMerge" to "기억 합치기",
         "EpisodeMerge" to "대화 합치기"

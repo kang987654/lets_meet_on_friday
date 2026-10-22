@@ -143,7 +143,7 @@ fun EmptyState(@DrawableRes icon: Int, message: String, modifier: Modifier = Mod
  * 행 끝 삭제 버튼 — 옅은 휴지통(48dp). 빨간 ✕ 가 화면에서 가장 눈에 띄는 색이었다(impeccable 0.38.2 P1). 지운 뒤에는 [showUndo] 로 되돌릴 기회를 준다.
  */
 @Composable
-fun DeleteIconButton(onClick: () -> Unit, contentDescription: String = "삭제") {
+fun DeleteIconButton(onClick: () -> Unit, contentDescription: String = "지우기") {
     IconButton(onClick = onClick) {
         KosmosIcon(R.drawable.ic_ph_trash, contentDescription = contentDescription, size = IconSize.inline, tint = KosmosTheme.colors.textMuted)
     }

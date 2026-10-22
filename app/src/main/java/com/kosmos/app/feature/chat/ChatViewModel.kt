@@ -300,8 +300,8 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             runtimeMetricsCollector.thermalWarning.collectLatest { warning ->
                 val warningMessage = when (warning) {
-                    is AppError.TemperatureCritical -> "발열이 심하여 기기 보호를 위해 성능이 제한됩니다."
-                    is AppError.TemperatureWarning -> "발열로 인해 추론이 약간 지연될 수 있습니다."
+                    is AppError.TemperatureCritical -> "기기가 뜨거워 보호하려고 속도를 줄였어요."
+                    is AppError.TemperatureWarning -> "기기가 따뜻해져 답이 조금 늦을 수 있어요."
                     else -> null
                 }
                 _uiState.update { it.copy(warningMessage = warningMessage) }

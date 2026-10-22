@@ -61,7 +61,7 @@ class MemoryCleanupScreenTest {
         show()
 
         composeRule.onNodeWithText("자전거 자물쇠 비밀번호는 4821이다.").performScrollTo().performClick()
-        composeRule.onNodeWithText("선택한 1건 합치기").performScrollTo().performClick()
+        composeRule.onNodeWithText("고른 1건 합치기").performScrollTo().performClick()
         composeRule.waitForIdle()
 
         coVerify(exactly = 1) { runner.apply(listOf(bike)) }
@@ -81,7 +81,7 @@ class MemoryCleanupScreenTest {
 
         composeRule.onNodeWithText("합치지 않고 마치기").performScrollTo()
         composeRule.onNodeWithText("치과 예약 시간 변경", substring = true).performScrollTo().performClick()
-        composeRule.onNodeWithText("선택한 1건 합치기").performScrollTo().performClick()
+        composeRule.onNodeWithText("고른 1건 합치기").performScrollTo().performClick()
         composeRule.waitForIdle()
 
         coVerify(exactly = 1) { runner.apply(emptyList(), listOf(episodes)) }

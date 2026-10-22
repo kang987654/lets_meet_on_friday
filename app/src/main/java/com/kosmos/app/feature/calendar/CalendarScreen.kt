@@ -316,7 +316,7 @@ private fun DeviceCalendarNotice(
             .padding(16.dp)
     ) {
         Text(
-            text = "기기 캘린더를 읽지 못했어요. 아래 목록에는 이 앱에 저장한 일정만 있습니다.",
+            text = "기기 캘린더를 읽지 못했어요. 아래에는 이 앱에 저장한 일정만 있어요.",
             color = KosmosTheme.colors.textPrimary,
             style = MaterialTheme.typography.bodySmall
         )

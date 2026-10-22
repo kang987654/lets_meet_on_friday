@@ -134,7 +134,7 @@ fun ModelManagementScreen(
                 text = {
                     // 이어받을 부분 파일이 있으면 재시도가 저렴하다는 사실을 함께 알린다.
                     val resumeNote = if (state.resumableBytes > 0) {
-                        "\n\n%.1fGB까지 받아둔 상태라 재시도하면 이어서 받습니다."
+                        "\n\n%.1fGB까지 받아 두어서 다시 시도하면 이어서 받아요."
                             .format(state.resumableBytes.toGigabytes())
                     } else {
                         ""
@@ -146,7 +146,7 @@ fun ModelManagementScreen(
                         viewModel.resetState()
                         startDownload(lastRequestedUrl)
                     }) {
-                        Text("재시도", color = KosmosTheme.colors.brandText)
+                        Text("다시 시도", color = KosmosTheme.colors.brandText)
                     }
                 },
                 dismissButton = {
@@ -213,7 +213,7 @@ private fun DownloadProgressCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                if (isRetrying) "모델 다운로드 재시도 중" else "모델 다운로드 중",
+                if (isRetrying) "모델을 다시 내려받는 중" else "모델을 내려받는 중",
                 style = MaterialTheme.typography.titleSmall,
                 color = KosmosTheme.colors.textPrimary,
                 fontWeight = FontWeight.Bold
@@ -247,7 +247,7 @@ private fun DownloadProgressCard(
             color = KosmosTheme.colors.textMuted
         )
         Text(
-            "앱을 닫아도 백그라운드에서 계속 진행됩니다.",
+            "앱을 닫아도 계속 내려받아요.",
             style = MaterialTheme.typography.bodySmall,
             color = KosmosTheme.colors.textMuted
         )
@@ -258,7 +258,7 @@ private fun DownloadProgressCard(
             // [WHY] 취소는 이어받기용 부분 파일을 남긴다. 저장 공간을 즉시 회수하고 싶은
             // 사용자를 위해 폐기를 별도 동작으로 노출한다.
             TextButton(onClick = onDiscardPartial) {
-                Text("취소 후 삭제", color = KosmosTheme.colors.dangerText)
+                Text("취소하고 지우기", color = KosmosTheme.colors.dangerText)
             }
         }
     }
@@ -280,7 +280,7 @@ private fun DownloadQueuedCard(onCancel: () -> Unit) {
             trackColor = KosmosTheme.colors.surface
         )
         Text(
-            "데이터 요금을 아끼기 위해 Wi-Fi에 연결되면 자동으로 시작합니다.",
+            "데이터 요금을 아끼려고 Wi-Fi에 연결되면 시작해요.",
             style = MaterialTheme.typography.bodySmall,
             color = KosmosTheme.colors.textMuted
         )

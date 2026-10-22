@@ -36,7 +36,7 @@ class AddMemoryToolExecutor @Inject constructor(
         val preview = if (content.length > 80) content.take(80) + "…" else content
         return ApprovalRequest(
             sessionId = sessionId,
-            title = "메모리 저장 승인",
+            title = "메모 저장",
             description = "저장할 내용: $preview",
             preview = ApprovalPreview(ApprovalPreview.Kind.MEMORY, content)
         )

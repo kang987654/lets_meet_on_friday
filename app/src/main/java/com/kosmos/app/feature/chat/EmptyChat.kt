@@ -46,7 +46,7 @@ fun EmptyChat(onStarter: (String) -> Unit, modifier: Modifier = Modifier) {
         }
         Text("오늘은 무엇을 맡길까요?", style = MaterialTheme.typography.titleLarge, color = colors.textPrimary)
         Text(
-            "알림·일정·기억을 휴대폰 안에서만 처리해요.",
+            "알림, 일정, 기억을 휴대폰 안에서만 처리해요.",
             style = MaterialTheme.typography.bodyMedium,
             color = colors.textSecondary,
             textAlign = TextAlign.Center

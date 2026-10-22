@@ -82,7 +82,7 @@ fun EpisodeSheet(
                 Text(
                     text = when (val s = state) {
                         EpisodeSheetState.Loading, is EpisodeSheetState.Loaded -> "기억을 불러오는 중이에요…"
-                        EpisodeSheetState.Missing -> "이 기억은 삭제됐어요. 원문 대화는 타임라인에 그대로 있어요."
+                        EpisodeSheetState.Missing -> "이 기억은 지웠어요. 원문 대화는 타임라인에 그대로 있어요."
                         is EpisodeSheetState.Error -> s.message
                     },
                     color = KosmosTheme.colors.textMuted,
@@ -133,7 +133,7 @@ fun EpisodeSheet(
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = { confirmDelete = true }) {
-                        Text("삭제", color = KosmosTheme.colors.dangerText)
+                        Text("지우기", color = KosmosTheme.colors.dangerText)
                     }
                 }
                 Text(
@@ -148,9 +148,9 @@ fun EpisodeSheet(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("이 기억을 삭제할까요?") },
+            title = { Text("이 기억을 지울까요?") },
             // [WHY] 삭제되는 것은 **요약 문서뿐**임을 명시한다 — 원문 대화는 타임라인에 남는다.
-            text = { Text("요약 문서만 삭제돼요. 원문 대화는 타임라인에 그대로 남아요.") },
+            text = { Text("요약만 지워져요. 원문 대화는 타임라인에 그대로 남아요.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
@@ -159,7 +159,7 @@ fun EpisodeSheet(
                         onChanged()
                         onDismiss()
                     })
-                }) { Text("삭제", color = KosmosTheme.colors.dangerText) }
+                }) { Text("지우기", color = KosmosTheme.colors.dangerText) }
             },
             dismissButton = {
                 TextButton(onClick = { confirmDelete = false }) { Text("취소", color = KosmosTheme.colors.textSecondary) }

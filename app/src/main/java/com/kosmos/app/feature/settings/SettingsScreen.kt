@@ -280,9 +280,9 @@ fun SettingsScreen(
                 onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
             }
             if (!exactAlarmAllowed) {
-                Section("리마인더", footnote = "정확한 알림 권한이 꺼져 있어 리마인더가 지정 시각보다 최대 10분 늦게 울릴 수 있어요.") {
+                Section("알림", footnote = "알람 및 리마인더 권한이 꺼져 있어 알림이 정한 시각보다 최대 10분 늦게 울릴 수 있어요.") {
                     com.kosmos.app.ui.component.KosmosListRow(
-                        title = "정확한 알림 허용하기",
+                        title = "알람 및 리마인더 허용하기",
                         onClick = {
                             context.startActivity(
                                 android.content.Intent(
@@ -442,7 +442,7 @@ private fun ModelStatus(state: ModelLoadState, onManage: () -> Unit, onRefresh: 
 private data class ResetOption(val target: com.kosmos.app.domain.memory.ResetTarget, val title: String, val detail: String)
 
 private val RESET_OPTIONS = listOf(
-    ResetOption(com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS, "대화 기록", "채팅·브리핑 카드·기억 요약·활동 기록·호칭 제안"),
+    ResetOption(com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS, "대화 기록", "채팅, 브리핑 카드, 기억 요약, 활동 기록, 호칭 제안"),
     ResetOption(com.kosmos.app.domain.memory.ResetTarget.TASKS, "할 일", "완료한 것 포함, 예약된 알림도 취소"),
     ResetOption(com.kosmos.app.domain.memory.ResetTarget.KNOWLEDGE, "메모", "직접·자동으로 저장한 메모"),
     ResetOption(com.kosmos.app.domain.memory.ResetTarget.PROFILE, "프로필", "호칭 등 나에 대한 정보")
@@ -464,7 +464,7 @@ private fun DataResetSection(
     Section("데이터") {
         com.kosmos.app.ui.component.KosmosListRow(
             title = "데이터 초기화",
-            supporting = "대화 기록·할 일·메모·프로필 중 골라서 지워요",
+            supporting = "대화 기록, 할 일, 메모, 프로필 중 골라서 지워요",
             onClick = { showPicker = true },
             trailing = { Chevron() }
         )
@@ -547,7 +547,7 @@ private fun DataResetSection(
                 TextButton(onClick = {
                     if (state.needsRestart) onRestart() else { showPicker = false; onDismiss() }
                 }) {
-                    Text(if (state.needsRestart) "재시작" else "확인", color = KosmosTheme.colors.brandText)
+                    Text(if (state.needsRestart) "다시 시작" else "확인", color = KosmosTheme.colors.brandText)
                 }
             },
             containerColor = KosmosTheme.colors.surface

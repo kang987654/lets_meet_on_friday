@@ -225,7 +225,7 @@ fun ChatScreen(
                 return@rememberLauncherForActivityResult
             }
             if (result.rejected) {
-                notify("이 파일은 글자로 첨부할 수 없어요. PDF·엑셀·워드·한글(hwpx)·텍스트 파일을 첨부해 주세요.")
+                notify("이 파일은 글자로 첨부할 수 없어요. PDF, 엑셀, 워드, 한글(hwpx), 텍스트 파일을 첨부해 주세요.")
                 return@rememberLauncherForActivityResult
             }
             if (result.truncated) notify("문서가 길어 앞부분만 첨부돼요. 긴 문서 요약은 아직 지원하지 않아요.")
@@ -234,7 +234,7 @@ fun ChatScreen(
                 viewModel.setSharedInput(shared)
             } else {
                 // [WHY] 읽기 실패(예외·null 스트림)를 조용히 넘기면 사용자는 버튼이 고장 났다고 본다.
-                notify("첨부 파일을 읽지 못했어요. 다른 파일을 선택해주세요.")
+                notify("첨부 파일을 읽지 못했어요. 다른 파일을 골라 주세요.")
             }
         }
     }
