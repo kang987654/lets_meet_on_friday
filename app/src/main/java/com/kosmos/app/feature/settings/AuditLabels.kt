@@ -127,13 +127,16 @@ object AuditLabels {
             "error" -> "실패"
             else -> null
         }
-        val message = MESSAGE.find(raw)?.groupValues?.get(1)?.replace("\\\"", "\"")?.replace("\\n", " ")?.takeIf { it.isNotBlank() }
+        val message = MESSAGE.find(raw)?.groupValues?.get(1)?.replace("\\\"", "\"")?.replace("\\n", "\n")
+            ?.let { readable(it) }?.takeIf { it.isNotBlank() }
         return listOfNotNull(status, message).joinToString(", ")
     }
 
     private fun approval(details: String, @DrawableRes icon: Int, title: String): AuditDisplay {
         val head = details.substringBefore(':', missingDelimiterValue = "")
-        val (tool, body) = if (head.isNotEmpty() && head in TOOL_KOREAN) toolKorean(head) to details.substringAfter(':').trim() else null to details
+        val (tool, rawBody) = if (head.isNotEmpty() && head in TOOL_KOREAN) toolKorean(head) to details.substringAfter(':').trim() else null to details
+        // [WHY] 승인 내용에는 사용자가 한 말(메모 내용 등)이 들어 있다 — "…하세요"로 끝나도 지우지 않고 시각만 바꾼다.
+        val body = readable(rawBody, dropInstructions = false)
         val summary = if (tool != null) "$tool: $body" else body
         return AuditDisplay(icon, title, summarize(summary), listOfNotNull(tool?.let { AuditField("도구", it) }, AuditField("내용", body)))
     }
@@ -177,6 +180,18 @@ object AuditLabels {
         return (listOf(lines[start].substringAfter(':').trim()) + rest).joinToString("\n").trim().takeIf { it.isNotEmpty() }
     }
 
+    /**
+     * 툴 결과·승인 내용을 사람이 읽게 — ISO 일시는 한국어로(AGENTS §4-7), 모델에게 하는 지시 문장("…알리세요"·"…답하세요")은 뺀다(0.38.5 M1).
+     * [WHY] 툴 결과 문구는 모델 입력이라 원문은 바꾸지 않는다(§2-⑤ 실측 없이 고치지 않는다) — 화면에서만. 원문은 "원문 보기".
+     */
+    internal fun readable(text: String, dropInstructions: Boolean = true, zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault()): String =
+        text.lines().mapNotNull { line ->
+            SENTENCE_END.split(line.trim()).filter { it.isNotBlank() && !(dropInstructions && TO_MODEL.containsMatchIn(it)) }
+                .joinToString(" ").takeIf { it.isNotBlank() }
+        }.joinToString("\n").replace(ISO) { m ->
+            com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayKorean(m.value, zoneId) ?: m.value
+        }
+
     /** 모델 출력의 마크다운 기호(`**`·`__`·`` ` ``·줄 앞 `#`)를 뗀다 — 기록 화면은 서식을 그리지 않는다. */
     private fun plain(text: String): String =
         text.replace("**", "").replace("__", "").replace("`", "")
@@ -188,6 +203,14 @@ object AuditLabels {
     }
 
     private val HANGUL = Regex("[가-힣]")
+    /** 문장 끝(마침표 뒤 공백)에서 나눈다 — 마침표는 앞 문장에 남는다. */
+    private val SENTENCE_END = Regex("(?<=[.?!])\\s+")
+    /**
+     * 모델에게 하는 명령 — 명령형으로 끝나고 모델에게 시키는 말(답하·알리·호출·지어내…)이 든 문장.
+     * [WHY] 명령형만 보면 기억 검색 결과 속 사용자 메모("…하세요")까지 지워진다 — 툴 결과의 지시 문구(BaseAgent·실행기)에 쓰는 낱말로 좁힌다.
+     */
+    private val TO_MODEL = Regex("(사용자|답하|알리|호출|보내|물어보|지어내|추측|안내).*(세요|십시오)[.!]?$")
+    private val ISO = Regex("\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}(:\\d{2})?)?")
     private val STATUS = Regex("\"status\"\\s*:\\s*\"(\\w+)\"")
     private val MESSAGE = Regex("\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
 }

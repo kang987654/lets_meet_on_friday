@@ -94,4 +94,27 @@ class AuditLabelsTest {
         )
         assertEquals("앱 내부 오류", AuditLabels.of(event(AuditEventType.ERROR, "java.lang.IllegalStateException: boom")).summary)
     }
+
+    @Test
+    fun `툴 결과에서 모델에게 하는 지시 문장은 빼고 사실만`() {
+        val display = AuditLabels.of(
+            event(
+                AuditEventType.TOOL_CALL,
+                "Tool: AddReminder\nResult: {\"status\":\"error\",\"message\":\"사용자가 승인하지 않아 실행하지 않았습니다. 알림을 등록하지 않았다고 알리세요.\"}"
+            )
+        )
+        assertEquals(listOf(AuditField("결과", "실패, 사용자가 승인하지 않아 실행하지 않았습니다.")), display.fields)
+    }
+
+    @Test
+    fun `기억 검색 결과 속 사용자 메모는 명령형이어도 남긴다`() {
+        val text = "- 엄마한테 물 마시라고 하세요.\n이 목록에 질문의 답이 없으면 없다고 답하세요. 절대 지어내지 마세요."
+        assertEquals("- 엄마한테 물 마시라고 하세요.", AuditLabels.readable(text))
+    }
+
+    @Test
+    fun `승인 내용의 ISO 일시는 한국어로`() {
+        val display = AuditLabels.of(event(AuditEventType.APPROVAL_GRANTED, "AddSchedule: 일정: '치과' (2026-08-07T15:00:00)"))
+        assertEquals("일정 추가: 일정: '치과' (8월 7일 오후 3:00)", display.summary)
+    }
 }
