@@ -228,6 +228,29 @@ class PromptFixtureExportTest {
         }
     }
 
+    @Test
+    fun `일정 요약 지시와 재료 형식도 실험실 픽스처로 내보낸다`() = kotlinx.coroutines.runBlocking {
+        val runner: com.kosmos.app.domain.modelrunner.ModelRunner = mockk()
+        val captured = slot<com.kosmos.app.domain.modelrunner.ChatPrompt>()
+        coEvery { runner.generate(capture(captured), any()) } returns com.kosmos.app.core.common.AppResult.Success(
+            com.kosmos.app.domain.modelrunner.ModelTurn("오늘은 팀 회의가 있어요.")
+        )
+        com.kosmos.app.domain.usecase.SummarizeScheduleUseCase(runner)(
+            listOf(com.kosmos.app.domain.model.CalendarEvent(id = "c1", title = "팀 회의", startIso = "2026-10-22T10:00:00", endIso = "2026-10-22T11:00:00")),
+            com.kosmos.app.domain.model.ScheduleData.RangeType.TODAY
+        )
+
+        val prompt = captured.captured
+        assertTrue("oneShot 이어야 채팅 대화를 깨지 않는다", prompt.oneShot)
+        assertTrue(prompt.currentInput.contains("- 팀 회의 (시간: 10월 22일 오전 10:00)"))
+
+        val dir = File(FIXTURE_DIR)
+        if (dir.isDirectory) {
+            File(dir, "schedule_system.txt").writeText(prompt.systemInstruction)
+            File(dir, "schedule_user_sample.txt").writeText(prompt.currentInput)
+        }
+    }
+
     private fun episode(startAt: Long) = com.kosmos.app.domain.model.Episode(
         id = "e1", sessionId = "s1", status = com.kosmos.app.domain.model.EpisodeStatus.SUMMARIZED,
         title = "치과 상담", summary = "사용자는 치과에서 충치 치료를 권유받았습니다.", tags = emptyList(),

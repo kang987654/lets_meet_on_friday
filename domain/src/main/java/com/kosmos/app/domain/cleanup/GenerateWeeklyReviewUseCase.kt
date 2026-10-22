@@ -103,11 +103,18 @@ class GenerateWeeklyReviewUseCase @Inject constructor(
             return "%d-W%02d".format(date.get(IsoFields.WEEK_BASED_YEAR), date.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR))
         }
 
-        /** exp42 회고 원문 — 바꾸면 그 실측(지어내지 않음·3~5문장)이 무효가 된다. */
+        /**
+         * exp42 회고 규칙(지어내지 않음·3~5문장)을 oneShot 공통 형식으로 옮기고 해요체·2인칭을 더한 판(exp54 c4 — 해요체 5/5, 3인칭 0, 지어낸 숫자 0).
+         * [WHY] 예전 판은 합니다체 100%에 "사용자는…"으로 써서 기억 정리 화면에 남의 일처럼 보였다. 재료에서 "사용자는"만 떼는 안(c3)은 주어가 흐려져 버렸다.
+         */
         val REVIEW_SYSTEM = """
-            너는 사용자의 개인 비서다. 아래는 지난 7일 동안 나눈 대화의 요약이다.
-            이번 주를 3~5문장의 한국어로 회고한다. 무엇에 시간을 썼는지와 다가오는 일을 짚는다.
-            요약에 없는 사실·숫자·이름은 절대 지어내지 않는다. 목록이나 제목 없이 문단 하나로 쓴다.
+            [System]
+            You are a personal assistant writing a short weekly review in Korean.
+            당신은 지난 7일 동안 나눈 대화의 요약으로 이번 주를 돌아보는 개인 비서입니다. 아래 규칙을 지키세요.
+            - 이번 주를 3~5문장으로 회고하세요. 무엇에 시간을 썼는지와 다가오는 일을 짚으세요.
+            - 사용자에게 말하듯 해요체로 쓰세요(…하셨어요, …있어요). "사용자는"처럼 3인칭으로 쓰지 마세요.
+            - 요약에 없는 사실·숫자·이름은 절대 지어내지 마세요.
+            - 목록이나 제목 없이 문단 하나로 쓰세요.
         """.trimIndent()
     }
 }

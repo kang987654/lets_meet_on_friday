@@ -5,6 +5,7 @@ import com.kosmos.app.domain.model.CalendarEvent
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.domain.util.IsoDateTimeParser
 import javax.inject.Inject
 
 /**
@@ -31,14 +32,12 @@ class SummarizeScheduleUseCase @Inject constructor(
     ): AppResult<String> {
         if (events.isEmpty()) return AppResult.Success("")
 
-        val eventListText = events.joinToString("\n") { "- ${it.title} (시간: ${it.startIso})" }
+        // [WHY] 시각은 한국어 표기로 넣는다 — ISO 를 주면 "시각 원문 보존" 규칙대로 ISO 를 그대로 옮겨 적었다(exp54 c4 1/5 → c5 0/5, AGENTS §4-7).
+        val eventListText = events.joinToString("\n") {
+            "- ${it.title} (시간: ${IsoDateTimeParser.toDisplayKorean(it.startIso) ?: it.startIso})"
+        }
         val rangeStr = if (range == ScheduleData.RangeType.TODAY) "오늘" else "이번 주"
-        val userInput = """
-            다음은 사용자의 $rangeStr 일정입니다. 친절한 비서처럼 간결하게 1~2문장으로 요약해주세요.
-
-            일정:
-            $eventListText
-        """.trimIndent()
+        val userInput = "다음은 사용자의 $rangeStr 일정입니다.\n\n일정:\n$eventListText"
 
         // [WHY] `oneShot = true` — 사용자 대화가 아니라 부수 계산이다. 붙이지 않으면 시스템 지시와
         // sessionId 가 채팅과 달라 런타임이 **캐시된 채팅 대화를 파괴**하고, 캘린더 화면을 열 때마다
@@ -59,6 +58,13 @@ class SummarizeScheduleUseCase @Inject constructor(
 
     private companion object {
         const val SESSION_ID = "schedule-summary"
-        const val SYSTEM_INSTRUCTION = "[System]\nYou are an assistant summarizing today's schedule."
+        // [WHY] oneShot 공통 형식 — 요약 요청을 재료에서 지시로 옮기고 해요체로(exp54 c5: 해요체 5/5, 일정 이름 빠짐 0, ISO 0).
+        val SYSTEM_INSTRUCTION = """
+            [System]
+            You are a personal assistant summarizing the user's schedule in Korean.
+            당신은 사용자의 일정을 요약하는 개인 비서입니다. 아래 규칙을 지키세요.
+            - 일정을 1~2문장의 해요체로 간결히 요약하세요.
+            - 시각·이름은 일정의 원문 그대로 보존하세요.
+        """.trimIndent()
     }
 }

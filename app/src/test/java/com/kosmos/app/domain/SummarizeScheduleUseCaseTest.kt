@@ -53,7 +53,7 @@ class SummarizeScheduleUseCaseTest {
         useCase()(listOf(event()), ScheduleData.RangeType.WEEK)
 
         assertTrue(prompt.captured.currentInput.contains("저녁 약속"))
-        assertTrue(prompt.captured.currentInput.contains("2026-08-12T20:00"))
+        assertTrue(prompt.captured.currentInput.contains("8월 12일 오후 8:00"))
         assertTrue("범위 표현이 반영돼야 한다", prompt.captured.currentInput.contains("이번 주"))
     }
 
