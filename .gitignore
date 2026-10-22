@@ -77,6 +77,10 @@ scratch/lab/fixtures/extract_system.txt
 scratch/lab/fixtures/extract_user.txt
 scratch/lab/fixtures/transcribe_system.txt
 scratch/lab/fixtures/transcribe_user.txt
+scratch/lab/fixtures/briefing_system.txt
+scratch/lab/fixtures/briefing_user_sample.txt
+scratch/lab/fixtures/review_system.txt
+scratch/lab/fixtures/review_user_sample.txt
 scratch/lab/__pycache__/
 __pycache__/
 *.pyc

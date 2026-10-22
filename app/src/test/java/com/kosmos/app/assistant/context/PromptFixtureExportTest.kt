@@ -164,6 +164,76 @@ class PromptFixtureExportTest {
         }
     }
 
+    @Test
+    fun `아침 브리핑 지시와 재료 형식도 실험실 픽스처로 내보낸다`() = kotlinx.coroutines.runBlocking {
+        // [WHY] 말투 실측(0.38.5 M2·M3)이 브리핑 지시를 소스에서 정규식으로 긁으면 조립 단계의 차이를 놓친다 — 실제로 나가는 프롬프트를 붙잡는다.
+        val runner: com.kosmos.app.domain.modelrunner.ModelRunner = mockk()
+        val tokenizer: com.kosmos.app.domain.tool.Tokenizer = mockk<com.kosmos.app.domain.tool.Tokenizer>().also {
+            io.mockk.every { it.sizeInTokens(any()) } answers { firstArg<String>().length / 2 }
+        }
+        val captured = slot<com.kosmos.app.domain.modelrunner.ChatPrompt>()
+        coEvery { runner.generate(capture(captured), any()) } returns com.kosmos.app.core.common.AppResult.Success(
+            com.kosmos.app.domain.modelrunner.ModelTurn("좋은 아침이에요.")
+        )
+        val zone = java.time.ZoneId.of("Asia/Seoul")
+        val episode = episode(java.time.LocalDate.of(2026, 10, 20).atStartOfDay(zone).toInstant().toEpochMilli())
+        com.kosmos.app.domain.usecase.GenerateBriefingUseCase(runner, tokenizer)(
+            com.kosmos.app.domain.usecase.GenerateBriefingUseCase.BriefingMaterials(
+                dateLabel = "10월 21일 수요일", events = emptyList(), deviceCalendarFailed = false,
+                pendingTasks = emptyList(), recentEpisodes = listOf(episode), zoneId = zone
+            )
+        )
+
+        val prompt = captured.captured
+        assertTrue("후속 질문 1개 규칙이 있어야 한다 (A4+)", prompt.systemInstruction.contains("정확히 1개"))
+        assertTrue("툴을 선언하면 안 된다", prompt.enabledTools.isEmpty())
+        assertTrue("oneShot 이어야 채팅 대화를 깨지 않는다", prompt.oneShot)
+        assertTrue(prompt.currentInput.contains("[최근 대화 기억]\n- (10월 20일) 치과 상담:"))
+
+        val dir = File(FIXTURE_DIR)
+        if (dir.isDirectory) {
+            File(dir, "briefing_system.txt").writeText(prompt.systemInstruction)
+            File(dir, "briefing_user_sample.txt").writeText(prompt.currentInput)
+        }
+    }
+
+    @Test
+    fun `주간 회고 지시와 재료 형식도 실험실 픽스처로 내보낸다`() = kotlinx.coroutines.runBlocking {
+        val runner: com.kosmos.app.domain.modelrunner.ModelRunner = mockk()
+        val tokenizer: com.kosmos.app.domain.tool.Tokenizer = mockk<com.kosmos.app.domain.tool.Tokenizer>().also {
+            io.mockk.every { it.sizeInTokens(any()) } answers { firstArg<String>().length / 2 }
+        }
+        val episodes: com.kosmos.app.domain.memory.EpisodeRepository = mockk()
+        val knowledge: com.kosmos.app.domain.memory.KnowledgeRepository = mockk(relaxed = true)
+        val zone = java.time.ZoneId.of("Asia/Seoul")
+        val now = java.time.LocalDate.of(2026, 10, 21).atStartOfDay(zone).toInstant().toEpochMilli()
+        coEvery { episodes.getByStatus(any()) } returns com.kosmos.app.core.common.AppResult.Success(
+            listOf(episode(now - 86_400_000L))
+        )
+        val captured = slot<com.kosmos.app.domain.modelrunner.ChatPrompt>()
+        coEvery { runner.generate(capture(captured), any()) } returns com.kosmos.app.core.common.AppResult.Success(
+            com.kosmos.app.domain.modelrunner.ModelTurn("이번 주는 치과 상담이 있었어요.")
+        )
+        com.kosmos.app.domain.cleanup.GenerateWeeklyReviewUseCase(episodes, knowledge, runner, tokenizer)(now, zone)
+
+        val prompt = captured.captured
+        assertTrue("지어내지 않는 규칙이 있어야 한다 (exp42)", prompt.systemInstruction.contains("지어내지"))
+        assertTrue("oneShot 이어야 채팅 대화를 깨지 않는다", prompt.oneShot)
+        assertTrue(prompt.currentInput.startsWith("지난 7일 대화 요약:\n- 10월 20일 · 치과 상담:"))
+
+        val dir = File(FIXTURE_DIR)
+        if (dir.isDirectory) {
+            File(dir, "review_system.txt").writeText(prompt.systemInstruction)
+            File(dir, "review_user_sample.txt").writeText(prompt.currentInput)
+        }
+    }
+
+    private fun episode(startAt: Long) = com.kosmos.app.domain.model.Episode(
+        id = "e1", sessionId = "s1", status = com.kosmos.app.domain.model.EpisodeStatus.SUMMARIZED,
+        title = "치과 상담", summary = "사용자는 치과에서 충치 치료를 권유받았습니다.", tags = emptyList(),
+        startAt = startAt, endAt = startAt + 60_000L, messageCount = 4, retryCount = 0, createdAt = startAt, updatedAt = startAt
+    )
+
     private companion object {
         // [WHY] 앱이 채팅에서 선언하는 6종 그대로다. 실험실이 4종만 선언하던 동안은 선언 크기와
         // 트리거 목록이 달라 툴 선택 성향 실험이 앱과 어긋났다.
