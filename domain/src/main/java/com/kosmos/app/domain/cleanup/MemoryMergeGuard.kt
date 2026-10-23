@@ -35,6 +35,22 @@ object MemoryMergeGuard {
             }
         }
 
+    /**
+     * 합친 문장의 끝을 메모 말투로 — "…4821이다." → "…4821", "있다" → "있음", "없다" → "없음". 그 밖의 끝맺음은 그대로 둔다.
+     *
+     * [WHY] 판정 프롬프트로는 해라체 끝맺음을 못 바꿨다("…이다로 끝내지 마세요"를 넣어도 6/7, exp59 J1). 프롬프트는 오병합 실측(exp42) 원문 그대로 두고
+     * 끝만 코드로 정리한다 — 합친 문장은 메모 본문이 되어 화면과 기억 검색 결과에 그대로 보인다.
+     */
+    fun toMemoEnding(merged: String): String {
+        val text = merged.trim().trimEnd('.', '。').trimEnd()
+        return when {
+            text.endsWith("있다") -> text.dropLast(2) + "있음"
+            text.endsWith("없다") -> text.dropLast(2) + "없음"
+            text.endsWith("이다") && text.length > 2 -> text.dropLast(2).trimEnd()
+            else -> text
+        }
+    }
+
     /** 합친 문장이 원문들의 숫자를 하나도 잃지 않았는가 — 잃었으면 제안에서 뺀다. */
     fun keepsNumbers(merged: String, sources: List<String>): Boolean =
         numbersIn(merged).containsAll(sources.flatMap { numbersIn(it) }.toSet())

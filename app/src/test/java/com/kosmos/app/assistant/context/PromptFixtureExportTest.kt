@@ -251,6 +251,30 @@ class PromptFixtureExportTest {
         }
     }
 
+    @Test
+    fun `에피소드 요약·기억 합치기 지시도 실험실 픽스처로 내보낸다`() = kotlinx.coroutines.runBlocking {
+        val runner: com.kosmos.app.domain.modelrunner.ModelRunner = mockk()
+        val captured = slot<com.kosmos.app.domain.modelrunner.ChatPrompt>()
+        coEvery { runner.generate(capture(captured), any()) } returns com.kosmos.app.core.common.AppResult.Success(
+            com.kosmos.app.domain.modelrunner.ModelTurn("제목: 치과 예약\n태그: 치과, 예약\n요약: 내일 치과에 가요.")
+        )
+        com.kosmos.app.domain.usecase.SummarizeEpisodeUseCase(runner, com.kosmos.app.runtime.gemma.GemmaTokenizer())(
+            listOf(com.kosmos.app.domain.model.ChatMessage(
+                id = "m1", sessionId = "s1", role = com.kosmos.app.domain.model.ChatMessage.Role.USER, content = "내일 치과 가",
+                inputType = com.kosmos.app.domain.model.InputType.TEXT, createdAt = 0
+            ))
+        )
+
+        val prompt = captured.captured
+        assertTrue("oneShot 이어야 채팅 대화를 깨지 않는다", prompt.oneShot)
+
+        val dir = File(FIXTURE_DIR)
+        if (dir.isDirectory) {
+            File(dir, "episode_summary_system.txt").writeText(prompt.systemInstruction)
+            File(dir, "memory_judge_system.txt").writeText(com.kosmos.app.domain.cleanup.PlanMemoryMergeUseCase.JUDGE_SYSTEM)
+        }
+    }
+
     private fun episode(startAt: Long) = com.kosmos.app.domain.model.Episode(
         id = "e1", sessionId = "s1", status = com.kosmos.app.domain.model.EpisodeStatus.SUMMARIZED,
         title = "치과 상담", summary = "사용자는 치과에서 충치 치료를 권유받았습니다.", tags = emptyList(),

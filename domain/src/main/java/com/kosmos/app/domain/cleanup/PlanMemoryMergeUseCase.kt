@@ -89,7 +89,7 @@ class PlanMemoryMergeUseCase @Inject constructor(
         )
         val text = (modelRunner.generate(prompt) as? AppResult.Success)?.data?.text ?: return null
         if (VERDICT.find(text)?.groupValues?.get(1) != SAME) return null
-        return MERGED.find(text)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() && it != NONE }
+        return MERGED.find(text)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() && it != NONE }?.let(MemoryMergeGuard::toMemoEnding)
     }
 
     companion object {

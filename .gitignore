@@ -84,6 +84,8 @@ scratch/lab/fixtures/review_system.txt
 scratch/lab/fixtures/review_user_sample.txt
 scratch/lab/fixtures/schedule_system.txt
 scratch/lab/fixtures/schedule_user_sample.txt
+scratch/lab/fixtures/episode_summary_system.txt
+scratch/lab/fixtures/memory_judge_system.txt
 scratch/lab/__pycache__/
 __pycache__/
 *.pyc

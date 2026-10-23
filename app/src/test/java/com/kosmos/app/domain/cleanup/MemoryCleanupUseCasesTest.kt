@@ -55,6 +55,15 @@ class MemoryCleanupUseCasesTest {
         assertFalse(MemoryMergeGuard.keepsNumbers("자전거 자물쇠 비밀번호다", listOf("자물쇠 4821")))
     }
 
+    @Test
+    fun `합친 문장의 해라체 끝은 메모 말투로 — 그 밖은 그대로`() {
+        assertEquals("여동생 생일은 5월 3일", MemoryMergeGuard.toMemoEnding("여동생 생일은 5월 3일이다."))
+        assertEquals("사용자는 땅콩 알레르기가 있음", MemoryMergeGuard.toMemoEnding("사용자는 땅콩 알레르기가 있다"))
+        assertEquals("고양이 털 알레르기는 없음", MemoryMergeGuard.toMemoEnding("고양이 털 알레르기는 없다."))
+        assertEquals("아침에 커피 대신 녹차를 마신다", MemoryMergeGuard.toMemoEnding("아침에 커피 대신 녹차를 마신다."))
+        assertEquals("자전거 자물쇠 번호 4821", MemoryMergeGuard.toMemoEnding("자전거 자물쇠 번호 4821"))
+    }
+
     // --- 계획 ---
 
     private val repo: KnowledgeRepository = mockk(relaxed = true)
@@ -86,7 +95,7 @@ class MemoryCleanupUseCasesTest {
         val proposals = (PlanMemoryMergeUseCase(repo, runner)() as AppResult.Success).data
 
         assertEquals(listOf("a+b"), proposals.map { it.key })
-        assertEquals("집 와이파이 비밀번호는 kosmos123이다.", proposals.single().mergedContent)
+        assertEquals("집 와이파이 비밀번호는 kosmos123", proposals.single().mergedContent)
         assertTrue("운동화는 어떤 후보에도 들지 않는다", prompts.none { "운동화" in it })
         assertTrue(prompts.all { it.startsWith("기억들:\n- ") })
     }
