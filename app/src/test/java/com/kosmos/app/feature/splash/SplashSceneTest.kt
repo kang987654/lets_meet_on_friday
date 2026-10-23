@@ -28,7 +28,7 @@ class SplashSceneTest {
     fun `로딩이 빨리 끝나도 장면이 다 모인 뒤 전환한다`() {
         assertEquals(PlanetScene.ASSEMBLE_MS, exitStart(SplashStyle.PLANET, readyAt = 300))
         assertEquals(GalaxyScene.ASSEMBLE_MS, exitStart(SplashStyle.GALAXY, readyAt = 300))
-        assertTrue(exitStart(SplashStyle.PLANET, readyAt = 9_000) in 9_001..9_100)
+        assertTrue(exitStart(SplashStyle.PLANET, readyAt = 9_000) in 9_001..9_400)
     }
 
     @Test
@@ -81,11 +81,21 @@ class SplashSceneTest {
     }
 
     @Test
+    fun `장면 시계는 보통 프레임은 그대로 더하고 몇 초 멈춘 뒤에는 건너뛰지 않는다`() {
+        val clock = SceneClock()
+        assertEquals(0L, clock.tick(1_000))
+        assertEquals(16L, clock.tick(1_016))
+        // GPU 가중치 업로드로 2.6초 멈춘 뒤 — 한 걸음만 간다.
+        assertEquals(16L + SceneClock.MAX_STEP_MS, clock.tick(3_616))
+        assertEquals(16L + SceneClock.MAX_STEP_MS + 8L, clock.tick(3_624))
+    }
+
+    @Test
     fun `전환은 한 번만 시작하고 자리 받기를 멈추면 더 받지 않는다`() {
         val h = SplashHandoff()
-        val first = SplashExit(SplashStyle.PLANET, 0, 1500, "")
+        val first = SplashExit(SplashStyle.PLANET, SceneClock(), 1500, "")
         h.begin(first)
-        h.begin(SplashExit(SplashStyle.GALAXY, 0, 1600, ""))
+        h.begin(SplashExit(SplashStyle.GALAXY, SceneClock(), 1600, ""))
         assertEquals(first, h.exit)
 
         val owner = Any()

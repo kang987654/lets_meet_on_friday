@@ -79,9 +79,35 @@ class SplashHandoff {
 }
 
 /**
- * 전환 하나 — 장면 시계([sceneStart], 프레임 시각 ms)와 Ready 를 본 장면 시각([readyAt]), 그때의 안내 문구.
+ * 전환 하나 — 스플래시가 돌리던 장면 시계([clock])와 Ready 를 본 장면 시각([readyAt]), 그때의 안내 문구.
  */
-data class SplashExit(val style: SplashStyle, val sceneStart: Long, val readyAt: Long, val status: String)
+data class SplashExit(val style: SplashStyle, val clock: SceneClock, val readyAt: Long, val status: String)
+
+/**
+ * 장면 시계 — 프레임 사이 간격을 [MAX_STEP_MS] 로 잘라 더한다. 보통 프레임(8~17ms)은 그대로라 장면 속도는 벽시계와 같다.
+ *
+ * [WHY] 엔진이 GPU 에 가중치를 올리는 동안 화면이 2~3초 멈춘다(앱 코드가 아니라 GPU 가 꽉 참, device_gate R 메모). 벽시계 그대로면
+ * 멈춤이 풀리는 순간 장면이 멈춘 시간만큼 건너뛰어 "툭" 끊긴다 — 멈춘 자세에서 이어지게 한다. 스플래시 → 덮개로 넘어가는 사이의
+ * 채팅 첫 그리기 틈도 같은 이유로 건너뛰지 않는다.
+ */
+class SceneClock {
+    private var lastFrame = -1L
+
+    /** 지금까지 흐른 장면 시각(ms). */
+    var time = 0L
+        private set
+
+    /** 프레임 시각을 받아 장면 시각을 진행하고 돌려준다. */
+    fun tick(frameMillis: Long): Long {
+        if (lastFrame >= 0) time += (frameMillis - lastFrame).coerceIn(0L, MAX_STEP_MS)
+        lastFrame = frameMillis
+        return time
+    }
+
+    companion object {
+        const val MAX_STEP_MS = 50L
+    }
+}
 
 /** 채팅이 알리는 자리 종류. */
 enum class SplashAnchor { HEADER_STAR, TITLE, INPUT_BAR, BUBBLE, EMPTY }

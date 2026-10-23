@@ -23,6 +23,7 @@ import com.kosmos.app.ui.theme.SplashStyle
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.withFrameMillis
 
 @Composable
@@ -45,18 +46,20 @@ fun SplashScreen(
     val readyAtStart = remember { viewModel.loadState.value is ModelLoadState.Ready }
     val loading = loadState !is ModelLoadState.Error && loadState !is ModelLoadState.NotFound
     val animate = previewTimeMs == null && !reduced && splashStyle != null
-    var sceneStart by remember { mutableLongStateOf(-1L) }
-    var frame by remember { mutableLongStateOf(-1L) }
+    val clock = remember { SceneClock() }
+    var started by remember { mutableStateOf(false) }
+    var frame by remember { mutableLongStateOf(0L) }
     // Ready 순간에는 안내 문구가 비므로 마지막 문구를 덮개에 넘긴다(그리기용 기억이라 상태로 두지 않는다).
     val last = remember { LastStatus() }
 
-    // [WHY] 장면은 엔진을 기다리는 동안만 돈다(DESIGN Motion) — 위치는 프레임 수가 아니라 흐른 시간으로 정해 GPU 로딩 중 프레임이 밀려도 속도가 같다.
+    // [WHY] 장면은 엔진을 기다리는 동안만 돈다(DESIGN Motion) — 위치는 프레임 수가 아니라 흐른 시간으로 정해 프레임이 밀려도 속도가 같고,
+    // 몇 초씩 멈춘 뒤에는 건너뛰지 않는다([SceneClock]).
     LaunchedEffect(animate, loading) {
         if (!animate || !loading) return@LaunchedEffect
         while (true) {
             withFrameMillis {
-                if (sceneStart < 0) sceneStart = it
-                frame = it
+                frame = clock.tick(it)
+                started = true
             }
         }
     }
@@ -64,8 +67,8 @@ fun SplashScreen(
     LaunchedEffect(loadState) {
         if (loadState is ModelLoadState.Ready) {
             val style = splashStyle
-            if (handoff != null && animate && style != null && !readyAtStart && sceneStart >= 0) {
-                handoff.begin(SplashExit(style, sceneStart, frame - sceneStart, last.text))
+            if (handoff != null && animate && style != null && !readyAtStart && started) {
+                handoff.begin(SplashExit(style, clock, clock.time, last.text))
             }
             onInitializationComplete()
         }
@@ -112,7 +115,7 @@ fun SplashScreen(
             if (statusText.isNotEmpty()) last.text = statusText
             SplashStage(
                 style = splashStyle,
-                time = { previewTimeMs ?: if (!animate) STATIC_SCENE_MS else if (sceneStart < 0) 0L else frame - sceneStart },
+                time = { previewTimeMs ?: if (!animate) STATIC_SCENE_MS else frame },
                 status = statusText.ifEmpty { last.text }
             )
         }

@@ -55,8 +55,13 @@ import kotlin.math.min
 /** 장면을 멈춰 그릴 때(애니메이션 제거·카탈로그)의 장면 시각 — 다 모이고 별까지 나온 뒤. */
 internal const val STATIC_SCENE_MS = 3000L
 
-/** Ready 뒤 채팅이 덮개 아래에서 자리를 잡을 여유. */
-private const val HANDOFF_MS = 50L
+/**
+ * Ready 뒤 채팅이 덮개 아래에서 자리를 잡을 여유.
+ *
+ * [WHY] 채팅을 처음 그리는 무거운 프레임들이 워프와 겹치면 전환이 버벅인다(실기기 framestats, 0.38.6 M1) — 장면이 다 모인 채 멈춰
+ * 있는 동안에 지나가게 한다.
+ */
+private const val HANDOFF_MS = 300L
 
 /** 글자가 사라지는 시간(전환 시작부터). */
 private const val TEXT_FADE_MS = 200f
@@ -171,7 +176,7 @@ fun SplashOverlay(handoff: SplashHandoff) {
 
     LaunchedEffect(exit) {
         // 채팅이 덮개 아래에서 한 번 배치될 때까지.
-        repeat(2) { withFrameMillis { t = it - exit.sceneStart } }
+        repeat(2) { withFrameMillis { t = exit.clock.tick(it) } }
         val screen = Rect(Offset.Zero, size)
         val star = handoff.anchorsOf(SplashAnchor.HEADER_STAR, screen).firstOrNull()
             ?: Rect(Offset(140f * density, 40f * density), Size(12f * density, 12f * density))
@@ -196,7 +201,7 @@ fun SplashOverlay(handoff: SplashHandoff) {
             SplashStyle.GALAXY -> GalaxyScene.END_MS
         }
         while (true) {
-            val now = withFrameMillis { it - exit.sceneStart }
+            val now = withFrameMillis { exit.clock.tick(it) }
             t = now
             if (exitAt == Long.MAX_VALUE && now >= planned) exitAt = now
             val te = now - exitAt
@@ -244,6 +249,8 @@ fun SplashOverlay(handoff: SplashHandoff) {
                     sceneModifier = Modifier
                         .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                         .drawWithContent {
+                            // [WHY] 다 열린 뒤에는 장면이 전부 가려지므로 그리지 않는다 — 오프스크린 층 합성이 남은 전환 프레임을 무겁게 했다(0.38.6 M1).
+                            if (exitAt != Long.MAX_VALUE && GalaxyScene.open((t - exitAt).toFloat()) >= 1f) return@drawWithContent
                             drawRect(bg)
                             drawContent()
                             if (exitAt == Long.MAX_VALUE) return@drawWithContent

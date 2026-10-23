@@ -174,11 +174,22 @@ internal object PlanetScene {
     fun DrawScope.drawTiles(tiles: Tiles?, e: Float, bg: Color) {
         if (tiles == null || e <= tiles.earliest) { drawRect(bg); return }
         val paths = Array(3) { Path() }
-        for (row in 0 until tiles.rows) for (col in 0 until tiles.cols) {
-            val a = tileAlpha(tiles.start[row * tiles.cols + col], e)
-            if (a >= 1f) continue
-            val level = (a * 3f + 0.5f).toInt().coerceIn(0, 2)
-            paths[level].addRect(Rect(Offset(col * tiles.tile, row * tiles.tile), Size(tiles.tile, tiles.tile)))
+        // [WHY] 같은 단계가 이어지는 칸은 한 줄 사각형으로 묶는다 — 칸마다 넣으면 프레임마다 수천 개라 전환 프레임이 무거웠다(0.38.6 M1).
+        for (row in 0 until tiles.rows) {
+            var runLevel = -1
+            var runFrom = 0
+            for (col in 0..tiles.cols) {
+                val level = if (col == tiles.cols) -1 else {
+                    val a = tileAlpha(tiles.start[row * tiles.cols + col], e)
+                    if (a >= 1f) -1 else (a * 3f + 0.5f).toInt().coerceIn(0, 2)
+                }
+                if (level == runLevel) continue
+                if (runLevel >= 0) {
+                    paths[runLevel].addRect(Rect(Offset(runFrom * tiles.tile, row * tiles.tile), Size((col - runFrom) * tiles.tile, tiles.tile)))
+                }
+                runLevel = level
+                runFrom = col
+            }
         }
         paths.forEachIndexed { level, path -> drawPath(path, bg.copy(alpha = bg.alpha * (1f - level / 3f))) }
     }
