@@ -21,6 +21,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -59,7 +62,13 @@ fun SheetView(
     selectedRows: IntRange? = null,
     onRowNumberClick: ((Int) -> Unit)? = null
 ) {
-    val layout = remember(sheet) { SheetLayout.of(sheet) }
+    // [WHY] 열 너비는 실제 글꼴로 잰다 — 글자 수 × 고정 폭으로 어림하면 HadaRound 숫자가 더 넓어 금액이 "100…"으로 잘렸다(0.38.5 impeccable P1).
+    val measurer = rememberTextMeasurer()
+    val cellStyle = LocalTextStyle.current.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal)
+    val density = LocalDensity.current
+    val layout = remember(sheet, cellStyle, density) {
+        SheetLayout.of(sheet) { text -> with(density) { measurer.measure(text, cellStyle, maxLines = 1, softWrap = false).size.width.toDp() } }
+    }
     val horizontal = rememberScrollState()
     val colors = KosmosTheme.colors
 
@@ -220,24 +229,32 @@ private fun GridCell(
 }
 
 /**
- * 너비 정보가 없는 열(csv 전부, 너비를 안 정한 xlsx 열)을 내용 길이로 맞춘다 — 기본 72dp 면 전화번호·날짜가 잘렸다(0.34.0 M4 에뮬레이터).
+ * 열마다 내용에 맞는 너비 — 모든 칸([Fit.all])과 숫자 칸만([Fit.numeric]). 내용이 없으면 0.
  *
  * [WHY] 앞 [FIT_SAMPLE_ROWS] 행만 본다 — 큰 시트에서 전부 재면 그리기 전에 지연이 생기고, 앞부분을 먼저 그린 뒤(부분 시트) 끝까지
- * 읽은 시트로 바뀔 때 같은 표본이어야 열 너비가 튀지 않는다. 글자 폭은 13sp 기준 근사(ASCII 7.5dp, 그 외 13dp).
+ * 읽은 시트로 바뀔 때 같은 표본이어야 열 너비가 튀지 않는다. 글자 수로 어림해 열마다 긴 후보 [FIT_CANDIDATES] 개만 실제로 잰다.
  */
-private fun fittedWidths(sheet: Sheet, columnCount: Int): List<Dp> {
-    val longest = FloatArray(columnCount)
+private class Fit(val all: List<Dp>, val numeric: List<Dp>)
+
+private fun fittedWidths(sheet: Sheet, columnCount: Int, measure: (String) -> Dp): Fit {
+    val all = List(columnCount) { mutableListOf<String>() }
+    val numeric = List(columnCount) { mutableListOf<String>() }
     // 여러 열에 걸친 병합 칸은 넓이를 합쳐 쓰므로 한 열의 너비를 정하는 데 넣지 않는다.
     val spanning = sheet.merges.filter { it.lastColumn > it.firstColumn }.map { it.firstRow to it.firstColumn }.toSet()
     sheet.rows.take(FIT_SAMPLE_ROWS).forEach { row ->
         row.cells.forEach { cell ->
-            if (cell.column < columnCount && (row.index to cell.column) !in spanning) {
-                val width = cell.text.substringBefore('\n').sumOf { ch -> if (ch.code < 128) 75 else 130 }.toFloat() / 10f
-                if (width > longest[cell.column]) longest[cell.column] = width
+            val text = cell.text.substringBefore('\n')
+            if (cell.column < columnCount && text.isNotEmpty() && (row.index to cell.column) !in spanning) {
+                all[cell.column] += text
+                if (NUMERIC.matches(text)) numeric[cell.column] += text
             }
         }
     }
-    return longest.map { w -> if (w == 0f) DEFAULT_COLUMN_WIDTH else (w + 14f).dp.coerceIn(48.dp, 220.dp) }
+    fun widest(texts: List<String>): Dp = texts
+        .sortedByDescending { t -> t.sumOf { ch -> if (ch.code < 128) 3 else 5 } }
+        .take(FIT_CANDIDATES)
+        .maxOfOrNull { measure(it) + CELL_CHROME } ?: 0.dp
+    return Fit(all.map(::widest), numeric.map(::widest))
 }
 
 /** 시트에서 한 번만 계산해 두는 그리기 정보. */
@@ -252,12 +269,20 @@ private class SheetLayout(
     fun mergesAt(row: Int): List<CellRange> = mergesByRow[row].orEmpty()
 
     companion object {
-        fun of(sheet: Sheet): SheetLayout {
+        /** @param measure 칸 글자 한 줄의 실제 너비. */
+        fun of(sheet: Sheet, measure: (String) -> Dp): SheetLayout {
             val columnCount = sheet.columnCount.coerceIn(1, MAX_RENDER_COLUMNS)
-            val fitted = fittedWidths(sheet, columnCount)
+            val fit = fittedWidths(sheet, columnCount, measure)
+            // 엑셀 너비는 "기본 글꼴 숫자 몇 개" 단위다 — 우리 글꼴의 숫자 폭으로 환산한다(고정 7dp 는 HadaRound 숫자보다 좁았다).
+            val digit = measure("0")
             val widths = List(columnCount) { c ->
-                // 엑셀 너비는 "기본 글꼴 숫자 몇 개" 단위다 — 대략 7dp/자 + 여백으로 환산하고 극단값은 자른다.
-                sheet.columnWidths[c]?.let { (it * 7f + 10f).dp.coerceIn(36.dp, 320.dp) } ?: fitted[c]
+                val excel = sheet.columnWidths[c]
+                when {
+                    // [WHY] 엑셀은 숫자를 자르지 않는다(###) — 정한 너비가 좁아도 숫자 칸은 다 보이게 넓힌다.
+                    excel != null -> maxOf(digit * excel + CELL_CHROME, fit.numeric[c]).coerceIn(36.dp, 320.dp)
+                    fit.all[c] == 0.dp -> DEFAULT_COLUMN_WIDTH
+                    else -> fit.all[c].coerceIn(48.dp, 220.dp)
+                }
             }
             val mergesByRow = mutableMapOf<Int, MutableList<CellRange>>()
             sheet.merges
@@ -282,6 +307,10 @@ private const val MAX_RENDER_COLUMNS = 200
 private const val MAX_FROZEN_ROWS = 5
 private const val MAX_MERGE_ROWS = 1000
 private const val FIT_SAMPLE_ROWS = 200
+private const val FIT_CANDIDATES = 3
+
+/** 칸 좌우 안쪽 여백(6 + 6) + 오른쪽 선 + 여유. */
+private val CELL_CHROME = 16.dp
 
 /** 테스트가 격자를 찾는 태그. */
 internal const val SHEET_GRID_TAG = "sheet_grid"

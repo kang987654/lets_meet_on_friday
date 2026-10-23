@@ -392,7 +392,6 @@ fun ChatScreen(
                     when (val action = chip.action) {
                         is com.kosmos.app.feature.chat.result.ChatChip.Action.Send -> viewModel.sendMessage(action.text)
                         is com.kosmos.app.feature.chat.result.ChatChip.Action.OpenEpisode -> openEpisodeId = action.episodeId
-                        com.kosmos.app.feature.chat.result.ChatChip.Action.OpenResult -> onResultClick(message)
                     }
                 }
             )
@@ -601,7 +600,9 @@ private fun TimelineRow(
         isSpeaking = message.id == speakingMessageId,
         onToggleSpeak = { onToggleSpeak(message) },
         result = message.result?.let { resultStates[com.kosmos.app.feature.chat.result.ChatExtrasViewModel.keyOf(it)] },
-        onResultClick = { onResultClick(message) },
+        onResultClick = {
+            com.kosmos.app.feature.chat.result.ChatChipRules.recallEpisode(message.result)?.let(onOpenEpisode) ?: onResultClick(message)
+        },
         chips = chips,
         onChipClick = onChipClick
     )

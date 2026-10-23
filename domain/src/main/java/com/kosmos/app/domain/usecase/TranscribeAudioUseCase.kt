@@ -50,7 +50,7 @@ class TranscribeAudioUseCase @Inject constructor(
                 // `ErrorMessages` 의 "음성을 인식하지 못했어요. 다시 말씀해주세요." 를 띄운다
                 // (PRD EC3 무음 입력 재시도 안내).
                 if (transcript.isBlank()) {
-                    AppResult.Failure(AppError.SttError("전사 결과가 비었습니다"))
+                    AppResult.Failure(AppError.SttError("전사 결과가 비었어요"))
                 } else {
                     AppResult.Success(transcript)
                 }

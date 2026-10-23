@@ -34,14 +34,21 @@ class ChatChipRulesTest {
     }
 
     @Test
-    fun `행동 칩 — 충돌이 있으면 지난 대화 정리, 기억·메모는 메모 보기, 일정은 캘린더, 알림은 없음`() {
+    fun `행동 칩 — 충돌이 있으면 지난 대화 정리만, 카드와 같은 칩은 없음`() {
         val meta = """{"conflictCount":2,"conflictEpisodeIds":["e1","e2"]}"""
         val recall = ChatChipRules.actionChips(MessageResult(MessageResult.Kind.MEMORY_RECALL, "k1", meta))
-        assertEquals(listOf("지난 대화 2건 정리", "메모 보기"), recall.map { it.label })
+        assertEquals(listOf("지난 대화 2건 정리"), recall.map { it.label })
         assertEquals(ChatChip.Action.OpenEpisode("e1"), recall.first().action)
-        assertEquals(listOf("메모 보기"), ChatChipRules.actionChips(MessageResult(MessageResult.Kind.MEMORY_RECALL, "k1", """{"noteAt":1}""")).map { it.label })
-        assertEquals(listOf("캘린더에서 보기"), ChatChipRules.actionChips(MessageResult(MessageResult.Kind.SCHEDULE, "t1")).map { it.label })
+        assertEquals(emptyList<String>(), ChatChipRules.actionChips(MessageResult(MessageResult.Kind.MEMORY_RECALL, "k1", """{"noteAt":1}""")).map { it.label })
+        assertEquals(emptyList<String>(), ChatChipRules.actionChips(MessageResult(MessageResult.Kind.SCHEDULE, "t1")).map { it.label })
         assertEquals(emptyList<ChatChip>(), ChatChipRules.actionChips(MessageResult(MessageResult.Kind.REMINDER, "t1")))
+    }
+
+    @Test
+    fun `지난 대화만 근거인 기억은 카드가 그 대화를 연다`() {
+        val episodeOnly = MessageResult(MessageResult.Kind.MEMORY_RECALL, "", """{"episodeId":"e7"}""")
+        assertEquals("e7", ChatChipRules.recallEpisode(episodeOnly))
+        assertEquals(null, ChatChipRules.recallEpisode(MessageResult(MessageResult.Kind.MEMORY_RECALL, "k1", """{"episodeId":"e7"}""")))
     }
 
     @Test

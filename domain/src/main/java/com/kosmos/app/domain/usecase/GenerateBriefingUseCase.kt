@@ -59,7 +59,7 @@ class GenerateBriefingUseCase @Inject constructor(
             is AppResult.Success -> {
                 val text = result.data.text.trim()
                 if (text.isEmpty()) {
-                    AppResult.Failure(AppError.ModelInferenceError("브리핑 생성 결과가 비어 있습니다"))
+                    AppResult.Failure(AppError.ModelInferenceError("브리핑 생성 결과가 비어 있어요"))
                 } else {
                     AppResult.Success(text)
                 }

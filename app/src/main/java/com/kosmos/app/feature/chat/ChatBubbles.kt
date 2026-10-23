@@ -167,7 +167,12 @@ fun ChatBubbleAssistant(
     animateResult: Boolean = false
 ) {
     var isThinkingExpanded by remember { mutableStateOf(false) }
-    val recallInCard = recallChipLabel != null && result?.kind == com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL
+    // [WHY] 지난 대화만 근거인 기억 카드는 카드 자체가 그 대화를 연다 — 제목을 대화 이름으로 두고 안의 "지난 대화:" 줄은 뺀다.
+    // 카드·안쪽 줄·행동 칩이 모두 같은 대화로 가는 길이었다(0.38.6 M3 사용자 지적).
+    val episodeOnly = result?.kind == com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL &&
+        result.evidence.firstOrNull()?.kind == com.kosmos.app.feature.chat.result.Evidence.Kind.CONVERSATION
+    val card = if (episodeOnly && recallChipLabel != null) result?.copy(title = recallChipLabel) else result
+    val recallInCard = recallChipLabel != null && result?.kind == com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL && !episodeOnly
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -175,7 +180,7 @@ fun ChatBubbleAssistant(
     ) {
         Column(
             // [WHY] 결과 행이 있으면 넓힌다 — 값·이름·날짜가 280dp 에서는 꺾였다(0.38.2 M3 렌더). 글만 있는 답은 그대로.
-            modifier = Modifier.widthIn(max = if (result != null) 340.dp else 280.dp)
+            modifier = Modifier.widthIn(max = if (card != null) 340.dp else 280.dp)
         ) {
             if (thinkingProcess != null) {
                 Box(
@@ -243,11 +248,11 @@ fun ChatBubbleAssistant(
                         }
                     }
                 }
-                if (result != null) {
-                    Box(Modifier.appearOnce(animateResult)) { com.kosmos.app.feature.chat.result.ResultRow(result, onClick = onResultClick) }
-                    if (result.evidence.isNotEmpty()) {
+                if (card != null) {
+                    Box(Modifier.appearOnce(animateResult)) { com.kosmos.app.feature.chat.result.ResultRow(card, onClick = onResultClick) }
+                    if (card.evidence.isNotEmpty()) {
                         androidx.compose.material3.HorizontalDivider(color = KosmosTheme.colors.border)
-                        result.evidence.forEachIndexed { index, line ->
+                        card.evidence.forEachIndexed { index, line ->
                             EvidenceLine(line)
                             // [WHY] 회수 칩을 근거 줄로 접는다 — 카드 밖 칩과 근거 줄이 같은 "어디서 찾았나"를 두 번 말했다(사용자 지적, 0.38.2 M3).
                             if (index == 0 && recallInCard) {
@@ -291,7 +296,7 @@ fun ChatBubbleAssistant(
             }
 
             // 회수 칩 — searchUsed 표기와 같은 원칙: 답변의 출처(기억)를 보이게 한다. 기억 카드가 있으면 카드 근거 줄로 들어간다.
-            if (recallChipLabel != null && !recallInCard) {
+            if (recallChipLabel != null && !recallInCard && !episodeOnly) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier

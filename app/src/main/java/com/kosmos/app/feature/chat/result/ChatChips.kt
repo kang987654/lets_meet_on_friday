@@ -14,8 +14,6 @@ data class ChatChip(val label: String, val action: Action, @param:androidx.annot
         data class Send(val text: String) : Action
         /** 메모와 다른 값을 적은 과거 대화를 연다 — 에피소드 시트에서 고치거나 지운다. */
         data class OpenEpisode(val episodeId: String) : Action
-        /** 결과 행을 누른 것과 같다 — 메모 화면·일정 화면. */
-        data object OpenResult : Action
     }
 }
 
@@ -23,7 +21,7 @@ data class ChatChip(val label: String, val action: Action, @param:androidx.annot
  * 칩 규칙 — **코드 규칙만, 추론 없음**(계획 0.38.2 "칩"). 규칙에 안 걸리면 칩 없음.
  *
  * - 답 칩: 마지막 문장이 "A…, B…?" / "A… 아니면 B…?" 양자택일이면 두 칩. 두 선택지의 같은 꼬리(“쪽이 좋으세요”)를 떼어 다른 부분만 보인다.
- * - 행동 칩: 기억 답에 충돌이 있으면 [과거 기록 정리], 메모·기억 결과면 [메모 보기], 일정 결과면 [캘린더에서 보기].
+ * - 행동 칩: 기억 답에 충돌이 있으면 [지난 대화 정리]. 결과 카드를 누르는 것과 같은 칩은 두지 않는다.
  */
 object ChatChipRules {
 
@@ -55,11 +53,26 @@ object ChatChipRules {
         return options.map { ChatChip(it, ChatChip.Action.Send(it)) }
     }
 
+    /**
+     * 카드로는 할 수 없는 행동만 — 충돌한 지난 대화 정리.
+     *
+     * [WHY] 결과 카드를 누르는 것과 같은 칩([메모 보기]·[캘린더에서 보기]·[대화 보기])은 뺐다 — 한 답에 같은 곳으로 가는 길이
+     * 두세 개였다(0.38.6 M3 사용자 결정).
+     */
     fun actionChips(result: MessageResult?): List<ChatChip> = when (result?.kind) {
-        MessageResult.Kind.MEMORY_RECALL -> listOfNotNull(conflictChip(result.meta), ChatChip("메모 보기", ChatChip.Action.OpenResult, R.drawable.ic_ph_note))
-        MessageResult.Kind.MEMORY_NOTE -> listOf(ChatChip("메모 보기", ChatChip.Action.OpenResult, R.drawable.ic_ph_note))
-        MessageResult.Kind.SCHEDULE -> listOf(ChatChip("캘린더에서 보기", ChatChip.Action.OpenResult, R.drawable.ic_ph_calendar_blank))
-        MessageResult.Kind.REMINDER, null -> emptyList()
+        MessageResult.Kind.MEMORY_RECALL -> listOfNotNull(conflictChip(result.meta))
+        MessageResult.Kind.MEMORY_NOTE, MessageResult.Kind.SCHEDULE, MessageResult.Kind.REMINDER, null -> emptyList()
+    }
+
+    /**
+     * 지난 대화만 근거인 기억 결과면 그 대화 id — 카드와 칩이 메모 화면 대신 대화 시트를 연다.
+     *
+     * [WHY] 메모가 없는 결과를 눌러도 메모 화면으로 가서 근거를 찾을 수 없었다(0.38.6 M3, DESIGN Known Gaps).
+     */
+    fun recallEpisode(result: MessageResult?): String? {
+        if (result?.kind != MessageResult.Kind.MEMORY_RECALL || result.ref.isNotEmpty()) return null
+        val json = result.meta?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return null
+        return json.optString("episodeId").takeIf { it.isNotEmpty() }
     }
 
     private fun conflictChip(meta: String?): ChatChip? {

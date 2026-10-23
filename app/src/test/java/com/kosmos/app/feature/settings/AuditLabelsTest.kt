@@ -82,6 +82,12 @@ class AuditLabelsTest {
     }
 
     @Test
+    fun `한국어 오류 줄의 오류 객체 원문은 사유만 남긴다`() {
+        assertEquals("음성 전사 실패: 전사 결과가 비었어요", AuditLabels.of(event(AuditEventType.ERROR, "음성 전사 실패: SttError(reason=전사 결과가 비었어요)")).summary)
+        assertEquals("도구에 넘긴 값: 시각 형식", AuditLabels.of(event(AuditEventType.ERROR, "도구에 넘긴 값: ValidationError(field=time, reason=시각 형식)")).summary)
+    }
+
+    @Test
     fun `영어 오류 원문은 한국어 사유로`() {
         assertEquals("답을 만들지 못했어요", AuditLabels.of(event(AuditEventType.ERROR, "Model inference failed: ModelInferenceError(reason=x)")).summary)
         assertEquals(

@@ -85,7 +85,7 @@ abstract class BaseAgent(
                 return@coroutineScope messageWriter.saveError(
                     request.sessionId,
                     "Max tool loop count exceeded",
-                    AppError.ModelInferenceError("툴 호출 반복 상한(${MAX_TOOL_LOOP_COUNT}회)을 초과했습니다.")
+                    AppError.ModelInferenceError("툴 호출 반복 상한(${MAX_TOOL_LOOP_COUNT}회)을 넘었어요.")
                 )
             }
             loopCount++

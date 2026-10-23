@@ -38,7 +38,7 @@ class SummarizeEpisodeUseCase @Inject constructor(
 
     suspend operator fun invoke(messages: List<ChatMessage>): AppResult<List<EpisodeDoc>> {
         if (messages.isEmpty()) {
-            return AppResult.Failure(AppError.ValidationError("messages", "빈 에피소드는 요약할 수 없습니다"))
+            return AppResult.Failure(AppError.ValidationError("messages", "빈 에피소드는 요약할 수 없어요"))
         }
 
         val transcript = buildEpisodeTranscript(messages, tokenizer, MAX_INPUT_TOKENS)

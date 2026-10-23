@@ -361,7 +361,7 @@ class GemmaModelRunner @Inject constructor(
                         RuntimeDiagnostics.logTurn(prompt, messageText, toolCalls)
                         AppResult.Success(ModelTurn(messageText, toolCalls))
                     } else {
-                        AppResult.Failure(AppError.ModelInferenceError("응답 생성 결과가 null입니다."))
+                        AppResult.Failure(AppError.ModelInferenceError("답이 비어 있어요(글자·툴 호출 없음)"))
                     }
                 }
                 } finally {

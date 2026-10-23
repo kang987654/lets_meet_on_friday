@@ -93,7 +93,7 @@ class ImageInputAdapter @Inject constructor() : ImageProcessor {
             BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, bounds)
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
                 return@withContext AppResult.Failure(
-                    AppError.UnsupportedImageFormat("이미지 크기를 읽을 수 없습니다.")
+                    AppError.UnsupportedImageFormat("이미지 크기를 읽을 수 없어요")
                 )
             }
 
@@ -106,7 +106,7 @@ class ImageInputAdapter @Inject constructor() : ImageProcessor {
             if (bitmap != null) {
                 AppResult.Success(bitmap)
             } else {
-                AppResult.Failure(AppError.UnsupportedImageFormat("디코딩 결과가 null입니다."))
+                AppResult.Failure(AppError.UnsupportedImageFormat("이미지를 풀지 못했어요(디코딩 결과 없음)"))
             }
         } catch (e: Exception) {
             AppResult.Failure(AppError.UnsupportedImageFormat("디코딩 실패: ${e.message}"))

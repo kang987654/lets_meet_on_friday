@@ -367,6 +367,20 @@ class ScreenCatalogTest {
         shoot("20-chat-action-chips") { ChatWithExtras(vm, extras) }
     }
 
+    /** 지난 대화만 근거인 기억 카드 — 카드·[대화 보기]가 대화 시트를 연다(0.38.6 M3). */
+    @Test fun chatRecallEpisode() {
+        kotlinx.coroutines.runBlocking {
+            conversationRepository.save(msg("m8", ChatMessage.Role.USER, "지난번에 자전거 비밀번호 뭐로 바꿨지?", NOW - 60_000))
+            conversationRepository.save(
+                msg("m9", ChatMessage.Role.ASSISTANT, "지난 대화에서는 4321로 바꿨다고 하셨어요.", NOW - 50_000, recall = listOf("ep-bike"),
+                    result = MessageResult(MessageResult.Kind.MEMORY_RECALL, "", """{"episodeId":"ep-bike"}"""))
+            )
+        }
+        val vm = chatViewModel()
+        val extras = extras()
+        shoot("35-chat-recall-episode") { ChatWithExtras(vm, extras) }
+    }
+
     /** 채팅 상태 표시 모음(0.38.2 M7) — 응답 대기·답 쓰는 중·입력바 네 상태(마이크·보내기·답 멈추기·녹음 중). 부품만 쌓아 한 장에. */
     @Test fun chatStates() {
         shoot("21-chat-states") {

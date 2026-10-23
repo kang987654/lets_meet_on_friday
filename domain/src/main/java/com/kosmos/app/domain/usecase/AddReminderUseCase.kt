@@ -31,9 +31,9 @@ class AddReminderUseCase @Inject constructor(
         now: Long = System.currentTimeMillis()
     ): AppResult<TaskItem> {
         val remindAtMs = IsoDateTimeParser.toEpochMillis(remindAtIso)
-            ?: return AppResult.Failure(AppError.ValidationError("time", "ISO 8601 형식이 아닙니다"))
+            ?: return AppResult.Failure(AppError.ValidationError("time", "ISO 8601 형식이 아니에요"))
         if (remindAtMs <= now) {
-            return AppResult.Failure(AppError.ValidationError("time", "이미 지난 시각입니다"))
+            return AppResult.Failure(AppError.ValidationError("time", "이미 지난 시각이에요"))
         }
         val taskItem = TaskItem(
             id = UUID.randomUUID().toString(),

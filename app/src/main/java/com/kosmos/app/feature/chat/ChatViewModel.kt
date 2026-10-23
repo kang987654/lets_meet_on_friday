@@ -422,7 +422,7 @@ class ChatViewModel @Inject constructor(
                     _uiState.update { state ->
                         state.copy(
                             messages = state.messages.filterNot { it.id == tempUserMessage.id }.toImmutableList(),
-                            error = AppError.UnsupportedImageFormat("첨부 이미지를 읽지 못했습니다")
+                            error = AppError.UnsupportedImageFormat("첨부 이미지를 읽지 못했어요")
                         )
                     }
                     return@launch

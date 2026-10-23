@@ -96,7 +96,7 @@ class AssistantOrchestrator @Inject constructor(
         val context = when (contextResult) {
             is AppResult.Success -> contextResult.data
             // [WHY] 감사에는 진단용 원문을, 말풍선에는 사용자 문구를 남긴다(AssistantMessageWriter).
-            is AppResult.Failure -> return messageWriter.saveError(request.sessionId, "대화 문맥을 구성하지 못했습니다: ${contextResult.error}")
+            is AppResult.Failure -> return messageWriter.saveError(request.sessionId, "대화 문맥을 구성하지 못했어요: ${contextResult.error}")
         }
 
         // 5. 에이전트 위임

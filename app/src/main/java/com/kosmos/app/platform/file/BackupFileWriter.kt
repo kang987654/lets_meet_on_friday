@@ -34,7 +34,7 @@ class BackupFileWriter @Inject constructor(
         try {
             val output = context.contentResolver.openOutputStream(destination)
                 ?: return@withContext AppResult.Failure(
-                    AppError.ExportFailed("저장 위치를 열 수 없습니다")
+                    AppError.ExportFailed("저장 위치를 열 수 없어요")
                 )
             output.use { out -> source.inputStream().use { it.copyTo(out) } }
             AppResult.Success(Unit)

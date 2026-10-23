@@ -232,4 +232,18 @@ class SearchMemoryToolExecutorTest {
         val ids = org.json.JSONObject(result.getString("meta")).getJSONArray("conflictEpisodeIds")
         assertEquals(listOf("e1"), (0 until ids.length()).map { ids.getString(it) })
     }
+
+    @Test
+    fun `지난 대화만 근거면 화면 전용 meta 에 그 대화 id 가 실리고 모델 입력에는 없다(0·38·6 M3)`() = runBlocking {
+        coEvery { repository.search(any(), any()) } returns AppResult.Success(emptyList())
+        coEvery { episodes.search(any(), any()) } returns AppResult.Success(listOf(episode("e9", "자전거 비밀번호 변경", "4321로 바꿨다", listOf("자전거", "비밀번호"))))
+
+        val json = org.json.JSONObject(run("자전거 비밀번호"))
+        val result = json.getJSONObject("meta").getJSONObject("result")
+
+        assertEquals("", result.getString("ref"))
+        assertEquals("e9", org.json.JSONObject(result.getString("meta")).getString("episodeId"))
+        json.remove("meta") // BaseAgent.stripMeta 와 같다 — 모델이 보는 부분
+        assertTrue(!json.toString().contains("episodeId"))
+    }
 }

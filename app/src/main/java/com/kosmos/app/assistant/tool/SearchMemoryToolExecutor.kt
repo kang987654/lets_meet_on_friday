@@ -198,17 +198,19 @@ class SearchMemoryToolExecutor @Inject constructor(
         )
         val mixed = notes.isNotEmpty() && hits.any { it.episodeId != null }
         val body = lines.joinToString("\n")
-        return Formatted(if (mixed) "$MIXED_SOURCE_GUIDE\n$body" else body, kept.mapNotNull { it.episodeId }, recallOf(hits, contradicting, notes))
+        return Formatted(if (mixed) "$MIXED_SOURCE_GUIDE\n$body" else body, kept.mapNotNull { it.episodeId }, recallOf(hits, kept, contradicting, notes))
     }
 
     /**
      * 결과 카드의 근거(0.38.2) — 1순위 메모(없으면 과거 대화만), 메모와 다른 값을 적은 요약의 건수·값.
      * 모델에게 가는 문구와 같은 판정([RecallConflict])을 쓴다 — 화면과 모델이 같은 사실을 본다.
      */
-    private fun recallOf(hits: List<Hit>, contradicting: List<Hit>, notes: List<String>): JSONObject {
+    private fun recallOf(hits: List<Hit>, kept: List<Hit>, contradicting: List<Hit>, notes: List<String>): JSONObject {
         val topNote = hits.firstOrNull { it.episodeId == null }
         val meta = JSONObject()
         if (topNote != null) meta.put("noteAt", topNote.createdAt)
+        // 화면 전용 — 지난 대화만 근거인 카드를 누르면 여는 대화(0.38.6 M3). 메모가 근거면 메모 화면으로 간다.
+        if (topNote == null) kept.firstNotNullOfOrNull(Hit::episodeId)?.let { meta.put("episodeId", it) }
         if (contradicting.isNotEmpty()) {
             meta.put("conflictCount", contradicting.size)
             meta.put("otherValues", org.json.JSONArray(RecallConflict.otherValues(contradicting.map(Hit::text), notes)))

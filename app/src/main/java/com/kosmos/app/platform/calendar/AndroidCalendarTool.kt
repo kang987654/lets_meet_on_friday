@@ -119,7 +119,7 @@ class AndroidCalendarTool @Inject constructor(
             // 로컬 저장을 유지한다(ADR-004) — 실패 반환이 곧 그 계약이다.
             val startMs = IsoDateTimeParser.toEpochMillis(draft.startIso)
                 ?: return@withContext AppResult.Failure(
-                    AppError.CalendarWriteError("시작 시각이 ISO 8601 형식이 아니라 기기 캘린더 동기화를 건너뜁니다")
+                    AppError.CalendarWriteError("시작 시각이 ISO 8601 형식이 아니라 기기 캘린더 동기화를 건너뛰어요")
                 )
 
             val endIso = draft.endIso
@@ -150,7 +150,7 @@ class AndroidCalendarTool @Inject constructor(
                 if (eventId != null) {
                     AppResult.Success(eventId)
                 } else {
-                    AppResult.Failure(AppError.CalendarWriteError("이벤트 ID를 가져올 수 없습니다."))
+                    AppResult.Failure(AppError.CalendarWriteError("이벤트 ID를 가져올 수 없어요"))
                 }
             } else {
                 AppResult.Failure(AppError.CalendarWriteError("이벤트 추가 실패"))

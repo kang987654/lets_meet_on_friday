@@ -153,7 +153,8 @@ object AuditLabels {
             line.startsWith("Invalid tool argument:") ->
                 "도구에 넘긴 값이 잘못됐어요: ${toolKorean(line.substringAfter(':').trim().substringBefore('.'))}"
             line.contains("Model inference failed") || line.contains("ModelInferenceError") -> "답을 만들지 못했어요"
-            HANGUL.containsMatchIn(line) -> line
+            // [WHY] "음성 전사 실패: SttError(reason=…)"처럼 오류 객체 원문이 붙은 줄은 사유만 남긴다 — 원문은 "원문 보기"에 그대로 있다.
+            HANGUL.containsMatchIn(line) -> line.replace(ERROR_OBJECT) { it.groupValues[1] }
             else -> "앱 내부 오류"
         }
     }
@@ -203,6 +204,7 @@ object AuditLabels {
         return if (line.length > SUMMARY_MAX) line.take(SUMMARY_MAX).trimEnd() + "…" else line
     }
 
+    private val ERROR_OBJECT = Regex("""\b[A-Z]\w*\((?:\w+=[^,()]*, )*reason=([^()]*)\)""")
     private val HANGUL = Regex("[가-힣]")
     /** 문장 끝(마침표 뒤 공백)에서 나눈다 — 마침표는 앞 문장에 남는다. */
     private val SENTENCE_END = Regex("(?<=[.?!])\\s+")
