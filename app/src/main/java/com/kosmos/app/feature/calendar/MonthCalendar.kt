@@ -301,7 +301,8 @@ private fun weekdayColor(day: DayOfWeek, inMonth: Boolean, holiday: Boolean = fa
             else -> colors.textPrimary
         }
     }
-    return if (inMonth) base else base.copy(alpha = 0.35f)
+    // [WHY] 이웃 달 날짜를 투명도 0.35 로 흐리면 대비가 4.5:1 에 못 미쳤다 — 흐린 글자 토큰을 쓴다(0.38.6 M6 점검).
+    return if (inMonth) base else colors.textMuted
 }
 
 private fun monthsBetween(from: YearMonth, to: YearMonth): Int =

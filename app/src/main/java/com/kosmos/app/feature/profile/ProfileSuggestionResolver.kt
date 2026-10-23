@@ -46,6 +46,9 @@ class ProfileSuggestionResolver @Inject constructor(
         return suggestionRepository.updateStatus(suggestion.id, ProfileSuggestionStatus.ACCEPTED, now)
     }
 
+    /** 지금 프로필 — 제안 시트가 기존 값을 바꾸는지 보이게 한다. */
+    fun observeProfile(): kotlinx.coroutines.flow.Flow<List<ProfileEntry>> = profileRepository.observeEntries()
+
     suspend fun reject(suggestion: ProfileSuggestion, now: Long = System.currentTimeMillis()): AppResult<Unit> =
         suggestionRepository.updateStatus(suggestion.id, ProfileSuggestionStatus.REJECTED, now)
 

@@ -280,7 +280,7 @@ fun SettingsScreen(
                 onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
             }
             if (!exactAlarmAllowed) {
-                Section("알림", footnote = "알람 및 리마인더 권한이 꺼져 있어 알림이 정한 시각보다 최대 10분 늦게 울릴 수 있어요.") {
+                Section("알림", warning = "알람 및 리마인더 권한이 꺼져 있어 알림이 정한 시각보다 최대 10분 늦게 울릴 수 있어요.") {
                     com.kosmos.app.ui.component.KosmosListRow(
                         title = "알람 및 리마인더 허용하기",
                         onClick = {

@@ -74,7 +74,7 @@ fun <T> KosmosSegmentedControl(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 40.dp)
+                        .heightIn(min = 48.dp)
                         .clip(KosmosShapes.sm)
                         .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(value) }),
                     contentAlignment = Alignment.Center

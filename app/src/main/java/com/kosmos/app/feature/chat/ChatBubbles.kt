@@ -171,7 +171,8 @@ fun ChatBubbleAssistant(
     // 카드·안쪽 줄·행동 칩이 모두 같은 대화로 가는 길이었다(0.38.6 M3 사용자 지적).
     val episodeOnly = result?.kind == com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL &&
         result.evidence.firstOrNull()?.kind == com.kosmos.app.feature.chat.result.Evidence.Kind.CONVERSATION
-    val card = if (episodeOnly && recallChipLabel != null) result?.copy(title = recallChipLabel) else result
+    // [WHY] 라벨까지 "지난 대화"로, 제목과 같은 말을 하던 근거 줄 "지난 대화에서 찾았어요"는 뺀다(0.38.6 M6 점검 P1).
+    val card = if (episodeOnly && recallChipLabel != null) result?.copy(label = "지난 대화", title = recallChipLabel, evidence = emptyList()) else result
     val recallInCard = recallChipLabel != null && result?.kind == com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL && !episodeOnly
 
     Row(
@@ -268,8 +269,8 @@ fun ChatBubbleAssistant(
                                         "지난 대화: $recallChipLabel",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = KosmosTheme.colors.brandText,
-                                        // 큰 글자에서 '›'나 한 글자만 다음 줄로 넘어갔다 — 한 줄 + 말줄임(impeccable 점검 P3).
-                                        maxLines = 1,
+                                        // 큰 글자에서 날짜가 말줄임에 잘렸다(0.38.6 M6 점검) — 두 줄까지. 끝 화살표는 따로 그려 혼자 넘어가지 않는다.
+                                        maxLines = 2,
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f)
                                     )

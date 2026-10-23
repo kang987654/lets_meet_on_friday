@@ -524,7 +524,8 @@ fun ChatScreen(
             suggestions = suggestions,
             onSave = { viewModel.resolveSuggestions(suggestions, it) },
             onRejectAll = { viewModel.resolveSuggestions(suggestions, emptySet()) },
-            onLater = { laterSuggestionIds = suggestions.joinToString("\n") { it.id } }
+            onLater = { laterSuggestionIds = suggestions.joinToString("\n") { it.id } },
+            current = uiState.profileValues
         )
     }
 

@@ -56,7 +56,7 @@ object AuditLabels {
             AuditEventType.MODEL_RUN -> modelRun(details)
             AuditEventType.TOOL_CALL -> toolCall(details)
             AuditEventType.APPROVAL_GRANTED -> approval(details, R.drawable.ic_ph_check_circle, "승인함")
-            AuditEventType.APPROVAL_REJECTED -> approval(details, R.drawable.ic_ph_x, "거절함")
+            AuditEventType.APPROVAL_REJECTED -> approval(details, R.drawable.ic_ph_x, "취소함")
             AuditEventType.ERROR -> {
                 val reason = errorKorean(details)
                 AuditDisplay(R.drawable.ic_ph_warning_circle, "오류", summarize(reason), listOf(AuditField("사유", reason)))

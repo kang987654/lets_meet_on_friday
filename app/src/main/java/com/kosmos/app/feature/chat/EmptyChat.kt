@@ -77,7 +77,7 @@ private val STAR_RADII = listOf(4f, 6f, 9f, 5f, 4f)
 private const val BRIGHTEST = 2
 
 private val STARTERS = listOf(
-    R.drawable.ic_ph_bell to "30분 뒤에 물 마시라고 알려줘",
-    R.drawable.ic_ph_calendar_blank to "오늘 일정 알려줘",
-    R.drawable.ic_ph_clock_counter_clockwise to "지난번에 기억해 둔 거 찾아줘"
+    R.drawable.ic_ph_bell to "30분 뒤에 물 마시라고 알려 줘",
+    R.drawable.ic_ph_calendar_blank to "오늘 일정 알려 줘",
+    R.drawable.ic_ph_clock_counter_clockwise to "지난번에 기억해 둔 거 찾아 줘"
 )

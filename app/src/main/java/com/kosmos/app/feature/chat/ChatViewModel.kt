@@ -209,6 +209,11 @@ class ChatViewModel @Inject constructor(
                 _uiState.update { it.copy(pendingSuggestions = pending.toImmutableList()) }
             }
         }
+        viewModelScope.launch {
+            suggestionResolver.observeProfile().collectLatest { entries ->
+                _uiState.update { it.copy(profileValues = entries.associate { e -> e.key to e.value }) }
+            }
+        }
     }
 
     /** 체크 목록 시트의 결과 — 고른 것은 저장, 나머지는 무시. */

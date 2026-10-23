@@ -205,19 +205,21 @@ fun ChatInputBar(
 
             androidx.compose.animation.Crossfade(
                 targetState = inputAction,
-                // 보이는 원은 40, 높이만 48 — 위아래 4dp 씩 여유.
-                modifier = Modifier.size(width = 40.dp, height = 48.dp).padding(vertical = 4.dp),
+                // [WHY] 보이는 원은 40, 누르는 영역은 48 — 원 둘레 4dp 를 누르는 영역에 넣는다(0.38.6 M6 점검: 보내기·마이크가 40dp 였다).
+                modifier = Modifier.size(48.dp),
                 animationSpec = com.kosmos.app.ui.theme.Motion.short(),
                 label = "send_mic_transition"
             ) { action ->
                 if (action == InputAction.STOP) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(48.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onStopGeneration() }
+                            .padding(4.dp)
                             .clip(androidx.compose.foundation.shape.CircleShape)
                             .background(KosmosTheme.colors.surface)
-                            .border(1.dp, KosmosTheme.colors.brand, shape = androidx.compose.foundation.shape.CircleShape)
-                            .clickable { onStopGeneration() },
+                            .border(1.dp, KosmosTheme.colors.brand, shape = androidx.compose.foundation.shape.CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -230,14 +232,16 @@ fun ChatInputBar(
                 } else if (action == InputAction.SEND) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(48.dp)
                             .clip(androidx.compose.foundation.shape.CircleShape)
-                            // [WHY] 주 버튼과 같은 채도 낮춘 하늘(brandSoft) — 진한 brand 면은 0.38.1 M6 에서 너무 진하다는 지적으로 바꾼 기준이다.
-                            .background(KosmosTheme.colors.brandSoft)
-                            .clickable(enabled = !isLoading) {
+                            .clickable(enabled = !isLoading, role = androidx.compose.ui.semantics.Role.Button) {
                                 onSend(textState.text)
                                 textState = TextFieldValue("")
-                            },
+                            }
+                            .padding(4.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            // [WHY] 주 버튼과 같은 채도 낮춘 하늘(brandSoft) — 진한 brand 면은 0.38.1 M6 에서 너무 진하다는 지적으로 바꾼 기준이다.
+                            .background(KosmosTheme.colors.brandSoft),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -253,11 +257,13 @@ fun ChatInputBar(
                     val micIconColor = if (isRecording) KosmosTheme.colors.dangerText else KosmosTheme.colors.textSecondary
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(48.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .clickable(enabled = !isLoading, role = androidx.compose.ui.semantics.Role.Button) { onMicClick() }
+                            .padding(4.dp)
                             .clip(androidx.compose.foundation.shape.CircleShape)
                             .background(micBg)
-                            .border(1.dp, micBorder, shape = androidx.compose.foundation.shape.CircleShape)
-                            .clickable(enabled = !isLoading) { onMicClick() },
+                            .border(1.dp, micBorder, shape = androidx.compose.foundation.shape.CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(

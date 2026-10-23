@@ -201,14 +201,14 @@ class ScreenCatalogTest {
         sessionStore.saveActiveSessionId(SESSION)
         val episode = Episode(
             id = "ep-bike", sessionId = SESSION, status = EpisodeStatus.SUMMARIZED, title = "자전거 비밀번호 확인",
-            summary = "사용자가 자전거 비밀번호를 물었고 저장된 메모의 134 로 답했다.", tags = listOf("자전거", "비밀번호"),
+            summary = "사용자가 자전거 비밀번호를 물었고, 비서가 저장된 메모의 134로 답했어요.", tags = listOf("자전거", "비밀번호"),
             startAt = now - DAY * 2, endAt = now - DAY * 2 + 600_000, messageCount = 4, retryCount = 0,
             createdAt = now - DAY * 2, updatedAt = now - DAY * 2
         )
         episodeRepository.insert(episode)
         episodeRepository.insert(
             episode.copy(
-                id = "ep-dentist", title = "치과 예약과 저녁 약속", summary = "내일 오후 3시 치과 예약을 잡고 금요일 저녁 약속을 정리했다.",
+                id = "ep-dentist", title = "치과 예약과 저녁 약속", summary = "사용자가 내일 오후 3시 치과 예약을 잡고 금요일 저녁 약속을 정리했어요.",
                 tags = listOf("치과", "약속"), startAt = now - DAY * 5, endAt = now - DAY * 5 + 600_000, createdAt = now - DAY * 5
             )
         )
@@ -629,7 +629,7 @@ class ScreenCatalogTest {
         fun note(id: String, content: String) = KnowledgeNote(id = id, content = content, createdAt = NOW, updatedAt = NOW)
         val review = com.kosmos.app.assistant.cleanup.MemoryCleanupRunner.State.Review(
             note("weekly", "이번 주는 치과 예약과 자전거 비밀번호 정리에 시간을 썼어요."),
-            listOf(com.kosmos.app.domain.cleanup.MergeProposal(listOf(note("c", "자전거 자물쇠 번호 4821"), note("d", "자전거 자물쇠 비밀번호는 4821")), "자전거 자물쇠 비밀번호는 4821이다."))
+            listOf(com.kosmos.app.domain.cleanup.MergeProposal(listOf(note("c", "자전거 자물쇠 번호 4821"), note("d", "자전거 자물쇠 비밀번호는 4821")), "자전거 자물쇠 비밀번호는 4821"))
         )
         val runner = io.mockk.mockk<com.kosmos.app.assistant.cleanup.MemoryCleanupRunner>(relaxed = true) {
             io.mockk.every { state } returns kotlinx.coroutines.flow.MutableStateFlow(review)

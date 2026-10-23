@@ -93,7 +93,7 @@ data class ApprovalSheetContent(
                     hint = "정한 시각에 알림이 울려요.", approveLabel = "등록하기"
                 )
                 ApprovalPreview.Kind.MEMORY -> ApprovalSheetContent(
-                    icon = R.drawable.ic_ph_clock_counter_clockwise_duotone, label = "메모 저장", title = p.subject,
+                    icon = R.drawable.ic_ph_note, label = "메모 저장", title = p.subject,
                     hint = "저장하면 비서가 다음 대화부터 참고해요.", approveLabel = "저장하기"
                 )
             }
@@ -197,13 +197,14 @@ fun ApprovalSheetLayout(
             }
             body?.invoke()
             if (timeoutKey != null) {
-                val track = colors.border
+                // [WHY] 2dp 하늘 선이 hairline 구분선처럼 보였다(0.38.6 M6 점검) — 바탕을 가라앉은 면으로, 높이 3dp.
+                val track = colors.surfaceSunk
                 val fill = colors.brand
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(2.dp)
-                        .clip(RoundedCornerShape(1.dp))
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(1.5.dp))
                         .drawBehind {
                             drawRect(track)
                             drawRect(fill, size = size.copy(width = size.width * (1f - elapsedFraction)))
@@ -229,9 +230,11 @@ fun ApprovalSheetLayout(
                         TextButton(onClick = onFootnoteAction) { Text("설정에서 켜기", style = MaterialTheme.typography.labelLarge, color = colors.brandText) }
                     }
                 }
-            } else {
-                content.hint?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.textMuted) }
             }
+            // [WHY] 줄어드는 선만으로는 "곧 자동 취소"를 눈으로 알 수 없었다(화면 읽기만 남은 초를 들었다, 0.38.6 M6 점검) — 안내 줄과 한 문단으로.
+            val timeoutNote = if (timeoutKey != null) "1분 안에 고르지 않으면 취소돼요." else null
+            val hintText = listOfNotNull(content.hint.takeIf { footnote == null }, timeoutNote).joinToString("\n")
+            if (hintText.isNotEmpty()) Text(hintText, style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
         }
     }
 }
@@ -263,8 +266,12 @@ fun ProfileSuggestionSheet(
     suggestions: List<ProfileSuggestion>,
     onSave: (Set<String>) -> Unit,
     onRejectAll: () -> Unit,
-    onLater: () -> Unit
+    onLater: () -> Unit,
+    // 지금 프로필(항목 → 내용). 제안이 이미 있는 항목을 바꾸면 그 사실을 보인다.
+    current: Map<String, String> = emptyMap()
 ) {
+    // [WHY] 이미 있는 항목을 바꾸는 제안이 표시 없이 덮어썼다(0.38.6 M6 점검 P2).
+    fun replaces(s: ProfileSuggestion): String? = current[s.key]?.takeIf { it != s.value }?.let { "지금은 '$it'예요. 저장하면 바뀌어요." }
     val colors = KosmosTheme.colors
     val ids = suggestions.map { it.id }
     var selected by remember(ids) { mutableStateOf(ids.toSet()) }
@@ -273,6 +280,7 @@ fun ProfileSuggestionSheet(
     val content = if (multi) base.copy(approveLabel = "고른 ${selected.size}개 저장") else base
     ApprovalSheetLayout(
         content, onApprove = { onSave(selected) }, onReject = onRejectAll, onDismiss = onLater,
+        footnote = suggestions.singleOrNull()?.let(::replaces),
         approveEnabled = selected.isNotEmpty(),
         body = if (!multi) null else {
             {
@@ -287,9 +295,11 @@ fun ProfileSuggestionSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.padding(12.dp), colors = CheckboxDefaults.colors(checkedColor = colors.brand))
+                            // 항목 위·내용 아래 — 프로필 시트와 같은 순서.
                             Column(Modifier.weight(1f)) {
-                                Text(s.value, style = MaterialTheme.typography.bodyMedium, color = colors.textPrimary)
                                 Text(s.key, style = MaterialTheme.typography.labelMedium, color = colors.textSecondary)
+                                Text(s.value, style = MaterialTheme.typography.bodyMedium, color = colors.textPrimary)
+                                replaces(s)?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.warningText) }
                             }
                         }
                     }

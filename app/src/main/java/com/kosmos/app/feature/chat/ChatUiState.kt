@@ -29,6 +29,8 @@ data class ChatUiState(
         com.kosmos.app.runtime.metrics.DeviceStatus(),
     /** 자동 추출(C′2)의 프로필 제안 대기 목록 — 첫 항목이 입력바 위 카드로 뜬다. */
     val pendingSuggestions: ImmutableList<com.kosmos.app.domain.model.ProfileSuggestion> = persistentListOf(),
+    // 지금 프로필(항목 → 내용) — 제안 시트가 기존 값을 바꾸는지 보인다.
+    val profileValues: Map<String, String> = emptyMap(),
     /** 제안 승인/거절 결과 한 줄 안내(스낵바) — 화면이 한 번 보인 뒤 소비한다. */
     val suggestionNotice: String? = null
 )
