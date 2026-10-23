@@ -73,6 +73,8 @@ class KosmosAgent @Inject constructor(
         // [WHY] 리마인더 쓰기는 로컬 동작(AlarmManager+알림)이므로 상시 노출 — 승인은
         // REMINDER_WRITE 관문이 별도로 지킨다 (B1).
         add(ToolNames.ADD_REMINDER)
+        // [WHY] 알림을 볼 툴이 없으면 "몇 시로 해 놨지?"에 엉뚱한 툴(기억 검색·등록)로 갔다(exp56) — 조회도 로컬이라 상시.
+        add(ToolNames.LIST_REMINDERS)
         if (context.webSearchEnabled) {
             add(ToolNames.SEARCH_WIKIPEDIA)
         }

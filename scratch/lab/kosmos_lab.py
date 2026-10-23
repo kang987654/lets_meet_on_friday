@@ -100,7 +100,13 @@ def add_reminder(time: str, content: str) -> dict:
 
 # 0.21.0 다이어트: 위 선언들의 둘째 문장(시스템 지시 트리거 규칙과 중복)을 앱과 함께 제거 —
 # 근거·실측은 exp34b_reminder_diet.py (순증 52토큰, 스모크 8/8).
-ALL_TOOLS = [add_schedule, get_schedule, add_memory, search_memory, search_wikipedia, add_reminder]
+def list_reminders() -> dict:
+    """등록해 둔 알림 목록을 시각순으로 조회한다."""
+    raise NotImplementedError("툴 실행은 하네스 밖에서 주입한다")
+
+
+# 0.38.5 M5: list_reminders 추가(exp56 L — 앱 KosmosToolDeclarations.ListRemindersDeclaration 원문).
+ALL_TOOLS = [add_schedule, get_schedule, add_memory, search_memory, search_wikipedia, add_reminder, list_reminders]
 
 
 def create_engine(backend=None) -> "llm.Engine":

@@ -37,6 +37,7 @@ object AuditLabels {
         ToolNames.SEARCH_MEMORY to "기억 검색",
         ToolNames.SEARCH_WIKIPEDIA to "위키백과 검색",
         ToolNames.ADD_REMINDER to "알림 추가",
+        ToolNames.LIST_REMINDERS to "알림 목록 조회",
         "ReminderEdit(화면)" to "알림 수정",
         // 기억 정리 실행기(0.30.0) — 모델 툴이 아니라 정리 화면이 남긴다.
         "MemoryMerge" to "기억 합치기",
@@ -160,7 +161,7 @@ object AuditLabels {
     @DrawableRes
     private fun toolIcon(tool: String?): Int = when (tool) {
         ToolNames.ADD_SCHEDULE, ToolNames.GET_SCHEDULE -> R.drawable.ic_ph_calendar_blank
-        ToolNames.ADD_REMINDER, "ReminderEdit(화면)" -> R.drawable.ic_ph_bell
+        ToolNames.ADD_REMINDER, ToolNames.LIST_REMINDERS, "ReminderEdit(화면)" -> R.drawable.ic_ph_bell
         ToolNames.ADD_MEMORY, "MemoryMerge" -> R.drawable.ic_ph_note
         ToolNames.SEARCH_MEMORY -> R.drawable.ic_ph_magnifying_glass
         ToolNames.SEARCH_WIKIPEDIA -> R.drawable.ic_ph_globe

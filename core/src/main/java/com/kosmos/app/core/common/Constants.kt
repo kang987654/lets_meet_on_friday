@@ -64,8 +64,11 @@ object Constants {
      * 실측 오버헤드의 진실은 `TokenBudgetInvariantTest.MEASURED_OVERHEAD` 다 — 실측 + [PROFILE_MAX_TOKENS] 가 이 예약
      * 이하여야 하고, 그 불변식은 테스트가 지킨다. 이 값을 바꾸면 [MIN_HISTORY_TOKENS]·[MAX_CONTEXT_TOKENS] 의 바닥
      * 관계가 함께 흔들린다(AGENTS §2-⑤).
+     *
+     * [WHY] 1,400 → 1,450(0.38.5 M5, 사용자 결정) — 알림 목록 툴(`list_reminders`) 몫. FP32 로 넓힌 전체 예산 안에서 슬라이더 하한
+     * ([MIN_CONTEXT_TOKENS])이 툴 추가용으로 남겨 둔 여지를 쓴다 — 대신 히스토리 몫이 50 줄어든다(기본 1,100 → 1,050).
      */
-    const val PREFILL_OVERHEAD_TOKENS = 1400
+    const val PREFILL_OVERHEAD_TOKENS = 1450
 
     // [WHY] 오버헤드 예약 후에도 히스토리에 남겨야 하는 최소 예산(대략 2~3턴). 재설정 하한과 첨부 문서 상한의 기준이다.
     const val MIN_HISTORY_TOKENS = 300
@@ -132,7 +135,8 @@ object Constants {
      * [WHY] 재생성은 전체 프리필이라 너무 낮으면 매 턴 재생성 루프가 된다 — 바닥은 오버헤드 예약 + 최소 히스토리.
      * 실제 임계값은 예산을 따르므로([MIN_CONTEXT_TOKENS] 이상) 이 하한은 루프 방지 바닥 역할만 한다.
      */
-    const val MIN_CONVERSATION_RESET_TOKENS = 1700
+    // [WHY] 1,700 → 1,750 — 오버헤드 예약이 1,450 이 되면서(0.38.5 M5) 바닥(예약 + 최소 히스토리)을 따라 올렸다. 슬라이더 하한 2,000 아래라 실제 임계값은 그대로다.
+    const val MIN_CONVERSATION_RESET_TOKENS = 1750
 
     // [WHY] **프롬프트 슬라이딩 윈도우 후보 수(ContextBuilder 전용).** 화면 타임라인은 [CHAT_TIMELINE_PAGE_SIZE] 로
     // 따로 간다 — UI 페이지 크기를 조정하려고 이 값을 만지면 프롬프트 예산이 함께 흔들린다.

@@ -335,12 +335,14 @@ abstract class BaseAgent(
         // [WHY] 메모만 문구가 다르다 — 공통 문구로는 메모 거절에서 "기억해 두겠습니다" 거짓 성공이 4/6 이었고, 이 문구가 0/6 이다(exp49
         // memrej 조건 C). 리마인더·일정은 공통 문구가 이미 0 이라 그대로 둔다(exp38d·e).
         if (toolName == ToolNames.ADD_MEMORY) return MEMORY_REJECTION
+        // [WHY] 일정·알림은 답할 문장을 직접 준다(exp56 R4): 예전 지시형은 거짓 성공 0 이었지만 "알림 등록에 문제가 생겼어요"처럼
+        // 거절을 오류로 바꿔 말했다(3/12). 답 문장 제시형은 거짓 0·오류로 바꿈 0. 메모에 같은 형식을 쓰면 "기억해 두었어요"가 나와 메모는 그대로.
         val notDone = when (toolName) {
-            ToolNames.ADD_SCHEDULE -> "일정을 추가하지 않았다고"
-            ToolNames.ADD_REMINDER -> "알림을 등록하지 않았다고"
-            else -> "요청을 실행하지 않았다고"
+            ToolNames.ADD_SCHEDULE -> "일정을 추가하지 않았어요"
+            ToolNames.ADD_REMINDER -> "알림을 등록하지 않았어요"
+            else -> "요청을 실행하지 않았어요"
         }
-        return "사용자가 승인하지 않아 실행하지 않았습니다. $notDone 알리세요."
+        return "사용자가 승인하지 않아 $notDone. \"$notDone.\"처럼 답하세요."
     }
 
     /** 툴 결과 JSON 에서 meta.episodeIds 를 뽑습니다. 형식이 어긋나면 빈 목록 — 칩이 안 뜰 뿐이다. */

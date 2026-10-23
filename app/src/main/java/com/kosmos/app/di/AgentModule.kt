@@ -29,4 +29,5 @@ abstract class AgentModule {
     @Binds @IntoSet abstract fun searchMemory(executor: SearchMemoryToolExecutor): ToolExecutor
     @Binds @IntoSet abstract fun searchWikipedia(executor: SearchWikipediaToolExecutor): ToolExecutor
     @Binds @IntoSet abstract fun addReminder(executor: AddReminderToolExecutor): ToolExecutor
+    @Binds @IntoSet abstract fun listReminders(executor: com.kosmos.app.assistant.tool.ListRemindersToolExecutor): ToolExecutor
 }

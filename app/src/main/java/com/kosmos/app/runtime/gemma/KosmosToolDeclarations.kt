@@ -43,7 +43,8 @@ object KosmosToolDeclarations {
         "add_memory" to ToolNames.ADD_MEMORY,
         "search_memory" to ToolNames.SEARCH_MEMORY,
         "search_wikipedia" to ToolNames.SEARCH_WIKIPEDIA,
-        "add_reminder" to ToolNames.ADD_REMINDER
+        "add_reminder" to ToolNames.ADD_REMINDER,
+        "list_reminders" to ToolNames.LIST_REMINDERS
     )
 
     private val PROVIDERS: Map<String, () -> ToolProvider> = mapOf(
@@ -52,7 +53,8 @@ object KosmosToolDeclarations {
         ToolNames.ADD_MEMORY to { tool(AddMemoryDeclaration()) },
         ToolNames.SEARCH_MEMORY to { tool(SearchMemoryDeclaration()) },
         ToolNames.SEARCH_WIKIPEDIA to { tool(SearchWikipediaDeclaration()) },
-        ToolNames.ADD_REMINDER to { tool(AddReminderDeclaration()) }
+        ToolNames.ADD_REMINDER to { tool(AddReminderDeclaration()) },
+        ToolNames.LIST_REMINDERS to { tool(ListRemindersDeclaration()) }
     )
 
     /** 활성화된 툴만 선언 목록으로 만듭니다. 알 수 없는 이름은 무시합니다. */
@@ -161,5 +163,11 @@ object KosmosToolDeclarations {
             @ToolParam(description = "알림 시각. ISO 8601 형식.") time: String,
             @ToolParam(description = "알림에 표시할 내용") content: String
         ): Map<String, Any> = notExecutedHere()
+    }
+
+    // [WHY] exp45b·exp56 L 원문 — 바꾸면 그 측정(목록 8/8·되묻기 6/6·스모크 무손상)이 무효다.
+    private class ListRemindersDeclaration : ToolSet {
+        @Tool(description = "등록해 둔 알림 목록을 시각순으로 조회한다.")
+        fun listReminders(): Map<String, Any> = notExecutedHere()
     }
 }

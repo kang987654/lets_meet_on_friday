@@ -179,9 +179,11 @@ class TokenBudgetInvariantTest {
          * `scratch/lab/exp39c_date_carryover.py` 2026-10-01) = 1,293 → −67(중복 문구 다이어트,
          * `scratch/lab/exp41_prompt_diet.py` 2026-10-01) = 1,226 → +24(턴 리마인더 긍정 답 문장 + `[Now]`,
          * `scratch/lab/exp49b_overhead.py` 2026-10-13 — tokenize 차이와 token_count 차이가 같다) = 1,250 → +19(말투 줄
-         * "Reply briefly in polite 해요체…", `scratch/lab/exp55b_overhead.py` 2026-10-22 — tokenize +18, token_count +19 중 큰 값) = **1,269**.
+         * "Reply briefly in polite 해요체…", `scratch/lab/exp55b_overhead.py` 2026-10-22 — tokenize +18, token_count +19 중 큰 값) = 1,269
+         * → +68(`list_reminders` 선언 + 트리거 줄, `scratch/lab/exp56b_overhead.py` 2026-10-23 — token_count 1,349 → 1,417; tokenize 규칙 +31·선언 +19 에
+         * 선언 템플릿이 더해진다) = **1,337**. 예약은 같은 회차에 1,400 → 1,450(사용자 결정).
          * 프로필 블록은 여기 없고 [Constants.PROFILE_MAX_TOKENS] 상한으로 따로 계상된다.
          */
-        const val MEASURED_OVERHEAD = 1269
+        const val MEASURED_OVERHEAD = 1337
     }
 }

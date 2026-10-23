@@ -213,6 +213,10 @@ class PromptAssembler @Inject constructor() {
             if (availableTools.contains(ToolNames.ADD_REMINDER)) {
                 appendLine("- The user asks to be reminded at a specific time: \"3시에 알려줘\", \"리마인드\": you MUST call `add_reminder`.")
             }
+            // [WHY] exp45b·exp56 L 원문 — 등록 규칙 바로 뒤라 "알려줘"(등록)와 "알림 뭐 있어"(조회)가 나란히 갈린다.
+            if (availableTools.contains(ToolNames.LIST_REMINDERS)) {
+                appendLine("- The user asks which reminders are set: \"알림 뭐 있어\", \"리마인더 목록\": you MUST call `list_reminders`.")
+            }
         }
         // [WHY] "above" 는 [System Data] 날짜 블록을 가리킨다 — 블록을 옮기면 이 문구도 옮겨야 한다. 마지막 문장은 직전
         // 턴의 "내일"에 날짜 없는 시각이 끌려가는 것을 막는다(exp39c).
