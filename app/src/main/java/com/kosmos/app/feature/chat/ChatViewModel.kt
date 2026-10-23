@@ -383,6 +383,8 @@ class ChatViewModel @Inject constructor(
         if ((text.isBlank() && audioFilePath == null) || _uiState.value.isInFlight) return
         // [WHY] 새 질문을 보내면 이전 답변 낭독은 멈춘다 — 답이 오면 그 답을 읽는다.
         speechOutput.stop()
+        // [WHY] 지난 요청 끝에 늦게 도착한 중지가 이 요청의 첫 채팅 턴을 막지 않게 한다.
+        modelRunner.clearPendingCancel()
 
         val currentSharedInput = _uiState.value.sharedInput
         val isImageAttached = currentSharedInput is SharedInput.Image

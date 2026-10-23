@@ -129,10 +129,10 @@ class GemmaModelRunner @Inject constructor(
         conversationStale = true
     }
 
-    // [WHY] 지금 send 중인 대화(캐시 채팅이든 oneShot 이든). cancel() 은 뮤텍스 밖에서 불리므로
-    // @Volatile 로 가시성을 보장한다.
-    @Volatile
-    private var activeConversation: Conversation? = null
+    // [WHY] 지금 send 중인 대화(캐시 채팅이든 oneShot 이든)와 사용자 취소. cancel() 은 뮤텍스 밖에서 불린다.
+    private val cancellation = TurnCancellation<Conversation> { it.cancelProcess() }
+
+    override fun clearPendingCancel() = cancellation.clearPending()
 
     // [WHY] llmDispatcher(limitedParallelism(1))는 suspension point에서 코루틴이 교차될 수 있어
     // 단독으로는 상호배제가 아니다. 엔진/대화 수명주기(초기화·생성·해제)는 뮤텍스로 직렬화한다.
@@ -246,13 +246,21 @@ class GemmaModelRunner @Inject constructor(
                 if (preconditionResult is AppResult.Failure) {
                     return@withLock AppResult.Failure(preconditionResult.error)
                 }
+                // [WHY] 턴 사이에 누른 중지 — 이 채팅 턴을 시작하지 않고 빈 부분 응답으로 끝낸다. 툴 회신 턴이면 KV 에 회신 없는
+                // 호출이 남으므로 캐시 대화도 버린다(다음 턴은 DB 히스토리로 다시 만든다).
+                if (!prompt.oneShot && cancellation.consumePending()) {
+                    discardCachedConversation()
+                    return@withLock AppResult.Success(ModelTurn("", emptyList()))
+                }
                 metricsCollector.handleCooldownIfNecessary()
                 metricsCollector.recordStart()
                 val startTime = System.currentTimeMillis()
 
                 val currentConversation = getOrCreateConversation(readyEngine, prompt)
                 val outgoing = buildMessage(prompt, extraContents())
-                activeConversation = currentConversation
+                cancellation.begin(currentConversation)
+                var userCancelled = false
+                var turnFailed = true
 
                 // [WHY] 툴 회신 턴은 재생성이 금지된 턴이라(0.8.5 가드) 어떤 예산 검사도 거치지
                 // 않고 KV 에 얹힌다 — 초과가 일어난다면 바로 이 지점이다. 직전 값을 남겨야
@@ -292,12 +300,13 @@ class GemmaModelRunner @Inject constructor(
                     } catch (e: Exception) {
                         // [WHY] **이 코루틴 자신이 취소된 경우만** 되던진다. 사용자 취소는
                         // cancelProcess 로 네이티브 스트림을 끊는 것이라(부분 응답 보존, ChatViewModel
-                        // .cancelGeneration) 그 끝남이 어떤 예외로 오든 여기서 오류로 흡수해야 한다 —
+                        // .cancelGeneration) 그 끝남이 어떤 예외로 오든 여기서 흡수해야 한다 —
                         // 반면 viewModelScope 취소 같은 진짜 코루틴 취소를 Failure 로 바꾸면 호출자가
                         // 취소된 줄 모르고 오류 말풍선을 DB 에 쓴다.
                         currentCoroutineContext().ensureActive()
                         error = e
                     }
+                    userCancelled = cancellation.end(currentConversation)
 
                     metricsCollector.recordEnd(System.currentTimeMillis() - startTime, tokenCount)
                     if (!prompt.oneShot) RuntimeDiagnostics.logKvUsage("턴 종료", currentConversation)
@@ -307,9 +316,15 @@ class GemmaModelRunner @Inject constructor(
                     // 주세요" 대신 원인 불명의 실패로 보인다.
                     if (watchdog.timedOut) {
                         AppResult.Failure(AppError.ModelInferenceTimeout(System.currentTimeMillis() - startTime))
+                    } else if (userCancelled) {
+                        // [WHY] 사용자 취소는 네이티브가 CANCELLED 예외로 끝내든 조용히 끝내든 받은 만큼을 답으로 남긴다.
+                        // 끊긴 툴 호출은 인자가 덜 왔을 수 있어 버린다.
+                        turnFailed = false
+                        AppResult.Success(ModelTurn(finalResponse.toString(), emptyList()))
                     } else if (error != null) {
                         AppResult.Failure(AppError.ModelInferenceError(error.message ?: "스트리밍 중 에러 발생"))
                     } else {
+                        turnFailed = false
                         // [WHY] 비스트리밍과 달리 빈 결과를 실패로 바꾸지 않는다 — 사용자 취소가
                         // 첫 토큰 전에 끊으면 정상적으로 빈 부분 응답이 되고, 그 처리(빈 말풍선을
                         // 안 남김)는 BaseAgent 의 몫이다.
@@ -324,6 +339,7 @@ class GemmaModelRunner @Inject constructor(
                     val sendResult = runCatching {
                         currentConversation.sendMessage(outgoing, thinkingConfig = THINKING_OFF)
                     }
+                    userCancelled = cancellation.end(currentConversation)
                     if (watchdog.timedOut) {
                         metricsCollector.recordEnd(System.currentTimeMillis() - startTime)
                         return@withLock AppResult.Failure(
@@ -341,6 +357,7 @@ class GemmaModelRunner @Inject constructor(
                     // [WHY] 텍스트가 비어도 툴 호출만 온 턴은 정상이다 — 모델이 말 없이 곧바로
                     // 툴을 부르는 경우가 흔하다. 둘 다 비었을 때만 실패로 본다.
                     if (messageText.isNotEmpty() || toolCalls.isNotEmpty()) {
+                        turnFailed = false
                         RuntimeDiagnostics.logTurn(prompt, messageText, toolCalls)
                         AppResult.Success(ModelTurn(messageText, toolCalls))
                     } else {
@@ -349,8 +366,14 @@ class GemmaModelRunner @Inject constructor(
                 }
                 } finally {
                     watchdog.stop()
-                    activeConversation = null
-                    if (prompt.oneShot) runCatching { currentConversation.close() }
+                    cancellation.end(currentConversation)
+                    if (prompt.oneShot) {
+                        runCatching { currentConversation.close() }
+                    } else if (turnFailed || userCancelled || watchdog.timedOut) {
+                        // [WHY] 취소를 맞은 대화는 이후 send 가 전부 즉시 "Task cancelled" 다(exp57 A, 0.38.6 M0 실기기 결함).
+                        // 실패한 대화도 네이티브 상태를 알 수 없다 — 다음 턴은 DB 히스토리로 새로 만든다.
+                        discardCachedConversation()
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -410,15 +433,23 @@ class GemmaModelRunner @Inject constructor(
     override suspend fun cancel() {
         // [WHY] cancelProcess는 진행 중 스트리밍을 중단시키기 위한 호출이므로 뮤텍스를 잡지 않는다
         // (생성 본문이 뮤텍스를 보유 중이어도 취소가 가능해야 함).
-        // [WHY] 캐시된 채팅만이 아니라 지금 돌고 있는 대화를 끊는다 — oneShot(음성 전사 등)에도 취소가 닿아야 한다.
-        runCatching { (activeConversation ?: conversation)?.cancelProcess() }
+        // [WHY] 지금 돌고 있는 대화만 끊는다(oneShot 음성 전사 포함). 쉬는 캐시 대화를 끊으면 아무것도 멈추지 않는다(exp57 B).
+        cancellation.requestCancel()
+    }
+
+    /** [WHY] 뮤텍스 안에서만 부른다. 닫기 전에 비우는 이유는 [getOrCreateConversation] 과 같다. */
+    private fun discardCachedConversation() {
+        val existing = conversation
+        conversation = null
+        cachedKey = null
+        existing?.let { runCatching { it.close() } }
     }
 
     override fun close() {
         // [WHY] 메인 스레드에서 네이티브 close를 직접 부르면 진행 중 추론과 경합(use-after-free)하고
         // blocking으로 ANR 위험이 있다. 진행 중 생성에 취소를 요청한 뒤, LLM 디스패처에서
         // 뮤텍스로 직렬화하여(현재 생성 종료 후) 해제한다.
-        runCatching { (activeConversation ?: conversation)?.cancelProcess() }
+        runCatching { cancellation.activeConversation()?.cancelProcess() }
         closeScope.launch {
             lifecycleMutex.withLock {
                 runCatching { conversation?.close() }

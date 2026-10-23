@@ -41,7 +41,12 @@ interface ModelRunner {
         onToken: ((String) -> Unit)? = null
     ): AppResult<ModelTurn>
 
+    /** 진행 중인 생성을 끊는다. 턴 사이(생성 전)에 불리면 다음 채팅 턴을 시작하지 않는다. */
     suspend fun cancel()
+
+    /** 새 요청을 시작할 때 지난 요청의 늦게 도착한 [cancel] 을 지운다. */
+    fun clearPendingCancel() {}
+
     suspend fun warmUp()
     fun close()
 
