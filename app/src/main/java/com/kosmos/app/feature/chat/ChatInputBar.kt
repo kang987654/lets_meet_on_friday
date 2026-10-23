@@ -222,7 +222,7 @@ fun ChatInputBar(
                     ) {
                         Icon(
                             painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_stop_fill),
-                            contentDescription = "응답 중단",
+                            contentDescription = "답 멈추기",
                             tint = KosmosTheme.colors.brandText,
                             modifier = Modifier.size(20.dp)
                         )

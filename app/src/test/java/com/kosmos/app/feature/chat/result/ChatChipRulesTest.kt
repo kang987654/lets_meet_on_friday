@@ -34,10 +34,10 @@ class ChatChipRulesTest {
     }
 
     @Test
-    fun `행동 칩 — 충돌이 있으면 과거 기록 정리, 기억·메모는 메모 보기, 일정은 캘린더, 알림은 없음`() {
+    fun `행동 칩 — 충돌이 있으면 지난 대화 정리, 기억·메모는 메모 보기, 일정은 캘린더, 알림은 없음`() {
         val meta = """{"conflictCount":2,"conflictEpisodeIds":["e1","e2"]}"""
         val recall = ChatChipRules.actionChips(MessageResult(MessageResult.Kind.MEMORY_RECALL, "k1", meta))
-        assertEquals(listOf("과거 기록 2건 정리", "메모 보기"), recall.map { it.label })
+        assertEquals(listOf("지난 대화 2건 정리", "메모 보기"), recall.map { it.label })
         assertEquals(ChatChip.Action.OpenEpisode("e1"), recall.first().action)
         assertEquals(listOf("메모 보기"), ChatChipRules.actionChips(MessageResult(MessageResult.Kind.MEMORY_RECALL, "k1", """{"noteAt":1}""")).map { it.label })
         assertEquals(listOf("캘린더에서 보기"), ChatChipRules.actionChips(MessageResult(MessageResult.Kind.SCHEDULE, "t1")).map { it.label })

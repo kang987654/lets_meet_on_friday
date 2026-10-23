@@ -96,10 +96,10 @@ fun SettingsScreen(
 
             Section(
                 "대화",
-                footnote = "기억 범위를 올리면 이전 대화를 더 많이 참고하지만 응답이 느려지고 메모리를 더 써요. 모델이 한 번에 읽을 수 있는 전체 한도와는 달라요."
+                footnote = "기억 범위를 올리면 이전 대화를 더 많이 참고하지만 답이 느려지고 메모리를 더 써요. 모델이 한 번에 읽을 수 있는 전체 한도와는 달라요."
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    ControlLabel("응답 길이")
+                    ControlLabel("답 길이")
                     // 저장값(영문 키)은 그대로 두고 표시만 한글화한다 — 키를 바꾸면 기존 설정이 깨진다.
                     val styles = listOf(ResponseStyle.CONCISE to "간결", ResponseStyle.DEFAULT to "기본", ResponseStyle.DETAILED to "자세히")
                     com.kosmos.app.ui.component.KosmosSegmentedControl(
@@ -222,10 +222,10 @@ fun SettingsScreen(
             }
             Section(
                 "음성",
-                footnote = "켜면 답변이 끝날 때마다 읽어 드려요. 꺼 두어도 말풍선의 재생 버튼으로 들을 수 있고, 녹음을 시작하면 바로 멈춰요.",
+                footnote = "켜면 답이 끝날 때마다 읽어 드려요. 꺼 두어도 말풍선의 재생 버튼으로 들을 수 있고, 녹음을 시작하면 바로 멈춰요.",
                 warning = voiceNotice
             ) {
-                SettingSwitchRow("답변을 소리로 읽어 주기", uiState.ttsAutoRead, divider = true) { viewModel.onTtsAutoReadChanged(it) }
+                SettingSwitchRow("답을 소리로 읽어 주기", uiState.ttsAutoRead, divider = true) { viewModel.onTtsAutoReadChanged(it) }
                 // [WHY] "시스템 기본" + 설치된 엔진(삼성·구글 등) — 목록이 비면 매니페스트 TTS_SERVICE queries 누락을 의심한다.
                 val engines = listOf(com.kosmos.app.platform.speech.SpeechOutput.Engine("", "시스템 기본")) + ttsEngines
                 engines.forEachIndexed { index, engine ->

@@ -31,10 +31,10 @@ class AuditLabelsTest {
     }
 
     @Test
-    fun `모델 응답은 출력 줄만, 길면 자른다`() {
+    fun `모델 답은 출력 줄만, 길면 자른다`() {
         val long = "가".repeat(120)
         val display = AuditLabels.of(event(AuditEventType.MODEL_RUN, "Prompt: 안녕\nOutput: $long\nTools declared: [AddMemory]"))
-        assertEquals("모델 응답", display.title)
+        assertEquals("모델 답", display.title)
         assertEquals("가".repeat(80) + "…", display.summary)
     }
 

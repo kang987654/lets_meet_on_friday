@@ -211,25 +211,19 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun acceptSuggestion(suggestion: ProfileSuggestion) {
+    /** 체크 목록 시트의 결과 — 고른 것은 저장, 나머지는 무시. */
+    fun resolveSuggestions(suggestions: List<ProfileSuggestion>, selectedIds: Set<String>) {
         viewModelScope.launch {
-            val notice = when (val result = suggestionResolver.accept(suggestion)) {
-                is AppResult.Success -> "프로필에 저장했어요. ${suggestion.key}: ${suggestion.value}"
-                // [WHY] 상한 초과는 ValidationError.reason 에 "N/100토큰" 안내가 담겨 있다 —
-                // 일반 매핑("입력을 확인해주세요")보다 그 문장이 조치 가능하다.
-                is AppResult.Failure -> (result.error as? AppError.ValidationError)?.reason
-                    ?: ErrorMessages.userMessage(result.error)
+            val result = suggestionResolver.resolve(suggestions, selectedIds)
+            val error = result.error
+            val notice = when {
+                // [WHY] 상한 초과는 ValidationError.reason 에 "N/100토큰" 안내가 담겨 있다 — 일반 매핑보다 조치 가능하다.
+                error != null -> (error as? AppError.ValidationError)?.reason ?: ErrorMessages.userMessage(error)
+                result.saved.size == 1 -> result.saved.single().let { "프로필에 저장했어요. ${it.key}: ${it.value}" }
+                result.saved.isNotEmpty() -> "프로필에 ${result.saved.size}개 저장했어요."
+                else -> null
             }
-            _uiState.update { it.copy(suggestionNotice = notice) }
-        }
-    }
-
-    fun rejectSuggestion(suggestion: ProfileSuggestion) {
-        viewModelScope.launch {
-            val result = suggestionResolver.reject(suggestion)
-            if (result is AppResult.Failure) {
-                _uiState.update { it.copy(suggestionNotice = ErrorMessages.userMessage(result.error)) }
-            }
+            if (notice != null) _uiState.update { it.copy(suggestionNotice = notice) }
         }
     }
 

@@ -12,6 +12,8 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -89,5 +91,30 @@ class ProfileSuggestionResolverTest {
 
         coVerify(exactly = 1) { suggestionRepository.updateStatus("s1", ProfileSuggestionStatus.REJECTED, 9) }
         coVerify(exactly = 0) { profileRepository.upsert(any(), any(), any()) }
+    }
+
+    @Test
+    fun `체크 목록은 고른 것만 저장하고 나머지는 거절한다`() = runBlocking {
+        val a = suggestion("직업", "개발자").copy(id = "a")
+        val b = suggestion("사는 곳", "대전").copy(id = "b")
+
+        val result = resolver().resolve(listOf(a, b), setOf("a"), now = 5)
+
+        assertEquals(listOf(a), result.saved)
+        assertNull(result.error)
+        coVerify(exactly = 1) { suggestionRepository.updateStatus("a", ProfileSuggestionStatus.ACCEPTED, 5) }
+        coVerify(exactly = 1) { suggestionRepository.updateStatus("b", ProfileSuggestionStatus.REJECTED, 5) }
+    }
+
+    @Test
+    fun `상한을 넘는 항목은 대기로 남고 나머지는 저장한다`() = runBlocking {
+        val long = suggestion("자기소개", "가".repeat(300)).copy(id = "long")
+        val short = suggestion("이름", "진우").copy(id = "short")
+
+        val result = resolver().resolve(listOf(long, short), setOf("long", "short"))
+
+        assertEquals(listOf(short), result.saved)
+        assertTrue(result.error is AppError.ValidationError)
+        coVerify(exactly = 0) { suggestionRepository.updateStatus("long", any(), any()) }
     }
 }

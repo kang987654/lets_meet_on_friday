@@ -353,7 +353,7 @@ class ScreenCatalogTest {
         }) { ChatWithExtras(vm, extras) }
     }
 
-    /** 마지막 답이 충돌 있는 기억 카드 — 행동 칩 [과거 기록 정리][메모 보기](0.38.2 M6). */
+    /** 마지막 답이 충돌 있는 기억 카드 — 행동 칩 [지난 대화 정리][메모 보기](0.38.2 M6). */
     @Test fun chatActionChips() {
         kotlinx.coroutines.runBlocking {
             conversationRepository.save(msg("m8", ChatMessage.Role.USER, "자전거 비밀번호 다시 알려 줘", NOW - 60_000))
@@ -367,7 +367,7 @@ class ScreenCatalogTest {
         shoot("20-chat-action-chips") { ChatWithExtras(vm, extras) }
     }
 
-    /** 채팅 상태 표시 모음(0.38.2 M7) — 응답 대기·답 쓰는 중·입력바 네 상태(마이크·보내기·응답 중단·녹음 중). 부품만 쌓아 한 장에. */
+    /** 채팅 상태 표시 모음(0.38.2 M7) — 응답 대기·답 쓰는 중·입력바 네 상태(마이크·보내기·답 멈추기·녹음 중). 부품만 쌓아 한 장에. */
     @Test fun chatStates() {
         shoot("21-chat-states") {
             androidx.compose.foundation.layout.Column(
@@ -460,12 +460,17 @@ class ScreenCatalogTest {
     }
 
     @Test fun profileSuggestionSheet() {
-        val suggestion = com.kosmos.app.domain.model.ProfileSuggestion(
-            id = "ps1", key = "직업", value = "백엔드 개발자", episodeId = null,
+        fun suggestion(id: String, key: String, value: String) = com.kosmos.app.domain.model.ProfileSuggestion(
+            id = id, key = key, value = value, episodeId = null,
             status = com.kosmos.app.domain.model.ProfileSuggestionStatus.PENDING, createdAt = 0, updatedAt = 0
         )
+        val suggestions = listOf(
+            suggestion("ps1", "직업", "백엔드 개발자"),
+            suggestion("ps2", "사는 곳", "대전"),
+            suggestion("ps3", "좋아하는 음료", "녹차")
+        )
         shoot("19-profile-suggestion") {
-            com.kosmos.app.feature.approval.ProfileSuggestionSheet(suggestion, remaining = 2, onAccept = {}, onReject = {}, onLater = {})
+            com.kosmos.app.feature.approval.ProfileSuggestionSheet(suggestions, onSave = {}, onRejectAll = {}, onLater = {})
         }
     }
 
@@ -601,7 +606,7 @@ class ScreenCatalogTest {
     @Test fun auditExpanded() {
         val vm = com.kosmos.app.feature.settings.AuditViewModel(auditRepository)
         shoot("32-audit-expanded", before = {
-            rule.onNodeWithText("모델 응답").performClick()
+            rule.onNodeWithText("모델 답").performClick()
         }) { com.kosmos.app.feature.settings.AuditScreen(viewModel = vm, onNavigateBack = {}) }
     }
 

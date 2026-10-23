@@ -37,8 +37,8 @@ object ErrorMessages {
         ErrorCode.MODEL_NOT_FOUND -> "AI 모델 파일을 찾을 수 없어요. 설정 > 모델 관리에서 내려받아 주세요."
         ErrorCode.MODEL_NOT_READY -> "AI 모델을 준비하고 있어요. 잠시 후 다시 시도해 주세요."
         ErrorCode.MODEL_LOAD_FAILED -> "AI 모델을 불러오지 못했어요. 파일이 손상됐을 수 있으니 설정 > 모델 관리에서 다시 내려받아 주세요."
-        ErrorCode.MODEL_INFERENCE_TIMEOUT -> "응답 생성이 너무 오래 걸려 중단했어요. 다시 시도해 주세요."
-        ErrorCode.MODEL_INFERENCE_ERROR -> "응답을 만들지 못했어요. 다시 시도해 주세요."
+        ErrorCode.MODEL_INFERENCE_TIMEOUT -> "답을 만드는 데 너무 오래 걸려 중단했어요. 다시 시도해 주세요."
+        ErrorCode.MODEL_INFERENCE_ERROR -> "답을 만들지 못했어요. 다시 시도해 주세요."
 
         ErrorCode.CALENDAR_PROVIDER_ERROR -> "기기 캘린더에 접근하지 못했어요. 일정은 앱에 저장되어 있어요."
         ErrorCode.STT_ERROR -> "음성을 인식하지 못했어요. 다시 말씀해 주세요."
@@ -56,7 +56,7 @@ object ErrorMessages {
         ErrorCode.IMPORT_SCHEMA_MISMATCH -> "백업 파일 형식이 올바르지 않아요."
         ErrorCode.INSUFFICIENT_STORAGE -> "저장 공간이 부족해요. 공간을 확보한 뒤 다시 시도해 주세요."
 
-        ErrorCode.TEMPERATURE_WARNING -> "기기가 따뜻해져 응답이 조금 느려질 수 있어요."
+        ErrorCode.TEMPERATURE_WARNING -> "기기가 따뜻해져 답이 조금 느려질 수 있어요."
         ErrorCode.TEMPERATURE_CRITICAL -> "발열이 심해 기기 보호를 위해 잠시 중단했어요."
     }
 }

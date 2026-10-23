@@ -260,7 +260,7 @@ fun ChatBubbleAssistant(
                                 ) {
                                     com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_chat_text, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText, modifier = Modifier.padding(end = 8.dp))
                                     Text(
-                                        "함께 본 대화: $recallChipLabel",
+                                        "지난 대화: $recallChipLabel",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = KosmosTheme.colors.brandText,
                                         // 큰 글자에서 '›'나 한 글자만 다음 줄로 넘어갔다 — 한 줄 + 말줄임(impeccable 점검 P3).
@@ -303,7 +303,7 @@ fun ChatBubbleAssistant(
                 ) {
                     com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_clock_counter_clockwise, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 4.dp))
                     Text(
-                        text = "기억: $recallChipLabel",
+                        text = "지난 대화: $recallChipLabel",
                         color = KosmosTheme.colors.textSecondary,
                         style = MaterialTheme.typography.labelSmall
                     )
@@ -315,7 +315,7 @@ fun ChatBubbleAssistant(
                 IconButton(onClick = onToggleSpeak, modifier = Modifier.size(36.dp)) {
                     Icon(
                         painter = painterResource(id = if (isSpeaking) com.kosmos.app.R.drawable.ic_ph_stop_fill else com.kosmos.app.R.drawable.ic_ph_speaker_high),
-                        contentDescription = if (isSpeaking) "읽기 멈추기" else "답변 읽기",
+                        contentDescription = if (isSpeaking) "읽기 멈추기" else "답 읽기",
                         // 답마다 반복되는 아이콘이라 한 단계 옅게 — 읽는 중일 때만 진하게(impeccable 점검 P3).
                         tint = if (isSpeaking) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted.copy(alpha = 0.6f),
                         modifier = Modifier.size(18.dp)

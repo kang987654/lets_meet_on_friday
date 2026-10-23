@@ -106,7 +106,7 @@ fun AppDrawerContent(
                 decorationBox = { inner ->
                     if (query.isEmpty()) {
                         Text(
-                            text = "기억 검색",
+                            text = "지난 대화 검색",
                             color = KosmosTheme.colors.textMuted,
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -118,7 +118,7 @@ fun AppDrawerContent(
 
         Spacer(modifier = Modifier.height(8.dp))
         com.kosmos.app.ui.component.SectionHeader(
-            title = if (searchResults != null) "검색 결과" else "기억",
+            title = if (searchResults != null) "검색 결과" else "지난 대화",
             modifier = Modifier.padding(horizontal = 12.dp)
         )
 
@@ -126,7 +126,7 @@ fun AppDrawerContent(
             val results = searchResults
             if (results != null) {
                 if (results.isEmpty()) {
-                    item { DrawerEmptyLine("일치하는 기억이 없어요.") }
+                    item { DrawerEmptyLine("일치하는 대화가 없어요.") }
                 }
                 items(results.size, key = { results[it].id }) { index ->
                     EpisodeRow(results[index], divider = index < results.lastIndex) { openEpisodeId = results[index].id }

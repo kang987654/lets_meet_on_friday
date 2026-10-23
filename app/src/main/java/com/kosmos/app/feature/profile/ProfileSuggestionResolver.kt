@@ -48,4 +48,28 @@ class ProfileSuggestionResolver @Inject constructor(
 
     suspend fun reject(suggestion: ProfileSuggestion, now: Long = System.currentTimeMillis()): AppResult<Unit> =
         suggestionRepository.updateStatus(suggestion.id, ProfileSuggestionStatus.REJECTED, now)
+
+    /**
+     * 체크 목록 결과를 한 번에 종결한다 — [selectedIds] 는 차례로 승인(상한은 앞서 저장한 항목까지 누적해 검사), 나머지는 거절.
+     * 상한을 넘거나 저장에 실패한 항목은 대기로 남는다(프로필을 줄이면 다시 저장할 수 있다).
+     */
+    suspend fun resolve(
+        suggestions: List<ProfileSuggestion>,
+        selectedIds: Set<String>,
+        now: Long = System.currentTimeMillis()
+    ): Resolution {
+        val saved = mutableListOf<ProfileSuggestion>()
+        var firstError: AppError? = null
+        suggestions.forEach { s ->
+            val result = if (s.id in selectedIds) accept(s, now) else reject(s, now)
+            when {
+                result is AppResult.Failure -> if (firstError == null) firstError = result.error
+                s.id in selectedIds -> saved += s
+            }
+        }
+        return Resolution(saved.toList(), firstError)
+    }
+
+    /** [resolve] 결과 — 저장한 제안과 첫 실패(없으면 null). */
+    data class Resolution(val saved: List<ProfileSuggestion>, val error: AppError?)
 }

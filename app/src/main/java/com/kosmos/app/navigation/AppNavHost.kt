@@ -21,7 +21,7 @@ fun AppNavHost(
     splashStyle: com.kosmos.app.ui.theme.SplashStyle? = com.kosmos.app.ui.theme.SplashStyle.PLANET,
     /** 셸(MainScreen)의 드로어 열기 — 채팅 헤더 ☰ 이 부른다 (시안 A′). */
     onOpenDrawer: () -> Unit = {},
-    /** 드로어 에피소드 시트의 "원문 대화 보기" 요청 시각 — ChatScreen 이 소비한다 (M2-5). */
+    /** 드로어 에피소드 시트의 "채팅에서 보기" 요청 시각 — ChatScreen 이 소비한다 (M2-5). */
     jumpToTimestamp: Long? = null,
     onJumpConsumed: () -> Unit = {}
 ) {

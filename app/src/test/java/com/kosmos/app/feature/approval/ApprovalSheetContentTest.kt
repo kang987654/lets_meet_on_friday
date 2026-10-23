@@ -50,17 +50,17 @@ class ApprovalSheetContentTest {
     }
 
     @Test
-    fun `미리보기 없는 요청은 제목·설명, 프로필 제안은 남은 수와 무시·프로필에 저장`() {
+    fun `미리보기 없는 요청은 제목·설명, 프로필 제안은 한 건이면 항목·여러 건이면 개수와 무시·프로필에 저장`() {
         val plain = ApprovalSheetContent.of(request(null), today, zone)
         assertEquals("제목", plain.label)
         assertEquals("설명", plain.title)
 
         val s = ProfileSuggestion("p1", "직업", "개발자", null, ProfileSuggestionStatus.PENDING, 0, 0)
-        val profile = ApprovalSheetContent.of(s, remaining = 2)
-        assertEquals("프로필 저장 · 외 2건", profile.label)
+        val profile = ApprovalSheetContent.of(listOf(s))
+        assertEquals("프로필 저장", profile.label)
         assertEquals("개발자", profile.title)
         assertEquals("무시", profile.rejectLabel)
         assertEquals("프로필에 저장", profile.approveLabel)
-        assertEquals("프로필 저장", ApprovalSheetContent.of(s, remaining = 0).label)
+        assertEquals("대화에서 찾은 항목 3개", ApprovalSheetContent.of(listOf(s, s.copy(id = "p2"), s.copy(id = "p3"))).title)
     }
 }

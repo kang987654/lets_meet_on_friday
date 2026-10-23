@@ -517,15 +517,15 @@ fun ChatScreen(
             } else null
         )
     }
-    var laterSuggestionId by rememberSaveable { mutableStateOf<String?>(null) }
-    val firstSuggestion = uiState.pendingSuggestions.firstOrNull()
-    if (request == null && !uiState.isInFlight && firstSuggestion != null && firstSuggestion.id != laterSuggestionId) {
+    // [WHY] "나중에"는 그때 보인 제안 전부를 접는다 — 새 제안이 생기면 다시 뜬다. 저장 가능한 값이라 id 를 줄로 이어 둔다.
+    var laterSuggestionIds by rememberSaveable { mutableStateOf("") }
+    val suggestions = uiState.pendingSuggestions
+    if (request == null && !uiState.isInFlight && suggestions.any { it.id !in laterSuggestionIds.split('\n') }) {
         com.kosmos.app.feature.approval.ProfileSuggestionSheet(
-            suggestion = firstSuggestion,
-            remaining = uiState.pendingSuggestions.size - 1,
-            onAccept = { viewModel.acceptSuggestion(firstSuggestion) },
-            onReject = { viewModel.rejectSuggestion(firstSuggestion) },
-            onLater = { laterSuggestionId = firstSuggestion.id }
+            suggestions = suggestions,
+            onSave = { viewModel.resolveSuggestions(suggestions, it) },
+            onRejectAll = { viewModel.resolveSuggestions(suggestions, emptySet()) },
+            onLater = { laterSuggestionIds = suggestions.joinToString("\n") { it.id } }
         )
     }
 

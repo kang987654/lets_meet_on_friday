@@ -131,12 +131,12 @@ object ResultCardMapper {
                 val at = json?.optLong("noteAt", note.createdAt) ?: note.createdAt
                 add(Evidence(Evidence.Kind.NOTE, "${IsoDateTimeParser.monthDayKorean(at, zone)}에 저장한 메모"))
             } else {
-                add(Evidence(Evidence.Kind.CONVERSATION, "과거 대화에서 찾았어요"))
+                add(Evidence(Evidence.Kind.CONVERSATION, "지난 대화에서 찾았어요"))
             }
             val conflicts = json?.optInt("conflictCount", 0) ?: 0
             if (conflicts > 0) {
                 val values = json?.optJSONArray("otherValues")?.let { arr -> (0 until arr.length()).map { arr.getString(it) } }.orEmpty()
-                add(Evidence(Evidence.Kind.CONFLICT, "과거 대화 ${conflicts}건엔 ${values.joinToString(", ")}, 메모 값을 따랐어요"))
+                add(Evidence(Evidence.Kind.CONFLICT, "지난 대화 ${conflicts}건엔 ${values.joinToString(", ")}, 메모 값을 따랐어요"))
             }
         }
         return ResultCardState(
@@ -144,7 +144,7 @@ object ResultCardMapper {
             icon = R.drawable.ic_ph_clock_counter_clockwise_duotone,
             label = "기억",
             // [WHY] 큰 값을 따로 두지 않는다 — 메모 문장에 값이 이미 있어 "…는 134 / 134"로 겹쳐 보였다(0.38.2 M3 렌더).
-            title = note?.content ?: "과거 대화에서 찾았어요",
+            title = note?.content ?: "지난 대화에서 찾았어요",
             evidence = evidence
         )
     }

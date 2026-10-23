@@ -41,7 +41,7 @@ fun AuditScreen(
                 .background(KosmosTheme.colors.bg)
         ) {
             if (auditLogItems.itemCount == 0) {
-                com.kosmos.app.ui.component.EmptyState(com.kosmos.app.R.drawable.ic_ph_shield_check, "아직 기록된 활동이 없어요.\n모델 응답, 도구 실행, 승인이 여기에 남아요.")
+                com.kosmos.app.ui.component.EmptyState(com.kosmos.app.R.drawable.ic_ph_shield_check, "아직 기록된 활동이 없어요.\n모델 답, 도구 실행, 승인이 여기에 남아요.")
             } else {
                 val today = com.kosmos.app.ui.component.rememberToday()
                 val zone = ZoneId.systemDefault()

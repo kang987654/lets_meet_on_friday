@@ -67,6 +67,6 @@ object ChatChipRules {
         val ids = json.optJSONArray("conflictEpisodeIds") ?: return null
         val first = ids.optString(0).takeIf { it.isNotEmpty() } ?: return null
         val count = json.optInt("conflictCount", ids.length())
-        return ChatChip(if (count > 1) "과거 기록 ${count}건 정리" else "과거 기록 정리", ChatChip.Action.OpenEpisode(first), R.drawable.ic_ph_chat_text)
+        return ChatChip(if (count > 1) "지난 대화 ${count}건 정리" else "지난 대화 정리", ChatChip.Action.OpenEpisode(first), R.drawable.ic_ph_chat_text)
     }
 }

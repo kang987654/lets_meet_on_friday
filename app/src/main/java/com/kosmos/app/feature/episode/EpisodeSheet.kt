@@ -81,8 +81,8 @@ fun EpisodeSheet(
             if (current == null) {
                 Text(
                     text = when (val s = state) {
-                        EpisodeSheetState.Loading, is EpisodeSheetState.Loaded -> "기억을 불러오는 중이에요…"
-                        EpisodeSheetState.Missing -> "이 기억은 지웠어요. 원문 대화는 타임라인에 그대로 있어요."
+                        EpisodeSheetState.Loading, is EpisodeSheetState.Loaded -> "대화를 불러오는 중이에요…"
+                        EpisodeSheetState.Missing -> "이 대화 요약은 지웠어요. 채팅 기록은 그대로 있어요."
                         is EpisodeSheetState.Error -> s.message
                     },
                     color = KosmosTheme.colors.textMuted,
@@ -125,7 +125,7 @@ fun EpisodeSheet(
                 // [WHY] 0.38.2 알림 수정 시트와 같은 배치(0.38.3 M5 시안 A) — 주 동작 두 개는 버튼, 되돌리기 어려운 삭제는 오른쪽 아래 글자 버튼.
                 // 예전에는 빨간 "삭제"가 줄 맨 앞이라 가장 먼저 눈과 손이 갔다.
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    KosmosButton("원문 대화 보기", {
+                    KosmosButton("채팅에서 보기", {
                         onDismiss()
                         onJumpToTimeline(current.startAt)
                     }, Modifier.weight(1f))
@@ -137,7 +137,7 @@ fun EpisodeSheet(
                     }
                 }
                 Text(
-                    text = "요약만 지워져요. 원문 대화는 타임라인에 그대로 있어요.",
+                    text = "요약만 지워져요. 채팅 기록은 그대로 있어요.",
                     style = MaterialTheme.typography.bodySmall,
                     color = KosmosTheme.colors.textMuted
                 )
@@ -148,9 +148,9 @@ fun EpisodeSheet(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("이 기억을 지울까요?") },
+            title = { Text("이 대화 요약을 지울까요?") },
             // [WHY] 삭제되는 것은 **요약 문서뿐**임을 명시한다 — 원문 대화는 타임라인에 남는다.
-            text = { Text("요약만 지워져요. 원문 대화는 타임라인에 그대로 남아요.") },
+            text = { Text("요약만 지워져요. 채팅 기록은 그대로 남아요.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false

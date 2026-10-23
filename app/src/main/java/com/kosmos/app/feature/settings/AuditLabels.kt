@@ -90,7 +90,7 @@ object AuditLabels {
                 val tools = block(details, "Tools declared")
                     ?.trim('[', ']')?.split(',')?.map { toolKorean(it) }?.filter { it.isNotBlank() }.orEmpty()
                 AuditDisplay(
-                    R.drawable.ic_ph_chat_text, "모델 응답", summarize(output),
+                    R.drawable.ic_ph_chat_text, "모델 답", summarize(output),
                     listOfNotNull(prompt.takeIf { it.isNotBlank() }?.let { AuditField("물은 말", it) }, AuditField("답", output)),
                     tools
                 )
