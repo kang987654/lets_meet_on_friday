@@ -75,8 +75,9 @@ class ContextBuilderTest {
         //
         // [WHY] 값이 6000/2600 이었다. 6000 은 엔진 KV 천장(3328)을 넘어 **도달할 수 없는 설정**이
         // 됐고, 오버헤드 실측이 1,329 로 드러나 예약도 1400 으로 내려갔다. 실제로 쓰이는 범위로
-        // 옮긴다 — 예산 3000 - 오버헤드 1400 = 1600 이므로 510 토큰짜리 메시지는 3개만 들어간다.
-        stubMessages(count = 10, tokensEach = 500, maxTokens = 3000)
+        // 옮긴다 — 예산 3100 - 오버헤드 1500 = 1600 이므로 510 토큰짜리 메시지는 3개만 들어간다(예약이 오를 때마다 예산도 같이 올려
+        // 남는 히스토리 1600 을 유지한다 — 0.38.6 M4 예약 1,500).
+        stubMessages(count = 10, tokensEach = 500, maxTokens = 3100)
 
         val result = contextBuilder.build("s1")
 
@@ -99,7 +100,7 @@ class ContextBuilderTest {
 
     @Test
     fun `가장 최근 메시지부터 담고 시간순으로 되돌린다`() = runTest {
-        stubMessages(count = 5, tokensEach = 500, maxTokens = 3000)
+        stubMessages(count = 5, tokensEach = 500, maxTokens = 3100)
 
         val result = contextBuilder.build("s1")
 

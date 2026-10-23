@@ -268,7 +268,7 @@ class PromptFixtureExportTest {
         )
 
         // KosmosAgent 가 넘기는 역할 문구와 같아야 한다.
-        const val SYSTEM_ROLE = "personal assistant named Kosmos"
+        const val SYSTEM_ROLE = "personal assistant named Kosmos who also chats, recommends and gives advice from your own knowledge"
 
         const val USER_INPUT = "(사용자 발화는 실험에서 주입한다)"
 

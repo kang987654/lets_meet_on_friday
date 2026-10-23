@@ -89,7 +89,7 @@
 
 ### ⑤ 프롬프트 표면 수칙 — 2026-08-28 리마인더 회차에서 확립
 - **툴 선언·트리거 규칙·시스템 지시·턴 리마인더를 바꾸면 실험실 실측+기능 스모크가 선행**된다
-  (`scratch/lab/exp34b`·`exp35` 전례): 오버헤드 여유가 수십 토큰 단위라(실측 + 프로필 상한 100 ≤ 예약 1,400 — 현재 여유는
+  (`scratch/lab/exp34b`·`exp35` 전례): 오버헤드 여유가 수십 토큰 단위라(실측 + 프로필 상한 100 ≤ 예약 `Constants.PREFILL_OVERHEAD_TOKENS` — 현재 여유는
   `TokenBudgetInvariantTest.MEASURED_OVERHEAD` 에서 계산) 어림짐작으로 넣으면 예산 불변식이 연쇄로 깨진다. 실측 후
   `TokenBudgetInvariantTest.MEASURED_OVERHEAD` 를 갱신하고 수치를 CHANGELOG 에 남긴다. 문구 하나의
   비용은 `engine.tokenize` 차이로도 함께 잰다 — 대화 `token_count` 에는 응답 길이 변동이 섞인다(exp41).

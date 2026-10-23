@@ -127,7 +127,8 @@ class SearchMemoryToolExecutor @Inject constructor(
         // 놓칠 수 있다. 태그는 모델 자신이 붙인 것이라 알아보고, 기억이 늘어도 목록이 짧다. 툴 루프 상한 3턴 안에
         // "조회 실패 → 태그로 재조회 → 답변"이 들어간다.
         if (allNotes.isEmpty() && recentEpisodes.none { it.title != null }) {
-            return successJson("저장된 기억이 하나도 없습니다. 사용자에게 저장된 것이 없다고 답하세요. 추측하지 마세요.")
+            // [WHY] "없다"만 시키면 바로 앞 대화에 사용자가 말한 답도 "기억이 없어요"라고 했다 — 대화 속 답을 허용한다(exp58c 1/6 → 6/6, 지어냄 0/4).
+            return successJson("저장된 기억이 하나도 없습니다. 사용자가 이 대화에서 이미 말한 내용이 있으면 그것으로 답하고, 없으면 저장된 것이 없다고 답하세요. 추측하지 마세요.")
         }
 
         // [WHY] 2차 회수의 태그 목록은 메모 ∪ 에피소드 — 과거 대화의 태그로도 재조회가 가능해야
@@ -144,7 +145,8 @@ class SearchMemoryToolExecutor @Inject constructor(
             }
             append("가장 최근에 저장된 기억:\n")
             append(format(allNotes.take(Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS)))
-            append("\n이 목록에 질문의 답이 없으면 없다고 답하세요. 절대 지어내지 마세요.")
+            // [WHY] 위 빈 결과와 같은 이유 — 대화 속 답 1/6 → 5/6, 지어냄 0/4(exp58b RES1).
+            append("\n이 목록에 질문의 답이 없으면, 사용자가 이 대화에서 이미 말한 내용으로 답하세요. 거기에도 없으면 없다고 답하세요. 절대 지어내지 마세요.")
         }
         return successJson(data)
     }

@@ -51,7 +51,8 @@ class KosmosAgent @Inject constructor(
             context = context,
             userInput = request.message,
             availableTools = tools,
-            systemRole = "personal assistant named Kosmos",
+            // [WHY] 역할을 "대화·추천·조언도 하는" 비서로 — 툴 지시만 있으면 점심 추천·요리법을 "그런 기능은 없어요"로 거절했다(exp58b 9/12 → 1/12, +12토큰).
+            systemRole = "personal assistant named Kosmos who also chats, recommends and gives advice from your own knowledge",
             documentAttached = request.documentText != null
         )
         return executeToolLoop(request, initialPrompt, tools)
