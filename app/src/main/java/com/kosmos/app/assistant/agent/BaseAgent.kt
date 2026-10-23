@@ -201,6 +201,17 @@ abstract class BaseAgent(
                 // [WHY] 결과 카드(0.38.2)의 대상 — 마지막으로 성공한 툴의 것. meta 와 함께 모델 입력에서 떼어 낸다.
                 if (outcome.succeeded) extractResult(outcome.resultJson)?.let { messageResult = it }
 
+                // [WHY] 승인 거절은 모델을 다시 부르지 않고 고정 문장으로 턴을 끝낸다(0.38.6 M4 사용자 결정) — 모델에게 거절을 돌려주면
+                // 바로 앞 턴의 답을 따라 하거나("일정을 추가해도 될까요?"), 지시문을 읊거나("저장하지 않았다고 말씀드릴게요"), 거절을 오류로
+                // 말했다(실기기 10-23, exp56). 살아 있는 대화에는 회신 없는 툴 호출이 남으므로 다음 사용자 턴에 DB 히스토리로 다시 만든다.
+                if (outcome.rejected) {
+                    modelRunner.invalidateConversation()
+                    val reply = rejectionReply(call.name)
+                    request.onStream?.invoke(StreamUpdate(reply, null))
+                    parsedResult = ToolParser.parseStream(reply)
+                    break
+                }
+
                 // [WHY] Conversation은 stateful이라 직전 입력/출력이 이미 컨텍스트에 있다.
                 // 툴 결과만 전용 응답 타입으로 되돌린다 — 이전에는 `<tool_response>` 텍스트를
                 // 사용자 턴으로 위장해 보냈다.
@@ -272,7 +283,9 @@ abstract class BaseAgent(
     private data class ToolOutcome(
         val resultJson: String,
         val executed: Boolean,
-        val succeeded: Boolean = executed
+        val succeeded: Boolean = executed,
+        // 사용자가 승인하지 않음(시간 초과 포함) — 루프가 고정 문장으로 끝낸다.
+        val rejected: Boolean = false
     ) {
         companion object {
             fun of(resultJson: String, executed: Boolean): ToolOutcome {
@@ -312,7 +325,7 @@ abstract class BaseAgent(
                 val approved = approvalCoordinator.requireApproval(approvalRequest)
                 if (!approved) {
                     auditTrailService.logApprovalRejected(sessionId, "${call.name}: ${approvalRequest.description}")
-                    return ToolOutcome(ToolResultJson.error(rejectionMessage(call.name)), executed = false)
+                    return ToolOutcome(ToolResultJson.error("사용자가 승인하지 않았어요"), executed = false, rejected = true)
                 }
                 auditTrailService.logApprovalGranted(sessionId, "${call.name}: ${approvalRequest.description}")
             }
@@ -324,25 +337,15 @@ abstract class BaseAgent(
     }
 
     /**
-     * 승인 거절(시간 초과 포함) 회신 문구.
+     * 승인 거절(시간 초과 포함) 때 화면에 남는 답 — 모델이 쓰지 않는다.
      *
-     * [WHY] exp38d 실측(툴 2종 × 발화 6): 예전 "사용자가 취소했습니다"는 리마인더에서 거짓 성공 1/6
-     * ("알림을 설정했습니다")이었고, 나머지 답변 대부분이 취소를 "오류가 발생했습니다"로 말했다. 해야 할
-     * 행동을 적은 지시형은 거짓 성공 0/12 에 "승인이 필요합니다"로 사실대로 말했다(+10~18토큰).
-     * "취소" 단어를 살린 변형은 거짓 성공은 0 이었지만 12/12 가 "오류"로 오인해 기각했다(exp38e).
+     * [WHY] 모델 회신 문구로는 다섯 판(exp38d·e, exp49, exp56 R0~R4)을 재도 거짓 성공·오류로 바꿈·앞 턴 따라 하기 중 하나가 남았다.
      */
-    private fun rejectionMessage(toolName: String): String {
-        // [WHY] 메모만 문구가 다르다 — 공통 문구로는 메모 거절에서 "기억해 두겠습니다" 거짓 성공이 4/6 이었고, 이 문구가 0/6 이다(exp49
-        // memrej 조건 C). 리마인더·일정은 공통 문구가 이미 0 이라 그대로 둔다(exp38d·e).
-        if (toolName == ToolNames.ADD_MEMORY) return MEMORY_REJECTION
-        // [WHY] 일정·알림은 답할 문장을 직접 준다(exp56 R4): 예전 지시형은 거짓 성공 0 이었지만 "알림 등록에 문제가 생겼어요"처럼
-        // 거절을 오류로 바꿔 말했다(3/12). 답 문장 제시형은 거짓 0·오류로 바꿈 0. 메모에 같은 형식을 쓰면 "기억해 두었어요"가 나와 메모는 그대로.
-        val notDone = when (toolName) {
-            ToolNames.ADD_SCHEDULE -> "일정을 추가하지 않았어요"
-            ToolNames.ADD_REMINDER -> "알림을 등록하지 않았어요"
-            else -> "요청을 실행하지 않았어요"
-        }
-        return "사용자가 승인하지 않아 $notDone. \"$notDone.\"처럼 답하세요."
+    private fun rejectionReply(toolName: String): String = when (toolName) {
+        ToolNames.ADD_SCHEDULE -> "일정을 추가하지 않았어요."
+        ToolNames.ADD_REMINDER -> "알림을 등록하지 않았어요."
+        ToolNames.ADD_MEMORY -> "메모를 저장하지 않았어요."
+        else -> "요청을 실행하지 않았어요."
     }
 
     /** 툴 결과 JSON 에서 meta.episodeIds 를 뽑습니다. 형식이 어긋나면 빈 목록 — 칩이 안 뜰 뿐이다. */
@@ -406,7 +409,5 @@ abstract class BaseAgent(
         // "<|think|" 태그가 토큰 경계에 걸려도 감지되는 길이
         const val THINK_TAG_WINDOW = 12
 
-        // exp49 memrej 조건 C 실측 원문.
-        const val MEMORY_REJECTION = "사용자가 저장을 승인하지 않았습니다. 이 내용은 기억에 없습니다. 저장하지 않았다고 사용자에게 분명히 알리세요."
     }
 }

@@ -100,12 +100,8 @@ class ToolApprovalE2ETest {
         ): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
             val toolResponse = prompt.toolResponse
             val turn = if (toolResponse != null) {
-                val text = if (toolResponse.resultJson.contains("승인하지 않아")) {
-                    "알겠습니다. 일정 추가를 취소했습니다."
-                } else {
-                    "일정 처리가 완료되었습니다."
-                }
-                com.kosmos.app.domain.modelrunner.ModelTurn(text)
+                // 거절은 모델을 다시 부르지 않는다(0.38.6 M4) — 회신 턴은 승인된 경우뿐이다.
+                com.kosmos.app.domain.modelrunner.ModelTurn("일정 처리가 완료되었습니다.")
             } else {
                 val isCancelScenario = prompt.currentInput.contains("취소")
                 com.kosmos.app.domain.modelrunner.ModelTurn(
@@ -223,10 +219,10 @@ class ToolApprovalE2ETest {
         viewModel.rejectPendingRequest()
         
         waitForIdleWithPolling(5000) {
-            !viewModel.uiState.value.isInFlight && viewModel.uiState.value.messages.any { it.content.contains("취소했습니다.") }
+            !viewModel.uiState.value.isInFlight && viewModel.uiState.value.messages.any { it.content.contains("일정을 추가하지 않았어요.") }
         }
         
-        composeTestRule.onNodeWithText("알겠습니다. 일정 추가를 취소했습니다.").assertExists()
+        composeTestRule.onNodeWithText("일정을 추가하지 않았어요.").assertExists()
     }
 
     private fun waitForIdleWithPolling(timeoutMillis: Long, condition: () -> Boolean) {
