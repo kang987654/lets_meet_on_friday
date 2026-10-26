@@ -12,6 +12,7 @@ package com.kosmos.app.domain.document
  * @property columnWidths 열 번호 → 너비(엑셀 문자 단위). 없으면 기본 너비.
  * @property truncated 상한에 닿아 앞부분만 담았다.
  * @property complete false 면 아직 읽는 중인 앞부분이다(큰 시트의 첫 화면용) — 끝까지 읽으면 같은 시트가 다시 온다.
+ * @property styles 셀 서식 표 — [SheetCell.style] 이 가리킨다(xlsx 만, csv 는 비어 있다).
  */
 data class Sheet(
     val name: String,
@@ -22,14 +23,25 @@ data class Sheet(
     val frozenColumns: Int = 0,
     val columnWidths: Map<Int, Float> = emptyMap(),
     val truncated: Boolean = false,
-    val complete: Boolean = true
-)
+    val complete: Boolean = true,
+    val styles: List<CellStyle> = emptyList()
+) {
+    /** 셀의 서식 — 없으면 null. */
+    fun styleOf(cell: SheetCell): CellStyle? = styles.getOrNull(cell.style)
+}
 
 /** @property index 0부터 세는 행 번호(엑셀 표기는 +1). */
 data class SheetRow(val index: Int, val cells: List<SheetCell>)
 
-/** @property column 0부터 세는 열 번호. */
-data class SheetCell(val column: Int, val text: String)
+/**
+ * @property column 0부터 세는 열 번호.
+ * @property style [Sheet.styles] 의 번호 — 서식이 없으면 [NO_STYLE]. 글자가 비어도 배경색이 있는 칸은 담는다(칠한 머리 줄).
+ */
+data class SheetCell(val column: Int, val text: String, val style: Int = NO_STYLE) {
+    companion object {
+        const val NO_STYLE = -1
+    }
+}
 
 /** 0부터 세는 닫힌 범위. */
 data class CellRange(val firstRow: Int, val firstColumn: Int, val lastRow: Int, val lastColumn: Int)

@@ -194,4 +194,90 @@ class XlsxReaderTest {
         assertEquals("media/a.png", resolvePartPath("xl/worksheets", "../../media/a.png"))
         assertEquals("xl/workbook.xml", resolvePartPath("", "xl/workbook.xml"))
     }
+
+    // --- 셀 서식 (0.38.7 M0) ---
+
+    private val styledRels = workbookRels.replace(
+        "</Relationships>",
+        """<Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
+</Relationships>"""
+    )
+
+    private val theme = """<?xml version="1.0" encoding="UTF-8"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:themeElements><a:clrScheme name="Office">
+<a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1>
+<a:dk2><a:srgbClr val="44546A"/></a:dk2><a:lt2><a:srgbClr val="E7E6E6"/></a:lt2>
+<a:accent1><a:srgbClr val="4472C4"/></a:accent1><a:accent2><a:srgbClr val="ED7D31"/></a:accent2>
+</a:clrScheme></a:themeElements></a:theme>"""
+
+    // 글꼴 0 = 기본(테마 글자색), 1 = 굵게·빨강. 채움 0·1 = 엑셀 기본(없음·gray125), 2 = 강조1 40% 밝게, 3 = 옛 색표 13(노랑).
+    private val styledStyles = """<?xml version="1.0" encoding="UTF-8"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="2"><font><sz val="11"/><color theme="1"/><name val="맑은 고딕"/></font><font><b/><sz val="11"/><color rgb="FFFF0000"/></font></fonts>
+<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor theme="4" tint="0.3999755851924192"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor indexed="13"/></patternFill></fill></fills>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="1" fillId="2"/></cellStyleXfs>
+<cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0"/>
+<xf numFmtId="0" fontId="1" fillId="2" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>
+<xf numFmtId="0" fontId="0" fillId="3" applyFill="1"/>
+<xf numFmtId="0" fontId="0" fillId="0" applyAlignment="1"><alignment horizontal="right"/></xf></cellXfs>
+<dxfs count="1"><dxf><font><b/><color rgb="FF00FF00"/></font></dxf></dxfs>
+</styleSheet>"""
+
+    private val styledSheet = """<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>
+<row r="1"><c r="A1" s="1" t="inlineStr"><is><t>머리</t></is></c><c r="B1" s="2"/><c r="C1" s="0" t="inlineStr"><is><t>평범</t></is></c></row>
+<row r="2"><c r="A2" s="3"><v>12</v></c><c r="B2" t="inlineStr"><is><t>값</t></is></c></row>
+<row r="3"><c r="B3" s="2"/></row>
+</sheetData></worksheet>"""
+
+    private fun styled(): Sheet {
+        val reader = XlsxReader(
+            source(
+                "xl/_rels/workbook.xml.rels" to styledRels, "xl/theme/theme1.xml" to theme,
+                "xl/styles.xml" to styledStyles, "xl/worksheets/sheet1.xml" to styledSheet
+            )
+        )
+        return reader.readSheet(reader.open().ok(), 0).ok()
+    }
+
+    private fun Sheet.cell(row: Int, column: Int): SheetCell? = rows.firstOrNull { it.index == row }?.cells?.firstOrNull { it.column == column }
+
+    private fun assertColor(expected: Int, actual: Int?) {
+        val a = actual ?: return fail("색이 없다")
+        listOf(16, 8, 0).forEach { shift ->
+            val diff = kotlin.math.abs((expected shr shift and 0xFF) - (a shr shift and 0xFF))
+            assertTrue("채널 차이 $diff — 기대 ${Integer.toHexString(expected)} / 실제 ${Integer.toHexString(a)}", diff <= 1)
+        }
+    }
+
+    @Test
+    fun `셀 서식 — 테마 색과 밝기 조정, 옛 색표, 굵게·글자색, 정렬`() {
+        val sheet = styled()
+        val head = sheet.styleOf(sheet.cell(0, 0) ?: return fail("A1 없음"))
+        // 엑셀 "파랑 강조 1, 40% 더 밝게" 표시 값 8EA9DB(반올림 차 1 허용).
+        assertColor(0xFF8EA9DB.toInt(), head?.fill)
+        assertEquals(0xFFFF0000.toInt(), head?.fontColor)
+        assertTrue(head?.bold == true)
+        assertEquals(CellStyle.Align.CENTER, head?.align)
+
+        assertEquals("옛 색표 13 = 노랑", 0xFFFFFF00.toInt(), sheet.cell(0, 1)?.let(sheet::styleOf)?.fill)
+        assertEquals("서식 없는 칸은 번호가 없다", SheetCell.NO_STYLE, sheet.cell(0, 2)?.style)
+        val right = sheet.styleOf(sheet.cell(1, 0) ?: return fail("A2 없음"))
+        assertEquals(CellStyle.Align.RIGHT, right?.align)
+        assertEquals("기본 글꼴 색은 테마 글자색을 따르도록 비운다", null, right?.fontColor)
+    }
+
+    @Test
+    fun `배경만 있는 빈 칸은 담되 열 수와 문서 글자에는 넣지 않는다`() {
+        val sheet = styled()
+        assertEquals("", sheet.cell(0, 1)?.text)
+        assertEquals("빈 칸만 있는 3행도 서식 때문에 담긴다", listOf(0, 1, 2), sheet.rows.map { it.index })
+        assertEquals("열 수는 글자 있는 칸 기준", 3, sheet.columnCount)
+
+        val text = DocumentText.sheet(sheet, 0..2, cap = 1000).text
+        assertFalse("빈 서식 행이 글자에 빈 줄로 들어가면 안 된다", text.lines().any { it.isBlank() })
+        assertTrue(text, text.contains("머리: 12"))
+    }
 }

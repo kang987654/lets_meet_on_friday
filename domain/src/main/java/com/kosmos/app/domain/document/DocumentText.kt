@@ -39,7 +39,8 @@ object DocumentText {
     fun sheet(sheet: Sheet, rows: IntRange, cap: Int, format: TableFormat = TABLE_FORMAT): ClippedText {
         val headerRow = headerRow(sheet)
         // [WHY] 머리 행 위(표 제목 등)는 고른 범위에 들어 있어도 뺀다 — 남기면 그 행이 열 이름 자리를 차지한다.
-        val picked = sheet.rows.filter { it.index in rows && (headerRow == null || it.index >= headerRow.index) }
+        // [WHY] 배경색만 있는 빈 칸으로 이뤄진 행(서식용으로 담은 것)은 글자에 넣지 않는다 — 모델 입력은 서식 전과 같아야 한다.
+        val picked = sheet.rows.filter { it.index in rows && (headerRow == null || it.index >= headerRow.index) && it.cells.any { c -> c.text.isNotBlank() } }
         val header = headerRow?.takeIf { it.index !in rows }
         val width = sheet.columnCount.coerceAtLeast(1)
         val grid = (listOfNotNull(header) + picked).map { row -> List(width) { c -> row.cells.firstOrNull { it.column == c }?.text.orEmpty() } }
@@ -69,7 +70,7 @@ object DocumentText {
      * 모델에 보냈다(0.36.1 실기기, 공개 지원사업 현황 xlsx). 가계부·명단처럼 첫 행이 머리인 시트는 그대로 첫 행이다.
      */
     private fun headerRow(sheet: Sheet): SheetRow? =
-        sheet.rows.firstOrNull { row -> row.cells.count { it.text.isNotBlank() } >= 2 } ?: sheet.rows.firstOrNull()
+        sheet.rows.firstOrNull { row -> row.cells.count { it.text.isNotBlank() } >= 2 } ?: sheet.rows.firstOrNull { row -> row.cells.any { it.text.isNotBlank() } }
 
     private fun table(grid: List<List<String>>, format: TableFormat): List<String> {
         if (grid.isEmpty()) return emptyList()
