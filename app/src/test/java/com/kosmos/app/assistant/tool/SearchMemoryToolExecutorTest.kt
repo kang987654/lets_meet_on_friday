@@ -262,4 +262,27 @@ class SearchMemoryToolExecutorTest {
         val recallMeta = meta?.optJSONObject("result")?.optString("meta").orEmpty()
         assertTrue(recallMeta, !recallMeta.contains("e5"))
     }
+
+    @Test
+    fun `지금 대화에서 방금 말한 값이 결과 맨 위에 실린다(0·38·8 M2)`() = runBlocking {
+        val now = System.currentTimeMillis()
+        fun msg(role: com.kosmos.app.domain.model.ChatMessage.Role, text: String, ago: Long) = com.kosmos.app.domain.model.ChatMessage(
+            id = text, sessionId = "s1", role = role, content = text, inputType = com.kosmos.app.domain.model.InputType.TEXT, createdAt = now - ago
+        )
+        val conversations: com.kosmos.app.domain.memory.ConversationRepository = mockk {
+            coEvery { getRecentBySession("s1", any()) } returns AppResult.Success(listOf(
+                msg(com.kosmos.app.domain.model.ChatMessage.Role.USER, "회의실 어디라고 했지?", 1_000),
+                msg(com.kosmos.app.domain.model.ChatMessage.Role.USER, "다음 주 금요일 회의실은 5층 C룸이야", 60_000)
+            ))
+        }
+        coEvery { episodes.getEpisodes(any(), any()) } returns AppResult.Success(
+            listOf(episode("e1", "회의실 위치", "사용자가 회의실이 3층 B룸이라고 말했어요.", listOf("회의실")))
+        )
+
+        val data = org.json.JSONObject(SearchMemoryToolExecutor(repository, episodes, tokenizer, conversations)
+            .execute(ToolArguments.of(mapOf("keyword" to "회의실")), "s1")).getString("data")
+
+        assertTrue(data, data.startsWith("- (방금 이 대화) 다음 주 금요일 회의실은 5층 C룸이야\n"))
+        assertTrue("옛 값도 그대로 실린다", data.contains("3층 B룸"))
+    }
 }

@@ -37,7 +37,9 @@ import javax.inject.Inject
 class SearchMemoryToolExecutor @Inject constructor(
     private val repository: KnowledgeRepository,
     private val episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
-    private val tokenizer: com.kosmos.app.domain.tool.Tokenizer
+    private val tokenizer: com.kosmos.app.domain.tool.Tokenizer,
+    // 지금 대화의 사용자 말(결과 맨 위 "방금 이 대화" 줄) — 없으면 그 줄을 싣지 않는다(단위 테스트 생성부 호환).
+    private val conversations: com.kosmos.app.domain.memory.ConversationRepository? = null
 ) : ToolExecutor {
     override val name: String = ToolNames.SEARCH_MEMORY
 
@@ -68,6 +70,9 @@ class SearchMemoryToolExecutor @Inject constructor(
             .filter { it.isNotEmpty() }
             .distinct()
             .take(MAX_TOKENS)
+
+        // [WHY] 지금 대화에서 사용자가 방금 말한 값을 맨 위에 — 검색된 옛 값보다 최신이다(0.38.8 결정 2, [com.kosmos.app.domain.memory.CurrentConversationLines]).
+        val head = currentHead(sessionId, tokens)
 
         // ── 1. 정밀 후보 ─────────────────────────────────────────────────────────
         // [WHY] 토큰마다 따로 조회한 뒤 합친다. SQLite LIKE 는 `%자전거 비밀번호%` 처럼
@@ -100,7 +105,7 @@ class SearchMemoryToolExecutor @Inject constructor(
         // 보다 앞서는 기존 계약은 그대로 성립하고, 항이 온전히 들어 있는 정도까지 반영된다(exp33 원문).
         val ranked = rank(tokens, candidates.values)
         if (ranked.isNotEmpty()) {
-            return formatHits(tokens, ranked).let { successJson(it.text, episodeIds = it.episodeIds, recall = it.recall) }
+            return formatHits(tokens, ranked).let { successJson(head + it.text, episodeIds = it.episodeIds, recall = it.recall) }
         }
 
         // ── 3. 정밀 0건 → 바이그램 전수 스캔 ─────────────────────────────────────
@@ -119,7 +124,7 @@ class SearchMemoryToolExecutor @Inject constructor(
             minTermOverlap = Constants.BIGRAM_MIN_TERM_OVERLAP
         )
         if (scanned.isNotEmpty()) {
-            return formatHits(tokens, scanned).let { successJson(it.text, episodeIds = it.episodeIds, recall = it.recall) }
+            return formatHits(tokens, scanned).let { successJson(head + it.text, episodeIds = it.episodeIds, recall = it.recall) }
         }
 
         // ── 4. 태그 목록 폴백 ───────────────────────────────────────────────────
@@ -128,7 +133,7 @@ class SearchMemoryToolExecutor @Inject constructor(
         // "조회 실패 → 태그로 재조회 → 답변"이 들어간다.
         if (allNotes.isEmpty() && recentEpisodes.none { it.title != null }) {
             // [WHY] "없다"만 시키면 바로 앞 대화에 사용자가 말한 답도 "기억이 없어요"라고 했다 — 대화 속 답을 허용한다(exp58c 1/6 → 6/6, 지어냄 0/4).
-            return successJson("저장된 기억이 하나도 없습니다. 사용자가 이 대화에서 이미 말한 내용이 있으면 그것으로 답하고, 없으면 저장된 것이 없다고 답하세요. 추측하지 마세요.")
+            return successJson(head + "저장된 기억이 하나도 없습니다. 사용자가 이 대화에서 이미 말한 내용이 있으면 그것으로 답하고, 없으면 저장된 것이 없다고 답하세요. 추측하지 마세요.")
         }
 
         // [WHY] 2차 회수의 태그 목록은 메모 ∪ 에피소드 — 과거 대화의 태그로도 재조회가 가능해야
@@ -148,7 +153,14 @@ class SearchMemoryToolExecutor @Inject constructor(
             // [WHY] 위 빈 결과와 같은 이유 — 대화 속 답 1/6 → 5/6, 지어냄 0/4(exp58b RES1).
             append("\n이 목록에 질문의 답이 없으면, 사용자가 이 대화에서 이미 말한 내용으로 답하세요. 거기에도 없으면 없다고 답하세요. 절대 지어내지 마세요.")
         }
-        return successJson(data)
+        return successJson(head + data)
+    }
+
+    /** 결과 맨 위 "- (방금 이 대화) …" 줄들 — 없으면 빈 문자열. */
+    private suspend fun currentHead(sessionId: String, terms: List<String>): String {
+        val recent = (conversations?.getRecentBySession(sessionId, CURRENT_SCAN_LIMIT) as? AppResult.Success)?.data.orEmpty()
+        val lines = com.kosmos.app.domain.memory.CurrentConversationLines.pick(recent, terms, System.currentTimeMillis())
+        return lines.joinToString("") { "- (방금 이 대화) $it\n" }
     }
 
     /**
@@ -293,6 +305,9 @@ class SearchMemoryToolExecutor @Inject constructor(
          * 세 글자 낱말이 두 글자만 겹친 경우(0.5)는 빼고, "자물쇠번호"↔"자물쇠 비밀번호"(0.75)는 남는다.
          */
         const val SHOWN_EPISODE_OVERLAP = 0.75
+
+        /** 지금 대화를 훑는 최근 메시지 수 — 30분 창 안의 대화는 보통 이보다 짧다. */
+        const val CURRENT_SCAN_LIMIT = 30
 
         const val HIT_TAIL = "\n이 목록에 질문의 답이 없으면, 사용자가 이 대화에서 이미 말한 내용으로 답하세요."
 
