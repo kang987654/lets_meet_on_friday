@@ -100,7 +100,7 @@ class SearchMemoryToolExecutor @Inject constructor(
         // 보다 앞서는 기존 계약은 그대로 성립하고, 항이 온전히 들어 있는 정도까지 반영된다(exp33 원문).
         val ranked = rank(tokens, candidates.values)
         if (ranked.isNotEmpty()) {
-            return formatHits(ranked).let { successJson(it.text, episodeIds = it.episodeIds, recall = it.recall) }
+            return formatHits(tokens, ranked).let { successJson(it.text, episodeIds = it.episodeIds, recall = it.recall) }
         }
 
         // ── 3. 정밀 0건 → 바이그램 전수 스캔 ─────────────────────────────────────
@@ -119,7 +119,7 @@ class SearchMemoryToolExecutor @Inject constructor(
             minTermOverlap = Constants.BIGRAM_MIN_TERM_OVERLAP
         )
         if (scanned.isNotEmpty()) {
-            return formatHits(scanned).let { successJson(it.text, episodeIds = it.episodeIds, recall = it.recall) }
+            return formatHits(tokens, scanned).let { successJson(it.text, episodeIds = it.episodeIds, recall = it.recall) }
         }
 
         // ── 4. 태그 목록 폴백 ───────────────────────────────────────────────────
@@ -187,7 +187,7 @@ class SearchMemoryToolExecutor @Inject constructor(
     //
     // [WHY] 메모와 다른 값을 적은 요약은 한 줄로 줄인다([RecallConflict]) — 그런 요약이 3건 이상이면 안내가 있어도 많은 쪽을 따랐다(exp52).
     // exp53 조건 C2: 충돌 5/8 → 8/8, 대조 4/4. 줄인 요약은 답의 근거가 아니므로 회수 칩(meta)에서도 뺀다.
-    private fun formatHits(hits: List<Hit>): Formatted {
+    private fun formatHits(terms: List<String>, hits: List<Hit>): Formatted {
         val notes = hits.filter { it.episodeId == null }.map { it.text }
         val (contradicting, kept) = hits.partition { it.episodeId != null && RecallConflict.contradicts(it.text, notes) }
         val lines = kept.sortedBy { it.episodeId != null }.map { hit ->
@@ -199,8 +199,13 @@ class SearchMemoryToolExecutor @Inject constructor(
             }
         )
         val mixed = notes.isNotEmpty() && hits.any { it.episodeId != null }
-        val body = lines.joinToString("\n")
-        return Formatted(if (mixed) "$MIXED_SOURCE_GUIDE\n$body" else body, kept.mapNotNull { it.episodeId }, recallOf(hits, kept, contradicting, notes))
+        // [WHY] 결과가 있어도 질문의 답이 아닐 수 있다 — 관계없는 지난 대화가 약하게 걸리면 모델이 바로 앞에서 들은 값을 두고 "찾지 못했어요"라고 했다(실기기 T7).
+        // 빈 결과와 같은 안내를 끝에 붙인다(exp60: 대화 속 답 4/6 → 5/6, 관련 결과·충돌 판정은 그대로).
+        val body = lines.joinToString("\n") + HIT_TAIL
+        // [WHY] 화면 근거(회수 칩·기억 카드)에는 질의 낱말이 충분히 겹친 지난 대화만 — "회의실"이 "팀 회의" 요약에 겹침 0.5 로 걸려 관계없는 대화가
+        // 근거 카드가 됐다(실기기 T7, 0.38.7 M2). 모델 입력(본문)은 그대로라 실측 대상이 아니다.
+        val shown = kept.filter { it.episodeId == null || BigramMatcher.bestTermOverlap(terms, it.scoreText) >= SHOWN_EPISODE_OVERLAP }
+        return Formatted(if (mixed) "$MIXED_SOURCE_GUIDE\n$body" else body, shown.mapNotNull { it.episodeId }, recallOf(hits, shown, contradicting, notes))
     }
 
     /**
@@ -282,6 +287,14 @@ class SearchMemoryToolExecutor @Inject constructor(
 
         /** 태그 목록이 프롬프트를 잠식하지 않도록 자른다. */
         const val MAX_TAGS = 20
+
+        /**
+         * 화면 근거에 올릴 지난 대화의 최소 항 겹침 — 전수 스캔 통과선([Constants.BIGRAM_MIN_TERM_OVERLAP])보다 높다.
+         * 세 글자 낱말이 두 글자만 겹친 경우(0.5)는 빼고, "자물쇠번호"↔"자물쇠 비밀번호"(0.75)는 남는다.
+         */
+        const val SHOWN_EPISODE_OVERLAP = 0.75
+
+        const val HIT_TAIL = "\n이 목록에 질문의 답이 없으면, 사용자가 이 대화에서 이미 말한 내용으로 답하세요."
 
         const val TIER_MANUAL = 0
         const val TIER_AUTO = 1

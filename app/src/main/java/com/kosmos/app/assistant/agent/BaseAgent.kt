@@ -344,7 +344,8 @@ abstract class BaseAgent(
     private fun rejectionReply(toolName: String): String = when (toolName) {
         ToolNames.ADD_SCHEDULE -> "일정을 추가하지 않았어요."
         ToolNames.ADD_REMINDER -> "알림을 등록하지 않았어요."
-        ToolNames.ADD_MEMORY -> "메모를 저장하지 않았어요."
+        // [WHY] "저장하지 않았어요"는 다음 턴에 "그 정보는 없다"로 읽혀, 바로 앞에서 들은 값을 "찾지 못했어요"라고 했다(실기기 T7, exp60 2/6 → 5/6).
+        ToolNames.ADD_MEMORY -> "메모에는 남기지 않았어요."
         else -> "요청을 실행하지 않았어요."
     }
 

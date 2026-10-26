@@ -246,4 +246,20 @@ class SearchMemoryToolExecutorTest {
         json.remove("meta") // BaseAgent.stripMeta 와 같다 — 모델이 보는 부분
         assertTrue(!json.toString().contains("episodeId"))
     }
+
+    @Test
+    fun `낱말이 약하게 겹친 지난 대화는 모델에게는 가도 화면 근거에는 오르지 않는다(0·38·7 M2)`() = runBlocking {
+        // "회의실" 의 두 글자 묶음 {회의, 의실} 중 "회의" 만 겹친다(0.5) — 전수 스캔은 통과, 화면 근거 하한(0.75)은 못 넘는다.
+        coEvery { episodes.getEpisodes(any(), any()) } returns AppResult.Success(
+            listOf(episode("e5", "사물함 비밀번호와 일정", "다음주 월요일 10시 팀 회의 일정을 추가해 달라고 했어요.", listOf("사물함")))
+        )
+
+        val json = org.json.JSONObject(run("회의실"))
+
+        assertTrue("모델 입력에는 그대로", json.toString().contains("팀 회의"))
+        val meta = json.optJSONObject("meta")
+        assertEquals(0, meta?.optJSONArray("episodeIds")?.length() ?: 0)
+        val recallMeta = meta?.optJSONObject("result")?.optString("meta").orEmpty()
+        assertTrue(recallMeta, !recallMeta.contains("e5"))
+    }
 }
