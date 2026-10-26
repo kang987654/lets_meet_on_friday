@@ -84,7 +84,7 @@ class SplashHandoff {
 data class SplashExit(val style: SplashStyle, val clock: SceneClock, val readyAt: Long, val status: String)
 
 /**
- * 장면 시계 — 프레임 사이 간격을 [MAX_STEP_MS] 로 잘라 더한다. 보통 프레임(8~17ms)은 그대로라 장면 속도는 벽시계와 같다.
+ * 장면 시계 — 프레임 사이 간격을 [MAX_STEP_MS] 로 잘라 더한다. 보통 프레임과 전환 중 무거운 프레임(~120ms)은 그대로라 장면 속도는 벽시계와 같다.
  *
  * [WHY] 엔진이 GPU 에 가중치를 올리는 동안 화면이 2~3초 멈춘다(앱 코드가 아니라 GPU 가 꽉 참, device_gate R 메모). 벽시계 그대로면
  * 멈춤이 풀리는 순간 장면이 멈춘 시간만큼 건너뛰어 "툭" 끊긴다 — 멈춘 자세에서 이어지게 한다. 스플래시 → 덮개로 넘어가는 사이의
@@ -105,7 +105,8 @@ class SceneClock {
     }
 
     companion object {
-        const val MAX_STEP_MS = 50L
+        // [WHY] 50 이면 전환 중 100ms 남짓한 프레임까지 잘려 전환이 늘어나고 느린 프레임이 더 많아졌다(실기기 framestats, 0.38.6 M6) — 몇 초짜리 멈춤만 자른다.
+        const val MAX_STEP_MS = 150L
     }
 }
 
