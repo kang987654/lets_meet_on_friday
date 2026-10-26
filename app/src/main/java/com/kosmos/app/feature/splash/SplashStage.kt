@@ -27,13 +27,14 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -242,25 +243,32 @@ fun SplashOverlay(handoff: SplashHandoff) {
                 }
             }
             SplashStyle.GALAXY -> {
-                // [WHY] 가림막은 장면 층에만 — 글자까지 오프스크린 층에 넣으면 첫 프레임에 글자가 한 번 빠졌다(렌더 확인).
-                // 글자는 전환 200ms 안에 사라지고 그때 드러난 자리는 별 둘레 몇 px 라 겹치지 않는다.
+                // [WHY] 오프스크린 층 + DstOut 가림막 대신 원 자르기 — 그 층이 덮개가 떠 있는 내내 합성돼 은하가 열리는 동안 프레임이 26~53ms 였다
+                // (실기기 framestats, 0.38.7 M3). 번지는 경계는 구멍 둘레에 바탕색을 진하게→투명으로 덧칠해 장면이 구멍 쪽으로 흐려지게 한다.
+                // 가림은 장면 층에만 — 글자는 전환 200ms 안에 사라지고 그때 드러난 자리는 별 둘레 몇 px 라 겹치지 않는다.
+                val hole = remember { Path() }
                 SplashStage(
                     style = exit.style, time = { t }, status = exit.status, exitAt = exitAt,
-                    sceneModifier = Modifier
-                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                        .drawWithContent {
-                            // [WHY] 다 열린 뒤에는 장면이 전부 가려지므로 그리지 않는다 — 오프스크린 층 합성이 남은 전환 프레임을 무겁게 했다(0.38.6 M1).
-                            if (exitAt != Long.MAX_VALUE && GalaxyScene.open((t - exitAt).toFloat()) >= 1f) return@drawWithContent
+                    sceneModifier = Modifier.drawWithContent {
+                        val te = if (exitAt == Long.MAX_VALUE) -1f else (t - exitAt).toFloat()
+                        val open = if (te < 0f) 0f else GalaxyScene.open(te)
+                        // 다 열린 뒤에는 장면이 전부 가려지므로 그리지 않는다.
+                        if (open >= 1f) return@drawWithContent
+                        if (open <= 0f) {
                             drawRect(bg)
                             drawContent()
-                            if (exitAt == Long.MAX_VALUE) return@drawWithContent
-                            val te = (t - exitAt).toFloat()
-                            if (GalaxyScene.open(te) <= 0f) return@drawWithContent
-                            val vp = GalaxyScene.star(size, t, exitAt)
-                            val r = GalaxyScene.revealRadius(size, vp, te)
-                            // [WHY] 경계 없는 창 — 별 자리에서 번지듯 드러난다(안쪽 55% 또렷, 바깥으로 흐려짐). 빈 원 테두리가 보이지 않게.
-                            drawRect(Brush.radialGradient(0f to Color.Black, 0.55f to Color.Black, 1f to Color.Transparent, center = vp, radius = r), blendMode = BlendMode.DstOut)
+                            return@drawWithContent
                         }
+                        val vp = GalaxyScene.star(size, t, exitAt)
+                        val r = GalaxyScene.revealRadius(size, vp, te)
+                        hole.reset()
+                        hole.addOval(Rect(vp, r * REVEAL_CLEAR))
+                        clipPath(hole, ClipOp.Difference) {
+                            drawRect(bg)
+                            this@drawWithContent.drawContent()
+                            drawCircle(Brush.radialGradient(REVEAL_CLEAR to bg, 1f to bg.copy(alpha = 0f), center = vp, radius = r), radius = r, center = vp)
+                        }
+                    }
                 )
                 Canvas(Modifier.fillMaxSize()) {
                     if (current == null || exitAt == Long.MAX_VALUE) return@Canvas
@@ -280,6 +288,9 @@ fun SplashOverlay(handoff: SplashHandoff) {
         }
     }
 }
+
+/** 은하 창의 또렷한 안쪽 비율 — 그 밖은 바깥으로 흐려진다. */
+private const val REVEAL_CLEAR = 0.55f
 
 private fun planetE(t: Long, exitAt: Long): Float =
     if (exitAt == Long.MAX_VALUE || t <= exitAt) 0f else clamp01((t - exitAt) / PlanetScene.WARP_MS.toFloat())
