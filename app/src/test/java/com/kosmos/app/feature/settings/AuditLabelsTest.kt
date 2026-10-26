@@ -92,6 +92,14 @@ class AuditLabelsTest {
     }
 
     @Test
+    fun `사실 저장 가드의 막힘 결과는 먼저 물어보게 했다고 보인다(0·38·9 M1)`() {
+        val summary = AuditLabels.of(
+            event(AuditEventType.TOOL_CALL, "Tool: AddMemory\nResult: {\"status\":\"error\",\"message\":\"아직 저장하지 않았습니다. 저장하기 전에 \\\"메모해 둘까요?\\\"라고 물어보세요.\"}")
+        ).summary
+        assertEquals("실패, 저장 부탁이 아니라 먼저 물어보게 했어요.", summary)
+    }
+
+    @Test
     fun `한국어 오류 줄의 오류 객체 원문은 사유만 남긴다`() {
         assertEquals("음성 전사 실패: 전사 결과가 비었어요", AuditLabels.of(event(AuditEventType.ERROR, "음성 전사 실패: SttError(reason=전사 결과가 비었어요)")).summary)
         assertEquals("도구에 넘긴 값: 시각 형식", AuditLabels.of(event(AuditEventType.ERROR, "도구에 넘긴 값: ValidationError(field=time, reason=시각 형식)")).summary)

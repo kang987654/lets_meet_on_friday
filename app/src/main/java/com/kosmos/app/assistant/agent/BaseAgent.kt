@@ -45,6 +45,9 @@ abstract class BaseAgent(
 ) {
     private val messageWriter = AssistantMessageWriter(conversationRepository, auditTrailService)
 
+    // [WHY] 사실 저장 가드가 막은 메모 — 다음 턴이 저장 물음에 "응"으로 답하면 모델이 쓴 이 문장을 승인 시트에 그대로 쓴다(0.38.9 M1).
+    @Volatile private var blockedMemo: Pair<String, String>? = null
+
     abstract suspend fun execute(request: ChatRequest, context: ContextBuilder.Context): AgentResult
 
     /** 이 에이전트가 현재 컨텍스트에서 사용할 수 있는 툴 이름 목록 (프롬프트 노출 + 실행 시점 강제에 공용). */
@@ -74,6 +77,13 @@ abstract class BaseAgent(
         // [WHY] SearchMemory 가 참조한 에피소드 출처 — 회수 칩(🧠)의 데이터 (ADR-022).
         val recallEpisodeIds = mutableListOf<String>()
         var messageResult: com.kosmos.app.domain.model.MessageResult? = null
+        // 이 턴에서 실행된 툴이 있는가, 가드가 막은 것 말고 메모 저장 호출이 있었는가 — 답 고치기·앱이 여는 저장 시트의 조건.
+        var anyExecuted = false
+        var memoCalled = false
+        val carriedMemo = blockedMemo?.takeIf { it.first == request.sessionId }?.second
+        blockedMemo = null
+        var previous: com.kosmos.app.domain.memory.MemoSaveIntent.PreviousTurn? = null
+        suspend fun previousTurn() = previous ?: loadPreviousTurn(request.sessionId).also { previous = it }
         while (true) {
             if (loopCount >= MAX_TOOL_LOOP_COUNT) {
                 // [WHY] 루프 상한 초과는 타임아웃이 아니므로 오해를 부르는 Timeout 대신 추론 오류로 보고한다.
@@ -153,8 +163,17 @@ abstract class BaseAgent(
                     ToolParser.ToolCallData(call.name, args),
                     request.sessionId,
                     allowedTools,
-                    request.message
+                    request.message,
+                    previousAssistant = if (call.name == ToolNames.ADD_MEMORY) previousTurn().assistant else null
                 )
+                anyExecuted = anyExecuted || outcome.executed
+                if (call.name == ToolNames.ADD_MEMORY) {
+                    if (outcome.factBlocked) {
+                        args.optString("content")?.takeIf { it.isNotBlank() }?.let { blockedMemo = request.sessionId to it }
+                    } else {
+                        memoCalled = true
+                    }
+                }
                 // [WHY] 감사 기록을 여기서 남긴다 — 이 지점만이 "어떤 툴이 실제로 실행되고
                 // 무엇을 돌려줬는가"를 안다. 승인 기록만으로는 승인이 필요 없는 툴(일정 조회,
                 // 웹 검색)의 실행이 감사에서 통째로 빠진다.
@@ -206,6 +225,7 @@ abstract class BaseAgent(
                 // 바로 앞 턴의 답을 따라 하거나("일정을 추가해도 될까요?"), 지시문을 읊거나("저장하지 않았다고 말씀드릴게요"), 거절을 오류로
                 // 말했다(실기기 10-23, exp56). 살아 있는 대화에는 회신 없는 툴 호출이 남으므로 다음 사용자 턴에 DB 히스토리로 다시 만든다.
                 if (outcome.rejected) {
+                    anyExecuted = true
                     modelRunner.invalidateConversation()
                     val reply = rejectionReply(call.name)
                     request.onStream?.invoke(StreamUpdate(reply, null))
@@ -226,6 +246,29 @@ abstract class BaseAgent(
         }
 
         val finalParsed = parsedResult
+        var text = finalParsed.content
+
+        // [WHY] 툴을 하나도 실행하지 않은 턴만 고친다 — 저장 물음에 "응"이라 했는데 모델이 저장을 부르지 않고 "메모해 두었어요"라고만 하면
+        // 앱이 저장 시트를 직접 연다(exp64b 2/6, 0.38.9 사용자 결정). 그 밖에는 지켜지지 않을 "기억해 둘게요"를 물음으로 바꾼다.
+        // 고친 답은 살아 있는 대화(KV)의 답과 다르므로 다음 사용자 턴에 DB 히스토리로 다시 만든다.
+        if (!anyExecuted && !memoCalled) {
+            val intent = com.kosmos.app.domain.memory.MemoSaveIntent
+            val askedBefore = intent.isYes(request.message) && intent.asksSave(previousTurn().assistant)
+            val memo = if (askedBefore) carriedMemo ?: previousTurn().user else null
+            val fixed = if (memo != null && ToolNames.ADD_MEMORY in allowedTools) {
+                saveAnsweredMemo(request.sessionId, memo, allowedTools)?.let { (reply, result) ->
+                    if (result != null) messageResult = result
+                    reply
+                }
+            } else {
+                null
+            } ?: intent.withoutClaim(text)
+            if (fixed != text) {
+                text = fixed
+                modelRunner.invalidateConversation()
+                request.onStream?.invoke(StreamUpdate(text, null))
+            }
+        }
 
         // [WHY] `prompt.currentInput` 이 아니라 원문 요청을 기록한다. 툴을 쓴 턴에서는 루프가
         // `currentInput = ""` 로 덮어쓰므로, 예전에는 **툴을 쓴 대화일수록** 감사 로그의
@@ -239,7 +282,6 @@ abstract class BaseAgent(
 
         // [WHY] 일정 초안 등 액션성 흐름은 모두 툴 콜 + 승인 경로로 일원화되었으므로(2026-07-31 절충안),
         // 최종 응답은 텍스트로 저장·반환한다. (구 ResponseParser/PreExecutionGuard 경로 제거)
-        val text = finalParsed.content
         // [WHY] 저장 결과를 버리지 않는다. 실패해도 응답은 이미 화면에 있으므로 턴을 실패로
         // 바꾸지 않되, 재시작 후 이 턴이 사라진다는 사실을 사용자가 알아야 한다(persistFailed).
         // 감사 로그에는 원인을 남긴다.
@@ -286,7 +328,9 @@ abstract class BaseAgent(
         val executed: Boolean,
         val succeeded: Boolean = executed,
         // 사용자가 승인하지 않음(시간 초과 포함) — 루프가 고정 문장으로 끝낸다.
-        val rejected: Boolean = false
+        val rejected: Boolean = false,
+        // 사실 저장 가드가 막음 — 모델은 막힘 결과를 받고 먼저 묻는다.
+        val factBlocked: Boolean = false
     ) {
         companion object {
             fun of(resultJson: String, executed: Boolean): ToolOutcome {
@@ -296,11 +340,46 @@ abstract class BaseAgent(
         }
     }
 
+    /** 지금 턴 바로 앞의 비서 말·사용자 말. 읽기 실패는 "앞 턴 없음" — 가드가 막는 쪽으로 기울 뿐이다. */
+    private suspend fun loadPreviousTurn(sessionId: String): com.kosmos.app.domain.memory.MemoSaveIntent.PreviousTurn {
+        val recent = com.kosmos.app.core.common.runCatchingCancellable {
+            (conversationRepository.getRecentBySession(sessionId, PREVIOUS_TURN_SCAN) as? AppResult.Success)?.data
+        }.getOrNull().orEmpty()
+        return com.kosmos.app.domain.memory.MemoSaveIntent.previousTurn(recent)
+    }
+
+    /**
+     * 저장 물음에 "응"이라 답했는데 모델이 저장을 부르지 않은 턴 — 앱이 메모 저장(승인 시트)을 직접 실행하고 결과에 맞는 고정 문장을 돌려준다.
+     * 실행 경로에 들지 못하면(인자 오류 등) null — 모델 답을 그대로 둔다.
+     */
+    private suspend fun saveAnsweredMemo(
+        sessionId: String,
+        content: String,
+        allowedTools: List<String>
+    ): Pair<String, com.kosmos.app.domain.model.MessageResult?>? {
+        val outcome = executeToolInner(
+            ToolParser.ToolCallData(ToolNames.ADD_MEMORY, ToolArguments.of(mapOf("content" to content))),
+            sessionId,
+            allowedTools,
+            userText = "",
+            previousAssistant = null,
+            guardFact = false
+        )
+        auditTrailService.logToolCall(sessionId = sessionId, toolName = ToolNames.ADD_MEMORY, resultJson = outcome.resultJson, note = ANSWERED_MEMO_NOTE)
+        return when {
+            outcome.rejected -> rejectionReply(ToolNames.ADD_MEMORY) to null
+            outcome.succeeded -> MEMO_SAVED to extractResult(outcome.resultJson)
+            else -> null
+        }
+    }
+
     private suspend fun executeToolInner(
         call: ToolParser.ToolCallData,
         sessionId: String,
         allowedTools: List<String>,
-        userText: String
+        userText: String,
+        previousAssistant: String? = null,
+        guardFact: Boolean = true
     ): ToolOutcome {
         // [WHY] allowlist가 프롬프트 텍스트에만 있으면 모델(또는 주입된 문서)이 임의 툴을 호출해도
         // 실행되므로, 실행 시점에 반드시 재검증한다.
@@ -321,6 +400,13 @@ abstract class BaseAgent(
         // 시트에서 취소하면 물어본 값 대신 "메모에는 남기지 않았어요."로 끝났다. 결과 문구는 exp61c G2(막은 턴 3/3 값을 답함, 거짓 저장 주장 0).
         if (call.name == ToolNames.ADD_MEMORY && com.kosmos.app.domain.memory.RepeatRequest.matches(userText)) {
             return ToolOutcome(ToolResultJson.error(REPEAT_NOT_SAVE), executed = false)
+        }
+
+        // [WHY] 저장 낱말 없이 사실만 말한 턴의 메모 저장은 막고 먼저 묻게 한다 — 대화 기록에 끌린 호출이라 프롬프트로는 못 막았다(exp64, 0.38.9 결정 1).
+        if (guardFact && call.name == ToolNames.ADD_MEMORY &&
+            com.kosmos.app.domain.memory.MemoSaveIntent.shouldBlock(userText, previousAssistant)
+        ) {
+            return ToolOutcome(ToolResultJson.error(com.kosmos.app.domain.memory.MemoSaveIntent.ASK_FIRST), executed = false, factBlocked = true)
         }
 
         // [WHY] 인자 검증 실패는 승인 전에 걸러야 한다 — 필수 인자가 없는 초안을 승인 카드로
@@ -417,6 +503,14 @@ abstract class BaseAgent(
 
         // exp61c G2 실측 원문.
         const val REPEAT_NOT_SAVE = "저장하지 않았습니다. 사용자는 앞에서 말한 내용을 다시 듣고 싶어 합니다. 그 값을 답하고, 저장했다고 말하지 마세요."
+
+        // 앞 턴(비서 말·그 앞 사용자 말)을 찾을 때 읽는 최근 메시지 수 — 지금 턴의 사용자 메시지·문서 블록을 넘고도 남는다.
+        const val PREVIOUS_TURN_SCAN = 6
+
+        // 앱이 연 메모 저장이 승인됐을 때의 답 — 거절 문장 "메모에는 남기지 않았어요."와 짝.
+        const val MEMO_SAVED = "메모에 저장했어요."
+
+        const val ANSWERED_MEMO_NOTE = "저장 물음에 대한 긍정 — 앱이 연 저장"
 
         // "<|think|" 태그가 토큰 경계에 걸려도 감지되는 길이
         const val THINK_TAG_WINDOW = 12

@@ -109,5 +109,6 @@ def run_I():
     row("I ISO 노출", {"답에 ISO": f"{hits}/{len(TIMED)}"})
 
 
-for s in SETS:
-    {"F": run_F, "S": run_S, "Y": run_Y, "A": run_A, "I": run_I}[s]()
+if __name__ == "__main__":
+    for s in SETS:
+        {"F": run_F, "S": run_S, "Y": run_Y, "A": run_A, "I": run_I}[s]()
