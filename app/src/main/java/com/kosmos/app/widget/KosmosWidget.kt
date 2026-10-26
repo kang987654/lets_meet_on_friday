@@ -111,7 +111,7 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
             Spacer(modifier = GlanceModifier.width(8.dp))
             Text(
                 text = snapshot.dateLabel,
-                style = TextStyle(color = WidgetPalette.textMuted, fontSize = 12.sp)
+                style = TextStyle(color = WidgetPalette.textMuted, fontSize = 13.sp)
             )
         }
         Spacer(modifier = GlanceModifier.height(8.dp))
@@ -140,14 +140,14 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
             if (snapshot.overflowCount > 0) {
                 Text(
                     text = "+${snapshot.overflowCount}개 더",
-                    style = TextStyle(color = WidgetPalette.textMuted, fontSize = 12.sp)
+                    style = TextStyle(color = WidgetPalette.textMuted, fontSize = 13.sp)
                 )
             }
         }
         if (snapshot.deviceCalendarFailed) {
             Text(
                 text = "기기 캘린더는 확인하지 못했어요",
-                style = TextStyle(color = WidgetPalette.textMuted, fontSize = 11.sp)
+                style = TextStyle(color = WidgetPalette.textMuted, fontSize = 13.sp)
             )
         }
 
@@ -155,7 +155,7 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "할 일 ${snapshot.pendingTaskCount}건",
-                style = TextStyle(color = WidgetPalette.textSecondary, fontSize = 12.sp)
+                style = TextStyle(color = WidgetPalette.textSecondary, fontSize = 13.sp)
             )
             Spacer(modifier = GlanceModifier.defaultWeight())
             WidgetButton(text = "열기", action = actionStartActivity<MainActivity>())

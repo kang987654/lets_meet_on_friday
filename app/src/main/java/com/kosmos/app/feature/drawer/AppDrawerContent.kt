@@ -90,7 +90,8 @@ fun AppDrawerContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(44.dp)
-                .background(KosmosTheme.colors.surfaceSunk, RoundedCornerShape(99.dp))
+                // [WHY] 알약 모양은 채팅 입력바만(DESIGN Shape) — 검색칸은 다른 입력처럼 md(0.38.6 점검 P3).
+                .background(KosmosTheme.colors.surfaceSunk, com.kosmos.app.ui.theme.KosmosShapes.md)
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

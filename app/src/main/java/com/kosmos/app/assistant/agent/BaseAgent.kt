@@ -152,7 +152,8 @@ abstract class BaseAgent(
                 val outcome = executeToolInner(
                     ToolParser.ToolCallData(call.name, args),
                     request.sessionId,
-                    allowedTools
+                    allowedTools,
+                    request.message
                 )
                 // [WHY] 감사 기록을 여기서 남긴다 — 이 지점만이 "어떤 툴이 실제로 실행되고
                 // 무엇을 돌려줬는가"를 안다. 승인 기록만으로는 승인이 필요 없는 툴(일정 조회,
@@ -298,7 +299,8 @@ abstract class BaseAgent(
     private suspend fun executeToolInner(
         call: ToolParser.ToolCallData,
         sessionId: String,
-        allowedTools: List<String>
+        allowedTools: List<String>,
+        userText: String
     ): ToolOutcome {
         // [WHY] allowlist가 프롬프트 텍스트에만 있으면 모델(또는 주입된 문서)이 임의 툴을 호출해도
         // 실행되므로, 실행 시점에 반드시 재검증한다.
@@ -314,6 +316,12 @@ abstract class BaseAgent(
 
         val executor = toolRegistry.getExecutor(call.name)
             ?: return ToolOutcome(ToolResultJson.error("알 수 없는 Tool입니다: ${call.name}"), executed = false)
+
+        // [WHY] 되묻기("송장번호 다시 알려줘")에 불린 메모 저장은 승인 시트를 띄우지 않고 막는다 — 프롬프트로는 안 고쳐졌고(exp61),
+        // 시트에서 취소하면 물어본 값 대신 "메모에는 남기지 않았어요."로 끝났다. 결과 문구는 exp61c G2(막은 턴 3/3 값을 답함, 거짓 저장 주장 0).
+        if (call.name == ToolNames.ADD_MEMORY && com.kosmos.app.domain.memory.RepeatRequest.matches(userText)) {
+            return ToolOutcome(ToolResultJson.error(REPEAT_NOT_SAVE), executed = false)
+        }
 
         // [WHY] 인자 검증 실패는 승인 전에 걸러야 한다 — 필수 인자가 없는 초안을 승인 카드로
         // 띄우면 사용자가 실행될 수 없는 요청을 승인하게 된다. 또한 누락과 타입 오류를 구분해
@@ -406,6 +414,9 @@ abstract class BaseAgent(
         // → 최종 답변(3). 줄이면 그 프로토콜이 조용히 끊긴다. 인자 오류 자가수정도 이 상한을
         // 공유한다(BAD_FORMAT 재시도).
         const val MAX_TOOL_LOOP_COUNT = 3
+
+        // exp61c G2 실측 원문.
+        const val REPEAT_NOT_SAVE = "저장하지 않았습니다. 사용자는 앞에서 말한 내용을 다시 듣고 싶어 합니다. 그 값을 답하고, 저장했다고 말하지 마세요."
 
         // "<|think|" 태그가 토큰 경계에 걸려도 감지되는 길이
         const val THINK_TAG_WINDOW = 12

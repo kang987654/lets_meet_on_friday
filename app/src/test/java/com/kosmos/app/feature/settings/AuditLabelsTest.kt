@@ -87,6 +87,7 @@ class AuditLabelsTest {
         assertEquals("성공, 일정을 추가했어요.", summary("AddSchedule", """{"status":"success","message":"일정이 성공적으로 추가되었습니다."}"""))
         assertEquals("성공, 알림 등록: 오후 9:00에 '약 먹기' 알림", summary("AddReminder", """{"status":"success","message":"리마인더 등록: 오후 9:00에 '약 먹기' 알림"}"""))
         assertEquals("실패, 이미 지난 시각이에요.", summary("AddReminder", """{"status":"error","message":"이미 지난 시각입니다. 미래의 시각으로 다시 호출하세요."}"""))
+        assertEquals("실패, 되묻는 말이라 메모하지 않았어요.", summary("AddMemory", """{"status":"error","message":"저장하지 않았습니다. 사용자는 앞에서 말한 내용을 다시 듣고 싶어 합니다. 그 값을 답하고, 저장했다고 말하지 마세요."}"""))
         assertEquals("실패, 일시 형식이 맞지 않아요.", summary("AddSchedule", """{"status":"error","message":"'start_time' 인자가 ISO 8601 일시 형식이 아닙니다. '2026-08-17T15:00:00' 형식으로 다시 보내세요."}"""))
     }
 

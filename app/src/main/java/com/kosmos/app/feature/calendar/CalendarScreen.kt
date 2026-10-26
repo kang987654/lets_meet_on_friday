@@ -122,15 +122,13 @@ private fun TodayTab(viewModel: CalendarViewModel, today: java.time.LocalDate, o
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
-            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(bottom = 4.dp)) {
-                Text("오늘", style = MaterialTheme.typography.titleLarge, color = KosmosTheme.colors.textPrimary)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    com.kosmos.app.domain.util.IsoDateTimeParser.longDateKorean(today.atStartOfDay(zone).toInstant().toEpochMilli(), zone),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = KosmosTheme.colors.textSecondary
-                )
-            }
+            // [WHY] 바로 위 탭 이름이 "오늘"이라 머리에서 다시 말하지 않는다 — 날짜만(0.38.6 점검 P3).
+            Text(
+                com.kosmos.app.domain.util.IsoDateTimeParser.longDateKorean(today.atStartOfDay(zone).toInstant().toEpochMilli(), zone),
+                style = MaterialTheme.typography.titleLarge,
+                color = KosmosTheme.colors.textPrimary,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
         }
         // [WHY] 기기 캘린더를 못 읽었을 때 **조용히 넘어가지 않는다** — 앱 일정만 보여 주고 말이 없으면 기기 일정이 없다고 믿는다(PRD EC2·EC4).
         if (model.deviceCalendarFailed) item { DeviceCalendarNotice(onRetry = onRetry, onOpenSettings = onOpenSettings) }
