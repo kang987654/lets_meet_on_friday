@@ -82,6 +82,15 @@ class AuditLabelsTest {
     }
 
     @Test
+    fun `툴 결과 문구는 표시에서만 해요체와 알림으로 — 모델 지시 문장은 빠진다(0·38·7 M4)`() {
+        fun summary(tool: String, json: String) = AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: $tool\nResult: $json")).summary
+        assertEquals("성공, 일정을 추가했어요.", summary("AddSchedule", """{"status":"success","message":"일정이 성공적으로 추가되었습니다."}"""))
+        assertEquals("성공, 알림 등록: 오후 9:00에 '약 먹기' 알림", summary("AddReminder", """{"status":"success","message":"리마인더 등록: 오후 9:00에 '약 먹기' 알림"}"""))
+        assertEquals("실패, 이미 지난 시각이에요.", summary("AddReminder", """{"status":"error","message":"이미 지난 시각입니다. 미래의 시각으로 다시 호출하세요."}"""))
+        assertEquals("실패, 일시 형식이 맞지 않아요.", summary("AddSchedule", """{"status":"error","message":"'start_time' 인자가 ISO 8601 일시 형식이 아닙니다. '2026-08-17T15:00:00' 형식으로 다시 보내세요."}"""))
+    }
+
+    @Test
     fun `한국어 오류 줄의 오류 객체 원문은 사유만 남긴다`() {
         assertEquals("음성 전사 실패: 전사 결과가 비었어요", AuditLabels.of(event(AuditEventType.ERROR, "음성 전사 실패: SttError(reason=전사 결과가 비었어요)")).summary)
         assertEquals("도구에 넘긴 값: 시각 형식", AuditLabels.of(event(AuditEventType.ERROR, "도구에 넘긴 값: ValidationError(field=time, reason=시각 형식)")).summary)

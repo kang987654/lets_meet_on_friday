@@ -129,9 +129,17 @@ object AuditLabels {
             else -> null
         }
         val message = MESSAGE.find(raw)?.groupValues?.get(1)?.replace("\\\"", "\"")?.replace("\\n", "\n")
-            ?.let { readable(it) }?.takeIf { it.isNotBlank() }
+            ?.let { readable(it) }?.let(::toolMessageKorean)?.takeIf { it.isNotBlank() }
         return listOfNotNull(status, message).joinToString(", ")
     }
+
+    /**
+     * 툴 결과 문구(모델 입력)를 화면 말투로 — 합니다체·내부 이름("리마인더", 인자 이름)을 해요체·"알림"으로.
+     *
+     * [WHY] 결과 문구 자체는 모델 입력이라 바꾸면 실측이 필요하다 — 활동 기록 표시에서만 바꾼다(0.38.7 결정 4). "원문 보기"는 원문 그대로.
+     */
+    private fun toolMessageKorean(message: String): String =
+        TOOL_MESSAGES.fold(message) { text, (pattern, replace) -> pattern.replace(text) { replace(it) } }
 
     private fun approval(details: String, @DrawableRes icon: Int, title: String): AuditDisplay {
         val head = details.substringBefore(':', missingDelimiterValue = "")
@@ -203,6 +211,22 @@ object AuditLabels {
         val line = plain(text).lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }.orEmpty()
         return if (line.length > SUMMARY_MAX) line.take(SUMMARY_MAX).trimEnd() + "…" else line
     }
+
+    // 툴 결과 문구 → 화면 말투(문구 원문은 BaseAgent·각 실행기). 맞지 않는 문구는 그대로 둔다.
+    private val TOOL_MESSAGES: List<Pair<Regex, (MatchResult) -> String>> = listOf(
+        Regex("일정이 성공적으로 추가되었습니다\\.") to { _ -> "일정을 추가했어요." },
+        Regex("웹 검색이 비활성화되어 있습니다\\.") to { _ -> "웹 검색이 꺼져 있어요." },
+        Regex("이 에이전트에서 사용할 수 없는 도구입니다: (\\S+)") to { m -> "쓸 수 없는 도구예요: ${toolKorean(m.groupValues[1])}" },
+        Regex("알 수 없는 Tool입니다: (\\S+)") to { m -> "알 수 없는 도구예요: ${m.groupValues[1]}" },
+        Regex("'\\w+' 인자가 없습니다\\.") to { _ -> "필요한 값이 빠졌어요." },
+        Regex("'\\w+' 인자의 형식이 올바르지 않습니다\\.") to { _ -> "값의 형식이 맞지 않아요." },
+        Regex("'\\w+' 인자가 ISO 8601 일시 형식이 아닙니다\\.") to { _ -> "일시 형식이 맞지 않아요." },
+        Regex("이미 지난 시각입니다\\.") to { _ -> "이미 지난 시각이에요." },
+        Regex("저장에 실패했습니다\\.") to { _ -> "저장하지 못했어요." },
+        Regex("기억 검색 중 오류가 발생했습니다:") to { _ -> "기억 검색 중 오류가 났어요:" },
+        Regex("리마인더 등록 실패") to { _ -> "알림 등록 실패" },
+        Regex("리마인더 등록:") to { _ -> "알림 등록:" }
+    )
 
     private val ERROR_OBJECT = Regex("""\b[A-Z]\w*\((?:\w+=[^,()]*, )*reason=([^()]*)\)""")
     private val HANGUL = Regex("[가-힣]")
