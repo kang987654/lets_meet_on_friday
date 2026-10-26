@@ -714,6 +714,33 @@ class ScreenCatalogTest {
         shoot("25-document-viewer") { com.kosmos.app.feature.document.DocumentViewerScreen(state = state, onSelectSheet = {}, onClose = {}) }
     }
 
+    /** 원본 셀 서식이 있는 표(0.38.7 M1) — 칠한 머리 줄(빈 칸 포함)·굵은 합계·빨간 음수·노란 강조, 다크는 어둡게 바꾼 배경. */
+    @Test fun documentViewerStyled() {
+        val styles = listOf(
+            com.kosmos.app.domain.document.CellStyle(fill = 0xFF8EA9DB.toInt(), bold = true, align = com.kosmos.app.domain.document.CellStyle.Align.CENTER),
+            com.kosmos.app.domain.document.CellStyle(fontColor = 0xFFC00000.toInt()),
+            com.kosmos.app.domain.document.CellStyle(fill = 0xFFFFFF00.toInt()),
+            com.kosmos.app.domain.document.CellStyle(fill = 0xFFE2EFDA.toInt(), bold = true)
+        )
+        fun cell(c: Int, text: String, style: Int = com.kosmos.app.domain.document.SheetCell.NO_STYLE) = com.kosmos.app.domain.document.SheetCell(c, text, style)
+        val sheet = com.kosmos.app.domain.document.Sheet(
+            name = "10월",
+            rows = listOf(
+                com.kosmos.app.domain.document.SheetRow(0, listOf(cell(0, "날짜", 0), cell(1, "항목", 0), cell(2, "금액", 0), cell(3, "", 0))),
+                com.kosmos.app.domain.document.SheetRow(1, listOf(cell(0, "10-01"), cell(1, "월급"), cell(2, "3,200,000"))),
+                com.kosmos.app.domain.document.SheetRow(2, listOf(cell(0, "10-03"), cell(1, "월세"), cell(2, "-650,000", 1))),
+                com.kosmos.app.domain.document.SheetRow(3, listOf(cell(0, "10-05"), cell(1, "장보기", 2), cell(2, "-84,300", 1))),
+                com.kosmos.app.domain.document.SheetRow(4, listOf(cell(0, "10-12"), cell(1, "통신비"), cell(2, "-55,000", 1))),
+                com.kosmos.app.domain.document.SheetRow(5, listOf(cell(0, "합계", 3), cell(1, "", 3), cell(2, "2,410,700", 3)))
+            ),
+            columnCount = 3,
+            frozenRows = 1,
+            styles = styles
+        )
+        val state = com.kosmos.app.feature.document.DocumentViewerState.Spreadsheet("가계부.xlsx", listOf("10월"), selected = 0, sheet = sheet)
+        shoot("36-document-styled") { com.kosmos.app.feature.document.DocumentViewerScreen(state = state, onSelectSheet = {}, onClose = {}) }
+    }
+
     /** 큰 글자(시스템 1.3배)에서 일정 승인 — 큰 시각이 제목 아래로(0.38.3 M0, 0.38.2 이월). */
     @Test fun approvalLargeFont() {
         val request = com.kosmos.app.assistant.approval.ApprovalRequest(

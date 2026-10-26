@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.kosmos.app.domain.document.CellRange
 import com.kosmos.app.domain.document.CellRef
 import com.kosmos.app.domain.document.Sheet
+import com.kosmos.app.domain.document.SheetCell
 import com.kosmos.app.domain.document.SheetRow
 import com.kosmos.app.ui.theme.KosmosTheme
 
@@ -103,12 +104,12 @@ fun SheetView(
                     Column(Modifier.background(colors.surface)) {
                         HeaderRow(layout, frozenRange, scrollRange, horizontal)
                         frozenRows.forEach { row ->
-                            DataRow(row, layout, frozenRange, scrollRange, horizontal, onCellLongPress, selectedRows?.contains(row.index) == true, onRowNumberClick)
+                            DataRow(row, sheet, layout, frozenRange, scrollRange, horizontal, onCellLongPress, selectedRows?.contains(row.index) == true, onRowNumberClick)
                         }
                     }
                 }
                 items(bodyRows, key = { it.index }) { row ->
-                    DataRow(row, layout, frozenRange, scrollRange, horizontal, onCellLongPress, selectedRows?.contains(row.index) == true, onRowNumberClick)
+                    DataRow(row, sheet, layout, frozenRange, scrollRange, horizontal, onCellLongPress, selectedRows?.contains(row.index) == true, onRowNumberClick)
                 }
             }
         }
@@ -130,6 +131,7 @@ private fun HeaderRow(layout: SheetLayout, frozen: IntRange, scroll: IntRange, h
 @Composable
 private fun DataRow(
     row: SheetRow,
+    sheet: Sheet,
     layout: SheetLayout,
     frozen: IntRange,
     scroll: IntRange,
@@ -138,7 +140,17 @@ private fun DataRow(
     selected: Boolean,
     onRowNumberClick: ((Int) -> Unit)?
 ) {
-    val texts = remember(row) { row.cells.associate { it.column to it.text } }
+    val colors = KosmosTheme.colors
+    val cells = remember(row) { row.cells.associateBy { it.column } }
+    // [WHY] 고른 행은 선택 색이 서식 배경보다 우선이다 — 원본 배경이 덮으면 고른 범위가 안 보인다.
+    val paint: (Int) -> CellPaint = { column ->
+        val style = cells[column]?.let(sheet::styleOf)
+        if (selected) {
+            CellPaints.of(style?.copy(fill = null), dark = !colors.isLight, surface = colors.brandContainer, textPrimary = colors.textPrimary)
+        } else {
+            CellPaints.of(style, dark = !colors.isLight, surface = colors.surface, textPrimary = colors.textPrimary)
+        }
+    }
     val merges = layout.mergesAt(row.index)
     // [WHY] 고른 행은 accentGlow — accentDim 은 다크 모드에서 옅어 고른 범위가 잘 안 보였다(0.36.0 실기기). FlowView 도 같다.
     Row(if (selected) Modifier.background(KosmosTheme.colors.brandContainer) else Modifier) {
@@ -148,9 +160,9 @@ private fun DataRow(
             header = true,
             onClick = onRowNumberClick?.let { click -> { click(row.index) } }
         )
-        Segment(row.index, texts, merges, frozen, layout, onCellLongPress)
+        Segment(row.index, cells, paint, merges, frozen, layout, onCellLongPress)
         Row(Modifier.horizontalScroll(horizontal)) {
-            Segment(row.index, texts, merges, scroll, layout, onCellLongPress)
+            Segment(row.index, cells, paint, merges, scroll, layout, onCellLongPress)
         }
     }
 }
@@ -158,7 +170,8 @@ private fun DataRow(
 @Composable
 private fun Segment(
     rowIndex: Int,
-    texts: Map<Int, String>,
+    cells: Map<Int, SheetCell>,
+    paint: (Int) -> CellPaint,
     merges: List<CellRange>,
     range: IntRange,
     layout: SheetLayout,
@@ -168,14 +181,15 @@ private fun Segment(
     while (c <= range.last) {
         val merge = merges.firstOrNull { c in it.firstColumn..it.lastColumn }
         if (merge == null) {
-            GridCell(texts[c].orEmpty(), layout.width(c), onLongPress = onCellLongPress)
+            GridCell(cells[c]?.text.orEmpty(), layout.width(c), onLongPress = onCellLongPress, paint = paint(c))
             c++
         } else {
             val end = minOf(merge.lastColumn, range.last)
             val width = (c..end).fold(0.dp) { acc, col -> acc + layout.width(col) }
-            val text = if (rowIndex == merge.firstRow && c == merge.firstColumn) texts[c].orEmpty() else ""
+            val text = if (rowIndex == merge.firstRow && c == merge.firstColumn) cells[c]?.text.orEmpty() else ""
             // [WHY] 병합 칸도 왼쪽부터 — 엑셀 기본 정렬이고, 넓게 병합한 제목(A1:T1)을 가운데에 두면 휴대폰 화면 밖에 그려져 빈 행으로 보였다(0.38.3 M4 실기기 제보).
-            GridCell(text, width, onLongPress = onCellLongPress)
+            // 그래서 원본 정렬은 버리고 배경·글자색·굵기만 병합 첫 칸의 서식을 따른다.
+            GridCell(text, width, onLongPress = onCellLongPress, paint = paint(merge.firstColumn).copy(align = null))
             c = end + 1
         }
     }
@@ -188,15 +202,19 @@ private fun GridCell(
     width: Dp,
     header: Boolean = false,
     onLongPress: ((String) -> Unit)? = null,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    paint: CellPaint? = null
 ) {
     val colors = KosmosTheme.colors
     val line = colors.border
     val numeric = !header && NUMERIC.matches(text)
+    // 원본 정렬이 있으면 그것을, 없으면 숫자는 오른쪽(엑셀 기본).
+    val align = paint?.align ?: if (numeric) com.kosmos.app.domain.document.CellStyle.Align.RIGHT else com.kosmos.app.domain.document.CellStyle.Align.LEFT
     Box(
         modifier = Modifier
             .width(width)
             .height(ROW_HEIGHT)
+            .then(paint?.fill?.let { Modifier.background(it) } ?: Modifier)
             .drawBehind {
                 val stroke = 1.dp.toPx()
                 drawLine(line, Offset(size.width - stroke / 2, 0f), Offset(size.width - stroke / 2, size.height), stroke)
@@ -212,18 +230,23 @@ private fun GridCell(
             .padding(horizontal = 6.dp),
         contentAlignment = when {
             header -> Alignment.Center
-            numeric -> Alignment.CenterEnd
+            align == com.kosmos.app.domain.document.CellStyle.Align.RIGHT -> Alignment.CenterEnd
+            align == com.kosmos.app.domain.document.CellStyle.Align.CENTER -> Alignment.Center
             else -> Alignment.CenterStart
         }
     ) {
         Text(
             text = text.replace('\n', ' '),
-            color = if (header) colors.textMuted else colors.textPrimary,
+            color = if (header) colors.textMuted else paint?.text ?: colors.textPrimary,
             fontSize = if (header) 11.sp else 13.sp,
-            fontWeight = if (header) FontWeight.Medium else FontWeight.Normal,
+            fontWeight = if (header) FontWeight.Medium else if (paint?.bold == true) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            textAlign = if (numeric) TextAlign.End else TextAlign.Start
+            textAlign = when (align) {
+                com.kosmos.app.domain.document.CellStyle.Align.RIGHT -> TextAlign.End
+                com.kosmos.app.domain.document.CellStyle.Align.CENTER -> TextAlign.Center
+                else -> TextAlign.Start
+            }
         )
     }
 }

@@ -289,14 +289,15 @@ icons:
 ## 유지
 
 - 이 문서가 UI 의 유일한 기준이다. 새 화면은 이를 따르고, 바꿀 때는 이 문서부터 고친다.
-- 회귀는 Roborazzi 기준 이미지로 잡는다 — `ScreenCatalogTest` 35장면 × 라이트·다크(0.38.6 기준), 기준은 `app/src/test/screenshots/`(커밋).
+- 회귀는 Roborazzi 기준 이미지로 잡는다 — `ScreenCatalogTest` 36장면 × 라이트·다크(0.38.7 기준), 기준은 `app/src/test/screenshots/`(커밋).
   `./gradlew test` 가 비교하고(`gradle.properties` 의 `roborazzi.test.verify`) 다르면 실패, 차이 이미지는 `app/build/outputs/roborazzi/`(`_compare`·`_actual`).
   의도한 변경은 전후 비교를 사용자에게 보이고 확인받은 뒤 `./gradlew :app:recordRoborazziDebug` 로 다시 기록한다. 시각·시간대는 테스트가 고정한다(`LocalClock`).
 - 검색으로 지키는 지표: 테마 밖 하드코딩 색 0, 이모지·글자 기호 아이콘 0, 테마 밖 직접 `fontSize` 0.
+  예외: 문서 뷰어 표의 원본 셀 서식 색(`CellPaints` — 파일에서 읽은 색이라 토큰이 아니다). 다크에서는 배경을 색조 유지·어둡게, 대비가 모자란 글자색은 밝기만 옮긴다(0.38.7).
 
 ## Known Gaps
 
-- 엑셀 셀 서식(배경색·글자색·굵기·정렬) 표시 — 별도 회차(0.38.3 M4 넘김)
+- 엑셀 셀 서식은 배경·글자색·굵기·가로 정렬만 — 테두리·글꼴 종류·글자 크기·조건부 서식은 보이지 않는다(0.38.7 결정)
 - 목록 행 삭제 움직임 — 묶음을 행 조각(`groupItem`)으로 그리는 구조라 아래 행이 올라오는 동안 틈이 보인다(0.38.4 M4 에서 뺌)
 - 시작 화면·녹음 파형의 실기기 부드러움 — 휴대폰 gfxinfo 로 확인 전(device_gate R)
 - 기억·대화 합치기 판정 프롬프트는 공통 형식 밖(해라체) — 형식을 바꿔도 끝맺음이 안 바뀌어(exp59) 합친 문장 끝만 코드로 정리, "…마신다" 같은 동사 끝은 남는다(0.38.6)
