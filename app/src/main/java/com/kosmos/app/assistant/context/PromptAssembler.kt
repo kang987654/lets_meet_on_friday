@@ -195,7 +195,9 @@ class PromptAssembler @Inject constructor() {
             )
             // [WHY] 규칙마다 실제 한국어 트리거 표현을 박는다 — 영어 규칙만으로는 "기억해줘"가 호출로 이어지지 않았다(0.8.5).
             if (availableTools.contains(ToolNames.ADD_MEMORY)) {
-                appendLine("- The user asks you to remember something, or shares a fact/preference/password to keep: \"기억해\", \"기억해줘\", \"저장해줘\", \"메모해줘\", \"잊지 마\": you MUST call `add_memory`.")
+                // [WHY] 저장 낱말 없이 사실만 말하면 확인 + "메모해 둘까요?" — 예전 "shares a fact … to keep" 은 저장 호출 5/8·툴 없는 "기억해 둘게요" 약속·
+                // "그런 기능은 없어요" 거절이 섞였다(exp62 B, 0.38.8 결정 1). 이 판은 물어봄 7/8·저장 호출 0/8, "응" → 저장 4/4(exp62e F1).
+                appendLine("- The user asks you to remember something: \"기억해\", \"기억해줘\", \"저장해줘\", \"메모해줘\", \"잊지 마\": you MUST call `add_memory`. If the user only shares a fact, confirm it and ask \"메모해 둘까요?\" — never say you will remember it.")
             }
             // [WHY] 회상은 저장과 트리거 표현이 비슷해 `add_memory` 로 새기 쉽다 — 조회 방향을 규칙에서 못 박는다.
             if (availableTools.contains(ToolNames.SEARCH_MEMORY)) {
