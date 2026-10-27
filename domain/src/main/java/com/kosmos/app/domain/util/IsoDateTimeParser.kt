@@ -54,6 +54,29 @@ object IsoDateTimeParser {
         }
 
     /**
+     * 글 속의 ISO 날짜·일시를 한국어 표기로 — "시작은 2026-10-26T16:30:00이에요" → "시작은 10월 26일 오후 4:30이에요". 날짜만이면 "10월 26일".
+     * 날짜로 읽히지 않는 숫자 묶음("1234-56-78")·전화번호·송장번호는 그대로 둔다.
+     *
+     * [WHY] 모델은 툴 인자로 ISO 를 계산하고 그 값을 답에 그대로 옮겨 적는다(exp64 I 1/12) — 프롬프트 대신 화면에 닿기 전에 바꾼다(0.38.9 결정 2).
+     */
+    fun humanizeInText(text: String, zoneId: ZoneId = ZoneId.systemDefault()): String =
+        if (!ISO_IN_TEXT.containsMatchIn(text)) text else ISO_IN_TEXT.replace(text) { m ->
+            val iso = m.value
+            if (isDateOnly(iso)) {
+                runCatching { LocalDate.parse(iso) }.getOrNull()?.let { "%d월 %d일".format(it.monthValue, it.dayOfMonth) } ?: iso
+            } else {
+                toDisplayKorean(iso, zoneId) ?: iso
+            }
+        }
+
+    /**
+     * 스트리밍 중인 글 — 끝에 덜 쓴 일시("2026-10-26T16:3")가 있으면 다 쓸 때까지 그 꼬리를 보이지 않고 나머지를 [humanizeInText] 로.
+     * [WHY] 꼬리를 그대로 두면 ISO 원문이 한 순간 보였다가 한국어로 바뀐다. 최종 답은 [humanizeInText] 가 통째로 처리한다.
+     */
+    fun humanizeStreaming(text: String, zoneId: ZoneId = ZoneId.systemDefault()): String =
+        humanizeInText(text.replace(ISO_TAIL, ""), zoneId)
+
+    /**
      * 시각만의 한국어 표기 — "오전 9:00". 파싱 실패 시 null.
      * [WHY] 같은 날짜 문맥(일정 화면의 날짜 그룹, 위젯의 "오늘")에서는 날짜를 반복하지
      * 않는다 — CalendarScreen 이 같은 로직을 사설 복제하고 있던 것을 여기로 흡수(0.22.0).
@@ -128,4 +151,8 @@ object IsoDateTimeParser {
     }
 
     private const val ALL_DAY = "종일"
+
+    // 앞뒤가 숫자·하이픈이면 더 긴 번호의 일부라 건드리지 않는다. 날짜 뒤 "T"가 남으면(스트리밍 중 덜 쓴 일시) 다 쓸 때까지 둔다.
+    private val ISO_IN_TEXT = Regex("(?<![\\d-])\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?(Z|[+-]\\d{2}:\\d{2})?)?(?![\\d\\-T:])")
+    private val ISO_TAIL = Regex("(?<![\\d-])\\d{4}-[\\d\\-T:.Z+]*$")
 }

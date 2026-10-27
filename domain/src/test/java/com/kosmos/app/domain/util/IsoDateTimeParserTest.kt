@@ -89,4 +89,25 @@ class IsoDateTimeParserTest {
         assertEquals("8월 20일 오후 4:00", full)
         assertEquals("오후 4:00", timeOnly)
     }
+
+    @Test
+    fun `글 속 ISO 일시는 한국어 표기로, 날짜가 아닌 번호는 그대로`() {
+        val utc = ZoneId.of("UTC")
+        assertEquals(
+            "시작 시간은 10월 26일 오후 4:30이고, 종료는 10월 26일 오후 5:30이에요.",
+            IsoDateTimeParser.humanizeInText("시작 시간은 2026-10-26T16:30:00이고, 종료는 2026-10-26T17:30이에요.", utc)
+        )
+        assertEquals("11월 7일이 생신이에요.", IsoDateTimeParser.humanizeInText("2026-11-07이 생신이에요.", utc))
+        listOf("송장번호 6043-1122-9087", "010-1234-5678로 연락", "번호 1234-56-78", "2026년", "쓰는 중 2026-10-26T16:3")
+            .forEach { assertEquals(it, it, IsoDateTimeParser.humanizeInText(it, utc)) }
+    }
+
+    @Test
+    fun `스트리밍 중 덜 쓴 일시 꼬리는 다 쓸 때까지 보이지 않는다`() {
+        val utc = ZoneId.of("UTC")
+        assertEquals("시작은 ", IsoDateTimeParser.humanizeStreaming("시작은 2026-10-26T16:3", utc))
+        assertEquals("시작은 ", IsoDateTimeParser.humanizeStreaming("시작은 2026-10-26T16:30:", utc))
+        assertEquals("시작은 10월 26일 오후 4:30이", IsoDateTimeParser.humanizeStreaming("시작은 2026-10-26T16:30:00이", utc))
+        assertEquals("오늘은 맑아요", IsoDateTimeParser.humanizeStreaming("오늘은 맑아요", utc))
+    }
 }

@@ -133,7 +133,8 @@ abstract class BaseAgent(
                     // 완전한 태그만 찾으므로 그 전 구간을 그대로 흘리면 조각이 보인다.
                     StreamUpdate(ToolParser.stripIncompleteTag(accumulatedToken).ifEmpty { null }, null)
                 }
-                request.onStream?.invoke(update)
+                // [WHY] 답 속 ISO 일시는 화면에 닿기 전에 한국어 표기로(0.38.9 결정 2) — 저장되는 최종 답도 같은 함수를 거친다.
+                request.onStream?.invoke(update.copy(content = update.content?.let { com.kosmos.app.domain.util.IsoDateTimeParser.humanizeStreaming(it).ifEmpty { null } }))
             }
 
             // [WHY] 첫 턴에만 첨부(이미지)를 보낸다. 이후는 툴 응답 회신 턴이다.
@@ -249,7 +250,7 @@ abstract class BaseAgent(
         }
 
         val finalParsed = parsedResult
-        var text = finalParsed.content
+        var text = com.kosmos.app.domain.util.IsoDateTimeParser.humanizeInText(finalParsed.content)
 
         // [WHY] 툴을 하나도 실행하지 않은 턴만 고친다 — 저장 물음에 "응"이라 했는데 모델이 저장을 부르지 않고 "메모해 두었어요"라고만 하면
         // 앱이 저장 시트를 직접 연다(exp64b 2/6, 0.38.9 사용자 결정). 그 밖에는 지켜지지 않을 "기억해 둘게요"를 물음으로 바꾼다.

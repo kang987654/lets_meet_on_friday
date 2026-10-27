@@ -344,6 +344,16 @@ class BaseAgentStreamTest {
     }
 
     @Test
+    fun `답 속 ISO 일시는 화면과 저장되는 답 모두 한국어 표기로 바뀐다(0·38·9 M3)`() {
+        val harness = runAgent(ModelTurn("회의 시작 시간은 2026-10-26T16:30:00이에요."))
+
+        val saved = harness.savedMessages.last { it.role == ChatMessage.Role.ASSISTANT }.content
+        assertFalse(saved, saved.contains("2026-10-26"))
+        assertTrue(saved, saved.contains("10월 26일"))
+        harness.updates.forEach { assertFalse("스트리밍에 ISO 가 보였다: ${it.content}", it.content.orEmpty().contains("T16:30")) }
+    }
+
+    @Test
     fun `툴 호출이 없으면 한 턴으로 끝난다`() {
         val harness = runAgent(ModelTurn("안녕하세요. 무엇을 도와드릴까요?"))
 
