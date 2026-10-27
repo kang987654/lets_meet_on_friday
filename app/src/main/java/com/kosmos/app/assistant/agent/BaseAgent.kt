@@ -270,6 +270,9 @@ abstract class BaseAgent(
             }
         }
 
+        // [WHY] 거절 답은 다음 턴의 모델 입력 기록에서 빠진다(ContextBuilder) — 살아 있는 대화(KV)에는 남아 있으므로 다시 만든다(exp64c).
+        if (com.kosmos.app.domain.agent.RefusalTurns.isRefusal(text)) modelRunner.invalidateConversation()
+
         // [WHY] `prompt.currentInput` 이 아니라 원문 요청을 기록한다. 툴을 쓴 턴에서는 루프가
         // `currentInput = ""` 로 덮어쓰므로, 예전에는 **툴을 쓴 대화일수록** 감사 로그의
         // 프롬프트가 빈 문자열이었다 — 정작 기록이 가장 필요한 턴이 비어 있었다.

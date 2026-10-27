@@ -92,7 +92,10 @@ class ContextBuilder @Inject constructor(
                 // top-1 정확도 1/7 = 무작위 1/8 수준). 그래서 실제로 하던 일은 "무관한 메모
                 // 3건을 매 턴 질문 앞에 붙이는 것"이었다 — 프리필을 축내고 환각의 재료가 됐다.
                 // 기억 조회는 이제 모델이 필요할 때 부르는 `SearchMemory` 툴이 맡는다.
-                val slidingWindow = applyTokenSlidingWindow(conversationsResult.data, maxTokens)
+                val slidingWindow = applyTokenSlidingWindow(
+                    com.kosmos.app.domain.agent.RefusalTurns.dropFrom(conversationsResult.data),
+                    maxTokens
+                )
                 AppResult.Success(
                     Context(
                         recentConversations = slidingWindow,
