@@ -60,8 +60,29 @@ class MemoryCleanupUseCasesTest {
         assertEquals("여동생 생일은 5월 3일", MemoryMergeGuard.toMemoEnding("여동생 생일은 5월 3일이다."))
         assertEquals("사용자는 땅콩 알레르기가 있음", MemoryMergeGuard.toMemoEnding("사용자는 땅콩 알레르기가 있다"))
         assertEquals("고양이 털 알레르기는 없음", MemoryMergeGuard.toMemoEnding("고양이 털 알레르기는 없다."))
-        assertEquals("아침에 커피 대신 녹차를 마신다", MemoryMergeGuard.toMemoEnding("아침에 커피 대신 녹차를 마신다."))
+        assertEquals("아침에 커피 대신 녹차를 마심", MemoryMergeGuard.toMemoEnding("아침에 커피 대신 녹차를 마신다."))
         assertEquals("자전거 자물쇠 번호 4821", MemoryMergeGuard.toMemoEnding("자전거 자물쇠 번호 4821"))
+    }
+
+    @Test
+    fun `합친 문장의 동사·형용사 끝도 메모 말투로(0·38·9 M4)`() {
+        mapOf(
+            "라떼를 좋아한다" to "라떼를 좋아함",
+            "점심은 주로 김밥을 먹는다" to "점심은 주로 김밥을 먹음",
+            "커피를 마시지 않는다" to "커피를 마시지 않음",
+            "작년에 판교로 이사했다" to "작년에 판교로 이사했음",
+            "회사가 집에서 가깝다" to "회사가 집에서 가까움",
+            "출근길이 길다" to "출근길이 긺",
+            "판교에 산다" to "판교에 삶",
+            "주말마다 빵을 만든다" to "주말마다 빵을 만듦",
+            "매운 음식은 좋아하는 편이 아니다" to "매운 음식은 좋아하는 편이 아님",
+            "약속 장소가 바뀌어 다음 주에 된다" to "약속 장소가 바뀌어 다음 주에 됨"
+        ).forEach { (from, to) -> assertEquals(from, to, MemoryMergeGuard.toMemoEnding("$from.")) }
+    }
+
+    @Test
+    fun `받침 없는 글자 + 다는 명사일 수 있어 그대로 둔다`() {
+        listOf("회사는 판교다", "자리는 C-14다", "4시 약속이다 아님").forEach { assertEquals(it, it, MemoryMergeGuard.toMemoEnding(it)) }
     }
 
     // --- 계획 ---
