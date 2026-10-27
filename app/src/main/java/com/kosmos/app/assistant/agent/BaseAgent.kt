@@ -82,6 +82,9 @@ abstract class BaseAgent(
         var memoCalled = false
         val carriedMemo = blockedMemo?.takeIf { it.first == request.sessionId }?.second
         blockedMemo = null
+        // [WHY] 거절을 되묻는 턴은 거절이 든 기록(ContextBuilder)으로 대화를 새로 만들어야 한다 — 살아 있는 대화는 거절을 뺀 기록으로 만들어졌다.
+        val refusalAsked = com.kosmos.app.domain.agent.RefusalTurns.asksWhyRefused(request.message)
+        if (refusalAsked) modelRunner.invalidateConversation()
         var previous: com.kosmos.app.domain.memory.MemoSaveIntent.PreviousTurn? = null
         suspend fun previousTurn() = previous ?: loadPreviousTurn(request.sessionId).also { previous = it }
         while (true) {
@@ -271,7 +274,8 @@ abstract class BaseAgent(
         }
 
         // [WHY] 거절 답은 다음 턴의 모델 입력 기록에서 빠진다(ContextBuilder) — 살아 있는 대화(KV)에는 남아 있으므로 다시 만든다(exp64c).
-        if (com.kosmos.app.domain.agent.RefusalTurns.isRefusal(text)) modelRunner.invalidateConversation()
+        // 거절을 되물은 턴은 거절을 담아 만든 대화라 이 턴 뒤에 다시 빼고 만든다(exp64d).
+        if (com.kosmos.app.domain.agent.RefusalTurns.isRefusal(text) || refusalAsked) modelRunner.invalidateConversation()
 
         // [WHY] `prompt.currentInput` 이 아니라 원문 요청을 기록한다. 툴을 쓴 턴에서는 루프가
         // `currentInput = ""` 로 덮어쓰므로, 예전에는 **툴을 쓴 대화일수록** 감사 로그의

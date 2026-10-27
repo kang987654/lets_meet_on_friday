@@ -12,8 +12,20 @@ import com.kosmos.app.domain.model.ChatMessage
 object RefusalTurns {
     private val REFUSAL = Regex("기능이 없|기능은 없|기능을 가지고 있지 않|드릴 수 없|드릴 수는 없|도움을 드리기 어려")
 
+    // [WHY] 거절을 빼면 "왜 안 된다고 했어?"에 12/12 "어떤 말씀이신지 기억이 안 나요"였다 — 되묻는 턴에만 남기면 12/12 거절한 주제와 이유를 답한다(exp64d).
+    private val WHY_REFUSED = Regex("왜\\s*(안|못)|안\\s*된다고|못\\s*한다고|안\\s*된다며|못\\s*한다며")
+
     /** 비서 답이 할 수 없다는 거절인가. */
     fun isRefusal(assistantText: String): Boolean = REFUSAL.containsMatchIn(assistantText)
+
+    /** 사용자 말이 앞의 거절을 되묻는가("왜 안 된다고 했어?", "그게 왜 안 돼?"). */
+    fun asksWhyRefused(userText: String): Boolean = WHY_REFUSED.containsMatchIn(userText)
+
+    /** 모델 입력 기록 — 가장 최근 사용자 말이 거절을 되묻으면 그대로, 아니면 거절 턴을 뺀다. */
+    fun forModel(messages: List<ChatMessage>): List<ChatMessage> {
+        val lastUser = messages.lastOrNull { it.role == ChatMessage.Role.USER }
+        return if (lastUser != null && asksWhyRefused(lastUser.content)) messages else dropFrom(messages)
+    }
 
     /** 시간순 기록에서 거절 답과 바로 앞 사용자 말을 뺀다. */
     fun dropFrom(messages: List<ChatMessage>): List<ChatMessage> {

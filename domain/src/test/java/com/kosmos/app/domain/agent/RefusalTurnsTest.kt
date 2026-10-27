@@ -33,4 +33,22 @@ class RefusalTurnsTest {
         assertEquals(listOf("1", "2", "5"), RefusalTurns.dropFrom(messages).map { it.id })
         assertEquals(messages.take(2), RefusalTurns.dropFrom(messages.take(2)))
     }
+
+    @Test
+    fun `거절을 되묻는 말`() {
+        listOf("왜 안 된다고 했어?", "아까 왜 못 한다고 했어?", "안 된다고 했잖아, 이유가 뭐야?", "그게 왜 안 돼?")
+            .forEach { assertTrue(it, RefusalTurns.asksWhyRefused(it)) }
+        listOf("오늘 날씨 좋다", "점심 메뉴 추천해 줘", "안녕").forEach { assertFalse(it, RefusalTurns.asksWhyRefused(it)) }
+    }
+
+    @Test
+    fun `가장 최근 사용자 말이 거절을 되물으면 거절 턴을 남긴다`() {
+        val refused = listOf(
+            msg(ChatMessage.Role.USER, "아침 운동 루틴 짜줘", 1),
+            msg(ChatMessage.Role.ASSISTANT, "죄송해요, 저는 운동 루틴을 짜드리는 기능은 없어요.", 2)
+        )
+
+        assertEquals(listOf("1", "2", "3"), RefusalTurns.forModel(refused + msg(ChatMessage.Role.USER, "왜 안 된다고 했어?", 3)).map { it.id })
+        assertEquals(listOf("3"), RefusalTurns.forModel(refused + msg(ChatMessage.Role.USER, "점심 메뉴 추천해 줘", 3)).map { it.id })
+    }
 }

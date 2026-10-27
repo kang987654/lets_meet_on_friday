@@ -93,7 +93,7 @@ class ContextBuilder @Inject constructor(
                 // 3건을 매 턴 질문 앞에 붙이는 것"이었다 — 프리필을 축내고 환각의 재료가 됐다.
                 // 기억 조회는 이제 모델이 필요할 때 부르는 `SearchMemory` 툴이 맡는다.
                 val slidingWindow = applyTokenSlidingWindow(
-                    com.kosmos.app.domain.agent.RefusalTurns.dropFrom(conversationsResult.data),
+                    com.kosmos.app.domain.agent.RefusalTurns.forModel(conversationsResult.data),
                     maxTokens
                 )
                 AppResult.Success(
