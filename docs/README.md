@@ -1,34 +1,18 @@
-# 📚 Docs-as-Code 센터 & 문서 색인 (Documentation Index)
-> **문서 버전**: v1.0 | **최종 수정일**: 2026-07-31 | **상태**: Approved (승인)
-> **관련 모듈**: `lets_meet_on_friday` 프로젝트 전 영역
+# 문서 색인
+> 최종 수정 2026-10-29. 저장소 소개는 [루트 README](../README.md), 앱 사용법은 [사용 안내](guide/USER_GUIDE.md)([English](guide/USER_GUIDE.en.md)).
 
----
-
-## 📌 문서 가이드 및 탐색 (Navigation)
-
-`lets_meet_on_friday` 프로젝트의 모든 기술 문서는 Docs-as-Code 철학에 따라 마크다운 및 YAML 포맷으로 관리됩니다.
-
-프로젝트 문서를 새로 작성하거나 정돈할 때에는 **[DOCUMENTATION_GUIDE.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/DOCUMENTATION_GUIDE.md)** 지침서를 준수합니다.
-
----
-
-## 🗺️ 문서 색인 (Sitemap)
-
-| 구분 | 문서 파일 | 주요 내용 및 목적 |
+| 구분 | 문서 | 내용 |
 | :--- | :--- | :--- |
-| 📖 **지침서** | [DOCUMENTATION_GUIDE.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/DOCUMENTATION_GUIDE.md) | Docs-as-Code 포맷팅 규칙 및 문서 작성 표준 지침 |
-| 📋 **기획/요구사항** | [PRD.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/PRD.md) | 제품 요구사항 문서 (Product Requirement Document) |
-| 🏗️ **아키텍처** | [architecture.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/architecture.md) | Clean Architecture 멀티모듈 시스템 구조 & 데이터 흐름 |
-| 🎨 **UI/UX 디자인** | [DESIGN.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/DESIGN.md) | Glassmorphism 테마, 애니메이션 및 UI 스펙 디자인 가이드 |
-| 📝 **태스크 분해** | [tasks.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/tasks.md) | AI Agent 1회 작업 단위의 74개 세부 태스크 분해목록 |
-| 🔌 **내부 계약 사양** | [api_spec.yaml](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/api_spec.yaml) | 앱 내부 UseCase/도구 계약을 OpenAPI 문법으로 기술한 문서 — 오프라인 앱이므로 REST 서버는 없다 |
-| 🪵 **변경 이력** | [CHANGELOG.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/CHANGELOG.md) | 프로젝트 버전별 세부 리팩터링 및 수정 내역 기록 |
-| 🛠️ **트러블슈팅** | [trouble_shooting.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/trouble_shooting.md) | 16KB 메모리 정렬, Robolectric, Native crash 문제 해결 가이드 |
-| 📊 **인증 체크리스트** | [checklists/v0_acceptance.md](file:///c:/Users/J/Desktop/J-Dev/lets_meet_on_friday/docs/checklists/v0_acceptance.md) | v0 MVP 인수 테스트 기준 및 체크리스트 |
-
----
-
-## 🔄 문서 수명주기 관리 규칙
-
-1. 모든 기능 추가 및 리팩터링 완료 시 `CHANGELOG.md` 최상단에 버전과 내역을 기록합니다.
-2. 모듈 의존성 변경 시 `architecture.md` 다이어그램을 최신 상태로 업데이트합니다.
+| 결정 설명 | [decisions/](decisions/README.md) | 핵심 결정을 사람이 읽는 한 편씩 — 문제·기각한 가설·확정·대가·면접 예상 질문 |
+| 아키텍처 | [architecture.md](architecture.md) | 모듈 구조 + ADR(모든 주요 결정의 맥락과 근거) |
+| 변경 이력 | [CHANGELOG.md](CHANGELOG.md) | 회차별 기록 — 결함의 원인과 실측 수치까지 |
+| 계획 | [plans/](plans) | 회차 계획서(구현 전에 커밋) · [0.39.x 로드맵](plans/0.39.x-roadmap.md) |
+| 확장 로드맵(이전) | [expand.md](expand.md) | 0.20~0.37 의 확장 트랙(A·B·C) |
+| 요구사항 | [PRD.md](PRD.md) | 목표·비목표·인수 기준 |
+| 디자인 | [DESIGN.md](DESIGN.md) · [design/](design) | UI 기준(v3) · 설계 문서·디자인 점검 |
+| 실기기 확인 | [checklists/device_gate.md](checklists/device_gate.md) | 테스트가 못 잡는 항목의 회차별 확인 · [v0](checklists/v0_acceptance.md)·[v1](checklists/v1_acceptance.md) 인수 기준 |
+| 작업 규칙 | [../AGENTS.md](../AGENTS.md) · [agent_workflow_guide.md](agent_workflow_guide.md) | AI 에이전트 작업 규칙과 워크플로 |
+| 문제 해결 | [trouble_shooting.md](trouble_shooting.md) | 빌드·Robolectric·네이티브 문제 |
+| 문서 작성 | [DOCUMENTATION_GUIDE.md](DOCUMENTATION_GUIDE.md) | 문서 형식 규칙 |
+| 내부 계약 | [api_spec.yaml](api_spec.yaml) | 유즈케이스·툴 계약(서버 없음) |
+| 기록용 | [tasks.md](tasks.md) · [ENGINEERING_EVALUATION.md](ENGINEERING_EVALUATION.md) · [INVESTOR_EVALUATION.md](INVESTOR_EVALUATION.md) · [nvidia_skills_analysis.md](nvidia_skills_analysis.md) · [archive/](archive) | 초기 태스크 분해·과거 평가·폐기된 규칙 — 현행 기준이 아니다 |
