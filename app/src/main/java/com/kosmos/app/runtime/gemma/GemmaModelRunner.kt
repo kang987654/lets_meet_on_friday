@@ -369,6 +369,10 @@ class GemmaModelRunner @Inject constructor(
                     cancellation.end(currentConversation)
                     if (prompt.oneShot) {
                         runCatching { currentConversation.close() }
+                        // [WHY] 부수 대화를 돌리면 엔진이 채팅 대화 상태를 다시 올리는 비용이 그 대화의 첫 호출에 붙는다(exp65: PC 1.1초,
+                        // 실기기 3.3~3.5초 — 0.39.0 M1). 다음 사용자 턴에서 치르지 않게 지금 한 번 불러 되살려 둔다. 요약은 조용할 때 돌므로(0.39.1)
+                        // 이 비용도 조용할 때 치른다. 다시 만들 대화(stale)라면 되살릴 필요가 없다.
+                        if (!conversationStale) conversation?.let { runCatching { it.getTokenCount() } }
                     } else if (turnFailed || userCancelled || watchdog.timedOut) {
                         // [WHY] 취소를 맞은 대화는 이후 send 가 전부 즉시 "Task cancelled" 다(exp57 A, 0.38.6 M0 실기기 결함).
                         // 실패한 대화도 네이티브 상태를 알 수 없다 — 다음 턴은 DB 히스토리로 새로 만든다.
