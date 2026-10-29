@@ -1,0 +1,54 @@
+{
+ "smoke": {
+  "pass": 13,
+  "total": 13,
+  "fails": []
+ },
+ "save": {
+  "pass": 12,
+  "total": 12,
+  "fails": []
+ },
+ "fact": {
+  "pass": 18,
+  "total": 18,
+  "fails": []
+ },
+ "yes": {
+  "pass": 12,
+  "total": 12,
+  "fails": []
+ },
+ "drift": {
+  "pass": 10,
+  "total": 12,
+  "fails": [
+   "짧은 회사 동료 생일 선물 뭐가 좋을까?",
+   "긴 김치찌개 끓이는 법 알려줘"
+  ]
+ },
+ "why": {
+  "pass": 8,
+  "total": 8,
+  "fails": []
+ },
+ "newval": {
+  "pass": 4,
+  "total": 4,
+  "fails": []
+ },
+ "repeat": {
+  "pass": 3,
+  "total": 4,
+  "fails": [
+   "송장번호 다시 알려줘"
+  ]
+ },
+ "iso": {
+  "pass": 5,
+  "total": 6,
+  "fails": [
+   "회의는 오후 4시 30분에 시작해"
+  ]
+ }
+}
