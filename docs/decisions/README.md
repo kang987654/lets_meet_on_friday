@@ -7,3 +7,7 @@
 |---|---|---|
 | 01 | [긴 대화에서 숫자가 깨지던 문제 — GPU FP16 정밀도](01-gpu-digit-corruption.md) | ADR-016·020·021·029 |
 | 02 | [검색 결과가 대화 예산을 넘치게 하던 문제 — 툴 결과 500토큰·문장 단위 절단](02-tool-result-budget.md) | ADR-020·029 |
+| 03 | [모델이 툴을 한 번도 부르지 않던 문제 — 네이티브 함수 호출로](03-native-function-calling.md) | ADR-008 |
+| 04 | [긴 대화에서 툴을 안 부르고 "했어요"라고만 하던 문제 — 지침의 위치](04-tool-reminder-position.md) | ADR-016·017 |
+| 05 | [임베딩 없이 기억 찾기 — 검색 툴과 2글자 묶음 점수](05-memory-search-without-embeddings.md) | ADR-013·022·025·026 |
+| 06 | [프롬프트로 안 고쳐지는 모델 행동을 앱이 막기 — 메모 가드와 거절 기록](06-guarding-small-model-behaviour.md) | CHANGELOG 0.38.6~0.38.9 |
