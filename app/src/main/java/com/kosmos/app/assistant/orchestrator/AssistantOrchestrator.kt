@@ -36,6 +36,8 @@ class AssistantOrchestrator @Inject constructor(
     private val messageWriter = AssistantMessageWriter(conversationRepository, auditTrailService)
 
     suspend fun processRequest(request: ChatRequest): AgentResult {
+        // [WHY] 사용자가 말하는 중이다 — 조용해지기를 기다리던 요약을 미룬다(0.39.1, 이미 도는 요약은 그대로).
+        episodeSummarizeScheduler.onUserActivity()
         // 1. 음성이면 먼저 전사한다.
         //
         // [WHY] 예전에는 사용자 메시지를 `"(음성 메시지)"` 로 저장하고 오디오를 그대로 대화에
@@ -111,9 +113,8 @@ class AssistantOrchestrator @Inject constructor(
             request.copy(episodeId = episodeId)
         }
         val result = agent.execute(agentRequest, context)
-        // [WHY] 턴이 끝난 지금이 미뤄둔 에피소드 요약을 돌릴 안전한 시점이다 — 사용자는 방금
-        // 받은 응답을 읽는 중이고 llmDispatcher 는 비어 있다. fire-and-forget 이라 반환을
-        // 막지 않는다 (ADR-022, EpisodeSummarizeScheduler [WHY] 참조).
+        // [WHY] 턴이 끝났다 — 이대로 조용하면 미뤄둔 에피소드 요약을 돌린다(바로 돌리면 이어 보낸 질문이 그 뒤에서 기다렸다, 0.39.1).
+        // fire-and-forget 이라 반환을 막지 않는다 (ADR-022, EpisodeSummarizeScheduler [WHY] 참조).
         episodeSummarizeScheduler.onTurnCompleted()
         return result
     }

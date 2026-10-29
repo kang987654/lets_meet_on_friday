@@ -13,6 +13,7 @@ import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.usecase.SummarizeEpisodeUseCase
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.delay
@@ -74,11 +75,14 @@ class EpisodeSummarizeSchedulerTest {
         coEvery { conversationRepository.getUnassigned() } returns AppResult.Success(emptyList())
     }
 
-    private fun scheduler(): EpisodeSummarizeScheduler = EpisodeSummarizeScheduler(
+    private fun scheduler(quietMs: Long = 0): EpisodeSummarizeScheduler = EpisodeSummarizeScheduler(
         episodeRepository, conversationRepository, summarize,
         metricsCollector, boundaryManager, modelRunner, factExtractor,
-        com.kosmos.app.assistant.cleanup.BackgroundInferenceGate()
+        com.kosmos.app.assistant.cleanup.BackgroundInferenceGate(),
+        quiet(quietMs)
     ).also { it.start() }
+
+    private fun quiet(ms: Long) = object : SummaryQuietDelay() { override val millis = ms }
 
     private fun closedEpisode(id: String = "e1") = Episode(
         id = id, sessionId = "s1", status = EpisodeStatus.CLOSED, title = null, summary = null,
@@ -250,5 +254,74 @@ class EpisodeSummarizeSchedulerTest {
         // [WHY] 1시간 간격의 고아 둘은 서로 다른 소급 에피소드를 받아야 한다 (exp33 분절 규칙).
         assertEquals(2, assigned.size)
         assertTrue(assigned[0].second != assigned[1].second)
+    }
+
+    // --- 조용해진 뒤 요약 (0.39.1) ---
+
+    @Test
+    fun `조용해지기 전에 새 요청이 오면 요약을 미루고 조용해지면 돈다`() = runBlocking {
+        coEvery { episodeRepository.getById("e1") } returns AppResult.Success(closedEpisode())
+        coEvery { conversationRepository.getByEpisode("e1") } returns AppResult.Success(messages())
+        coEvery { summarize(any()) } returns AppResult.Success(listOf(doc()))
+        val s = scheduler(quietMs = 400)
+
+        closed.emit(EpisodeBoundaryManager.ClosedEpisode("e1", EpisodeBoundaryManager.CloseTrigger.RESET))
+        delay(200)
+        s.onTurnCompleted()
+        delay(200)
+        s.onUserActivity() // 대기 중에 다음 질문
+        delay(500)
+        assertTrue("조용해지기 전에 요약이 돌았다", saved.none { it.status == EpisodeStatus.SUMMARIZED })
+
+        s.onTurnCompleted()
+        waitUntil { saved.any { it.status == EpisodeStatus.SUMMARIZED } }
+        assertEquals(1, saved.count { it.status == EpisodeStatus.SUMMARIZED })
+    }
+
+    @Test
+    fun `엔진 준비 직후에는 catch-up 을 바로 돌리지 않고 조용해지면 돌린다`() = runBlocking {
+        val s = scheduler(quietMs = 400)
+
+        loadStateFlow.value = ModelLoadState.Ready(mockk(relaxed = true))
+        delay(150)
+        coVerify(exactly = 0) { episodeRepository.getByStatus(any()) }
+
+        waitUntil { runCatching { coVerify(atLeast = 1) { episodeRepository.getByStatus(any()) } }.isSuccess }
+        coVerify(atLeast = 1) { episodeRepository.getByStatus(any()) }
+        s.onUserActivity()
+    }
+
+    @Test
+    fun `이미 시작한 요약은 새 요청이 와도 끝까지 돈다`() = runBlocking {
+        coEvery { episodeRepository.getById("e1") } returns AppResult.Success(closedEpisode())
+        coEvery { conversationRepository.getByEpisode("e1") } returns AppResult.Success(messages())
+        var started = false
+        coEvery { summarize(any()) } coAnswers { started = true; delay(300); AppResult.Success(listOf(doc())) }
+        val s = scheduler()
+
+        closed.emit(EpisodeBoundaryManager.ClosedEpisode("e1", EpisodeBoundaryManager.CloseTrigger.RESET))
+        delay(200)
+        s.onTurnCompleted()
+        waitUntil { started }
+        s.onUserActivity() // 요약 도중의 질문 — 추론 중 취소는 대화를 망가뜨리는 경로라 하지 않는다(0.38.6)
+
+        waitUntil { saved.any { it.status == EpisodeStatus.SUMMARIZED } }
+        assertTrue(saved.any { it.status == EpisodeStatus.SUMMARIZED })
+    }
+
+    @Test
+    fun `엔진이 내려가 실패한 요약은 재시도로 세지 않는다`() = runBlocking {
+        coEvery { episodeRepository.getById("e1") } returns AppResult.Success(closedEpisode())
+        coEvery { conversationRepository.getByEpisode("e1") } returns AppResult.Success(messages())
+        coEvery { summarize(any()) } returns AppResult.Failure(AppError.ModelNotReady("Engine released"))
+        val s = scheduler()
+
+        closed.emit(EpisodeBoundaryManager.ClosedEpisode("e1", EpisodeBoundaryManager.CloseTrigger.RESET))
+        delay(200)
+        s.onTurnCompleted()
+        delay(400)
+
+        coVerify(atLeast = 1) { summarize(any()) }
+        assertTrue("재시도 카운트가 올라갔다: $saved", saved.none { it.retryCount > 0 || it.status == EpisodeStatus.FAILED })
     }
 }

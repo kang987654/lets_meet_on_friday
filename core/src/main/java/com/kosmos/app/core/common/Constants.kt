@@ -179,6 +179,14 @@ object Constants {
     const val THERMAL_WARNING_CELSIUS = 43f
     const val THERMAL_SHUTDOWN_CELSIUS = 48f
     const val THERMAL_COOLDOWN_INFERENCE_COUNT = 5
+
+    /**
+     * 에피소드 요약을 시작하기 전 무활동 시간 — 마지막 턴 종료·엔진 Ready 뒤 이만큼 새 요청이 없을 때 요약한다.
+     *
+     * [WHY] 요약은 엔진을 십수 초 붙잡아 경계 직후의 질문을 막았다(0.39.0 M1). 60초는 사용자 결정(0.39.1) — 이어지는 대화의 다음 말은
+     * 보통 그 안에 온다고 보고, 그 사이에는 막지 않는다.
+     */
+    const val SUMMARY_QUIET_MILLIS = 60_000L
     const val DATABASE_NAME = "kosmos_db"
     const val MODEL_DIR_NAME = "models"
     // [WHY] 공식 다운로드 URL이 실제로 생성하는 파일명과 일치시켜, NotFound 안내가

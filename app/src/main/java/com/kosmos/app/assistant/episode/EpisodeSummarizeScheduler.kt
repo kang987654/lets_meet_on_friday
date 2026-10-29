@@ -15,7 +15,9 @@ import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 import com.kosmos.app.runtime.metrics.shouldDeferBackgroundInference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
@@ -32,8 +34,9 @@ import javax.inject.Singleton
  *
  * ### Key Flow
  * 1. [EpisodeBoundaryManager.closedEpisodes] 를 구독해 지연 큐에 쌓는다.
- * 2. [onTurnCompleted] (오케스트레이터가 턴 종료 후 호출) 와 모델 Ready 시점에 큐를 비운다.
- * 3. 모델 Ready 시 catch-up — 강제종료로 못 닫은 OPEN·미배정 메시지·미요약 CLOSED 복구.
+ * 2. [onTurnCompleted] (오케스트레이터가 턴 종료 후 호출) 와 모델 Ready 뒤, **조용해지면**([SummaryQuietDelay] — 그 사이 [onUserActivity]
+ *    가 오면 다시 센다) 큐를 비운다(0.39.1).
+ * 3. 모델 Ready 뒤 조용해지면 catch-up — 강제종료로 못 닫은 OPEN·미배정 메시지·미요약 CLOSED 복구.
  *
  * [WHY] **계획의 "무활동 닫힘 = 즉시 실행"을 버리고 전부 턴 종료 후로 미룬다.** 무활동 경계는
  * 새 유저 메시지가 도착해야 감지되는데, 그 시점에 요약(oneShot 추론)을 바로 던지면
@@ -55,7 +58,8 @@ class EpisodeSummarizeScheduler @Inject constructor(
     private val boundaryManager: EpisodeBoundaryManager,
     private val modelRunner: ModelRunner,
     private val factExtractor: EpisodeFactExtractor,
-    private val inferenceGate: com.kosmos.app.assistant.cleanup.BackgroundInferenceGate
+    private val inferenceGate: com.kosmos.app.assistant.cleanup.BackgroundInferenceGate,
+    private val quiet: SummaryQuietDelay
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -66,6 +70,9 @@ class EpisodeSummarizeScheduler @Inject constructor(
     private val drainMutex = inferenceGate.mutex
     private val deferred = ArrayDeque<String>()
     private val started = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val quietLock = Any()
+    private var waiting: Job? = null
+    private var pendingCatchUp = false
 
     /**
      * 닫힘 방출과 Ready 편승 구독을 시작합니다 — KosmosApp.onCreate 가 부른다 (멱등).
@@ -82,20 +89,48 @@ class EpisodeSummarizeScheduler @Inject constructor(
         }
         scope.launch {
             modelRunner.loadState.collect { state ->
-                if (state is ModelLoadState.Ready) {
-                    runCatchingCancellable { catchUp() }
-                        .onFailure { AppLogger.e(TAG, "catch-up 실패", it) }
-                    // [WHY] drain 도 감싼다 — 예외 한 번이 이 collect 코루틴을 죽이면 이후 모든
-                    // Ready catch-up 이 프로세스 수명 내내 멈춘다.
-                    drainSafely()
-                }
+                if (state is ModelLoadState.Ready) whenQuiet(catchUp = true)
             }
         }
     }
 
-    /** 오케스트레이터가 턴 종료 후 호출 — 지연 큐를 백그라운드로 비운다 (fire-and-forget). */
-    fun onTurnCompleted() {
-        scope.launch { drainSafely() }
+    /** 오케스트레이터가 사용자 요청을 받자마자 호출 — 기다리던 요약을 미루고 조용해지기를 다시 센다. */
+    fun onUserActivity() {
+        synchronized(quietLock) {
+            waiting?.cancel()
+            waiting = null
+        }
+    }
+
+    /** 오케스트레이터가 턴 종료 후 호출 — 조용해지면([SummaryQuietDelay]) 지연 큐를 비운다 (fire-and-forget). */
+    fun onTurnCompleted() = whenQuiet(catchUp = false)
+
+    /**
+     * [quiet] 만큼 새 요청이 없으면 catch-up(Ready 때)과 드레인을 돌린다.
+     *
+     * [WHY] 요약은 엔진을 십수 초 붙잡아, 에피소드가 닫힌 직후에 보낸 질문이 그 뒤에서 기다렸다(0.39.0 M1 실측 — 첫 글자 17.1초).
+     * 기다리는 동안 들어온 요청은 [onUserActivity] 가 대기를 취소한다. **이미 시작한 요약은 취소하지 않는다** — 추론 중 취소는
+     * 대화를 망가뜨리는 경로다(0.38.6). 그래서 대기가 끝나는 순간 대기 표식을 지워, 이후의 취소가 실행 중인 요약에 닿지 않게 한다.
+     */
+    private fun whenQuiet(catchUp: Boolean) {
+        synchronized(quietLock) {
+            pendingCatchUp = pendingCatchUp || catchUp
+            waiting?.cancel()
+            waiting = scope.launch {
+                delay(quiet.millis)
+                val runCatchUp = synchronized(quietLock) {
+                    if (waiting !== coroutineContext[Job]) return@launch
+                    waiting = null
+                    pendingCatchUp.also { pendingCatchUp = false }
+                }
+                if (runCatchUp) {
+                    runCatchingCancellable { catchUp() }
+                        .onFailure { AppLogger.e(TAG, "catch-up 실패", it) }
+                }
+                // [WHY] drain 도 감싼다 — 예외 한 번이 이 코루틴을 죽이면 이후 드레인이 조용히 멈춘다.
+                drainSafely()
+            }
+        }
     }
 
     private suspend fun drainSafely() {
@@ -145,6 +180,10 @@ class EpisodeSummarizeScheduler @Inject constructor(
                 runCatchingCancellable { factExtractor.extract(episode.copy(tags = result.data.first().tags), messages) }
                     .onFailure { AppLogger.w(TAG, "자동 추출 예외(${episode.id}): ${it.message}") }
             }
+            // [WHY] 조용해지기를 기다리는 사이 앱이 백그라운드로 가면 엔진이 내려간다 — 그건 요약 실패가 아니다. 재시도로 세지 않고
+            // CLOSED 로 남겨 다음 Ready 의 catch-up 이 다시 큐에 넣게 한다.
+            is AppResult.Failure if result.error is com.kosmos.app.core.common.AppError.ModelNotReady ->
+                AppLogger.d(TAG, "엔진이 내려가 요약을 다음 실행으로(${episode.id})")
             is AppResult.Failure -> {
                 val retried = episode.copy(
                     retryCount = episode.retryCount + 1,
