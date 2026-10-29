@@ -75,6 +75,14 @@ class EngineConfigTest {
         )
     }
 
+    @Test
+    fun `에뮬레이터 판정은 가상 하드웨어·SDK 이미지 값만 본다(0·39·0 M2)`() {
+        // 첫 줄은 AVD my_phone 의 getprop 실측(2026-10-29). 실기기를 에뮬레이터로 보면 실기기가 CPU 엔진으로 느려진다.
+        org.junit.Assert.assertTrue(isEmulator("ranchu", "sdk_gphone64_x86_64", "google/sdk_gphone64_x86_64/emu64xa:15/AE3A.240806.043/12960925:userdebug/dev-keys"))
+        org.junit.Assert.assertTrue(isEmulator("goldfish", "sdk_google_phone_x86", "generic/sdk_google_phone_x86/generic_x86:7.0/NYC/1:userdebug/test-keys"))
+        org.junit.Assert.assertFalse(isEmulator("qcom", "pa3qksx", "samsung/pa3qksx/pa3q:16/BP2A.250605.031.A3/S938NKSU3AYJ1:user/release-keys"))
+    }
+
     private companion object {
         const val MODEL = "/data/user/0/com.kosmos.app/files/gemma-4-E4B-it.litertlm"
         const val CACHE = "/data/user/0/com.kosmos.app/cache"

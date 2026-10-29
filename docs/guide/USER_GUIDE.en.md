@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.38.9 · 2026-10-29. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.39.0 · 2026-10-29. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 > **Note — the app is Korean-only for now.** The screens, the assistant's instructions and the read-aloud voice are all Korean.
 > An English version of the app is planned. Until then, this guide is mainly for understanding, building and running the project.
@@ -81,9 +81,8 @@ Requested only when needed. Everything else keeps working if you decline.
 - **Some turns are slow** — right after the model wakes, or after a long conversation is condensed, the first answer can take 10+ seconds.
 
 ## 8. Running on the emulator (developers)
-- Start an x86_64 AVD with **`-gpu swiftshader_indirect`** (with the default GPU mode, generation fails). Copy the model file to the path in section 3.
-- With runtime 0.18.0, answer generation on the emulator is currently blocked — only non-inference features (screens, navigation, storage) can be checked.
-  A fix is planned ([roadmap, Korean](../plans/0.39.x-roadmap.md)).
+- Copy the model file to the path in section 3 on an x86_64 AVD. The app detects the emulator and runs the model **on CPU only** (the GPU path looks for OpenCL, which emulators lack, and fails at generation).
+- Answers work — tool calls and confirmation sheets were verified. It is slow, though (tens of seconds for a short answer, plus a few minutes on first launch to build the CPU cache). Use it to check flows; judge speed and heat on a real device.
 
 ## 9. Troubleshooting
 | Symptom | Try |

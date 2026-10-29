@@ -500,6 +500,13 @@ class GemmaModelRunner @Inject constructor(
             }
             runCatching { Engine.setNativeMinLogSeverity(severity) }
             val cacheDir = context.cacheDir.absolutePath
+            // [WHY] 에뮬레이터는 PC GPU 로 초기화·프리필까지 되지만 토큰 샘플러가 OpenCL 을 찾다 생성에서 매번 실패한다(런타임에 샘플러
+            // 백엔드 설정은 없다) — 초기화 실패에만 걸리는 아래 CPU 폴백이 구제하지 못하므로 처음부터 CPU 로 간다(0.39.0 M2, CHANGELOG 0.20.2).
+            if (runningOnEmulator) {
+                engine = Engine(buildEngineConfig(modelPath, Backend.CPU(), cacheDir)).also { it.initialize() }
+                Log.d("GemmaModelRunner", "Engine initialized with CPU backend (emulator)")
+                return
+            }
             var gpuEngine: Engine? = null
             try {
                 gpuEngine = Engine(buildEngineConfig(modelPath, Backend.GPU(), cacheDir))
