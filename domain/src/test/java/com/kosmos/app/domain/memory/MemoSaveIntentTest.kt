@@ -30,6 +30,14 @@ class MemoSaveIntentTest {
     }
 
     @Test
+    fun `적어·기록은 부탁하는 꼴일 때만 저장 부탁이다(0·39·2 M4b)`() {
+        listOf("오늘 있었던 일을 길게 적어 볼게.", "일기에 적어 봤어", "회의 기록이 남았어", "기록적인 더위네")
+            .forEach { assertFalse(it, MemoSaveIntent.hasSaveWord(it)) }
+        listOf("이거 적어 줘", "적어 주세요", "생일 적어 놔", "이거 기록 좀 해 줘", "기록해 둬")
+            .forEach { assertTrue(it, MemoSaveIntent.hasSaveWord(it)) }
+    }
+
+    @Test
     fun `저장 물음 뒤라도 긍정이 아닌 말이면 막는다(0·39·2 M4b)`() {
         val asked = "고생 많으셨어요. 이 내용을 메모해 둘까요?"
         listOf("그냥 들어줘서 고마워", "아니 됐어", "그래, 근데 내일 일정도 알려줘")
