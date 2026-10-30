@@ -33,20 +33,19 @@ import kotlinx.coroutines.coroutineScope
  *
  * ### Key Flow
  * 1. 하위 클래스에서 정의된 Prompt를 기반으로 추론을 시작합니다.
- * 2. Tool Call이 발생하면 파싱하여 도구를 실행하고, 그 결과를 컨텍스트에 추가하여 재귀적으로 추론합니다.
- * 3. 최종적으로 도출된 텍스트 응답을 [AgentResult]로 감싸서 반환합니다.
+ * 2. Tool Call이 발생하면 실행 전 가드([ToolCallGuards]) → 승인 → 실행하고, 그 결과를 회신해 다시 추론합니다.
+ * 3. 루프가 끝나면 답 후처리([ReplyFinisher] — 앱이 여는 저장·약속 문장·재생성 표식)를 거쳐 [AgentResult]로 반환합니다.
  */
 abstract class BaseAgent(
     protected val modelRunner: ModelRunner,
     protected val toolRegistry: ToolRegistry,
     protected val auditTrailService: AuditTrailService,
     protected val conversationRepository: ConversationRepository,
-    protected val approvalCoordinator: ApprovalCoordinator
+    protected val approvalCoordinator: ApprovalCoordinator,
+    // [WHY] 기본값은 테스트용 — 앱은 Hilt 의 앱 전체 하나를 넘긴다(KosmosAgent).
+    private val pendingMemos: PendingMemos = PendingMemos()
 ) {
     private val messageWriter = AssistantMessageWriter(conversationRepository, auditTrailService)
-
-    // [WHY] 사실 저장 가드가 막은 메모 — 다음 턴이 저장 물음에 "응"으로 답하면 모델이 쓴 이 문장을 승인 시트에 그대로 쓴다(0.38.9 M1).
-    @Volatile private var blockedMemo: Pair<String, String>? = null
 
     abstract suspend fun execute(request: ChatRequest, context: ContextBuilder.Context): AgentResult
 
@@ -80,8 +79,7 @@ abstract class BaseAgent(
         // 이 턴에서 실행된 툴이 있는가, 가드가 막은 것 말고 메모 저장 호출이 있었는가 — 답 고치기·앱이 여는 저장 시트의 조건.
         var anyExecuted = false
         var memoCalled = false
-        val carriedMemo = blockedMemo?.takeIf { it.first == request.sessionId }?.second
-        blockedMemo = null
+        val carriedMemo = pendingMemos.take(request.sessionId)
         // [WHY] 거절을 되묻는 턴은 거절이 든 기록(ContextBuilder)으로 대화를 새로 만들어야 한다 — 살아 있는 대화는 거절을 뺀 기록으로 만들어졌다.
         val refusalAsked = com.kosmos.app.domain.agent.RefusalTurns.asksWhyRefused(request.message)
         if (refusalAsked) modelRunner.invalidateConversation()
@@ -173,7 +171,7 @@ abstract class BaseAgent(
                 anyExecuted = anyExecuted || outcome.executed
                 if (call.name == ToolNames.ADD_MEMORY) {
                     if (outcome.factBlocked) {
-                        args.optString("content")?.takeIf { it.isNotBlank() }?.let { blockedMemo = request.sessionId to it }
+                        args.optString("content")?.takeIf { it.isNotBlank() }?.let { pendingMemos.put(request.sessionId, it) }
                     } else {
                         memoCalled = true
                     }
@@ -252,31 +250,25 @@ abstract class BaseAgent(
         val finalParsed = parsedResult
         var text = com.kosmos.app.domain.util.IsoDateTimeParser.humanizeInText(finalParsed.content)
 
-        // [WHY] 툴을 하나도 실행하지 않은 턴만 고친다 — 저장 물음에 "응"이라 했는데 모델이 저장을 부르지 않고 "메모해 두었어요"라고만 하면
-        // 앱이 저장 시트를 직접 연다(exp64b 2/6, 0.38.9 사용자 결정). 그 밖에는 지켜지지 않을 "기억해 둘게요"를 물음으로 바꾼다.
-        // 고친 답은 살아 있는 대화(KV)의 답과 다르므로 다음 사용자 턴에 DB 히스토리로 다시 만든다.
-        if (!anyExecuted && !memoCalled) {
-            val intent = com.kosmos.app.domain.memory.MemoSaveIntent
-            val askedBefore = intent.isYes(request.message) && intent.asksSave(previousTurn().assistant)
-            val memo = if (askedBefore) carriedMemo ?: previousTurn().user else null
-            val fixed = if (memo != null && ToolNames.ADD_MEMORY in allowedTools) {
-                saveAnsweredMemo(request.sessionId, memo, allowedTools)?.let { (reply, result) ->
-                    if (result != null) messageResult = result
-                    reply
-                }
-            } else {
-                null
-            } ?: intent.withoutClaim(text)
-            if (fixed != text) {
-                text = fixed
-                modelRunner.invalidateConversation()
-                request.onStream?.invoke(StreamUpdate(text, null))
-            }
+        val finish = ReplyFinisher.finish(
+            text, request.message, { previousTurn() }, carriedMemo, anyExecuted, memoCalled,
+            memoAllowed = ToolNames.ADD_MEMORY in allowedTools
+        )
+        val fixed = when (finish) {
+            ReplyFinisher.Finish.Keep -> text
+            is ReplyFinisher.Finish.Rewrite -> finish.text
+            is ReplyFinisher.Finish.AppSave -> saveAnsweredMemo(request.sessionId, finish.memo, allowedTools)?.let { (reply, result) ->
+                if (result != null) messageResult = result
+                reply
+            } ?: finish.fallback
         }
-
-        // [WHY] 거절 답은 다음 턴의 모델 입력 기록에서 빠진다(ContextBuilder) — 살아 있는 대화(KV)에는 남아 있으므로 다시 만든다(exp64c).
-        // 거절을 되물은 턴은 거절을 담아 만든 대화라 이 턴 뒤에 다시 빼고 만든다(exp64d).
-        if (com.kosmos.app.domain.agent.RefusalTurns.isRefusal(text) || refusalAsked) modelRunner.invalidateConversation()
+        // [WHY] 고친 답은 살아 있는 대화(KV)의 답과 다르므로 다음 사용자 턴에 DB 히스토리로 다시 만든다.
+        if (fixed != text) {
+            text = fixed
+            modelRunner.invalidateConversation()
+            request.onStream?.invoke(StreamUpdate(text, null))
+        }
+        if (ReplyFinisher.needsRebuild(text, refusalAsked)) modelRunner.invalidateConversation()
 
         // [WHY] `prompt.currentInput` 이 아니라 원문 요청을 기록한다. 툴을 쓴 턴에서는 루프가
         // `currentInput = ""` 로 덮어쓰므로, 예전에는 **툴을 쓴 대화일수록** 감사 로그의
@@ -314,38 +306,6 @@ abstract class BaseAgent(
             recallEpisodeIds = recalled,
             result = messageResult
         )
-    }
-
-    /**
-     * 툴 실행 결과입니다.
-     *
-     * [WHY] 예전에는 JSON 문자열만 돌려줬다. 그러면 호출자가 "실제로 실행됐는가"를 알려면
-     * 그 문자열에서 `"status":"error"` 를 찾아야 하는데, 오류 JSON 을 만드는 곳이 네 군데이고
-     * 그중 하나는 공백이 다른 손수 만든 리터럴이라(`{"status": "error"...}`) 문자열 검사가
-     * 조용히 빗나간다. 실행 여부는 값으로 들고 나온다.
-     *
-     * [WHY] `succeeded` 는 `executed` 와 다르다. executor 가 실패를 예외가 아니라
-     * `{"status":"error"}` JSON 으로 돌려주면(위키 네트워크 실패가 그렇다) executed=true 인데,
-     * 예전에는 그것만 보고 searchUsed 를 켜서 **검색이 실패한 답변에 "위키백과 검색 결과를
-     * 참고했어요" 뱃지가 붙었다** — 검색 없이 만든 답을 근거 있는 답으로 오표시하는, PRD
-     * V1-AC3·EC5 를 실질 무력화하는 결함이었다. 판정은 문자열 검색이 아니라 JSON 파싱이다 —
-     * executor 출력은 전부 JSONObject 로 만들어져 형태가 균일하다.
-     */
-    private data class ToolOutcome(
-        val resultJson: String,
-        val executed: Boolean,
-        val succeeded: Boolean = executed,
-        // 사용자가 승인하지 않음(시간 초과 포함) — 루프가 고정 문장으로 끝낸다.
-        val rejected: Boolean = false,
-        // 사실 저장 가드가 막음 — 모델은 막힘 결과를 받고 먼저 묻는다.
-        val factBlocked: Boolean = false
-    ) {
-        companion object {
-            fun of(resultJson: String, executed: Boolean): ToolOutcome {
-                val succeeded = executed && !ToolResultJson.isError(resultJson)
-                return ToolOutcome(resultJson, executed, succeeded)
-            }
-        }
     }
 
     /** 지금 턴 바로 앞의 비서 말·사용자 말. 읽기 실패는 "앞 턴 없음" — 가드가 막는 쪽으로 기울 뿐이다. */
@@ -389,33 +349,14 @@ abstract class BaseAgent(
         previousAssistant: String? = null,
         guardFact: Boolean = true
     ): ToolOutcome {
-        // [WHY] allowlist가 프롬프트 텍스트에만 있으면 모델(또는 주입된 문서)이 임의 툴을 호출해도
-        // 실행되므로, 실행 시점에 반드시 재검증한다.
-        if (call.name !in allowedTools) {
-            auditTrailService.logError(sessionId, "Blocked tool call outside allowlist: ${call.name}")
-            val message = if (call.name == ToolNames.SEARCH_WIKIPEDIA) {
-                "웹 검색이 비활성화되어 있습니다. 사용자에게 채팅 화면 상단의 웹 검색 토글을 켜도록 안내하세요."
-            } else {
-                "이 에이전트에서 사용할 수 없는 도구입니다: ${call.name}"
-            }
-            return ToolOutcome(ToolResultJson.error(message), executed = false)
+        // [WHY] 가드는 실행기 조회보다 먼저다 — allowlist 밖 이름은 실행기가 있든 없든 막혀야 한다.
+        ToolCallGuards.check(call.name, allowedTools, userText, previousAssistant, guardFact)?.let { block ->
+            block.auditError?.let { auditTrailService.logError(sessionId, it) }
+            return block.outcome
         }
 
         val executor = toolRegistry.getExecutor(call.name)
             ?: return ToolOutcome(ToolResultJson.error("알 수 없는 Tool입니다: ${call.name}"), executed = false)
-
-        // [WHY] 되묻기("송장번호 다시 알려줘")에 불린 메모 저장은 승인 시트를 띄우지 않고 막는다 — 프롬프트로는 안 고쳐졌고(exp61),
-        // 시트에서 취소하면 물어본 값 대신 "메모에는 남기지 않았어요."로 끝났다. 결과 문구는 exp61c G2(막은 턴 3/3 값을 답함, 거짓 저장 주장 0).
-        if (call.name == ToolNames.ADD_MEMORY && com.kosmos.app.domain.memory.RepeatRequest.matches(userText)) {
-            return ToolOutcome(ToolResultJson.error(REPEAT_NOT_SAVE), executed = false)
-        }
-
-        // [WHY] 저장 낱말 없이 사실만 말한 턴의 메모 저장은 막고 먼저 묻게 한다 — 대화 기록에 끌린 호출이라 프롬프트로는 못 막았다(exp64, 0.38.9 결정 1).
-        if (guardFact && call.name == ToolNames.ADD_MEMORY &&
-            com.kosmos.app.domain.memory.MemoSaveIntent.shouldBlock(userText, previousAssistant)
-        ) {
-            return ToolOutcome(ToolResultJson.error(com.kosmos.app.domain.memory.MemoSaveIntent.ASK_FIRST), executed = false, factBlocked = true)
-        }
 
         // [WHY] 인자 검증 실패는 승인 전에 걸러야 한다 — 필수 인자가 없는 초안을 승인 카드로
         // 띄우면 사용자가 실행될 수 없는 요청을 승인하게 된다. 또한 누락과 타입 오류를 구분해
@@ -508,9 +449,6 @@ abstract class BaseAgent(
         // → 최종 답변(3). 줄이면 그 프로토콜이 조용히 끊긴다. 인자 오류 자가수정도 이 상한을
         // 공유한다(BAD_FORMAT 재시도).
         const val MAX_TOOL_LOOP_COUNT = 3
-
-        // exp61c G2 실측 원문.
-        const val REPEAT_NOT_SAVE = "저장하지 않았습니다. 사용자는 앞에서 말한 내용을 다시 듣고 싶어 합니다. 그 값을 답하고, 저장했다고 말하지 마세요."
 
         // 앞 턴(비서 말·그 앞 사용자 말)을 찾을 때 읽는 최근 메시지 수 — 지금 턴의 사용자 메시지·문서 블록을 넘고도 남는다.
         const val PREVIOUS_TURN_SCAN = 6

@@ -36,13 +36,15 @@ class KosmosAgent @Inject constructor(
     auditTrailService: AuditTrailService,
     conversationRepository: ConversationRepository,
     approvalCoordinator: com.kosmos.app.assistant.approval.ApprovalCoordinator,
-    private val promptAssembler: PromptAssembler
+    private val promptAssembler: PromptAssembler,
+    pendingMemos: PendingMemos = PendingMemos()
 ) : BaseAgent(
     modelRunner,
     toolRegistry,
     auditTrailService,
     conversationRepository,
-    approvalCoordinator
+    approvalCoordinator,
+    pendingMemos
 ) {
 
     override suspend fun execute(request: ChatRequest, context: ContextBuilder.Context): AgentResult {
