@@ -146,8 +146,9 @@ class PromptAssemblerTest {
         // 되돌아오면 일정 기능이 조용히 죽으므로 문구를 테스트로 고정한다.
         val instruction = prompt().systemInstruction
 
-        assertTrue(instruction.contains("Resolve relative dates and times yourself"))
-        assertTrue(instruction.contains("are NOT missing information"))
+        // 0.39.3 M1 문구 축약에 맞춤(사용자 확인 2026-10-30) — 의도("상대 날짜는 없는 정보가 아니다")는 그대로.
+        assertTrue(instruction.contains("Compute dates and times yourself"))
+        assertTrue(instruction.contains("are not missing"))
         assertTrue(instruction.contains("Optional parameters are never a reason to ask"))
         assertFalse(
             "예전 문구가 되살아나면 모델이 상대 날짜를 되묻는다",
@@ -157,12 +158,13 @@ class PromptAssemblerTest {
 
     @Test
     fun `날짜 규칙이 가리키는 위치에 실제로 날짜 블록이 있다`() {
-        // [WHY] 규칙은 "the [System Data] values above" 라고 같은 시스템 지시 안을 가리킨다.
+        // [WHY] 규칙은 "[System Data] above" 라고 같은 시스템 지시 안을 가리킨다.
         // 블록이 이 문구보다 뒤에 오거나 아예 다른 메시지로 옮겨지면 규칙이 무력해진다.
         val instruction = prompt().systemInstruction
         // [WHY] 표지 글자만 바꿨다 — exp41 에서 Today 줄을 오늘= 줄로 합쳤다(사용자 확인 후 단언 수정).
         val blockAt = instruction.indexOf("[System Data] 오늘=")
-        val ruleAt = instruction.indexOf("[System Data] values above")
+        // 0.39.3 M1 문구 축약("from [System Data] above")에 맞춤(사용자 확인 2026-10-30).
+        val ruleAt = instruction.indexOf("[System Data] above")
 
         assertTrue("날짜 블록이 없다", blockAt >= 0)
         assertTrue("규칙 문구가 없다", ruleAt >= 0)

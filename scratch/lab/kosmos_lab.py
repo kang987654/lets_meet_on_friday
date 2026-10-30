@@ -42,8 +42,8 @@ def add_schedule(title: str, start_time: str, end_time: str | None, memo: str | 
     """사용자의 캘린더에 일정을 추가한다.
 
     Args:
-        title: 일정 제목. 예: '치과 예약'
-        start_time: 시작 시각. ISO 8601 형식. 예: '2026-08-07T15:00:00'
+        title: 일정 제목.
+        start_time: 시작 시각. ISO 8601 형식.
         end_time: 종료 시각. ISO 8601 형식. 모르면 시작 1시간 뒤.
         memo: 메모. 없으면 빈 문자열.
     """
@@ -54,7 +54,7 @@ def get_schedule(date: str) -> dict:
     """사용자의 캘린더 일정을 조회한다.
 
     Args:
-        date: 조회 범위. 반드시 'today' 또는 'week' 중 하나만 쓴다. 내일·모레·이번주·다음주처럼 오늘이 아닌 날을 물으면 'week' 를 쓴다. 다른 값은 쓰지 않는다.
+        date: 반드시 'today' 또는 'week'. 오늘이 아닌 날(내일·모레·다음주)은 'week'. 다른 값은 쓰지 않는다.
     """
     raise NotImplementedError("툴 실행은 하네스 밖에서 주입한다")
 
@@ -70,7 +70,7 @@ def add_memory(content: str, tags: list[str]) -> dict:
 
 
 def search_memory(keyword: str) -> dict:
-    """사용자가 이전에 저장해 둔 기억(메모)에서 찾는다. 추측해서 답하지 말고 이 도구로 확인한다.
+    """저장해 둔 메모에서 찾는다.
 
     Args:
         keyword: 찾을 핵심 키워드. 문장이 아니라 명사 위주의 짧은 단어로 쓴다. 예: '자전거 비밀번호', '와이파이', '알레르기'

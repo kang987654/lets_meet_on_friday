@@ -221,13 +221,10 @@ class PromptAssembler @Inject constructor() {
             }
         }
         // [WHY] "above" 는 [System Data] 날짜 블록을 가리킨다 — 블록을 옮기면 이 문구도 옮겨야 한다. 마지막 문장은 직전
-        // 턴의 "내일"에 날짜 없는 시각이 끌려가는 것을 막는다(exp39c).
+        // 턴의 "내일"에 날짜 없는 시각이 끌려가는 것을 막는다(exp39c). 0.39.3 M1 에서 78 → 39토큰으로 줄였다(exp68 — 회귀 세트 새로 깨진 것 0).
         appendLine(
-            "Resolve relative dates and times yourself from the [System Data] values above — " +
-                "\"내일\", \"모레\", \"다음주 월요일\", \"오후 3시\" are NOT missing information. " +
-                "Compute the absolute ISO 8601 value and call the tool. " +
-                "Never ask the user to restate a date you can compute. " +
-                "A time with no date word means today."
+            "Compute dates and times yourself from [System Data] above " +
+                "(\"내일\", \"모레\", \"오후 3시\" are not missing). A time with no date word means today."
         )
         // [WHY] "모르면 묻는다"류 문구는 상대 날짜·선택 파라미터(end_time)까지 '없는 정보'로 보게 해 일정 등록을 막았다 —
         // 물어도 되는 경우를 필수 파라미터로 좁힌다.

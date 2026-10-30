@@ -97,10 +97,12 @@ object KosmosToolDeclarations {
         // 규칙(PromptAssembler.buildFormatBlock)과 중복이었다 — add_reminder 추가 예산을 여기서
         // 회수했다(선언 다이어트, exp34b: 다이어트+신규 합산 순증 52토큰, 스모크 8/8 유지).
         // AddMemory·SearchMemory·SearchWikipedia 의 같은 자리 문장들도 동일하게 깎았다.
+        // [WHY] 제목·시작 시각의 예시를 뺐다 — 형식은 "ISO 8601" 과 시스템 지시가 말하고, 틀리면 인자 검증(BAD_FORMAT)이 예시와 함께 되돌린다
+        // (0.39.3 M1 exp68: −28토큰, 회귀 세트 새로 깨진 것 0).
         @Tool(description = "사용자의 캘린더에 일정을 추가한다.")
         fun addSchedule(
-            @ToolParam(description = "일정 제목. 예: '치과 예약'") title: String,
-            @ToolParam(description = "시작 시각. ISO 8601 형식. 예: '2026-08-07T15:00:00'") startTime: String,
+            @ToolParam(description = "일정 제목.") title: String,
+            @ToolParam(description = "시작 시각. ISO 8601 형식.") startTime: String,
             @ToolParam(description = "종료 시각. ISO 8601 형식. 모르면 시작 1시간 뒤.") endTime: String?,
             @ToolParam(description = "메모. 없으면 빈 문자열.") memo: String?
         ): Map<String, Any> = notExecutedHere()
@@ -111,11 +113,11 @@ object KosmosToolDeclarations {
         // 보냈다(PC 실험). 실행부는 "week" 포함 여부만 보므로 그런 값은 조용히 **오늘** 일정을
         // 반환했다 — 내일을 물으면 오늘이 나오는 버그. 설명으로 값을 좁히고, 실행부에서도
         // today 가 아니면 주간으로 넓히도록 함께 고쳤다(GetScheduleToolExecutor).
+        // [WHY] 0.39.3 M1 에서 줄였다(53 → 34토큰) — "반드시 … 다른 값은 쓰지 않는다"까지 빼면 다시 'tomorrow'·'모레'가 나왔다(exp68b 4/6, 남기면 6/6).
         @Tool(description = "사용자의 캘린더 일정을 조회한다.")
         fun getSchedule(
             @ToolParam(
-                description = "조회 범위. 반드시 'today' 또는 'week' 중 하나만 쓴다. " +
-                    "내일·모레·이번주·다음주처럼 오늘이 아닌 날을 물으면 'week' 를 쓴다. 다른 값은 쓰지 않는다."
+                description = "반드시 'today' 또는 'week'. 오늘이 아닌 날(내일·모레·다음주)은 'week'. 다른 값은 쓰지 않는다."
             ) date: String
         ): Map<String, Any> = notExecutedHere()
     }
@@ -136,7 +138,8 @@ object KosmosToolDeclarations {
         // 뭐였지?" → 조사·어미 바이그램이 점수를 오염). 모델이 "자전거 비밀번호"만 뽑아 주면
         // 정확히 맞는다 — 한국어 이해는 이미 모델이 하고 있으므로 질의어 추출을 그쪽에 맡기는
         // 설계다 (ADR-013). 문구는 예산 실측 대상(exp34b) — 바꾸려면 재실측이 선행된다.
-        @Tool(description = "사용자가 이전에 저장해 둔 기억(메모)에서 찾는다. 추측해서 답하지 말고 이 도구로 확인한다.")
+        // [WHY] 툴 설명의 "추측해서 답하지 말고 이 도구로 확인한다"는 시스템 지시의 회상 트리거 규칙과 겹쳐 뺐다(0.39.3 M1 exp68: −20토큰, 회귀 newval·repeat 그대로).
+        @Tool(description = "저장해 둔 메모에서 찾는다.")
         fun searchMemory(
             @ToolParam(
                 description = "찾을 핵심 키워드. 문장이 아니라 명사 위주의 짧은 단어로 쓴다. " +
