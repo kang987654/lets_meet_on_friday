@@ -408,6 +408,26 @@ class ScreenCatalogTest {
         }
     }
 
+    /** 헤더 별·캡슐 네 상태와 엔진 오류 때의 상태 시트 본문(0.39.3 M3) — 실기기에서 발열·엔진 오류를 일부러 만들기 어려워 여기서만 본다. */
+    @Test fun chatHeaderStates() {
+        val warm = com.kosmos.app.runtime.metrics.DeviceStatus(temperatureCelsius = 43f, appMemoryBytes = 6_500_000_000L)
+        val error = ModelLoadState.Error(com.kosmos.app.core.common.AppError.ModelLoadFailed("x"))
+        shoot("37-chat-header-states") {
+            androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
+                com.kosmos.app.feature.chat.CustomChatHeader(engineState = ModelLoadState.Ready(MODEL), deviceStatus = warm.copy(temperatureCelsius = 36f))
+                com.kosmos.app.feature.chat.CustomChatHeader(engineState = ModelLoadState.Ready(MODEL), deviceStatus = warm, warningMessage = "기기가 따뜻해져 답이 조금 늦을 수 있어요.")
+                com.kosmos.app.feature.chat.CustomChatHeader(engineState = error, deviceStatus = warm.copy(temperatureCelsius = 36f))
+                com.kosmos.app.feature.chat.CustomChatHeader(engineState = ModelLoadState.NotFound("/m"), deviceStatus = warm.copy(temperatureCelsius = 36f))
+                com.kosmos.app.feature.chat.StatusDetailContent(
+                    engineState = error,
+                    status = warm.copy(temperatureCelsius = 36.2f, memoryUsedBytes = 9_100_000_000L, memoryTotalBytes = 11_200_000_000L),
+                    warningMessage = null,
+                    onRetry = {}
+                )
+            }
+        }
+    }
+
     /** 첫 화면(0.38.2 M7b) — 대화 기록이 하나도 없을 때(처음 쓸 때·초기화 후). 타임라인은 세션과 무관하다(ADR-022). */
     @Test fun chatEmpty() {
         kotlinx.coroutines.runBlocking { dataResetRepository.reset(setOf(com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS)) }

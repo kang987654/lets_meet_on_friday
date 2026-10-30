@@ -536,7 +536,8 @@ fun ChatScreen(
             engineState = uiState.engineState,
             status = uiState.deviceStatus,
             warningMessage = uiState.warningMessage,
-            onDismiss = { showStatusSheet = false }
+            onDismiss = { showStatusSheet = false },
+            onRetry = viewModel::retryEngine
         )
     }
 

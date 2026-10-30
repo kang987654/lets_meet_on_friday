@@ -295,6 +295,11 @@ class ChatViewModel @Inject constructor(
     /** 문서 파일을 읽는 중 — 입력바 안내. */
     val attachmentExtracting: StateFlow<Boolean> = shareIntentHandler.extracting
 
+    /** 상태 시트의 "다시 시도" — 설정의 다시 시도와 같은 경로(warmUp 은 파일 재탐색 포함, 엔진이 살아 있으면 건너뛴다). */
+    fun retryEngine() {
+        viewModelScope.launch { modelRunner.warmUp() }
+    }
+
     private fun observeThermalWarning() {
         viewModelScope.launch {
             runtimeMetricsCollector.thermalWarning.collectLatest { warning ->

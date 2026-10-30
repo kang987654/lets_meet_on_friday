@@ -104,12 +104,14 @@ fun CustomChatHeader(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // [WHY] 발열 경고 시 캡슐이 warning 색으로 승격된다 — 상시 스트립을 없애도 발열
-        // 가시성은 유지해야 한다 (기존 스트립의 경고 합류 설계를 캡슐이 승계).
-        val capsule = formatStatusCapsule(deviceStatus)
-        if (capsule.isNotEmpty() || warningMessage != null) {
-            val warning = warningMessage != null
-            val capsuleColor = if (warning) KosmosTheme.colors.warningText else KosmosTheme.colors.textSecondary
+        // [WHY] 별이 노랑·빨강이면 캡슐 글자가 원인을 말한다 — 별 색만으로는 왜인지 알 수 없었다(0.39.3 M3). 수치는 시트에.
+        val capsule = capsuleContent(engineState, deviceStatus, warningMessage != null)
+        if (capsule != null) {
+            val capsuleColor = when (capsule.tone) {
+                CapsuleTone.DANGER -> KosmosTheme.colors.dangerText
+                CapsuleTone.WARNING -> KosmosTheme.colors.warningText
+                CapsuleTone.NORMAL -> KosmosTheme.colors.textSecondary
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -119,9 +121,9 @@ fun CustomChatHeader(
                     .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "기기 상태 보기", onClick = onStatusClick)
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             ) {
-                if (warning || deviceStatus.temperatureCelsius > 0f) {
+                capsule.icon?.let {
                     com.kosmos.app.ui.component.KosmosIcon(
-                        if (warning) com.kosmos.app.R.drawable.ic_ph_warning else com.kosmos.app.R.drawable.ic_ph_thermometer,
+                        it,
                         contentDescription = null,
                         size = 14.dp,
                         tint = capsuleColor,
@@ -129,7 +131,7 @@ fun CustomChatHeader(
                     )
                 }
                 Text(
-                    text = if (warning) capsule.ifEmpty { "발열 주의" } else capsule,
+                    text = capsule.text,
                     color = capsuleColor,
                     style = MaterialTheme.typography.labelSmall
                 )
@@ -147,46 +149,110 @@ fun StatusDetailSheet(
     engineState: ModelLoadState,
     status: com.kosmos.app.runtime.metrics.DeviceStatus,
     warningMessage: String?,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onRetry: () -> Unit = {}
 ) {
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = KosmosTheme.colors.surface,
         dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() }
     ) {
-        Column(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+        StatusDetailContent(engineState, status, warningMessage, onRetry)
+    }
+}
+
+/** 상태 시트의 본문 — 엔진이 멈췄으면 원인 문장과 "다시 시도"가 맨 위(0.39.3 M3). 시트 없이 화면 기준 이미지로도 찍는다. */
+@Composable
+internal fun StatusDetailContent(
+    engineState: ModelLoadState,
+    status: com.kosmos.app.runtime.metrics.DeviceStatus,
+    warningMessage: String?,
+    onRetry: () -> Unit
+) {
+    Column(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+        Text(
+            text = "기기 상태",
+            style = MaterialTheme.typography.titleMedium,
+            color = KosmosTheme.colors.textPrimary
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        engineProblem(engineState)?.let { (title, reason) ->
             Text(
-                text = "기기 상태",
-                style = MaterialTheme.typography.titleMedium,
-                color = KosmosTheme.colors.textPrimary
+                text = title,
+                color = KosmosTheme.colors.dangerText,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = reason, color = KosmosTheme.colors.textSecondary, style = MaterialTheme.typography.bodySmall)
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = formatDeviceStatus(status).ifEmpty { "수치를 수집하는 중이에요." },
-                color = KosmosTheme.colors.textSecondary,
-                style = MaterialTheme.typography.bodyMedium
-            )
+            com.kosmos.app.ui.component.KosmosButton("다시 시도", onRetry, Modifier.fillMaxWidth())
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+        Text(
+            text = formatDeviceStatus(status).ifEmpty { "수치를 수집하는 중이에요." },
+            color = KosmosTheme.colors.textSecondary,
+            style = MaterialTheme.typography.bodyMedium
+        )
+        val engineLabel = when (engineState) {
+            is ModelLoadState.Ready -> "엔진 준비됨 (${com.kosmos.app.ui.modelDisplayName(engineState.modelInfo.modelId)})"
+            is ModelLoadState.Error, is ModelLoadState.NotFound -> null
+            else -> "엔진 준비 중"
+        }
+        engineLabel?.let {
             Spacer(modifier = Modifier.height(8.dp))
-            val engineLabel = when (engineState) {
-                is ModelLoadState.Ready -> "엔진 준비됨 (${com.kosmos.app.ui.modelDisplayName(engineState.modelInfo.modelId)})"
-                is ModelLoadState.Error -> "엔진 오류"
-                is ModelLoadState.NotFound -> "모델 파일 없음"
-                else -> "엔진 준비 중"
-            }
             Text(
-                text = engineLabel,
+                text = it,
                 color = KosmosTheme.colors.textMuted,
                 style = MaterialTheme.typography.bodySmall
             )
-            if (warningMessage != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = warningMessage,
-                    color = KosmosTheme.colors.warningText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
-                )
-            }
+        }
+        if (warningMessage != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = warningMessage,
+                color = KosmosTheme.colors.warningText,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+/** 엔진이 멈춘 이유 — (제목, 원인 문장). 시작 화면과 같은 문구(ErrorMessages). 멈추지 않았으면 null. */
+internal fun engineProblem(state: ModelLoadState): Pair<String, String>? = when (state) {
+    is ModelLoadState.Error -> "AI 엔진을 올리지 못했어요" to com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error)
+    is ModelLoadState.NotFound -> "AI 모델 파일이 없어요" to
+        com.kosmos.app.core.mapper.ErrorMessages.userMessage(com.kosmos.app.core.common.AppError.ModelNotFound(state.expectedPath))
+    else -> null
+}
+
+internal enum class CapsuleTone { NORMAL, WARNING, DANGER }
+
+/** 헤더 캡슐의 글자·색·아이콘. */
+internal data class CapsuleContent(val text: String, val tone: CapsuleTone, @androidx.annotation.DrawableRes val icon: Int?)
+
+/**
+ * 캡슐에 무엇을 쓸까 — 엔진이 멈췄으면 "엔진 오류"/"모델 없음", 발열 경고면 "발열 주의 43°", 아니면 온도·메모리 수치. 쓸 것이 없으면 null.
+ *
+ * [WHY] 원인이 수치보다 먼저다 — 별이 빨개도 캡슐은 회색 수치 그대로라 이유를 알 수 없었다(0.39.3 M3). 엔진 정지가 발열보다 먼저(답을 못 한다).
+ */
+internal fun capsuleContent(
+    engineState: ModelLoadState,
+    status: com.kosmos.app.runtime.metrics.DeviceStatus,
+    heatWarning: Boolean
+): CapsuleContent? {
+    val stop = com.kosmos.app.R.drawable.ic_ph_warning_circle
+    return when {
+        engineState is ModelLoadState.Error -> CapsuleContent("엔진 오류", CapsuleTone.DANGER, stop)
+        engineState is ModelLoadState.NotFound -> CapsuleContent("모델 없음", CapsuleTone.DANGER, stop)
+        heatWarning -> CapsuleContent(
+            if (status.temperatureCelsius > 0f) "발열 주의 %.0f°".format(status.temperatureCelsius) else "발열 주의",
+            CapsuleTone.WARNING,
+            com.kosmos.app.R.drawable.ic_ph_warning
+        )
+        else -> formatStatusCapsule(status).takeIf { it.isNotEmpty() }?.let {
+            CapsuleContent(it, CapsuleTone.NORMAL, if (status.temperatureCelsius > 0f) com.kosmos.app.R.drawable.ic_ph_thermometer else null)
         }
     }
 }
