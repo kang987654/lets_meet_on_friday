@@ -319,8 +319,47 @@ def set_iso():
     return out
 
 
+HELPED = [  # (사용자 말, 실제로 도운 답 — 거절 판정식에 걸림, 다음 질문, 답에 있어야 할 것)
+    ("요즘 두통이 자주 와", "정확한 진단은 해 드릴 수 없지만, 물을 충분히 마시고 화면을 오래 보지 않는 게 도움이 돼요. 계속되면 병원에 가 보세요.",
+     "아까 말한 방법 중 첫 번째가 뭐였지?", "물"),
+    ("치과 예약 번호는 A-302야, 치과에 전화 좀 해줄래?", "전화를 직접 걸어 드릴 수는 없지만, 예약 번호 A-302로 문의하시면 돼요.",
+     "그럼 문의할 때 번호를 뭐라고 말하면 돼?", "A-302"),
+    ("주식 처음인데 뭐부터 하면 돼?", "투자 조언은 드릴 수 없지만 분산 투자가 일반적인 원칙이에요. 소액으로 시작해 보세요.",
+     "방금 말한 원칙 이름이 뭐였더라?", "분산"),
+]
+# 버스 도착처럼 원래 못 하는 일은 넣지 않는다 — 거절을 빼도 거절했다(0.39.2 M0 대조).
+EVERYDAY_WHY = ["요즘 왜 못 자는 걸까?", "다이어트가 왜 안 될까?", "와이파이가 왜 안 돼?", "알림이 왜 안 울렸지?"]
+NEW_AGAIN = [  # (옛 사실, 새 값을 알려 주는 말 — 되묻기 판정식에 걸림, 새 값, 옛 값)
+    ("내 사물함 번호는 214번이야", "사물함 번호 바뀌어서 다시 알려줄게, 215번이야", "215", "214"),
+    ("주차는 지하 2층 C-14에 했어", "다시 말해 두는데 주차는 C-15로 옮겼어", "C-15", "C-14"),
+]
+RECALL_WORD = [("회의실 어디였는지 기억나?", "5층"), ("자전거 비밀번호 기억나?", "4821")]  # 저장 낱말("기억")이 든 묻는 말 — 사실 가드가 안 막는다
+
+
+def set_overlap():
+    """장치끼리 겹치는 말(0.39.2 M0) — 판정식이 의도 밖의 말에 걸릴 때 답이 실제로 나빠지는가."""
+    out = []
+    for u, a, q, key in HELPED:  # 거절 판정 → 도운 답이 모델 기록에서 빠짐
+        ans, _, _, _ = turn(BEFORE + [M("user", u), M("model", a)], q)
+        out.append((f"도운 답 {q}", key in ans.replace(" ", ""), ans[:60]))
+    pair = [M("user", REFUSAL[0]), M("model", REFUSAL[1])]
+    for q in EVERYDAY_WHY:  # 거절 되묻기 판정 → 거절이 모델 기록에 남음
+        ans, _, _, _ = turn(BEFORE + pair, q)
+        out.append((f"일상 왜 {q}", not REFUSE.search(ans), ans[:60]))
+    for fact, q, new, old in NEW_AGAIN:  # 되묻기 판정 → "앞의 값을 답하라"
+        h = [M("user", fact), M("model", "메모해 둘까요?"), M("user", "아니 됐어"), M("model", "알겠어요.")]
+        ans, ex, bl, _ = turn(h, q)
+        ok = new in ans and not re.search(re.escape(old) + r"\S{0,2}(이에요|예요|입니다)", ans)
+        out.append((f"새 값 {q}", ok, f"실행 {[n for n, _ in ex]} 막힘 {bl} | {ans[:50]}"))
+    for q, key in RECALL_WORD:  # 저장 낱말 → 사실 가드 통과
+        ans, ex, bl, _ = turn(fact_history(3), q)
+        ok = not any(n == "add_memory" for n, _ in ex) and key in ans
+        out.append((f"묻는 말 {q}", ok, f"실행 {[n for n, _ in ex]} 막힘 {bl} | {ans[:50]}"))
+    return out
+
+
 SETS = {"smoke": set_smoke, "save": set_save, "fact": set_fact, "yes": set_yes, "drift": set_drift,
-        "why": set_why, "newval": set_newval, "repeat": set_repeat, "iso": set_iso}
+        "why": set_why, "newval": set_newval, "repeat": set_repeat, "iso": set_iso, "overlap": set_overlap}
 
 
 def main():
