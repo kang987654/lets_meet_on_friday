@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.39.0 · 2026-10-29. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.39.2 · 2026-10-30. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 > **Note — the app is Korean-only for now.** The screens, the assistant's instructions and the read-aloud voice are all Korean.
 > An English version of the app is planned. Until then, this guide is mainly for understanding, building and running the project.
@@ -51,7 +51,7 @@ Requested only when needed. Everything else keeps working if you decline.
 | "다음 주 월요일 10시에 팀 회의 잡아줘" (team meeting next Monday at 10) | A confirmation sheet → tap Add to save it to the app and the device calendar |
 | "30분 뒤에 물 마시라고 알려줘" (remind me to drink water in 30 min) | A reminder confirmation sheet → it rings on time |
 | "내 자전거 비밀번호 4821이야 기억해줘" (remember my bike code is 4821) | A note confirmation sheet |
-| "내 사물함 번호는 214번이야" (stating a fact, no request to save) | It does not save; it asks "메모해 둘까요?" (shall I note it?) → reply "응" (yes) to get the confirmation sheet |
+| "내 사물함 번호는 214번이야" (stating a fact, no request to save) | It does not save; it asks "메모해 둘까요?" (shall I note it?) → reply "응" (yes) to get the confirmation sheet; say anything else and nothing is saved |
 | "자전거 비밀번호 뭐였지?" (what was my bike code?) | It searches notes and past conversations and shows the source as a card |
 
 - **Confirmation sheets** cancel themselves after one minute. If cancelled, it briefly says nothing was saved.
