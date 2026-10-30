@@ -60,7 +60,8 @@ class VoiceTranscriptionFailureTest {
             // [WHY] relaxed — 이 테스트의 관심사는 전사 실패 경로이고, 경계 판정(null 반환)은
             // "미배정 저장" 폴백이라 기존 단언에 영향이 없다.
             episodeBoundaryManager = mockk(relaxed = true),
-            episodeSummarizeScheduler = mockk(relaxed = true)
+            episodeSummarizeScheduler = mockk(relaxed = true),
+            conversationPrewarmer = mockk(relaxed = true)
         )
     }
 

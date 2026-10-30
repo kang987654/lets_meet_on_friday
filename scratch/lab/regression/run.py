@@ -8,6 +8,7 @@
   python regression/run.py                 # 전부, baseline.json 과 비교
   python regression/run.py --sets=fact,yes # 일부만
   python regression/run.py --save-baseline # 이번 결과를 기준으로 저장(사람이 결과를 확인한 뒤에만)
+  python regression/run.py --prewarm       # 답 직후 미리 프리필한 대화로(앱 0.39.2 M3) — 기준과 비교
 결과: regression/last_run.json(커밋 안 함), 기준과의 차이와 "기준에서 새로 깨진 것"을 출력.
 흔들림: 같은 날 두 번 돌려도 세트당 ±1 이 움직였다(0.39.0 M0 — 거절 따라 하기 9→10, ISO 6→5). 날짜가 시스템 지시에 들어가므로 날이 바뀌어도 흔들린다.
 그래서 점수 하나로 판정하지 말고, 새로 깨진 항목의 답을 사람이 읽어 행동이 실제로 나빠졌는지 본다.
@@ -117,13 +118,25 @@ def current_lines(history, keyword):
     return "".join(f"- (방금 이 대화) {u}\n" for u in picked[:2])
 
 
+PREWARM = "--prewarm" in sys.argv
+
+
+def open_conversation(hist, tools, sysm):
+    """앱의 대화 만들기. --prewarm: 답 직후 미리 만들기(0.39.2 M3, exp66d) — 기록[:-1]로 만들고 마지막 비서 답을 모델 메시지로 send(출력 상한 1)."""
+    if PREWARM and hist and hist[-1]["role"] == "model":
+        conv = K.create_chat_conversation(engine(), history=hist[:-1], tools=tools, system_message=sysm)
+        conv.send_message(llm.Message.model(llm.Contents([llm.Content.Text(hist[-1]["content"])])), max_output_tokens=1)
+        return conv
+    return K.create_chat_conversation(engine(), history=hist or None, tools=tools, system_message=sysm)
+
+
 def turn(history, user, sysm=SYS_OFF, tools=None, search_body=None, why=False):
     """앱의 한 턴 — 돌려주는 값: 답, 실행된 툴 [(이름, 인자)], 가드가 막은 툴 [이름], 첫 호출(가드 전)."""
     tools = tools if tools is not None else TOOLS_OFF
     prev_model = next((m["content"] for m in reversed(history or []) if m["role"] == "model"), None)
     hist = model_history((history or []) + [M("user", user)])[:-1] if not why else history
     executed, blocked, first = [], [], None
-    with K.create_chat_conversation(engine(), history=hist or None, tools=tools, system_message=sysm) as conv:
+    with open_conversation(hist, tools, sysm) as conv:
         res = conv.send_message(K.with_turn_reminder(user))
         for _ in range(3):
             calls = res.get("tool_calls") or []

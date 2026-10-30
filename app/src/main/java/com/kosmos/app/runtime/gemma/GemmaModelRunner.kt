@@ -15,6 +15,7 @@ import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.common.runCatchingCancellable
+import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ConversationResetEvent
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
@@ -109,6 +110,9 @@ class GemmaModelRunner @Inject constructor(
         // [WHY] 무활동 감시의 점검 주기. 타임아웃(INFERENCE_INACTIVITY_TIMEOUT_MS)보다 충분히
         // 짧기만 하면 되고, 짧을수록 Default 디스패처를 자주 깨운다.
         private const val WATCHDOG_TICK_MS = 1_000L
+
+        // [WHY] 0 이어도 한 토큰을 쓰고 멈췄다(exp66d) — 같은 동작이면 의도가 드러나는 1.
+        private const val PREFILL_ONLY_TOKENS = 1
     }
 
     override val loadState: StateFlow<ModelLoadState> = runtimeManager.loadState
@@ -383,6 +387,37 @@ class GemmaModelRunner @Inject constructor(
         } catch (e: Exception) {
             currentCoroutineContext().ensureActive()
             AppResult.Failure(AppError.ModelInferenceError("$failureMessage: ${e.message}"))
+        }
+    }
+
+    override suspend fun prepareConversation(prompt: ChatPrompt) = withContext(llmDispatcher) {
+        if (prompt.oneShot || loadState.value !is ModelLoadState.Ready) return@withContext
+        try {
+            lifecycleMutex.withLock {
+                // [WHY] 새 요청이 시작됐으면(호출자가 이 코루틴을 취소) 손대지 않는다 — 툴 호출과 그 회신 사이에 대화를 바꾸면 회신이
+                // 엉뚱한 대화로 간다(0.8.5). 잠금을 바로 얻는 경로는 취소를 보지 않으므로 여기서 본다.
+                currentCoroutineContext().ensureActive()
+                val readyEngine = engine
+                if (loadState.value !is ModelLoadState.Ready || readyEngine == null) return@withLock
+                // [WHY] 발열 한도면 미리 하지 않는다 — 다음 턴이 지금처럼 만든다.
+                if (metricsCollector.checkPreconditions() is AppResult.Failure) return@withLock
+                val last = prompt.history.lastOrNull()?.takeIf { it.role == ChatMessage.Role.ASSISTANT }
+                val before = conversation
+                // [WHY] 마지막 비서 답을 빼고 만든 뒤 모델 메시지로 보낸다 — 대화 생성은 문법 준비뿐이고 히스토리는 첫 send 에서 읽히므로(exp66b),
+                // 이 send 가 프리필을 지금 치른다. 출력 상한 1 이라 한 토큰 쓰고 멈춘다(그 한 토큰은 KV 에 남는다 — 회귀 세트로 확인, exp66d·e).
+                val built = getOrCreateConversation(readyEngine, if (last != null) prompt.copy(history = prompt.history.dropLast(1)) else prompt)
+                if (built === before || last == null) return@withLock
+                cancellation.begin(built)
+                val sent = runCatching {
+                    built.sendMessage(Message.model(Contents.of(Content.Text(last.content))), thinkingConfig = THINKING_OFF, maxOutputToken = PREFILL_ONLY_TOKENS)
+                }
+                // [WHY] 실패·중지 맞은 대화는 상태를 알 수 없다 — 버리면 다음 턴이 지금처럼 DB 기록으로 만든다.
+                if (cancellation.end(built) || sent.isFailure) discardCachedConversation()
+                else Log.d("GemmaModelRunner", "대화 미리 준비: 히스토리 ${prompt.history.size}개")
+            }
+        } catch (e: Exception) {
+            currentCoroutineContext().ensureActive()
+            Log.w("GemmaModelRunner", "대화 미리 준비 실패 — 다음 턴이 만든다: ${e.message}")
         }
     }
 

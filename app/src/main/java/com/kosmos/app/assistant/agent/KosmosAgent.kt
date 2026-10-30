@@ -53,11 +53,32 @@ class KosmosAgent @Inject constructor(
             context = context,
             userInput = request.message,
             availableTools = tools,
-            // [WHY] 역할을 "대화·추천·조언도 하는" 비서로 — 툴 지시만 있으면 점심 추천·요리법을 "그런 기능은 없어요"로 거절했다(exp58b 9/12 → 1/12, +12토큰).
-            systemRole = "personal assistant named Kosmos who also chats, recommends and gives advice from your own knowledge",
+            systemRole = SYSTEM_ROLE,
             documentAttached = request.documentText != null
         )
         return executeToolLoop(request, initialPrompt, tools)
+    }
+
+    /**
+     * 다음 턴과 같은 지시·툴·기록으로 대화를 미리 준비한다(0.39.2 M3) — 다시 만들 필요가 없으면 모델 런너가 아무것도 하지 않는다.
+     *
+     * [WHY] 거절 턴은 여기서 뺀다 — 기록의 마지막 사용자 말이 거절 되묻기면 [ContextBuilder] 가 거절을 남기지만, 다음 말은 보통 되묻기가 아니다.
+     * 다음 말이 다시 되묻기면 그 턴 시작에서 다시 만든다(BaseAgent).
+     */
+    suspend fun prepareNextTurn(context: ContextBuilder.Context) {
+        val tools = availableTools(context)
+        val prompt = promptAssembler.assembleWithTools(
+            context = context.copy(recentConversations = com.kosmos.app.domain.agent.RefusalTurns.dropFrom(context.recentConversations)),
+            userInput = "",
+            availableTools = tools,
+            systemRole = SYSTEM_ROLE
+        )
+        modelRunner.prepareConversation(prompt.copy(enabledTools = tools))
+    }
+
+    private companion object {
+        // [WHY] 역할을 "대화·추천·조언도 하는" 비서로 — 툴 지시만 있으면 점심 추천·요리법을 "그런 기능은 없어요"로 거절했다(exp58b 9/12 → 1/12, +12토큰).
+        const val SYSTEM_ROLE = "personal assistant named Kosmos who also chats, recommends and gives advice from your own knowledge"
     }
 
     // [WHY] 웹 검색만 토글로 게이트한다 — 프라이버시 우선 원칙에 따라 사용자가 켠 경우에만

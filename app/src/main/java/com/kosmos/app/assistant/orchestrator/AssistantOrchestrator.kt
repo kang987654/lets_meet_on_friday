@@ -22,7 +22,7 @@ import javax.inject.Inject
  * 2. [ContextBuilder]를 통한 대화 기록 로드 (Token Sliding Window 적용)
  * 3. [PromptAssembler]로 최종 프롬프트 조립
  * 4. [com.kosmos.app.assistant.agent.KosmosAgent] 에 위임 — 툴 루프·최종 응답 저장은 에이전트 몫
- * 5. 턴 종료 후 에피소드 요약 드레인을 건다 (fire-and-forget)
+ * 5. 턴 종료 후 에피소드 요약 드레인을 걸고, 다음 턴의 대화를 미리 준비한다 (둘 다 fire-and-forget)
  */
 class AssistantOrchestrator @Inject constructor(
     private val conversationRepository: ConversationRepository,
@@ -31,13 +31,16 @@ class AssistantOrchestrator @Inject constructor(
     private val agent: com.kosmos.app.assistant.agent.KosmosAgent,
     private val transcribeAudioUseCase: com.kosmos.app.domain.usecase.TranscribeAudioUseCase,
     private val episodeBoundaryManager: com.kosmos.app.assistant.episode.EpisodeBoundaryManager,
-    private val episodeSummarizeScheduler: com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
+    private val episodeSummarizeScheduler: com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler,
+    private val conversationPrewarmer: ConversationPrewarmer
 ) {
     private val messageWriter = AssistantMessageWriter(conversationRepository, auditTrailService)
 
     suspend fun processRequest(request: ChatRequest): AgentResult {
         // [WHY] 사용자가 말하는 중이다 — 조용해지기를 기다리던 요약을 미룬다(0.39.1, 이미 도는 요약은 그대로).
         episodeSummarizeScheduler.onUserActivity()
+        // [WHY] 지난 턴 뒤의 대화 준비가 아직 엔진에 닿지 않았으면 멈춘다 — 이 턴의 툴 호출과 회신 사이에 끼면 안 된다(0.39.2 M3).
+        conversationPrewarmer.onUserActivity()
         // 1. 음성이면 먼저 전사한다.
         //
         // [WHY] 예전에는 사용자 메시지를 `"(음성 메시지)"` 로 저장하고 오디오를 그대로 대화에
@@ -116,6 +119,8 @@ class AssistantOrchestrator @Inject constructor(
         // [WHY] 턴이 끝났다 — 이대로 조용하면 미뤄둔 에피소드 요약을 돌린다(바로 돌리면 이어 보낸 질문이 그 뒤에서 기다렸다, 0.39.1).
         // fire-and-forget 이라 반환을 막지 않는다 (ADR-022, EpisodeSummarizeScheduler [WHY] 참조).
         episodeSummarizeScheduler.onTurnCompleted()
+        // [WHY] 다시 만들어야 할 대화면(거절·고친 답·예산 초과 등) 답을 읽는 동안 미리 만든다(0.39.2 M3, ConversationPrewarmer).
+        conversationPrewarmer.afterTurn(request.sessionId)
         return result
     }
 
