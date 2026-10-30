@@ -38,9 +38,14 @@ object MemoSaveIntent {
     /** 짧은 긍정 한마디인가("응", "그래 부탁해") — 저장 물음에 대한 답으로만 쓴다. */
     fun isYes(userText: String): Boolean = YES.matches(userText.trim().trimEnd { !it.isLetterOrDigit() })
 
-    /** 모델이 부른 메모 저장을 막을까 — 사용자가 부탁하지도, 비서가 물어 승낙받지도 않았으면 막는다. */
+    /**
+     * 모델이 부른 메모 저장을 막을까 — 사용자가 부탁하지도, 비서가 물어 승낙받지도 않았으면 막는다.
+     *
+     * [WHY] 물음만 보고 통과시키면 "메모해 둘까요?" 뒤의 다른 말("그냥 들어줘서 고마워")에도 저장 시트가 떴다(0.39.2 M4 실기기) — 승낙은 짧은 긍정일 때만.
+     * 긴 긍정("그래, 근데 내일 일정도 알려줘")은 막혀 한 번 더 묻게 될 뿐이다.
+     */
     fun shouldBlock(userText: String, previousAssistant: String?): Boolean =
-        !hasSaveWord(userText) && !asksSave(previousAssistant)
+        !hasSaveWord(userText) && !(asksSave(previousAssistant) && isYes(userText))
 
     /**
      * 저장하지 않은 턴의 답에서 "기억해 둘게요"·"저장했어요" 문장을 빼고, 물음이 없으면 [ASK]를 붙인다. 고칠 것이 없으면 그대로.

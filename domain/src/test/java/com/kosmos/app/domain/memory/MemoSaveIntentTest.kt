@@ -30,6 +30,15 @@ class MemoSaveIntentTest {
     }
 
     @Test
+    fun `저장 물음 뒤라도 긍정이 아닌 말이면 막는다(0·39·2 M4b)`() {
+        val asked = "고생 많으셨어요. 이 내용을 메모해 둘까요?"
+        listOf("그냥 들어줘서 고마워", "아니 됐어", "그래, 근데 내일 일정도 알려줘")
+            .forEach { assertTrue(it, MemoSaveIntent.shouldBlock(it, asked)) }
+        listOf("응", "그래 부탁해", "좋아요!", "응 저장해줘")
+            .forEach { assertFalse(it, MemoSaveIntent.shouldBlock(it, asked)) }
+    }
+
+    @Test
     fun `짧은 긍정만 응으로 본다`() {
         listOf("응", "응!", "그래", "좋아요", "부탁해", "네", "ㅇㅇ", "그래 부탁해", "해 줘").forEach { assertTrue(it, MemoSaveIntent.isYes(it)) }
         listOf("아니", "응 근데 오늘 날씨는?", "좋아하는 음식 알려줘", "괜찮아").forEach { assertFalse(it, MemoSaveIntent.isYes(it)) }

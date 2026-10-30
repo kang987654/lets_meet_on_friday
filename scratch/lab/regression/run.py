@@ -105,6 +105,11 @@ def model_history(history):
     return [m for i, m in enumerate(history) if i not in drop]
 
 
+def is_yes(user):
+    """MemoSaveIntent.isYes — 끝의 문장부호를 떼고 짧은 긍정 한마디인가."""
+    return YES.fullmatch(re.sub(r"[^\w]+$", "", user.strip())) is not None
+
+
 def bigrams(s):
     s = s.replace(" ", "")
     return {s[i:i + 2] for i in range(len(s) - 1)} or ({s} if s else set())
@@ -147,7 +152,7 @@ def turn(history, user, sysm=SYS_OFF, tools=None, search_body=None, why=False):
             first = first or fn
             if name == "add_memory" and REPEAT.search(user) and not REPEAT_SAVE.search(user):
                 body, ok = {"status": "error", "message": REPEAT_NOT_SAVE}, False
-            elif name == "add_memory" and not SAVE_WORD.search(user) and not (prev_model and SAVE_ASK.search(prev_model)):
+            elif name == "add_memory" and not SAVE_WORD.search(user) and not (prev_model and SAVE_ASK.search(prev_model) and is_yes(user)):
                 body, ok = {"status": "error", "message": ASK_FIRST}, False
             elif name == "search_memory":
                 data = search_body if search_body is not None else current_lines(history, args.get("keyword")) + SEARCH_EMPTY
@@ -359,6 +364,10 @@ NEW_AGAIN = [  # (옛 사실, 새 값을 알려 주는 말 — 되묻기 판정�
     ("내 사물함 번호는 214번이야", "사물함 번호 바뀌어서 다시 알려줄게, 215번이야", "215", "214"),
     ("주차는 지하 2층 C-14에 했어", "다시 말해 두는데 주차는 C-15로 옮겼어", "C-15", "C-14"),
 ]
+NOT_YES = [  # (비서의 저장 물음, 긍정이 아닌 다음 말) — 0.39.2 M4b: 물음만 보고 저장을 통과시키지 않는다
+    ("오늘 회의가 길어서 정말 힘들었어", "고생 많으셨어요. 이 내용을 메모해 둘까요?", "그냥 들어줘서 고마워"),
+    ("내 사물함 번호는 214번이야", "사물함 번호 214번 확인했어요. 메모해 둘까요?", "아니 그건 됐고 점심 메뉴 추천해 줘"),
+]
 RECALL_WORD = [("회의실 어디였는지 기억나?", "5층"), ("자전거 비밀번호 기억나?", "4821")]  # 저장 낱말("기억")이 든 묻는 말 — 사실 가드가 안 막는다
 
 
@@ -377,6 +386,9 @@ def set_overlap():
         ans, ex, bl, _ = turn(h, q)
         ok = new in ans and not re.search(re.escape(old) + r"\S{0,2}(이에요|예요|입니다)", ans)
         out.append((f"새 값 {q}", ok, f"실행 {[n for n, _ in ex]} 막힘 {bl} | {ans[:50]}"))
+    for u, a, q in NOT_YES:  # 저장 물음 뒤 긍정 아닌 말 → 저장 안 됨
+        ans, ex, bl, _ = turn([M("user", u), M("model", a)], q)
+        out.append((f"물음 뒤 다른 말 {q}", not any(n == "add_memory" for n, _ in ex), f"실행 {[n for n, _ in ex]} 막힘 {bl} | {ans[:50]}"))
     for q, key in RECALL_WORD:  # 저장 낱말 → 사실 가드 통과
         ans, ex, bl, _ = turn(fact_history(3), q)
         ok = not any(n == "add_memory" for n, _ in ex) and key in ans
@@ -384,8 +396,21 @@ def set_overlap():
     return out
 
 
+OPTIONAL = ["모레 오전 10시에 치과 예약 잡아줘", "모레 오전 10시 치과 예약 일정 추가해줘", "내일 저녁 7시에 미용실 예약 잡아줘"]
+
+
+def set_optional():
+    """선택 인자(병원 이름 등)를 묻지 않고 바로 일정 등록을 부르는가 — 0.39.2 M4 실기기에서 되물음. 지켜보기용(0.39.3 후보)."""
+    out = []
+    for u in OPTIONAL:
+        ans, _, _, first = turn(None, u)
+        out.append((u, first is not None and first["name"] == "add_schedule", f"{str(first)[:60]} | {ans[:40]}"))
+    return out
+
+
 SETS = {"smoke": set_smoke, "save": set_save, "fact": set_fact, "yes": set_yes, "drift": set_drift,
-        "why": set_why, "newval": set_newval, "repeat": set_repeat, "iso": set_iso, "overlap": set_overlap}
+        "why": set_why, "newval": set_newval, "repeat": set_repeat, "iso": set_iso, "overlap": set_overlap,
+        "optional": set_optional}
 
 
 def main():
