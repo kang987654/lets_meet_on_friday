@@ -47,8 +47,21 @@ REPEAT_SAVE = re.compile(r"기억해|저장|메모해|잊지\s*마|적어\s*(둬
 SAVE_WORD = re.compile(r"기억|저장|메모|잊지\s*마|잊으면\s*안|까먹|적어|기록|외워|알아\s*(둬|두|놔)|챙겨")
 SAVE_ASK = re.compile(r"(메모|저장|기억)[^.?!\n]{0,8}(둘까|드릴까|할까)")
 YES = re.compile(r"(응|웅|어|네|예|넹|ㅇㅇ|그래|그래요|좋아|좋아요|부탁해|부탁해요|해줘|해 줘|해주세요|해 주세요|그럼|오케이|ok|okay)(\s*(응|좋아|부탁해|해줘|해 줘))?", re.I)
-REFUSAL_TURN = re.compile(r"기능이 없|기능은 없|기능을 가지고 있지 않|드릴 수 없|드릴 수는 없|도움을 드리기 어려")
-WHY_REFUSED = re.compile(r"왜\s*(안|못)|안\s*된다고|못\s*한다고|안\s*된다며|못\s*한다며")
+# 0.39.2 M2: 바로 뒤에 "~지만/~는데"가 붙으면 도운 답이다("해 드릴 수 없지만 물을 마시면 …").
+REFUSAL_TURN = re.compile(r"(기능이 없|기능은 없|기능을 가지고 있지 않|드릴 수 없|드릴 수는 없|도움을 드리기 어려)(?!지만|는데|으나|운데|우나|워도)")
+# 0.39.2 M2: "왜 안/못"은 앞 대화를 가리킬 때만("그게 왜 안 돼?") — 일상 "와이파이가 왜 안 돼?"는 아니다.
+WHY_QUOTE = re.compile(r"안\s*된다고|못\s*한다고|안\s*된다며|못\s*한다며")
+WHY_BARE = re.compile(r"왜\s*(안|못)")
+WHY_BACK = re.compile(r"그게|그건|그거|그걸|아까|방금|했어|했잖|했지|그랬")
+
+
+class _Why:
+    @staticmethod
+    def search(t):
+        return bool(WHY_QUOTE.search(t) or (WHY_BARE.search(t) and WHY_BACK.search(t)))
+
+
+WHY_REFUSED = _Why()
 
 # --- 판정용 ---
 REFUSE = re.compile(r"(기능이 없|기능은 없|기능을 가지고 있지|드릴 수 없|드릴 수는 없|도움을 드리기 어려|관리하는 기능|지원하지|제공하지 않)")
