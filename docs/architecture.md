@@ -2061,7 +2061,7 @@ zip(`ZipFile`, 캐시 복사) + SAX + `PdfRenderer` — 전부 플랫폼 내장�
 | allowlist 재검증 · 인자 검증 | `ToolCallGuards` · `BaseAgent` | 보안 · 0.8.x | 오류 결과 → 모델 재시도(상한 3) | 툴 루프 1회 |
 | 승인 거절 고정 문장 | `BaseAgent.rejectionReply` | 0.38.6 exp56 | — | 재생성 |
 | 되묻기 가드 | `RepeatRequest` → `ToolCallGuards` | 0.38.7 exp61c | 새 값 "다시 알려줄게" → 막힘(무해 2/2) | — |
-| 사실 저장 가드 | `MemoSaveIntent.shouldBlock` → `ToolCallGuards` | 0.38.9 exp64, 0.39.2 M4b | 막힘 → 한 번 더 물음 / 놓침 → 승인 시트 | 앞 턴 DB 읽기 |
+| 사실 저장 가드 | `MemoSaveIntent.shouldBlock` → `ToolCallGuards` | 0.38.9 exp64, 0.39.2 M4b("적어·기록"은 부탁하는 꼴만, 물음 뒤엔 긍정만) | 막힘 → 한 번 더 물음 / 놓침 → 승인 시트 | 앞 턴 DB 읽기 |
 | 앱이 연 저장("응") | `ReplyFinisher` → `BaseAgent` | exp64b | 승인 시트(사용자 확인) | 재생성 |
 | 약속 문장 제거 | `MemoSaveIntent.withoutClaim` → `ReplyFinisher` | exp64 | 문장 하나 빠짐 → 물음 | 재생성 |
 | 거절 기록 빼기 | `RefusalTurns.forModel` | exp64c, 0.39.2 M2 | 도운 답("~지만")은 빼지 않음 | 거절 판정 턴마다 재생성 |
