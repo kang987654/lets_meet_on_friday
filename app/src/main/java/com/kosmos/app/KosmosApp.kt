@@ -33,6 +33,9 @@ class KosmosApp : Application(), Configuration.Provider {
     lateinit var episodeSummarizeScheduler: com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
 
     @Inject
+    lateinit var conversationPrewarmer: com.kosmos.app.assistant.orchestrator.ConversationPrewarmer
+
+    @Inject
     lateinit var speechOutput: com.kosmos.app.platform.speech.SpeechOutput
 
     @Inject
@@ -53,6 +56,7 @@ class KosmosApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         NotificationChannels.ensureCreated(this)
+        conversationPrewarmer.start()
         briefingGenerator.start()
         episodeBoundaryManager.start()
         episodeSummarizeScheduler.start()
