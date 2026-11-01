@@ -396,7 +396,25 @@ def set_overlap():
         ans, ex, bl, _ = turn(fact_history(3), q)
         ok = not any(n == "add_memory" for n, _ in ex) and key in ans
         out.append((f"묻는 말 {q}", ok, f"실행 {[n for n, _ in ex]} 막힘 {bl} | {ans[:50]}"))
+    for said, memo, past, q, new, old in CURRENT_VS_MEMO:  # 방금 줄 + 메모·과거 대화 충돌 안내(앱의 결과 모양)
+        h = [M("user", said), M("model", MEMO_REJECTED), M("user", "30분 뒤에 물 마시라고 알려줘"), M("model", "알림을 등록하지 않았어요.")]
+        body = f"- (방금 이 대화) {said}\n{CURRENT_FIRST_GUIDE}\n{memo}\n{past}{HIT_TAIL}"
+        ans, _, _, _ = turn(h, q, search_body=body)
+        a = ans.replace(" ", "")
+        out.append((f"방금 값 vs 메모 {q}", new in a and old not in a, ans[:60]))
     return out
+
+
+# 0.39.3 M4c — 검색 결과에 "(방금 이 대화)" 줄이 있으면 앱은 메모 우선 안내 대신 이 안내를 싣는다(SearchMemoryToolExecutor, exp69 D 원문).
+CURRENT_FIRST_GUIDE = "(방금 이 대화)는 사용자가 방금 말한 가장 최신 값입니다. 메모·과거 대화와 다르면 그 값을 답하고, 예전 값이 있었다고 덧붙이세요."
+CURRENT_VS_MEMO = [  # (방금 말한 새 값, 메모 줄, 과거 대화 줄, 질문, 새 값, 옛 값) — 실기기 0.39.3 M4: 저장 거절 직후 옛 메모 134
+    ("내 자전거 비밀번호 4821이야 기억해줘", "- 자전거 비밀번호는 134 [비밀번호, 자전거]", "- (과거 대화) 2건에는 다른 값이 적혀 있습니다: 4321)",
+     "내가 알려준 자전거 비밀번호 뭐였지?", "4821", "134"),
+    ("다음 주 금요일 회의실은 5층 C룸이야, 메모해줘", "- 회의실은 3층 B룸 [회의실]", "- (과거 대화) 회의실 위치 이야기: 사용자가 회의실이 3층 B룸이라고 했어요. [회의실]",
+     "회의실 어디라고 했지?", "5층", "3층"),
+    ("사물함 번호 바뀌었어, 이제 215번이야 저장해줘", "- 사물함 번호는 214번 [사물함]", "- (과거 대화) 1건에는 다른 값이 적혀 있습니다: 213)",
+     "내 사물함 몇 번이야?", "215", "214"),
+]
 
 
 OPTIONAL = ["모레 오전 10시에 치과 예약 잡아줘", "모레 오전 10시 치과 예약 일정 추가해줘", "내일 저녁 7시에 미용실 예약 잡아줘"]

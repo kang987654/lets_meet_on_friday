@@ -285,4 +285,26 @@ class SearchMemoryToolExecutorTest {
         assertTrue(data, data.startsWith("- (방금 이 대화) 다음 주 금요일 회의실은 5층 C룸이야\n"))
         assertTrue("옛 값도 그대로 실린다", data.contains("3층 B룸"))
     }
+
+    @Test
+    fun `방금 말한 값이 있으면 메모를 믿으라는 안내 대신 방금 값을 믿으라는 안내(0·39·3 M4c)`() = runBlocking {
+        val now = System.currentTimeMillis()
+        fun msg(text: String, ago: Long) = com.kosmos.app.domain.model.ChatMessage(
+            id = text, sessionId = "s1", role = com.kosmos.app.domain.model.ChatMessage.Role.USER, content = text,
+            inputType = com.kosmos.app.domain.model.InputType.TEXT, createdAt = now - ago
+        )
+        val conversations: com.kosmos.app.domain.memory.ConversationRepository = mockk {
+            coEvery { getRecentBySession("s1", any()) } returns AppResult.Success(listOf(
+                msg("자전거 비밀번호 뭐였지?", 1_000), msg("내 자전거 비밀번호 4821이야 기억해줘", 60_000)
+            ))
+        }
+        coEvery { repository.search(any(), any()) } returns AppResult.Success(listOf(note("k1", "자전거 비밀번호는 134")))
+        coEvery { episodes.search(any(), any()) } returns AppResult.Success(listOf(episode("e1", "자전거 비밀번호 변경", "4321 로 바꿨다", listOf("자전거"))))
+
+        val data = org.json.JSONObject(SearchMemoryToolExecutor(repository, episodes, tokenizer, conversations)
+            .execute(ToolArguments.of(mapOf("keyword" to "자전거 비밀번호")), "s1")).getString("data")
+
+        assertTrue(data, data.startsWith("- (방금 이 대화) 내 자전거 비밀번호 4821이야 기억해줘\n(방금 이 대화)는 사용자가 방금 말한 가장 최신 값입니다."))
+        assertTrue("메모 우선 안내는 싣지 않는다", !data.contains("둘이 다르면 메모의 값을 답하고"))
+    }
 }
