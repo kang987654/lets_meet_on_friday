@@ -167,10 +167,10 @@
    팔레트가 토큰째 바뀌므로 토큰만 쓰면 테마 대응이 자동이다. **UI 는 `docs/DESIGN.md`(v3)를 따른다** —
    이모지·글자 기호 아이콘 금지(Phosphor 만), 글자 크기는 `AppTypography` 단계만(직접 `fontSize` 금지).
    표면은 `Modifier.kosmosSurface`(불투명 면 + hairline), 버튼은 `KosmosButton` — 유리 효과(`glassEffect`)는 0.38.1 M5 에서 폐기.
-7. **사용자 표기 규칙**: UI 문자열은 한국어(§2-② E2E 계약 문자열 제외), 일시 표기는
-   `IsoDateTimeParser.toDisplayKorean` 이 단일 출처다 — ISO 원문을 화면·모델 관측값에 노출하지
-   않는다 (0.19.2).
-   예외: 활동 기록의 "원문 보기"(펼친 뒤 한 번 더 눌러야 보이는 감사 기록 원문 — 직접 오류를 보기 위한 것, 0.38.4 사용자 결정).
+7. **사용자 표기 규칙 (0.40.0 한/영 지원 현행화)**:
+   - UI 문자열은 한국어를 기본(`res/values/strings.xml`)으로 하고 영어 번역(`res/values-en/strings.xml`)을 함께 유지한다(§2-② E2E 계약 문자열 제외). `lintDebug` 의 `MissingTranslation` 이 오류 등급이므로 한국어 리소스를 추가할 때는 반드시 영어 번역도 함께 넣는다.
+   - 일시 표기는 `IsoDateTimeParser`(`toDisplayKorean` 등 `lang: AppLanguage` 인자 지원)가 단일 출처다 — ISO 원문을 화면·모델 관측값에 노출하지 않는다 (0.19.2).
+   - 예외: 활동 기록의 "원문 보기"(펼친 뒤 한 번 더 눌러야 보이는 감사 기록 원문 — 직접 오류를 보기 위한 것, 0.38.4 사용자 결정).
 
 ---
 

@@ -2072,6 +2072,7 @@ zip(`ZipFile`, 캐시 복사) + SAX + `PdfRenderer` — 전부 플랫폼 내장�
 | 방금 값을 믿으라는 안내 | `SearchMemoryToolExecutor.CURRENT_FIRST_GUIDE` | exp69, 0.39.3 M4c | (방금 줄이 있을 때만 — 없으면 메모 우선 안내 그대로) | 툴 결과 토큰 |
 | 같은 질문의 앞 답 빼기 | `RepeatedQuestions` → `ContextBuilder`·`KosmosAgent` | exp69b·c, 0.39.3 M4d | 다른 질문을 같다고 보면 앞 답 하나가 빠질 뿐 | 그 턴 재생성 |
 | 기억 충돌 핵심 주제 문장 필터 | `RecallConflict` | exp70, 0.39.6 M1 | 핵심 주제가 요약 문장에 안 적히면 `(과거 대화)` 다른 값 안내만 생략(메모 값은 그대로 답함) | — |
+| 영어 모드 행동 가드 확장 | `MemoSaveIntent`·`RepeatRequest`·`RefusalTurns`·`RecallConflict` | exp72, 0.40.0 M2a | `"Do you remember...?"` 조회 의문문·`"I wrote a note"` 일상 서술을 저장 부탁에서 제외 | — |
 
 - **결정**:
   1. **장치를 더하는 순서** — 프롬프트 후보를 먼저 재고, 효과가 없을 때만 앱이 판정한다. 판정이 틀려도 "한 번 더 묻기"나 "그대로 진행" 쪽으로 깨지게 만든다. 장치마다 회귀 세트에 문항을 둔다
@@ -2116,3 +2117,30 @@ zip(`ZipFile`, 캐시 복사) + SAX + `PdfRenderer` — 전부 플랫폼 내장�
   - (c) **SQLCipher(Room DB 암호화)**: Android Keystore 에 열쇠를 두면 잠금 해제 상태의 루팅 공격자에게는 열쇠도 함께 노출되어 실질 방어 이득이 작은 반면, 네이티브 바이너리(+수 MB)·콜드 스타트 지연·스키마 마이그레이션 복잡도가 늘어난다.
   - (d) **수동 내보내기 ZIP 암호화**: 사용자가 설정에서 직접 내보낸 백업 파일을 보관할 때 비밀번호 분실 시 복구 불가 위험이 있어 현행 평문 ZIP(Documents 폴더) 유지.
 - **대가·한계**: 쓰기 시점 태그는 사용자가 직접 수동으로 적은 메모(태그 없이 추가한 경우)나 요약/추출 모델이 미처 떠올리지 못한 낯선 상위 개념에는 붙지 않는다. 루팅된 기기에서 잠금이 풀린 상태의 물리 탈취나 사용자가 직접 내보낸 ZIP 파일의 외부 공유는 사용자가 관리해야 한다.
+
+### ADR-033. 한·영 양방향 언어 전환 — 안드로이드 표준 앱별 언어 정본 · 공유 툴 선언 · 재료 언어 기반 부수 추론 (2026-11-02)
+
+- **Status**: Accepted (0.40.0 — 계획서 `docs/plans/0.40.0-english-mode.md`, 사용자 결정)
+- **Context**:
+  1. 앱을 한국어·영어(`System / 한국어 / English`)로 전환할 때 화면 문자열뿐 아니라 일시·공휴일 표기, 모델 시스템 지시, 7개 툴 결과 문구, 행동 가드 4종(`MemoSaveIntent`·`RepeatRequest`·`RefusalTurns`·`RecallConflict`), 부수 추론 4종(요약·자동 추출·중복 합치기·아침 브리핑/주간 회고), 음성 읽기(`SpeechOutput`), 위젯·빠른 설정 타일·알림 채널까지 일관되게 바뀌어야 한다.
+  2. 언어 설정을 자체 DataStore 와 안드로이드 시스템의 "앱별 언어(`LocaleManager`)" 두 곳에 따로 두면, 사용자가 시스템 설정에서 앱 언어를 바꿨을 때 화면과 비서 답변 언어가 어긋난다.
+  3. 한국어 2글자 묶음(바이그램) 기억 검색(`BigramMatcher`)은 공백을 지우고 2글자씩 잘라, 영문 문장(`"my bike password"`)에서는 단어 경계를 넘는 조각(`yb`, `ke`)과 흔한 철자(`th`, `er`)가 무관한 영문 메모에 점수를 주는 문제가 있었다.
+  4. 영어로 대화하다가 설정을 한국어로 바꾼 직후 이전 영어 에피소드의 요약·자동 추출이 돌면, 설정 언어만 보고 한국어 지시문을 쓸 경우 재료 언어와 요약/태그 언어가 섞인다.
+- **결정**:
+  1. **언어 정본(Single Source of Truth)과 화면 무재생성 전환**:
+     - Android 13(API 33)+ 에서는 시스템 `LocaleManager.applicationLocales` / `context.resources.configuration.locales` 를 유일한 정본으로 삼고(`res/xml/locales_config.xml` 등록), API 26~32 만 `SettingsDataStore` 폴백을 쓴다.
+     - `AndroidManifest.xml` 의 `MainActivity` `configChanges` 에 `locale|layoutDirection` 을 추가해 언어 전환 시 Activity 재생성을 막고, `onConfigurationChanged` 가 `AppLanguageHolder.onConfigurationChanged` 를 불러 `KosmosTheme(language = appLanguage)`·알림 채널 이름·Glance 위젯을 즉시 갱신하며 `ModelRunner.invalidateConversation()` + `ConversationPrewarmer` 로 새 언어의 대화를 미리 준비한다.
+     - Robolectric 단위/UI 테스트는 기본 로케일이 `en-US` 라 기존 한국어 테스트를 보호하기 위해 `app/src/test/resources/robolectric.properties` 에 `qualifiers=ko-rKR` 를 고정한다.
+  2. **공유 툴 선언 + 영어 시스템 지시(`MEASURED_OVERHEAD_EN = 1,224`)**:
+     - `exp72_english_mode.py` 실측에서 현행 `KosmosToolDeclarations` 를 그대로 공유한 채 시스템 지시만 영어로 바꿔도 7개 툴 호출 스모크가 **12/12** 정확히 일치했고, 첫 턴 KV 오버헤드는 한국어(`1,257`)보다 33토큰 작은 **`1,224`**(예약 `1,400` 안에 76토큰 여유)로 측정됐다. 따라서 별도 영어 `ToolSet` 복제 없이 선언을 공유하고 `TokenBudgetInvariantTest` 에 한·영 오버헤드 불변식을 모두 고정한다.
+  3. **영어 단어/어간 토큰 + 영숫자 코드 바이그램 병행(`BigramMatcher`)**:
+     - 한글·숫자는 기존 2글자 바이그램을 유지하고, 라틴 알파벳이 포함된 토큰은 단어 경계를 넘지 않도록 정규화해 ① 길이 2 이상이고 숫자가 섞인 영숫자 코드(`B2`, `C14`)는 2글자 바이그램을 유지하고 ② 순수 영문 단어는 불용어를 뺀 소문자 단어(`w:bike`)와 접미사(`-ing`/`-ed`/`-es`/`-s`)를 뗀 어간(`w:meeting` → `w:meet`)을 함께 색인한다. 한국어 기준 세트 **40/40** 불변과 영어 유의어·상위 개념·무관 문서 분리도 **6/6** 을 함께 만족한다.
+  4. **영어 행동 가드 오탐 방어**:
+     - 영어에서는 `"Do you remember my password?"`(기억 조회 의문문)와 `"I wrote a long note in my diary"`(일상 서술)에 `remember`·`note` 가 들어가 한국어 0.39.2 M4b 와 같은 종류의 저장 오탐을 부른다. `MemoSaveIntent` 가 의문문(`Do you remember...`, `Can you recall...`, `?` 끝)과 과거형 서술(`I wrote/took a note`)을 저장 의사에서 제외하고, 회귀 세트 `smoke_en`(12/12)·`guard_en`(4/4)으로 고정한다.
+  5. **부수 추론 언어 선택(`ContentLanguage.detect`)**:
+     - 기억으로 영속되는 산출물(에피소드 요약·사실 자동 추출·중복 합치기)은 재료 대화/메모의 한글 vs 라틴 글자 비율(`ContentLanguage.detect`)을 따라 지시문을 고르고, 파서는 한/영 라벨(`제목|Title`, `태그|Tags`, `요약|Summary`, `프로필|Profile`, `지식|Knowledge`, `판정|Verdict`, `합친 문장|Merged`)을 모두 허용한다.
+     - 사용자에게 그 순간 보여 주는 글(아침 브리핑·주간 회고)은 현재 설정 언어(`AppLanguageHolder.current`)를 따른다.
+- **기각**:
+  - (a) **자체 문자열 표(`KosmosStrings`)**: 안드로이드 시스템 설정의 "앱별 언어"와 연동되지 않고 `lintDebug` 의 `MissingTranslation` 검사를 쓸 수 없어 표준 리소스(`values` / `values-en`) + `KosmosTheme.language` 조합으로 선회.
+  - (b) **영어 전용 `KosmosToolDeclarationsEn` 복제**: 현행 선언 공유만으로 영어 툴 스모크 12/12 가 통과해 7개 실행기 선언 복제·유지보수 비용을 기각.
+- **대가·한계**: 쓰기 시점 상위 개념 태그는 해당 대화/메모의 언어로 생성되므로, 한국어로 저장한 메모를 영어로 질문하거나(`"what's my bike password?"` ↔ `"자전거 비밀번호"`) 그 반대로 찾는 **교차 언어 기억 검색**은 공통 영문 약어(`KTX`, `PIN`, `WiFi`)가 겹치는 경우 외에는 지원하지 않는다(사용 안내와 README 한계에 명시).

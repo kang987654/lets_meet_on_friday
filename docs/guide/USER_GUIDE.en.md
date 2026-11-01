@@ -1,12 +1,9 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.39.6 · 2026-11-01. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.40.0 · 2026-11-02. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
-> **Note — the app is Korean-only for now.** The screens, the assistant's instructions and the read-aloud voice are all Korean.
-> An English version of the app is planned. Until then, this guide is mainly for understanding, building and running the project.
-
-KOSMOS is an AI assistant that runs entirely on your phone, with no server. Ask in plain language and it creates calendar events,
+KOSMOS is an AI assistant that runs entirely on your phone, with no server. Ask in plain language (Korean or English) and it creates calendar events,
 reminders and notes, and answers by searching your past conversations and notes. It always asks for your confirmation before saving.
 
 ## 1. Requirements
@@ -15,7 +12,7 @@ reminders and notes, and answers by searching your past conversations and notes.
 | Device | Android 8.0 (API 26)+, 64-bit (arm64). **About 12 GB of RAM recommended** — it uses about 5 GB while running. Verified only on a Galaxy S25 Ultra |
 | Storage | The model is about 3.6 GB — keep about 4 GB free before downloading |
 | Network | Only for the first model download (Wi-Fi). Conversations work offline afterwards |
-| Language | Korean only (English planned) |
+| Language | **Korean & English** (switch in **Settings › Display › Language** or Android system per-app language settings) |
 
 ## 2. Install
 There is no prebuilt APK yet. Build from source:
@@ -46,13 +43,14 @@ Requested only when needed. Everything else keeps working if you decline.
 ## 5. Using it
 **One continuous conversation** — there is no "new chat" button. After 30 minutes of inactivity, the earlier part is summarized into a searchable memory by topic.
 
-| Say (in Korean) | What happens |
+| Say | What happens |
 |---|---|
-| "다음 주 월요일 10시에 팀 회의 잡아줘" (team meeting next Monday at 10) | A confirmation sheet → tap Add to save it to the app and the device calendar |
-| "30분 뒤에 물 마시라고 알려줘" (remind me to drink water in 30 min) | A reminder confirmation sheet → it rings on time |
-| "내 자전거 비밀번호 4821이야 기억해줘" (remember my bike code is 4821) | A note confirmation sheet |
-| "내 사물함 번호는 214번이야" (stating a fact, no request to save) | It does not save; it asks "메모해 둘까요?" (shall I note it?) → reply "응" (yes) to get the confirmation sheet; say anything else and nothing is saved |
-| "자전거 비밀번호 뭐였지?" (what was my bike code?) | It searches notes and past conversations and shows the source as a card. A new value you just said in this conversation wins over a saved note |
+| "Schedule a team meeting next Monday at 10 AM" / "다음 주 월요일 10시에 팀 회의 잡아줘" | A confirmation sheet → tap **Add** to save it to the app and the device calendar |
+| "Remind me in 30 minutes to drink water" / "30분 뒤에 물 마시라고 알려줘" | A reminder confirmation sheet → it rings on time |
+| "Remember that my bike PIN is 4821" / "내 자전거 비밀번호 4821이야 기억해줘" | A note confirmation sheet |
+| "My locker number is 214" (stating a fact, no request to save) | It does not save; it asks "Would you like me to save this as a note?" → reply "Yes" to get the confirmation sheet; say anything else and nothing is saved |
+| "What was my bike PIN?" / "자전거 비밀번호 뭐였지?" | It searches notes and past conversations and shows the source as a card. A new value you just said in this conversation wins over a saved note |
+| "What's on my schedule today?" / "오늘 일정 뭐 있어?" | Shows both app events and device calendar events |
 
 - **Confirmation sheets** cancel themselves after one minute. If cancelled, it briefly says nothing was saved.
 - **Voice**: tap the microphone in the input bar and speak (up to 30 seconds). The model transcribes, then answers.
@@ -66,7 +64,7 @@ Requested only when needed. Everything else keeps working if you decline.
 - **Schedule (일정)**: today and upcoming events, a month calendar with Korean holidays, and to-dos.
 - **Documents (문서)**: opens PDF, Excel, CSV, Word and Hangul (hwpx) files without the AI (Excel keeps its original formatting). "채팅으로" sends the document to the chat to ask about it.
 - **Profile (프로필)**: what the assistant knows about you; pick suggestions drawn from conversations to save.
-- **Settings (설정)**: theme, font, chat text size, splash scene, morning briefing time, memory cleanup (weekly review and merging duplicate notes),
+- **Settings (설정)**: language (System / 한국어 / English), theme, font, chat text size, splash scene, morning briefing time, memory cleanup (weekly review and merging duplicate notes),
   activity log, data reset. Backup export/import is in the menu of the notes screen.
 - **Home widget and Quick Settings tile**: today's events and to-dos; the tile starts voice input directly.
 
@@ -77,6 +75,7 @@ Requested only when needed. Everything else keeps working if you decline.
 
 ## 7. Good to know
 - **Short conversational memory** — it directly remembers only the last few turns and finds the rest by searching past conversations and notes. Ask it to remember important things.
+- **Memory search follows the language of the note** — Korean notes and summaries are matched by Korean queries, and English notes by English queries (except when they share common English abbreviations or codes).
 - **It can be wrong** — it is a small model. A confirmation sheet always appears before saving, so check the content.
 - **When the device is hot** (battery around 43°C or more) background work such as memory cleanup and briefings is postponed.
 - **Some turns are slow** — if you ask while the conversation is still warming up right after the model wakes (about 10 seconds), or when a turn has to rebuild the conversation on the spot, the first answer can take around 10 seconds.
