@@ -102,6 +102,34 @@ def model_history(history):
             drop.add(i)
             if i > 0 and history[i - 1]["role"] == "user":
                 drop.add(i - 1)
+    return repeated_drop([m for i, m in enumerate(history) if i not in drop])
+
+
+QUESTION = re.compile(r"뭐|어디|몇|언제|누구|무슨|어떤|기억나|\?")
+
+
+def letter_bigrams(s):
+    c = "".join(ch for ch in s if ch.isalnum())
+    return {c[i:i + 2] for i in range(len(c) - 1)}
+
+
+def same_question(a, b):
+    """RepeatedQuestions.same — 둘 다 질문이고 글자 묶음 containment ≥ 0.8."""
+    x, y = letter_bigrams(a), letter_bigrams(b)
+    return bool(QUESTION.search(a) and QUESTION.search(b) and x and y and len(x & y) / min(len(x), len(y)) >= 0.8)
+
+
+def repeated_drop(history):
+    """RepeatedQuestions.forModel(0.39.3 M4d) — 마지막 사용자 말과 같은 앞 질문과 그 답을 뺀다."""
+    at = max((i for i, m in enumerate(history) if m["role"] == "user"), default=-1)
+    if at < 0:
+        return history
+    drop = set()
+    for i in range(at):
+        if history[i]["role"] == "user" and same_question(history[i]["content"], history[at]["content"]):
+            drop.add(i)
+            if i + 1 < at and history[i + 1]["role"] == "model":
+                drop.add(i + 1)
     return [m for i, m in enumerate(history) if i not in drop]
 
 
@@ -402,6 +430,11 @@ def set_overlap():
         ans, _, _, _ = turn(h, q, search_body=body)
         a = ans.replace(" ", "")
         out.append((f"방금 값 vs 메모 {q}", new in a and old not in a, ans[:60]))
+        # 0.39.3 M4d — 같은 질문에 앞에서 옛 값으로 답한 기록이 있어도(앱은 그 쌍을 모델 기록에서 뺀다)
+        h2 = [M("user", q), M("model", f"{old}{'예요' if not old.endswith('층') else ' B룸이라고 하셨어요'}.")] + h
+        ans, _, _, _ = turn(h2, q, search_body=body)
+        a = ans.replace(" ", "")
+        out.append((f"앞 틀린 답 뒤 {q}", new in a and not a.startswith(old), ans[:60]))
     return out
 
 

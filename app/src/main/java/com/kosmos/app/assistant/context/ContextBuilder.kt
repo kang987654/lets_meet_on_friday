@@ -55,7 +55,12 @@ class ContextBuilder @Inject constructor(
          * 내려도 살아 있는 대화의 KV 는 런타임에 박힌 8000 토큰까지 자랐다 — 설정이 실제
          * 메모리 사용에 아무 영향을 주지 못했다.
          */
-        val maxTokens: Int = Constants.DEFAULT_CONTEXT_TOKENS
+        val maxTokens: Int = Constants.DEFAULT_CONTEXT_TOKENS,
+        /**
+         * 지금 질문과 같은 앞 질문·답을 모델 기록에서 뺐는가([com.kosmos.app.domain.agent.RepeatedQuestions]).
+         * [WHY] 뺐다면 살아 있는 대화(KV)에는 그 앞 답이 남아 있으므로 이 턴에 대화를 다시 만들어야 한다(KosmosAgent).
+         */
+        val repeatDropped: Boolean = false
     )
 
     suspend fun build(sessionId: String): AppResult<Context> {
@@ -92,10 +97,10 @@ class ContextBuilder @Inject constructor(
                 // top-1 정확도 1/7 = 무작위 1/8 수준). 그래서 실제로 하던 일은 "무관한 메모
                 // 3건을 매 턴 질문 앞에 붙이는 것"이었다 — 프리필을 축내고 환각의 재료가 됐다.
                 // 기억 조회는 이제 모델이 필요할 때 부르는 `SearchMemory` 툴이 맡는다.
-                val slidingWindow = applyTokenSlidingWindow(
-                    com.kosmos.app.domain.agent.RefusalTurns.forModel(conversationsResult.data),
-                    maxTokens
-                )
+                val refusalKept = com.kosmos.app.domain.agent.RefusalTurns.forModel(conversationsResult.data)
+                // [WHY] 같은 질문의 앞 답을 뺀다 — 모델이 자기 앞 답을 되풀이했다(0.39.3 M4d, RepeatedQuestions [WHY]).
+                val forModel = com.kosmos.app.domain.agent.RepeatedQuestions.forModel(refusalKept)
+                val slidingWindow = applyTokenSlidingWindow(forModel, maxTokens)
                 AppResult.Success(
                     Context(
                         recentConversations = slidingWindow,
@@ -103,7 +108,8 @@ class ContextBuilder @Inject constructor(
                         responseStyle = responseStyle,
                         webSearchEnabled = webSearchEnabled,
                         profileText = profileText,
-                        maxTokens = maxTokens
+                        maxTokens = maxTokens,
+                        repeatDropped = forModel.size != refusalKept.size
                     )
                 )
             }
