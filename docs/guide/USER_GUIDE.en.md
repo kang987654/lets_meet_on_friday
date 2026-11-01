@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.39.2 · 2026-10-30. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.39.3 · 2026-11-01. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 > **Note — the app is Korean-only for now.** The screens, the assistant's instructions and the read-aloud voice are all Korean.
 > An English version of the app is planned. Until then, this guide is mainly for understanding, building and running the project.
@@ -52,13 +52,14 @@ Requested only when needed. Everything else keeps working if you decline.
 | "30분 뒤에 물 마시라고 알려줘" (remind me to drink water in 30 min) | A reminder confirmation sheet → it rings on time |
 | "내 자전거 비밀번호 4821이야 기억해줘" (remember my bike code is 4821) | A note confirmation sheet |
 | "내 사물함 번호는 214번이야" (stating a fact, no request to save) | It does not save; it asks "메모해 둘까요?" (shall I note it?) → reply "응" (yes) to get the confirmation sheet; say anything else and nothing is saved |
-| "자전거 비밀번호 뭐였지?" (what was my bike code?) | It searches notes and past conversations and shows the source as a card |
+| "자전거 비밀번호 뭐였지?" (what was my bike code?) | It searches notes and past conversations and shows the source as a card. A new value you just said in this conversation wins over a saved note |
 
 - **Confirmation sheets** cancel themselves after one minute. If cancelled, it briefly says nothing was saved.
 - **Voice**: tap the microphone in the input bar and speak (up to 30 seconds). The model transcribes, then answers.
 - **Attachments**: the paperclip attaches an image or a document. Only the beginning of a document goes into the conversation.
 - **Web search**: Wikipedia is searched only while the globe toggle in the input bar is on. Off by default.
 - **Read aloud**: the speaker icon under an answer.
+- **Header star**: the star next to KOSMOS shows the AI engine state (blue ready · grey starting · yellow hot · red error). When it is yellow or red, the box on the right says "발열 주의" (running hot), "엔진 오류" (engine error) or "모델 없음" (no model); tap it for the reason and **Retry**.
 
 **Other screens** — open the menu (☰) at the top left.
 - **Past conversations (지난 대화)**: memories by topic — search, edit or delete summaries, jump back to the original messages.
