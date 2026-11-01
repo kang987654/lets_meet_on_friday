@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.39.3 · 2026-11-01. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.39.4 · 2026-11-01. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 > **Note — the app is Korean-only for now.** The screens, the assistant's instructions and the read-aloud voice are all Korean.
 > An English version of the app is planned. Until then, this guide is mainly for understanding, building and running the project.
@@ -79,7 +79,7 @@ Requested only when needed. Everything else keeps working if you decline.
 - **Short conversational memory** — it directly remembers only the last few turns and finds the rest by searching past conversations and notes. Ask it to remember important things.
 - **It can be wrong** — it is a small model. A confirmation sheet always appears before saving, so check the content.
 - **When the device is hot** (battery around 43°C or more) background work such as memory cleanup and briefings is postponed.
-- **Some turns are slow** — right after the model wakes, or after a long conversation is condensed, the first answer can take 10+ seconds.
+- **Some turns are slow** — if you ask while the conversation is still warming up right after the model wakes (about 10 seconds), or when a turn has to rebuild the conversation on the spot, the first answer can take around 10 seconds.
 
 ## 8. Running on the emulator (developers)
 - Copy the model file to the path in section 3 on an x86_64 AVD. The app detects the emulator and runs the model **on CPU only** (the GPU path looks for OpenCL, which emulators lack, and fails at generation).
