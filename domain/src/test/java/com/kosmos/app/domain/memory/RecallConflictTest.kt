@@ -51,4 +51,15 @@ class RecallConflictTest {
         assertFalse("자전거가 전혀 언급되지 않은 다른 주제 요약은 충돌이 아니다", RecallConflict.contradicts(unrelatedEpisode, bike))
         assertEquals(emptyList<String>(), RecallConflict.otherValues(listOf(unrelatedEpisode), bike))
     }
+
+    @Test
+    fun `영어 메모와 과거 대화 요약에서도 날짜·다른 주제 숫자를 빼고 충돌만 잡는다(0·40·0 M2a)`() {
+        val bikeEn = listOf("Bike lock code is 134")
+        val epConflict = "(Past conversation) Bike code change: On Oct 3 at 2 PM, the user changed the bike lock code from 1234 to 4321."
+        val epUnrelated = "(Past conversation) Locker and tracking: The locker number is 214 and tracking number is 6043."
+
+        assertTrue(RecallConflict.contradicts(epConflict, bikeEn))
+        assertEquals(listOf("1234", "4321"), RecallConflict.otherValues(listOf(epConflict), bikeEn))
+        assertFalse(RecallConflict.contradicts(epUnrelated, bikeEn))
+    }
 }

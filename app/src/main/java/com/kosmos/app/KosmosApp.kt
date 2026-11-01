@@ -41,6 +41,9 @@ class KosmosApp : Application(), Configuration.Provider {
     @Inject
     lateinit var memoryCleanupRunner: com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
 
+    @Inject
+    lateinit var appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder
+
     /**
      * [WHY] @HiltWorker 로 만든 Worker 에 의존성을 주입하려면 WorkManager 의 기본 초기화를
      * 매니페스트에서 제거하고(WorkManagerInitializer node:remove) HiltWorkerFactory 를 물려야 한다.
@@ -55,7 +58,8 @@ class KosmosApp : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        NotificationChannels.ensureCreated(this)
+        appLanguageHolder.start()
+        NotificationChannels.ensureCreated(this, appLanguageHolder.current)
         conversationPrewarmer.start()
         briefingGenerator.start()
         episodeBoundaryManager.start()
@@ -82,5 +86,10 @@ class KosmosApp : Application(), Configuration.Provider {
         if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) {
             modelRunner.close()
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        appLanguageHolder.onConfigurationChanged(newConfig)
     }
 }

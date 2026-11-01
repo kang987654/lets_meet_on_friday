@@ -63,10 +63,30 @@ class PromptFixtureExportTest {
         )
         assertTrue("사용자 발화는 맨 뒤에 와야 한다", prompt.currentInput.endsWith(USER_INPUT))
 
+        val promptEn = PromptAssembler().assembleWithTools(
+            context = ContextBuilder.Context(
+                recentConversations = emptyList(),
+                sessionId = "lab-fixture",
+                responseStyle = "DEFAULT",
+                webSearchEnabled = true,
+                language = com.kosmos.app.core.common.AppLanguage.EN
+            ),
+            userInput = USER_INPUT,
+            availableTools = ALL_TOOLS,
+            systemRole = SYSTEM_ROLE
+        )
+        assertTrue("영어 날짜 블록이 시스템 지시에 있어야 한다", promptEn.systemInstruction.contains("[System Data] Today="))
+        assertTrue("영어 다음주 월요일 파생값이 있어야 한다", promptEn.systemInstruction.contains("Next Monday="))
+        assertTrue("영어 응답 언어 지시가 있어야 한다", promptEn.systemInstruction.contains("Always respond in English"))
+        ALL_SNAKE_NAMES.forEach { name ->
+            assertTrue("영어 툴 트리거 규칙에 `$name` 이 지목돼야 한다", promptEn.systemInstruction.contains("`$name`"))
+        }
+
         val dir = File(FIXTURE_DIR)
         if (!dir.isDirectory) return
 
         File(dir, "system_instruction.txt").writeText(prompt.systemInstruction)
+        File(dir, "system_instruction_en.txt").writeText(promptEn.systemInstruction)
         File(dir, "turn_reminder.txt").writeText(turnReminder)
         File(dir, "tools.txt").writeText(
             ALL_SNAKE_NAMES.joinToString("\n", postfix = "\n")

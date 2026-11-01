@@ -11,6 +11,7 @@ import com.kosmos.app.assistant.tool.ToolArguments
 import com.kosmos.app.assistant.tool.ToolRegistry
 import com.kosmos.app.assistant.tool.ToolResultJson
 import com.kosmos.app.core.common.AppError
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.domain.audit.AuditTrailService
@@ -55,7 +56,8 @@ abstract class BaseAgent(
     protected suspend fun executeToolLoop(
         request: ChatRequest,
         initialPrompt: ChatPrompt,
-        allowedTools: List<String>
+        allowedTools: List<String>,
+        language: AppLanguage = AppLanguage.KO
     ): AgentResult = coroutineScope {
         // [WHY] enabledTools 를 프롬프트에 실어야 런타임이 모델에게 툴을 선언한다 (ADR-008).
         var prompt = initialPrompt.copy(enabledTools = allowedTools)
@@ -96,7 +98,10 @@ abstract class BaseAgent(
                 return@coroutineScope messageWriter.saveError(
                     request.sessionId,
                     "Max tool loop count exceeded",
-                    AppError.ModelInferenceError("툴 호출 반복 상한(${MAX_TOOL_LOOP_COUNT}회)을 넘었어요.")
+                    AppError.ModelInferenceError(
+                        if (language == AppLanguage.EN) "Exceeded the maximum tool call retry limit (${MAX_TOOL_LOOP_COUNT})."
+                        else "툴 호출 반복 상한(${MAX_TOOL_LOOP_COUNT}회)을 넘었어요."
+                    )
                 )
             }
             loopCount++
@@ -131,8 +136,8 @@ abstract class BaseAgent(
                     // 완전한 태그만 찾으므로 그 전 구간을 그대로 흘리면 조각이 보인다.
                     StreamUpdate(ToolParser.stripIncompleteTag(accumulatedToken).ifEmpty { null }, null)
                 }
-                // [WHY] 답 속 ISO 일시는 화면에 닿기 전에 한국어 표기로(0.38.9 결정 2) — 저장되는 최종 답도 같은 함수를 거친다.
-                request.onStream?.invoke(update.copy(content = update.content?.let { com.kosmos.app.domain.util.IsoDateTimeParser.humanizeStreaming(it).ifEmpty { null } }))
+                // [WHY] 답 속 ISO 일시는 화면에 닿기 전에 한국어/영어 표기로(0.38.9 결정 2, 0.40.0) — 저장되는 최종 답도 같은 함수를 거친다.
+                request.onStream?.invoke(update.copy(content = update.content?.let { com.kosmos.app.domain.util.IsoDateTimeParser.humanizeStreaming(it, lang = language).ifEmpty { null } }))
             }
 
             // [WHY] 첫 턴에만 첨부(이미지)를 보낸다. 이후는 툴 응답 회신 턴이다.
@@ -166,7 +171,8 @@ abstract class BaseAgent(
                     request.sessionId,
                     allowedTools,
                     request.message,
-                    previousAssistant = if (call.name == ToolNames.ADD_MEMORY) previousTurn().assistant else null
+                    previousAssistant = if (call.name == ToolNames.ADD_MEMORY) previousTurn().assistant else null,
+                    language = language
                 )
                 anyExecuted = anyExecuted || outcome.executed
                 if (call.name == ToolNames.ADD_MEMORY) {
@@ -229,7 +235,7 @@ abstract class BaseAgent(
                 if (outcome.rejected) {
                     anyExecuted = true
                     modelRunner.invalidateConversation()
-                    val reply = rejectionReply(call.name)
+                    val reply = rejectionReply(call.name, language)
                     request.onStream?.invoke(StreamUpdate(reply, null))
                     parsedResult = ToolParser.parseStream(reply)
                     break
@@ -248,16 +254,17 @@ abstract class BaseAgent(
         }
 
         val finalParsed = parsedResult
-        var text = com.kosmos.app.domain.util.IsoDateTimeParser.humanizeInText(finalParsed.content)
+        var text = com.kosmos.app.domain.util.IsoDateTimeParser.humanizeInText(finalParsed.content, lang = language)
 
         val finish = ReplyFinisher.finish(
             text, request.message, { previousTurn() }, carriedMemo, anyExecuted, memoCalled,
-            memoAllowed = ToolNames.ADD_MEMORY in allowedTools
+            memoAllowed = ToolNames.ADD_MEMORY in allowedTools,
+            language = language
         )
         val fixed = when (finish) {
             ReplyFinisher.Finish.Keep -> text
             is ReplyFinisher.Finish.Rewrite -> finish.text
-            is ReplyFinisher.Finish.AppSave -> saveAnsweredMemo(request.sessionId, finish.memo, allowedTools)?.let { (reply, result) ->
+            is ReplyFinisher.Finish.AppSave -> saveAnsweredMemo(request.sessionId, finish.memo, allowedTools, language)?.let { (reply, result) ->
                 if (result != null) messageResult = result
                 reply
             } ?: finish.fallback
@@ -323,7 +330,8 @@ abstract class BaseAgent(
     private suspend fun saveAnsweredMemo(
         sessionId: String,
         content: String,
-        allowedTools: List<String>
+        allowedTools: List<String>,
+        language: AppLanguage = AppLanguage.KO
     ): Pair<String, com.kosmos.app.domain.model.MessageResult?>? {
         val outcome = executeToolInner(
             ToolParser.ToolCallData(ToolNames.ADD_MEMORY, ToolArguments.of(mapOf("content" to content))),
@@ -331,12 +339,13 @@ abstract class BaseAgent(
             allowedTools,
             userText = "",
             previousAssistant = null,
-            guardFact = false
+            guardFact = false,
+            language = language
         )
         auditTrailService.logToolCall(sessionId = sessionId, toolName = ToolNames.ADD_MEMORY, resultJson = outcome.resultJson, note = ANSWERED_MEMO_NOTE)
         return when {
-            outcome.rejected -> rejectionReply(ToolNames.ADD_MEMORY) to null
-            outcome.succeeded -> MEMO_SAVED to extractResult(outcome.resultJson)
+            outcome.rejected -> rejectionReply(ToolNames.ADD_MEMORY, language) to null
+            outcome.succeeded -> (if (language == AppLanguage.EN) MEMO_SAVED_EN else MEMO_SAVED) to extractResult(outcome.resultJson)
             else -> null
         }
     }
@@ -347,16 +356,18 @@ abstract class BaseAgent(
         allowedTools: List<String>,
         userText: String,
         previousAssistant: String? = null,
-        guardFact: Boolean = true
+        guardFact: Boolean = true,
+        language: AppLanguage = AppLanguage.KO
     ): ToolOutcome {
+        val en = language == AppLanguage.EN
         // [WHY] 가드는 실행기 조회보다 먼저다 — allowlist 밖 이름은 실행기가 있든 없든 막혀야 한다.
-        ToolCallGuards.check(call.name, allowedTools, userText, previousAssistant, guardFact)?.let { block ->
+        ToolCallGuards.check(call.name, allowedTools, userText, previousAssistant, guardFact, language)?.let { block ->
             block.auditError?.let { auditTrailService.logError(sessionId, it) }
             return block.outcome
         }
 
         val executor = toolRegistry.getExecutor(call.name)
-            ?: return ToolOutcome(ToolResultJson.error("알 수 없는 Tool입니다: ${call.name}"), executed = false)
+            ?: return ToolOutcome(ToolResultJson.error(if (en) "Unknown tool: ${call.name}" else "알 수 없는 Tool입니다: ${call.name}"), executed = false)
 
         // [WHY] 인자 검증 실패는 승인 전에 걸러야 한다 — 필수 인자가 없는 초안을 승인 카드로
         // 띄우면 사용자가 실행될 수 없는 요청을 승인하게 된다. 또한 누락과 타입 오류를 구분해
@@ -368,14 +379,14 @@ abstract class BaseAgent(
                 val approved = approvalCoordinator.requireApproval(approvalRequest)
                 if (!approved) {
                     auditTrailService.logApprovalRejected(sessionId, "${call.name}: ${approvalRequest.description}")
-                    return ToolOutcome(ToolResultJson.error("사용자가 승인하지 않았어요"), executed = false, rejected = true)
+                    return ToolOutcome(ToolResultJson.error(if (en) "The user did not approve this request." else "사용자가 승인하지 않았어요"), executed = false, rejected = true)
                 }
                 auditTrailService.logApprovalGranted(sessionId, "${call.name}: ${approvalRequest.description}")
             }
             ToolOutcome.of(executor.execute(call.args, sessionId), executed = true)
         } catch (e: com.kosmos.app.assistant.tool.ToolArgumentException) {
             auditTrailService.logError(sessionId, "Invalid tool argument: ${call.name}.${e.field} (${e.reason})")
-            ToolOutcome(toolArgumentErrorJson(call.name, e), executed = false)
+            ToolOutcome(toolArgumentErrorJson(call.name, e, language), executed = false)
         }
     }
 
@@ -384,12 +395,22 @@ abstract class BaseAgent(
      *
      * [WHY] 모델 회신 문구로는 다섯 판(exp38d·e, exp49, exp56 R0~R4)을 재도 거짓 성공·오류로 바꿈·앞 턴 따라 하기 중 하나가 남았다.
      */
-    private fun rejectionReply(toolName: String): String = when (toolName) {
-        ToolNames.ADD_SCHEDULE -> "일정을 추가하지 않았어요."
-        ToolNames.ADD_REMINDER -> "알림을 등록하지 않았어요."
-        // [WHY] "저장하지 않았어요"는 다음 턴에 "그 정보는 없다"로 읽혀, 바로 앞에서 들은 값을 "찾지 못했어요"라고 했다(실기기 T7, exp60 2/6 → 5/6).
-        ToolNames.ADD_MEMORY -> "메모에는 남기지 않았어요."
-        else -> "요청을 실행하지 않았어요."
+    private fun rejectionReply(toolName: String, language: AppLanguage = AppLanguage.KO): String {
+        if (language == AppLanguage.EN) {
+            return when (toolName) {
+                ToolNames.ADD_SCHEDULE -> "I didn't add the event."
+                ToolNames.ADD_REMINDER -> "I didn't set the reminder."
+                ToolNames.ADD_MEMORY -> "I didn't save that as a note."
+                else -> "I didn't run the request."
+            }
+        }
+        return when (toolName) {
+            ToolNames.ADD_SCHEDULE -> "일정을 추가하지 않았어요."
+            ToolNames.ADD_REMINDER -> "알림을 등록하지 않았어요."
+            // [WHY] "저장하지 않았어요"는 다음 턴에 "그 정보는 없다"로 읽혀, 바로 앞에서 들은 값을 "찾지 못했어요"라고 했다(실기기 T7, exp60 2/6 → 5/6).
+            ToolNames.ADD_MEMORY -> "메모에는 남기지 않았어요."
+            else -> "요청을 실행하지 않았어요."
+        }
     }
 
     /** 툴 결과 JSON 에서 meta.episodeIds 를 뽑습니다. 형식이 어긋나면 빈 목록 — 칩이 안 뜰 뿐이다. */
@@ -418,22 +439,28 @@ abstract class BaseAgent(
     /** 인자 오류를 모델이 스스로 고칠 수 있는 구조화된 형태로 되돌립니다. */
     private fun toolArgumentErrorJson(
         toolName: String,
-        e: com.kosmos.app.assistant.tool.ToolArgumentException
+        e: com.kosmos.app.assistant.tool.ToolArgumentException,
+        language: AppLanguage = AppLanguage.KO
     ): String {
+        val en = language == AppLanguage.EN
         val guidance = when (e.reason) {
             com.kosmos.app.assistant.tool.ToolArgumentException.Reason.MISSING ->
-                "'${e.field}' 인자가 없습니다. 사용자에게 값을 확인한 뒤 다시 호출하세요."
+                if (en) "Argument '${e.field}' is missing. Confirm the value with the user and call the tool again."
+                else "'${e.field}' 인자가 없습니다. 사용자에게 값을 확인한 뒤 다시 호출하세요."
             com.kosmos.app.assistant.tool.ToolArgumentException.Reason.WRONG_TYPE ->
-                "'${e.field}' 인자의 형식이 올바르지 않습니다. 문자열로 다시 보내세요."
+                if (en) "Argument '${e.field}' has an invalid type. Send it again as a string."
+                else "'${e.field}' 인자의 형식이 올바르지 않습니다. 문자열로 다시 보내세요."
             // [WHY] 깨진 원문 값은 안내에 에코하지 않는다 — 깨짐이 생성/디코딩 계층에서 온다는
             // 것이 실기기 관측이므로(2026-08-13), 깨진 토큰열을 문맥에 다시 넣으면 모델이 그
             // 형태를 따라 쓸 재료만 는다. 올바른 예시 형식만 제시한다.
             com.kosmos.app.assistant.tool.ToolArgumentException.Reason.BAD_FORMAT ->
-                "'${e.field}' 인자가 ISO 8601 일시 형식이 아닙니다. '2026-08-17T15:00:00' 형식으로 다시 보내세요."
+                if (en) "Argument '${e.field}' is not in ISO 8601 date-time format. Send it again in the format '2026-08-17T15:00:00'."
+                else "'${e.field}' 인자가 ISO 8601 일시 형식이 아닙니다. '2026-08-17T15:00:00' 형식으로 다시 보내세요."
             // [WHY] AddReminderToolExecutor 의 실행 오류 문구와 같은 원문 — 승인 전으로 당겼을 뿐
             // 모델이 받는 지시는 같아야 한다(exp40).
             com.kosmos.app.assistant.tool.ToolArgumentException.Reason.PAST ->
-                "이미 지난 시각입니다. 미래의 시각으로 다시 호출하세요."
+                if (en) "That time has already passed. Call the tool again with a future time."
+                else "이미 지난 시각입니다. 미래의 시각으로 다시 호출하세요."
         }
         return org.json.JSONObject()
             .put(ToolResultJson.STATUS, ToolResultJson.ERROR)
@@ -455,6 +482,7 @@ abstract class BaseAgent(
 
         // 앱이 연 메모 저장이 승인됐을 때의 답 — 거절 문장 "메모에는 남기지 않았어요."와 짝.
         const val MEMO_SAVED = "메모에 저장했어요."
+        const val MEMO_SAVED_EN = "Saved to your notes."
 
         const val ANSWERED_MEMO_NOTE = "저장 물음에 대한 긍정 — 앱이 연 저장"
 

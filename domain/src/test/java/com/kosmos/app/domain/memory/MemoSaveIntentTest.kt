@@ -86,4 +86,49 @@ class MemoSaveIntentTest {
         )
         assertEquals(MemoSaveIntent.PreviousTurn(null, null), MemoSaveIntent.previousTurn(listOf(msg(ChatMessage.Role.USER, "안녕", 1))))
     }
+
+    @Test
+    fun `영어 저장 부탁은 잡고 조회 의문문(Do you remember)과 일상 note는 잡지 않는다(0·40·0 M2a)`() {
+        listOf(
+            "Please remember that my bike lock code is 4821",
+            "Remember this: locker 214",
+            "Save this as a note",
+            "Make a note of my tracking number 6043",
+            "Write this down: room 5C",
+            "Don't forget my sister's birthday is May 3rd",
+            "Keep in mind that I have a peanut allergy"
+        ).forEach { assertTrue(it, MemoSaveIntent.hasSaveWord(it)) }
+
+        listOf(
+            "Do you remember my bike lock code?",
+            "Can you remember what I said earlier?",
+            "Remember what my Wi-Fi password was?",
+            "I wrote a long note in my journal today about my trip. Thanks for listening.",
+            "My locker code is 507319.",
+            "The meeting room is on the 5th floor."
+        ).forEach { assertFalse(it, MemoSaveIntent.hasSaveWord(it)) }
+    }
+
+    @Test
+    fun `영어 저장 물음과 짧은 긍정(yes·sure·go ahead) 및 약속 제거가 동작한다(0·40·0 M2a)`() {
+        val askedEn = "Got it, locker 214. Would you like me to save this as a note?"
+        assertTrue(MemoSaveIntent.asksSave(askedEn))
+        assertTrue(MemoSaveIntent.asksSave("Should I save this for you?"))
+        listOf("yes", "Yeah!", "sure", "ok", "go ahead", "yes please").forEach {
+            assertTrue(it, MemoSaveIntent.isYes(it))
+            assertFalse(it, MemoSaveIntent.shouldBlock(it, askedEn))
+        }
+        listOf("no thanks", "yes, and what's the weather today?", "thanks for listening").forEach {
+            assertFalse(it, MemoSaveIntent.isYes(it))
+            assertTrue(it, MemoSaveIntent.shouldBlock(it, askedEn))
+        }
+        assertEquals(
+            "Got it, locker 214. Would you like me to save this as a note?",
+            MemoSaveIntent.withoutClaim("Got it, locker 214. I'll remember that.", com.kosmos.app.core.common.AppLanguage.EN)
+        )
+        assertEquals(
+            "Would you like me to save this as a note?",
+            MemoSaveIntent.withoutClaim("I've saved that for you!", com.kosmos.app.core.common.AppLanguage.EN)
+        )
+    }
 }

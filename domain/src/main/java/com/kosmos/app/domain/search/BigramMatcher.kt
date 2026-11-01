@@ -27,7 +27,8 @@ object BigramMatcher {
     private val EN_STOPWORDS = setOf(
         "the", "and", "for", "that", "this", "with", "from", "are", "was", "were",
         "have", "has", "had", "what", "where", "when", "who", "how", "why", "into",
-        "onto", "about", "your", "our", "their", "his", "her", "its"
+        "onto", "about", "your", "our", "their", "his", "her", "its",
+        "is", "am", "be", "to", "of", "in", "on", "at", "by", "as", "it", "or", "an"
     )
 
     /**

@@ -67,10 +67,14 @@ class TokenBudgetInvariantTest {
     fun `오버헤드 예약이 프로필 상한까지 포함해 실측을 덮는다`() {
         // [WHY] 프로필(C′1)은 상시 주입이라 최악(상한 꽉 채움)에도 예약 안에 들어야 한다 —
         // 재원은 few-shot 제거(104토큰, exp35). 이 관계가 깨지면 프로필이 히스토리 예산을
-        // 조용히 침식한다.
+        // 조용히 침식한다. 영어 시스템 지시 실측(MEASURED_OVERHEAD_EN = 1,224, exp72)도 함께 검증한다.
         assertTrue(
             "예약 ${Constants.PREFILL_OVERHEAD_TOKENS} < 실측 $MEASURED_OVERHEAD + 프로필 상한 ${Constants.PROFILE_MAX_TOKENS}",
             Constants.PREFILL_OVERHEAD_TOKENS >= MEASURED_OVERHEAD + Constants.PROFILE_MAX_TOKENS
+        )
+        assertTrue(
+            "예약 ${Constants.PREFILL_OVERHEAD_TOKENS} < 영어 실측 $MEASURED_OVERHEAD_EN + 프로필 상한 ${Constants.PROFILE_MAX_TOKENS}",
+            Constants.PREFILL_OVERHEAD_TOKENS >= MEASURED_OVERHEAD_EN + Constants.PROFILE_MAX_TOKENS
         )
     }
 
@@ -188,5 +192,11 @@ class TokenBudgetInvariantTest {
          * 프로필 블록은 여기 없고 [Constants.PROFILE_MAX_TOKENS] 상한으로 따로 계상된다.
          */
         const val MEASURED_OVERHEAD = 1257
+
+        /**
+         * 영어 시스템 지시(`system_instruction_en.txt`) + 툴 7종 선언 실측(`scratch/lab/exp72_english_mode.py` 2026-11-02):
+         * 첫 턴 KV(출력 상한 1) 1,322(KO) → 1,288(EN, −34), `engine.tokenize` 시스템 지시 568(KO) → 535(EN, −33) → 1,257 − 33 = **1,224**.
+         */
+        const val MEASURED_OVERHEAD_EN = 1224
     }
 }

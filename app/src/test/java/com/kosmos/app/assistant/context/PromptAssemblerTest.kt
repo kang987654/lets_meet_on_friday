@@ -263,4 +263,29 @@ class PromptAssemblerTest {
             result.history.isEmpty()
         )
     }
+
+    @Test
+    fun `영어 설정에서는 영어 응답 지시·날짜 블록·트리거 규칙이 조립된다(0·40·0 M2a)`() {
+        val enContext = ContextBuilder.Context(
+            recentConversations = emptyList(),
+            sessionId = "s1",
+            responseStyle = "DEFAULT",
+            language = com.kosmos.app.core.common.AppLanguage.EN
+        )
+        val enPrompt = promptAssembler.assembleWithTools(
+            context = enContext,
+            userInput = "Schedule a dentist appointment tomorrow at 3 PM",
+            availableTools = listOf("AddSchedule", "GetSchedule", "AddMemory", "SearchMemory", "AddReminder", "ListReminders"),
+            systemRole = "personal assistant named Kosmos"
+        )
+        val si = enPrompt.systemInstruction
+        assertTrue(si.contains("Always respond in English unless the user speaks another language."))
+        assertTrue(si.contains("Reply briefly in clear, natural, polite English."))
+        assertTrue(si.contains("[System Data] Today="))
+        assertTrue(si.contains("Tomorrow="))
+        assertTrue(si.contains("Day after tomorrow="))
+        assertTrue(si.contains("Next Monday="))
+        assertTrue(si.contains("Would you like me to save this as a note?"))
+        assertTrue(si.contains("(\"tomorrow\", \"day after tomorrow\", \"3 PM\" are not missing)"))
+    }
 }

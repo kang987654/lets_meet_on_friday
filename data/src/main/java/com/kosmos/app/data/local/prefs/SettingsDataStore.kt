@@ -31,6 +31,7 @@ class SettingsDataStore @Inject constructor(
         private val TTS_AUTO_READ_KEY = booleanPreferencesKey("tts_auto_read")
         private val TTS_ENGINE_KEY = stringPreferencesKey("tts_engine")
         private val DOC_TEXT_SCALE_KEY = intPreferencesKey("doc_text_scale_step")
+        private val APP_LANGUAGE_KEY = stringPreferencesKey("app_language")
 
         // [WHY] 557 = 09:17 (사용자 지정 기본, 2026-08-21). 자정 기준 분 단위 int 하나가
         // 단일 출처다 — 시/분을 따로 저장하면 갱신이 반쪽만 될 수 있다.
@@ -194,5 +195,19 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun saveDocTextScaleStep(step: Int) {
         dataStore.edit { prefs -> prefs[DOC_TEXT_SCALE_KEY] = step.coerceIn(0, 2) }
+    }
+
+    /**
+     * 앱 언어 옵션 폴백(`"SYSTEM"` / `"KO"` / `"EN"`).
+     *
+     * [WHY] Android 13(API 33) 이상에서는 `LocaleManager.applicationLocales` 가 유일한 정본이고,
+     * 이 값은 API 26~32 기기 폴백 및 초기 동기화에만 쓰인다(0.40.0 M2a).
+     */
+    val appLanguageOptionFlow: Flow<String> = dataStore.data.map {
+        it[APP_LANGUAGE_KEY] ?: "SYSTEM"
+    }
+
+    suspend fun saveAppLanguageOption(option: String) {
+        dataStore.edit { prefs -> prefs[APP_LANGUAGE_KEY] = option }
     }
 }

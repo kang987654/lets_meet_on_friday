@@ -7,8 +7,16 @@ package com.kosmos.app.domain.memory
  * 프롬프트로 안 고쳐져 앱이 그 호출을 막는다(BaseAgent). 규칙은 낱말 몇 개뿐이라 놓쳐도 지금처럼 승인 시트가 뜰 뿐이다.
  */
 object RepeatRequest {
-    private val REPEAT = Regex("다시\\s*(알려|말해|얘기|들려)|뭐였(지|더라|어)|뭐라고\\s*했")
-    private val SAVE = Regex("기억해|저장|메모해|잊지\\s*마|적어\\s*(둬|놔|줘)")
+    private val REPEAT = Regex(
+        "다시\\s*(알려|말해|얘기|들려)|뭐였(지|더라|어)|뭐라고\\s*했|" +
+            "\\b(tell\\s+me\\s+again|repeat\\s+that|what\\s+was\\b|what\\s+did\\s+i\\s+say|remind\\s+me\\s+what|(do|can|could|did)\\s+you\\s+remember)\\b",
+        RegexOption.IGNORE_CASE
+    )
+    private val SAVE = Regex(
+        "기억해|저장|메모해|잊지\\s*마|적어\\s*(둬|놔|줘)|" +
+            "\\b(please\\s+remember|remember\\s+(that|this|to)\\b|save\\s+(this|it|that)\\b|(make|take|save|keep)\\s+a\\s+note|write\\s+(it\\s+|this\\s+|that\\s+)?down|don'?t\\s+forget|keep\\s+in\\s+mind)\\b",
+        RegexOption.IGNORE_CASE
+    )
 
     fun matches(userText: String): Boolean = REPEAT.containsMatchIn(userText) && !SAVE.containsMatchIn(userText)
 }

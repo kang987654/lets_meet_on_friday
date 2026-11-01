@@ -43,23 +43,76 @@ SEARCH_EMPTY = "저장된 기억이 하나도 없습니다. 사용자가 이 대
 HIT_TAIL = "\n이 목록에 질문의 답이 없으면, 사용자가 이 대화에서 이미 말한 내용으로 답하세요."
 
 # --- 앱 가드 판정식 (원문: domain/memory/RepeatRequest·MemoSaveIntent, domain/agent/RefusalTurns) ---
-REPEAT = re.compile(r"다시\s*(알려|말해|얘기|들려)|뭐였(지|더라|어)|뭐라고\s*했")
-REPEAT_SAVE = re.compile(r"기억해|저장|메모해|잊지\s*마|적어\s*(둬|놔|줘)")
-SAVE_WORD = re.compile(r"기억|저장|메모|잊지\s*마|잊으면\s*안|까먹|적어\s*(둬|두|놔|줘|주)|기록\s*(해|좀)|외워|알아\s*(둬|두|놔)|챙겨")
-SAVE_ASK = re.compile(r"(메모|저장|기억)[^.?!\n]{0,8}(둘까|드릴까|할까)")
-YES = re.compile(r"(응|웅|어|네|예|넹|ㅇㅇ|그래|그래요|좋아|좋아요|부탁해|부탁해요|해줘|해 줘|해주세요|해 주세요|그럼|오케이|ok|okay)(\s*(응|좋아|부탁해|해줘|해 줘))?", re.I)
+REPEAT = re.compile(
+    r"다시\s*(알려|말해|얘기|들려)|뭐였(지|더라|어)|뭐라고\s*했|"
+    r"\b(tell\s+me\s+again|repeat\s+that|what\s+was\b|what\s+did\s+i\s+say|remind\s+me\s+what|(do|can|could|did)\s+you\s+remember)\b",
+    re.I,
+)
+REPEAT_SAVE = re.compile(
+    r"기억해|저장|메모해|잊지\s*마|적어\s*(둬|놔|줘)|"
+    r"\b(please\s+remember|remember\s+(that|this|to)\b|save\s+(this|it|that)\b|(make|take|save|keep)\s+a\s+note|write\s+(it\s+|this\s+|that\s+)?down|don'?t\s+forget|keep\s+in\s+mind)\b",
+    re.I,
+)
+SAVE_WORD_KO = re.compile(r"기억|저장|메모|잊지\s*마|잊으면\s*안|까먹|적어\s*(둬|두|놔|줘|주)|기록\s*(해|좀)|외워|알아\s*(둬|두|놔)|챙겨")
+SAVE_WORD_EN = re.compile(
+    r"\b(please\s+remember|remember\s+(that|this|to|my)\b|save\s+(this|it|that|my|as\s+a\s+note)\b|"
+    r"(make|take|save|keep)\s+a\s+note(\s+(of|that))?\b|note\s+(this|that|it)(\s+down)?\b|"
+    r"write\s+(it\s+|this\s+|that\s+)?down|jot\s+(it\s+|this\s+|that\s+)?down|"
+    r"don'?t\s+forget|keep\s+(this\s+|that\s+|it\s+)?in\s+mind|memorize\s+(this|that|it))",
+    re.I,
+)
+REMEMBER_LOOKUP_EN = re.compile(r"^\s*(do|can|could|did)\s+you\s+remember\b|\bremember\s+(what|where|when|who|which|how)\b", re.I)
+
+
+class _SaveWord:
+    @staticmethod
+    def search(t):
+        if SAVE_WORD_KO.search(t):
+            return True
+        if REMEMBER_LOOKUP_EN.search(t):
+            return False
+        if t.rstrip().endswith("?") and re.search(r"^\s*remember\b", t, re.I):
+            return False
+        return bool(SAVE_WORD_EN.search(t))
+
+
+SAVE_WORD = _SaveWord()
+SAVE_ASK = re.compile(
+    r"(메모|저장|기억)[^.?!\n]{0,8}(둘까|드릴까|할까)|"
+    r"(would\s+you\s+like(\s+me)?\s+to|should\s+i|shall\s+i|do\s+you\s+want(\s+me)?\s+to|want\s+me\s+to)\s+(save|note|remember|keep|write\s+down)",
+    re.I,
+)
+YES = re.compile(
+    r"(응|웅|어|네|예|넹|ㅇㅇ|그래|그래요|좋아|좋아요|부탁해|부탁해요|해줘|해 줘|해주세요|해 주세요|그럼|오케이|"
+    r"yes|yeah|yep|yup|sure|ok|okay|please|go\s+ahead|yes\s+please|sure\s+please|please\s+do|do\s+it)"
+    r"(\s*(응|좋아|부탁해|해줘|해 줘|please|thanks|thank\s+you))?",
+    re.I,
+)
 # 0.39.2 M2: 바로 뒤에 "~지만/~는데"가 붙으면 도운 답이다("해 드릴 수 없지만 물을 마시면 …").
-REFUSAL_TURN = re.compile(r"(기능이 없|기능은 없|기능을 가지고 있지 않|드릴 수 없|드릴 수는 없|도움을 드리기 어려)(?!지만|는데|으나|운데|우나|워도)")
+REFUSAL_TURN = re.compile(
+    r"(기능이 없|기능은 없|기능을 가지고 있지 않|드릴 수 없|드릴 수는 없|도움을 드리기 어려)(?!지만|는데|으나|운데|우나|워도)|"
+    r"\b(i\s+don'?t\s+have\s+(that|a|the)\s+(feature|ability|capability|function)|"
+    r"i('?m|\s+am)\s+(not\s+able\s+to|unable\s+to)\s+(help\s+with|do|perform|provide|create|make|recommend|give\s+you)|"
+    r"i\s+(cannot|can'?t)\s+(help\s+with|do|perform|provide|create|make|recommend|give\s+you))"
+    r"(?![^.!?\n]{0,40}\b(but|however|though|instead\s+you\s+can)\b)",
+    re.I,
+)
 # 0.39.2 M2: "왜 안/못"은 앞 대화를 가리킬 때만("그게 왜 안 돼?") — 일상 "와이파이가 왜 안 돼?"는 아니다.
 WHY_QUOTE = re.compile(r"안\s*된다고|못\s*한다고|안\s*된다며|못\s*한다며")
 WHY_BARE = re.compile(r"왜\s*(안|못)")
 WHY_BACK = re.compile(r"그게|그건|그거|그걸|아까|방금|했어|했잖|했지|그랬")
+WHY_EN = re.compile(
+    r"\b(why\s+(did|do)\s+you\s+say\s+you\s+(can'?t|cannot|couldn'?t)|"
+    r"you\s+said\s+you\s+(can'?t|cannot|couldn'?t)|"
+    r"why\s+(can'?t|couldn'?t|aren'?t)\s+you(\s+(do|able\s+to\s+do)\s+(that|it))?\b)",
+    re.I,
+)
 
 
 class _Why:
     @staticmethod
     def search(t):
-        return bool(WHY_QUOTE.search(t) or (WHY_BARE.search(t) and WHY_BACK.search(t)))
+        return bool(WHY_QUOTE.search(t) or (WHY_BARE.search(t) and WHY_BACK.search(t)) or WHY_EN.search(t))
 
 
 WHY_REFUSED = _Why()
@@ -462,9 +515,84 @@ def set_optional():
     return out
 
 
+# ---------------- 영어(EN) 세트 (0.40.0 M2a) ----------------
+SYS_EN_ON = K.fixture("system_instruction_en.txt")
+_WIKI_LINE_EN = next(l for l in SYS_EN_ON.splitlines() if "search_wikipedia" in l) + "\n"
+SYS_EN_OFF = SYS_EN_ON.replace(_WIKI_LINE_EN, "")
+ASK_FIRST_EN = 'Not saved yet. Ask the user "Would you like me to save this as a note?" before saving.'
+REPEAT_NOT_SAVE_EN = "Not saved. The user is asking to hear what they told you earlier. Answer with that value and do not claim you saved it."
+
+
+def turn_en(history, user, sysm=SYS_EN_OFF, tools=None, why=False):
+    tools = tools if tools is not None else TOOLS_OFF
+    prev_model = next((m["content"] for m in reversed(history or []) if m["role"] == "model"), None)
+    hist = model_history((history or []) + [M("user", user)])[:-1] if not why else history
+    executed, blocked, first = [], [], None
+    with open_conversation(hist, tools, sysm) as conv:
+        res = conv.send_message(K.with_turn_reminder(user))
+        for _ in range(3):
+            calls = res.get("tool_calls") or []
+            if not calls:
+                break
+            fn = calls[0]["function"]
+            name, args = fn["name"], fn.get("arguments") or {}
+            first = first or fn
+            if name == "add_memory" and REPEAT.search(user) and not REPEAT_SAVE.search(user):
+                body, ok = {"status": "error", "message": REPEAT_NOT_SAVE_EN}, False
+            elif name == "add_memory" and not SAVE_WORD.search(user) and not (prev_model and SAVE_ASK.search(prev_model) and is_yes(user)):
+                body, ok = {"status": "error", "message": ASK_FIRST_EN}, False
+            elif name == "add_memory":
+                body, ok = {"status": "success", "message": "Saved to memory."}, True
+            else:
+                body, ok = {"status": "success", "data": "None"}, True
+            (executed.append((name, args)) if ok else blocked.append(name))
+            res = conv.send_message(K.tool_response_message(name, json.dumps(body, ensure_ascii=False)))
+        return text_of(res), executed, blocked, first
+
+
+def set_smoke_en():
+    """영어 툴 선택·인자 — 새 대화, 웹 검색 OFF 기본(위키 문항만 ON)."""
+    cases = [
+        ("en_add_sched1", "Schedule a dentist appointment tomorrow at 3 PM.", SYS_EN_OFF, TOOLS_OFF, args_has("add_schedule", start_time=f"{TOMORROW}T15:00")),
+        ("en_add_sched2", "Add a team meeting next Monday at 10 AM.", SYS_EN_OFF, TOOLS_OFF, args_has("add_schedule", start_time=f"{NEXT_MON}T10:00")),
+        ("en_get_today", "What's on my schedule today?", SYS_EN_OFF, TOOLS_OFF, args_has("get_schedule", date="today")),
+        ("en_get_tom", "What's on my calendar tomorrow?", SYS_EN_OFF, TOOLS_OFF, args_has("get_schedule", date="week")),
+        ("en_add_mem1", "Please remember that my bike lock code is 4821.", SYS_EN_OFF, TOOLS_OFF, args_has("add_memory", content="4821")),
+        ("en_add_mem2", "Don't forget that my sister's birthday is May 3rd.", SYS_EN_OFF, TOOLS_OFF, args_has("add_memory")),
+        ("en_srch_mem1", "What was my bike lock code?", SYS_EN_OFF, TOOLS_OFF, args_has("search_memory")),
+        ("en_srch_mem2", "Do you remember my Wi-Fi password?", SYS_EN_OFF, TOOLS_OFF, args_has("search_memory")),
+        ("en_add_rem1", "Remind me at 4 PM today to take my medicine.", SYS_EN_OFF, TOOLS_OFF, args_has("add_reminder", time=f"{TODAY}T16:00")),
+        ("en_list_rem", "What reminders do I have set?", SYS_EN_OFF, TOOLS_OFF, args_has("list_reminders")),
+        ("en_wiki", "Look up Alan Turing on Wikipedia.", SYS_EN_ON, K.ALL_TOOLS, args_has("search_wikipedia")),
+        ("en_chat1", "Recommend a light lunch menu for a rainy day.", SYS_EN_OFF, TOOLS_OFF, lambda c: c is None),
+    ]
+    out = []
+    for tag, u, sysm, tools, check in cases:
+        _, _, _, first = turn_en(None, u, sysm=sysm, tools=tools)
+        out.append((tag, check(first), str(first)[:80]))
+    return out
+
+
+def set_guard_en():
+    """영어 가드 동작 — 사실만 말하기(물어봄), 일상 note(무호출), 조회 의문문(저장 차단), yes 뒤 저장."""
+    out = []
+    for tag, u in [("en_fact1", "My locker code is 507319."), ("en_fact2", "The meeting room is on the 5th floor, Room C.")]:
+        ans, ex, bl, _ = turn_en(None, u)
+        asked = bool(SAVE_ASK.search(ans))
+        out.append((tag, not any(n == "add_memory" for n, _ in ex) and asked, f"asked={asked} ex={[n for n, _ in ex]} bl={bl} | {ans[:50]}"))
+    ans, ex, bl, _ = turn_en(None, "I wrote a long note in my journal today about my trip. Thanks for listening.")
+    out.append(("en_note_casual", not any(n == "add_memory" for n, _ in ex), f"ex={[n for n, _ in ex]} bl={bl} | {ans[:50]}"))
+    h_ask = [M("user", "My locker code is 214."), M("model", "Got it, locker 214. Would you like me to save this as a note?")]
+    ans, ex, bl, _ = turn_en(h_ask, "Yes")
+    by_model = saved(ex, "214")
+    by_app = not by_model and not any(n == "add_memory" for n, _ in ex) and is_yes("Yes")
+    out.append(("en_yes", by_model or by_app, f"model={by_model} app={by_app} bl={bl} | {ans[:50]}"))
+    return out
+
+
 SETS = {"smoke": set_smoke, "save": set_save, "fact": set_fact, "yes": set_yes, "drift": set_drift,
         "why": set_why, "newval": set_newval, "repeat": set_repeat, "iso": set_iso, "overlap": set_overlap,
-        "optional": set_optional}
+        "optional": set_optional, "smoke_en": set_smoke_en, "guard_en": set_guard_en}
 
 
 def main():

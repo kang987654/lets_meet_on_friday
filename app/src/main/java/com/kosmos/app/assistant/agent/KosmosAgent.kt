@@ -58,7 +58,7 @@ class KosmosAgent @Inject constructor(
         )
         // [WHY] 같은 질문의 앞 답을 기록에서 뺀 턴 — 살아 있는 대화에는 그 답이 남아 있어 모델이 되풀이한다. 이 턴에 다시 만든다(0.39.3 M4d).
         if (context.repeatDropped) modelRunner.invalidateConversation()
-        return executeToolLoop(request, initialPrompt, tools)
+        return executeToolLoop(request, initialPrompt, tools, context.language)
     }
 
     /**

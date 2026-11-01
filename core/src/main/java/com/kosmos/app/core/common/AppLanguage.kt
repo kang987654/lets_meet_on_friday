@@ -19,7 +19,7 @@ enum class AppLanguage(val tag: String) {
         KO("KO", "ko"),
         EN("EN", "en");
 
-        fun resolve(systemLocale: Locale = Locale.getDefault()): AppLanguage = when (this) {
+        fun resolve(systemLocale: Locale? = Locale.getDefault()): AppLanguage = when (this) {
             KO -> AppLanguage.KO
             EN -> AppLanguage.EN
             SYSTEM -> fromLocale(systemLocale)

@@ -18,4 +18,21 @@ class RepeatRequestTest {
         listOf("송장번호 다시 알려줄 테니 기억해 둬", "주차 위치 저장해줘", "내 자전거 비밀번호 4821이야", "잊지 마, 다시 말해 줄게", "점심 메뉴 추천해 줘")
             .forEach { assertFalse(it, RepeatRequest.matches(it)) }
     }
+
+    @Test
+    fun `영어 되묻기와 저장 요청 구분(0·40·0 M2a)`() {
+        listOf(
+            "Tell me again what my tracking number was",
+            "What was my locker number?",
+            "What did I say about the meeting room?",
+            "Do you remember my Wi-Fi password?",
+            "Remind me what the reservation code was"
+        ).forEach { assertTrue(it, RepeatRequest.matches(it)) }
+
+        listOf(
+            "Tell me again and please remember that it's 4821",
+            "Please remember my locker number is 214",
+            "Recommend a lunch menu"
+        ).forEach { assertFalse(it, RepeatRequest.matches(it)) }
+    }
 }

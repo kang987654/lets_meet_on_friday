@@ -1,9 +1,11 @@
 package com.kosmos.app.assistant.context
 
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.common.ResponseStyle
 import com.kosmos.app.core.common.runCatchingCancellable
+import com.kosmos.app.core.config.AppLanguageHolder
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.tool.Tokenizer
@@ -29,12 +31,40 @@ import javax.inject.Inject
  * 임베더가 영어 전용이라 한국어 검색이 무작위였으므로 제거했고, 기억 조회는 `SearchMemory`
  * 툴로 옮겼다 (ADR-013).
  */
-class ContextBuilder @Inject constructor(
+class ContextBuilder private constructor(
     private val conversationRepository: ConversationRepository,
     private val tokenizer: Tokenizer,
     private val settingsDataStore: SettingsDataStore,
-    private val profileRepository: com.kosmos.app.domain.memory.ProfileRepository
+    private val profileRepository: com.kosmos.app.domain.memory.ProfileRepository,
+    private val languageProvider: () -> AppLanguage
 ) {
+    @Inject
+    constructor(
+        conversationRepository: ConversationRepository,
+        tokenizer: Tokenizer,
+        settingsDataStore: SettingsDataStore,
+        profileRepository: com.kosmos.app.domain.memory.ProfileRepository,
+        appLanguageHolder: AppLanguageHolder
+    ) : this(
+        conversationRepository,
+        tokenizer,
+        settingsDataStore,
+        profileRepository,
+        languageProvider = { appLanguageHolder.current }
+    )
+
+    constructor(
+        conversationRepository: ConversationRepository,
+        tokenizer: Tokenizer,
+        settingsDataStore: SettingsDataStore,
+        profileRepository: com.kosmos.app.domain.memory.ProfileRepository
+    ) : this(
+        conversationRepository,
+        tokenizer,
+        settingsDataStore,
+        profileRepository,
+        languageProvider = { AppLanguage.KO }
+    )
     data class Context(
         val recentConversations: List<ChatMessage>,
         val sessionId: String,
@@ -60,7 +90,9 @@ class ContextBuilder @Inject constructor(
          * 지금 질문과 같은 앞 질문·답을 모델 기록에서 뺐는가([com.kosmos.app.domain.agent.RepeatedQuestions]).
          * [WHY] 뺐다면 살아 있는 대화(KV)에는 그 앞 답이 남아 있으므로 이 턴에 대화를 다시 만들어야 한다(KosmosAgent).
          */
-        val repeatDropped: Boolean = false
+        val repeatDropped: Boolean = false,
+        /** 현재 앱 표시/비서 언어(0.40.0). */
+        val language: AppLanguage = AppLanguage.KO
     )
 
     suspend fun build(sessionId: String): AppResult<Context> {
@@ -109,7 +141,8 @@ class ContextBuilder @Inject constructor(
                         webSearchEnabled = webSearchEnabled,
                         profileText = profileText,
                         maxTokens = maxTokens,
-                        repeatDropped = forModel.size != refusalKept.size
+                        repeatDropped = forModel.size != refusalKept.size,
+                        language = languageProvider()
                     )
                 )
             }

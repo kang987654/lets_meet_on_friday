@@ -1,5 +1,6 @@
 package com.kosmos.app.assistant.agent
 
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.domain.agent.RefusalTurns
 import com.kosmos.app.domain.memory.MemoSaveIntent
 
@@ -43,12 +44,13 @@ internal object ReplyFinisher {
         carriedMemo: String?,
         anyExecuted: Boolean,
         memoCalled: Boolean,
-        memoAllowed: Boolean
+        memoAllowed: Boolean,
+        language: AppLanguage = AppLanguage.KO
     ): Finish {
         if (anyExecuted || memoCalled) return Finish.Keep
         val askedBefore = MemoSaveIntent.isYes(userText) && MemoSaveIntent.asksSave(previous().assistant)
         val memo = if (askedBefore) carriedMemo ?: previous().user else null
-        val withoutClaim = MemoSaveIntent.withoutClaim(reply)
+        val withoutClaim = MemoSaveIntent.withoutClaim(reply, language)
         return when {
             memo != null && memoAllowed -> Finish.AppSave(memo, withoutClaim)
             withoutClaim != reply -> Finish.Rewrite(withoutClaim)

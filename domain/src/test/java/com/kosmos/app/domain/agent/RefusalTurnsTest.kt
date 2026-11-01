@@ -69,4 +69,25 @@ class RefusalTurnsTest {
         assertEquals(listOf("1", "2", "3"), RefusalTurns.forModel(refused + msg(ChatMessage.Role.USER, "왜 안 된다고 했어?", 3)).map { it.id })
         assertEquals(listOf("3"), RefusalTurns.forModel(refused + msg(ChatMessage.Role.USER, "점심 메뉴 추천해 줘", 3)).map { it.id })
     }
+
+    @Test
+    fun `영어 거절 판정·도운 답 제외·거절 되묻기(0·40·0 M2a)`() {
+        listOf(
+            "Sorry, I don't have a feature to create workout routines.",
+            "I cannot help with recommending lunch menus.",
+            "I'm unable to perform that action."
+        ).forEach { assertTrue(it, RefusalTurns.isRefusal(it)) }
+
+        listOf(
+            "I cannot make a phone call directly, but you can call using code A-302.",
+            "I don't have that feature, however I can add it to your schedule.",
+            "I didn't save that as a note."
+        ).forEach { assertFalse(it, RefusalTurns.isRefusal(it)) }
+
+        listOf(
+            "Why did you say you can't?",
+            "You said you cannot do that, why?",
+            "Why can't you do that?"
+        ).forEach { assertTrue(it, RefusalTurns.asksWhyRefused(it)) }
+    }
 }

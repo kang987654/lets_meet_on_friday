@@ -60,5 +60,15 @@
   "pass": 3,
   "total": 3,
   "fails": []
+ },
+ "smoke_en": {
+  "pass": 12,
+  "total": 12,
+  "fails": []
+ },
+ "guard_en": {
+  "pass": 4,
+  "total": 4,
+  "fails": []
  }
 }

@@ -10,7 +10,7 @@ import com.kosmos.app.domain.search.BigramMatcher
  * 따랐다(실기기 0.39.3 M4c, exp69b 2/2). 검색 결과 문구로는 못 고쳤고(exp69c 네 판 모두 2/6), 앞 답을 빼면 6/6.
  */
 object RepeatedQuestions {
-    private val QUESTION = Regex("뭐|어디|몇|언제|누구|무슨|어떤|기억나|\\?")
+    private val QUESTION = Regex("뭐|어디|몇|언제|누구|무슨|어떤|기억나|\\?|\\b(what|where|when|who|which|how|do\\s+you\\s+remember)\\b", RegexOption.IGNORE_CASE)
 
     /** 두 질문을 같은 질문으로 보는 글자 묶음 겹침(containment) 하한 — 진술("… 4821이야 기억해줘")은 질문이 아니라 애초에 걸리지 않는다. */
     const val MIN_CONTAINMENT = 0.8

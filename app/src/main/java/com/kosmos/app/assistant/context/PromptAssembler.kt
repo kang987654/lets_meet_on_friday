@@ -1,5 +1,6 @@
 package com.kosmos.app.assistant.context
 
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.core.common.ResponseStyle
 import com.kosmos.app.domain.model.ChatMessage
@@ -54,14 +55,14 @@ class PromptAssembler @Inject constructor() {
             }
 
         val systemInstruction = buildString {
-            appendLine(buildSystemBlock(context.responseStyle, systemRole))
+            appendLine(buildSystemBlock(context.responseStyle, systemRole, context.language))
             // [WHY] 프로필(C′1)은 [System] 과 [System Data] 사이 — 날짜 블록 위치(ADR-010)와 형식 블록의 "above"
             // 포인터를 건드리지 않는 유일한 자리다. 렌더가 바이트-안정이라 프로필이 그대로면 시스템 지시도 그대로다.
             if (context.profileText.isNotEmpty()) {
                 appendLine(context.profileText)
             }
-            appendLine(buildDateBlock(today))
-            append(buildFormatBlock(availableTools))
+            appendLine(buildDateBlock(today, context.language))
+            append(buildFormatBlock(availableTools, context.language))
         }
 
         return ChatPrompt(
@@ -114,12 +115,20 @@ class PromptAssembler @Inject constructor() {
                 "not with tools. Call a tool only if the user explicitly asks to save, schedule, or remind something."
     }
 
-    private fun buildSystemBlock(responseStyle: String, systemRole: String): String {
+    private fun buildSystemBlock(
+        responseStyle: String,
+        systemRole: String,
+        language: AppLanguage = AppLanguage.KO
+    ): String {
         return buildString {
             appendLine("[System]")
             appendLine("You are a $systemRole")
-            appendLine("Always respond in Korean unless the user speaks another language.")
-            appendLine(voiceInstruction(responseStyle))
+            if (language == AppLanguage.EN) {
+                appendLine("Always respond in English unless the user speaks another language.")
+            } else {
+                appendLine("Always respond in Korean unless the user speaks another language.")
+            }
+            appendLine(voiceInstruction(responseStyle, language))
             styleInstruction(responseStyle)?.let { appendLine(it) }
         }.trimEnd()
     }
@@ -129,10 +138,16 @@ class PromptAssembler @Inject constructor() {
      *
      * [WHY] 지시가 없으면 툴을 부른 뒤의 답이 거의 합니다체였다(실기기 비서 답 64%). "자세히" 설정이면 "Answer thoroughly"와
      * 부딪히지 않게 briefly 만 뺀다(사용자 결정). 툴 결과 문구만 해요체로 바꾸는 안(B)은 효과가 없었다.
+     * 영어 설정에서는 자연스럽고 정중한 영어로 답하게 한다(exp72: 툴 스모크 12/12).
      */
-    private fun voiceInstruction(responseStyle: String): String =
-        if (responseStyle == ResponseStyle.DETAILED) "Reply in polite 해요체 (…해요, …했어요), not 합니다체."
-        else "Reply briefly in polite 해요체 (…해요, …했어요), not 합니다체."
+    private fun voiceInstruction(responseStyle: String, language: AppLanguage = AppLanguage.KO): String =
+        if (language == AppLanguage.EN) {
+            if (responseStyle == ResponseStyle.DETAILED) "Reply in clear, natural, polite English."
+            else "Reply briefly in clear, natural, polite English."
+        } else {
+            if (responseStyle == ResponseStyle.DETAILED) "Reply in polite 해요체 (…해요, …했어요), not 합니다체."
+            else "Reply briefly in polite 해요체 (…해요, …했어요), not 합니다체."
+        }
 
     /**
      * 응답 스타일 설정을 **모델이 따를 수 있는 지시문**으로 바꿉니다.
@@ -158,7 +173,7 @@ class PromptAssembler @Inject constructor() {
      * [WHY] **분 단위 시계를 넣지 않는다** — 넣으면 시스템 지시가 매 턴 바뀌어 턴마다 전체 재프리필이다(ADR-010).
      * 시각은 턴 리마인더가 싣는다([withTurnToolReminder]).
      */
-    private fun buildDateBlock(today: java.time.LocalDate): String {
+    private fun buildDateBlock(today: java.time.LocalDate, language: AppLanguage = AppLanguage.KO): String {
         val date = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
         val weekday = today.dayOfWeek.getDisplayName(
             java.time.format.TextStyle.FULL,
@@ -168,10 +183,17 @@ class PromptAssembler @Inject constructor() {
         // (오늘이 월요일이면 7일 뒤, 토·일요일이면 이틀·하루 뒤 — 모두 의도와 맞는다).
         val nextMonday = today.with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY))
         return buildString {
-            append(
-                "[System Data] 오늘=${today.format(date)} ($weekday), 내일=${today.plusDays(1).format(date)}, " +
-                    "모레=${today.plusDays(2).format(date)}, 다음주 월요일=${nextMonday.format(date)}"
-            )
+            if (language == AppLanguage.EN) {
+                append(
+                    "[System Data] Today=${today.format(date)} ($weekday), Tomorrow=${today.plusDays(1).format(date)}, " +
+                        "Day after tomorrow=${today.plusDays(2).format(date)}, Next Monday=${nextMonday.format(date)}"
+                )
+            } else {
+                append(
+                    "[System Data] 오늘=${today.format(date)} ($weekday), 내일=${today.plusDays(1).format(date)}, " +
+                        "모레=${today.plusDays(2).format(date)}, 다음주 월요일=${nextMonday.format(date)}"
+                )
+            }
         }
     }
 
@@ -181,7 +203,11 @@ class PromptAssembler @Inject constructor() {
      * [WHY] 툴 선언은 `ConversationConfig.tools` 가 모델의 정식 함수호출 템플릿으로 전달한다 — 글로 적은 호출 규약은
      * 모델이 따르지 않았다(ADR-008).
      */
-    private fun buildFormatBlock(availableTools: List<String>?): String = buildString {
+    private fun buildFormatBlock(
+        availableTools: List<String>?,
+        language: AppLanguage = AppLanguage.KO
+    ): String = buildString {
+        val en = language == AppLanguage.EN
         appendLine("[Tool Usage Guidelines]")
         if (availableTools.isNullOrEmpty()) {
             appendLine("You have no tools available in this turn.")
@@ -193,39 +219,74 @@ class PromptAssembler @Inject constructor() {
                     "If it does, you MUST call the tool. Do NOT merely promise or pretend — " +
                     "promising without calling is a failure."
             )
-            // [WHY] 규칙마다 실제 한국어 트리거 표현을 박는다 — 영어 규칙만으로는 "기억해줘"가 호출로 이어지지 않았다(0.8.5).
+            // [WHY] 규칙마다 실제 한국어/영어 트리거 표현을 박는다 — 일반 규칙만으로는 호출로 이어지지 않았다(0.8.5, exp72).
             if (availableTools.contains(ToolNames.ADD_MEMORY)) {
                 // [WHY] 저장 낱말 없이 사실만 말하면 확인 + "메모해 둘까요?" — 예전 "shares a fact … to keep" 은 저장 호출 5/8·툴 없는 "기억해 둘게요" 약속·
-                // "그런 기능은 없어요" 거절이 섞였다(exp62 B, 0.38.8 결정 1). 이 판은 물어봄 7/8·저장 호출 0/8, "응" → 저장 4/4(exp62e F1).
-                appendLine("- The user asks you to remember something: \"기억해\", \"기억해줘\", \"저장해줘\", \"메모해줘\", \"잊지 마\": you MUST call `add_memory`. If the user only shares a fact, confirm it and ask \"메모해 둘까요?\" — never say you will remember it.")
+                // "그런 기능은 없어요" 거절이 섞였다(exp62 B, 0.38.8 결정 1). 이 판은 물어봄 7/8·저장 호출 0/8, "응" → 저장 4/4(exp62e F1, exp72).
+                if (en) {
+                    appendLine("- The user asks you to remember something: \"remember\", \"save this\", \"make a note\", \"keep in mind\", \"don't forget\": you MUST call `add_memory`. If the user only shares a fact, confirm it and ask \"Would you like me to save this as a note?\" — never say you will remember it.")
+                } else {
+                    appendLine("- The user asks you to remember something: \"기억해\", \"기억해줘\", \"저장해줘\", \"메모해줘\", \"잊지 마\": you MUST call `add_memory`. If the user only shares a fact, confirm it and ask \"메모해 둘까요?\" — never say you will remember it.")
+                }
             }
             // [WHY] 회상은 저장과 트리거 표현이 비슷해 `add_memory` 로 새기 쉽다 — 조회 방향을 규칙에서 못 박는다.
             if (availableTools.contains(ToolNames.SEARCH_MEMORY)) {
-                appendLine("- The user asks about something they told you earlier: \"뭐였지\", \"뭐라고 했지\", \"내가 알려준\", \"기억나\", \"저장한 거\": you MUST call `search_memory` with a short noun keyword. This is a LOOKUP, never call `add_memory` for it.")
+                if (en) {
+                    appendLine("- The user asks about something they told you earlier: \"what was\", \"what did I say\", \"do you remember\", \"my saved\": you MUST call `search_memory` with a short noun keyword. This is a LOOKUP, never call `add_memory` for it.")
+                } else {
+                    appendLine("- The user asks about something they told you earlier: \"뭐였지\", \"뭐라고 했지\", \"내가 알려준\", \"기억나\", \"저장한 거\": you MUST call `search_memory` with a short noun keyword. This is a LOOKUP, never call `add_memory` for it.")
+                }
             }
             if (availableTools.contains(ToolNames.ADD_SCHEDULE)) {
-                appendLine("- The user asks to add an appointment, reservation, or event: \"예약\", \"약속\", \"일정 잡아줘\", \"일정 추가\", \"~하기로 했어\": you MUST call `add_schedule`.")
+                if (en) {
+                    appendLine("- The user asks to add an appointment, reservation, or event: \"schedule\", \"appointment\", \"meeting\", \"book\", \"add to calendar\": you MUST call `add_schedule`.")
+                } else {
+                    appendLine("- The user asks to add an appointment, reservation, or event: \"예약\", \"약속\", \"일정 잡아줘\", \"일정 추가\", \"~하기로 했어\": you MUST call `add_schedule`.")
+                }
             }
             if (availableTools.contains(ToolNames.GET_SCHEDULE)) {
-                appendLine("- The user asks what is on their calendar: \"오늘 일정\", \"내일 일정\", \"스케줄 뭐 있어\": you MUST call `get_schedule`.")
+                if (en) {
+                    appendLine("- The user asks what is on their calendar: \"today's schedule\", \"tomorrow's schedule\", \"what's on my calendar\": you MUST call `get_schedule`.")
+                } else {
+                    appendLine("- The user asks what is on their calendar: \"오늘 일정\", \"내일 일정\", \"스케줄 뭐 있어\": you MUST call `get_schedule`.")
+                }
             }
             if (availableTools.contains(ToolNames.SEARCH_WIKIPEDIA)) {
-                appendLine("- The user asks a factual question you are not sure about: \"검색해줘\", \"찾아봐\", \"~가 뭐야?\": call `search_wikipedia`.")
+                if (en) {
+                    appendLine("- The user asks a factual question you are not sure about: \"search for\", \"look up\", \"what is\": call `search_wikipedia`.")
+                } else {
+                    appendLine("- The user asks a factual question you are not sure about: \"검색해줘\", \"찾아봐\", \"~가 뭐야?\": call `search_wikipedia`.")
+                }
             }
             if (availableTools.contains(ToolNames.ADD_REMINDER)) {
-                appendLine("- The user asks to be reminded at a specific time: \"3시에 알려줘\", \"리마인드\": you MUST call `add_reminder`.")
+                if (en) {
+                    appendLine("- The user asks to be reminded at a specific time: \"remind me at\", \"set a reminder\": you MUST call `add_reminder`.")
+                } else {
+                    appendLine("- The user asks to be reminded at a specific time: \"3시에 알려줘\", \"리마인드\": you MUST call `add_reminder`.")
+                }
             }
             // [WHY] exp45b·exp56 L 원문 — 등록 규칙 바로 뒤라 "알려줘"(등록)와 "알림 뭐 있어"(조회)가 나란히 갈린다.
             if (availableTools.contains(ToolNames.LIST_REMINDERS)) {
-                appendLine("- The user asks which reminders are set: \"알림 뭐 있어\", \"리마인더 목록\": you MUST call `list_reminders`.")
+                if (en) {
+                    appendLine("- The user asks which reminders are set: \"what reminders\", \"my reminders\": you MUST call `list_reminders`.")
+                } else {
+                    appendLine("- The user asks which reminders are set: \"알림 뭐 있어\", \"리마인더 목록\": you MUST call `list_reminders`.")
+                }
             }
         }
         // [WHY] "above" 는 [System Data] 날짜 블록을 가리킨다 — 블록을 옮기면 이 문구도 옮겨야 한다. 마지막 문장은 직전
         // 턴의 "내일"에 날짜 없는 시각이 끌려가는 것을 막는다(exp39c). 0.39.3 M1 에서 78 → 39토큰으로 줄였다(exp68 — 회귀 세트 새로 깨진 것 0).
-        appendLine(
-            "Compute dates and times yourself from [System Data] above " +
-                "(\"내일\", \"모레\", \"오후 3시\" are not missing). A time with no date word means today."
-        )
+        if (en) {
+            appendLine(
+                "Compute dates and times yourself from [System Data] above " +
+                    "(\"tomorrow\", \"day after tomorrow\", \"3 PM\" are not missing). A time with no date word means today."
+            )
+        } else {
+            appendLine(
+                "Compute dates and times yourself from [System Data] above " +
+                    "(\"내일\", \"모레\", \"오후 3시\" are not missing). A time with no date word means today."
+            )
+        }
         // [WHY] "모르면 묻는다"류 문구는 상대 날짜·선택 파라미터(end_time)까지 '없는 정보'로 보게 해 일정 등록을 막았다 —
         // 물어도 되는 경우를 필수 파라미터로 좁힌다.
         appendLine(
