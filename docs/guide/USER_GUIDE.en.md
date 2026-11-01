@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.39.4 · 2026-11-01. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.39.6 · 2026-11-01. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 > **Note — the app is Korean-only for now.** The screens, the assistant's instructions and the read-aloud voice are all Korean.
 > An English version of the app is planned. Until then, this guide is mainly for understanding, building and running the project.
