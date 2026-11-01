@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.drawer
 
+import com.kosmos.app.core.common.AppLanguage
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
@@ -65,6 +67,7 @@ fun AppDrawerContent(
     val pendingSuggestionCount by viewModel.pendingSuggestionCount.collectAsStateWithLifecycle()
     var openEpisodeId by remember { mutableStateOf<String?>(null) }
     var showProfileSheet by remember { mutableStateOf(false) }
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
 
     Column(
         modifier = Modifier
@@ -107,7 +110,7 @@ fun AppDrawerContent(
                 decorationBox = { inner ->
                     if (query.isEmpty()) {
                         Text(
-                            text = "지난 대화 검색",
+                            text = if (en) "Search past chats" else "지난 대화 검색",
                             color = KosmosTheme.colors.textMuted,
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -119,7 +122,11 @@ fun AppDrawerContent(
 
         Spacer(modifier = Modifier.height(8.dp))
         com.kosmos.app.ui.component.SectionHeader(
-            title = if (searchResults != null) "검색 결과" else "지난 대화",
+            title = if (searchResults != null) {
+                if (en) "Search results" else "검색 결과"
+            } else {
+                if (en) "Past chats" else "지난 대화"
+            },
             modifier = Modifier.padding(horizontal = 12.dp)
         )
 
@@ -127,14 +134,18 @@ fun AppDrawerContent(
             val results = searchResults
             if (results != null) {
                 if (results.isEmpty()) {
-                    item { DrawerEmptyLine("일치하는 대화가 없어요.") }
+                    item { DrawerEmptyLine(if (en) "No matching chats." else "일치하는 대화가 없어요.") }
                 }
                 items(results.size, key = { results[it].id }) { index ->
                     EpisodeRow(results[index], divider = index < results.lastIndex) { openEpisodeId = results[index].id }
                 }
             } else {
                 if (episodes.itemCount == 0) {
-                    item { DrawerEmptyLine("대화가 쌓이면 주제별로 자동 정리돼 여기 보여요.") }
+                    item {
+                        DrawerEmptyLine(
+                            if (en) "As chats build up, they're automatically organized by topic here." else "대화가 쌓이면 주제별로 자동 정리돼 여기 보여요."
+                        )
+                    }
                 }
                 items(count = episodes.itemCount, key = episodes.itemKey { it.id }) { index ->
                     val episode = episodes[index] ?: return@items
@@ -146,11 +157,11 @@ fun AppDrawerContent(
         androidx.compose.material3.HorizontalDivider(color = KosmosTheme.colors.border)
         Spacer(modifier = Modifier.height(8.dp))
         // [WHY] 메뉴는 아이콘 + 글자 한 줄(M3 내비게이션 드로어 항목, mobile-android-design) — 타일 3개와 목록 2줄로 나뉘어 있던 것을 한 목록으로.
-        DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_calendar_blank, "일정", onNavigateToCalendar)
-        DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_note, "메모·할 일", onNavigateToMemory)
-        DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_file_text, "문서", onNavigateToDocuments)
-        DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_shield_check, "활동 기록", onNavigateToAudit)
-        DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_gear_six, "설정", onNavigateToSettings)
+        DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_calendar_blank, if (en) "Calendar" else "일정", onNavigateToCalendar)
+        DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_note, if (en) "Notes & To-dos" else "메모·할 일", onNavigateToMemory)
+        DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_file_text, if (en) "Documents" else "문서", onNavigateToDocuments)
+        DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_shield_check, if (en) "Activity Log" else "활동 기록", onNavigateToAudit)
+        DrawerNavItem(com.kosmos.app.R.drawable.ic_ph_gear_six, if (en) "Settings" else "설정", onNavigateToSettings)
     }
 
     openEpisodeId?.let { id ->
@@ -173,11 +184,16 @@ fun AppDrawerContent(
 /** 제목 옆 프로필 버튼 — 대기 중인 프로필 제안이 있으면 하늘색 점. */
 @Composable
 private fun ProfileButton(hasSuggestions: Boolean, onClick: () -> Unit) {
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     androidx.compose.material3.IconButton(onClick = onClick) {
         androidx.compose.foundation.layout.Box {
             com.kosmos.app.ui.component.KosmosIcon(
                 com.kosmos.app.R.drawable.ic_ph_user_circle,
-                contentDescription = if (hasSuggestions) "프로필, 새 제안 있음" else "프로필",
+                contentDescription = if (en) {
+                    if (hasSuggestions) "Profile, new suggestions" else "Profile"
+                } else {
+                    if (hasSuggestions) "프로필, 새 제안 있음" else "프로필"
+                },
                 tint = KosmosTheme.colors.textSecondary
             )
             if (hasSuggestions) {
@@ -194,9 +210,11 @@ private fun ProfileButton(hasSuggestions: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun EpisodeRow(episode: Episode, divider: Boolean, onClick: () -> Unit) {
+    val lang = KosmosTheme.language
+    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
     com.kosmos.app.ui.component.KosmosListRow(
-        title = episode.title ?: "제목 없음",
-        supporting = com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt),
+        title = episode.title ?: if (en) "Untitled" else "제목 없음",
+        supporting = com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt, lang = lang),
         tags = episode.tags.take(2),
         titleMaxLines = 1,
         onClick = onClick,

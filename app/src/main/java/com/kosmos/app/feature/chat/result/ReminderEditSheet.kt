@@ -80,31 +80,38 @@ fun ReminderEditSheet(
                 accentColor = if (state.muted) colors.textMuted else colors.brandText
             )
 
+            val isEn = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
             if (state.muted) {
                 Text(
-                    if (state.struck) "취소한 알림이에요. 다시 필요하면 비서에게 새로 부탁해 주세요." else "이미 끝난 알림이에요.",
+                    if (state.struck) {
+                        if (isEn) "This reminder was cancelled. Ask the assistant to set a new one if needed."
+                        else "취소한 알림이에요. 다시 필요하면 비서에게 새로 부탁해 주세요."
+                    } else {
+                        if (isEn) "This reminder is already completed." else "이미 끝난 알림이에요."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.textSecondary
                 )
-                KosmosButton("닫기", onDismiss, Modifier.fillMaxWidth())
+                KosmosButton(if (isEn) "Close" else "닫기", onDismiss, Modifier.fillMaxWidth())
             } else {
                 // [WHY] 다른 시트에서 왼쪽 아래는 '그만두기'다 — 같은 자리에 '알림 취소'를 두면 뜻이 정반대가 됐다(impeccable 점검 P1).
                 // 주 동작(10분 미루기)을 하나 세우고, 알림 취소·닫기는 아래 줄 오른쪽에 글자 버튼으로 모은다(안드로이드 대화상자 관례, 사용자 선택 "가").
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    KosmosButton("시간 바꾸기", { picking = true }, Modifier.weight(1f))
-                    KosmosButton("10분 미루기", onSnooze, Modifier.weight(1f), accent = true)
+                    KosmosButton(if (isEn) "Change time" else "시간 바꾸기", { picking = true }, Modifier.weight(1f))
+                    KosmosButton(if (isEn) "Snooze 10m" else "10분 미루기", onSnooze, Modifier.weight(1f), accent = true)
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { confirmingCancel = true }) {
-                        Text("알림 취소", style = MaterialTheme.typography.labelLarge, color = colors.dangerText)
+                        Text(if (isEn) "Cancel reminder" else "알림 취소", style = MaterialTheme.typography.labelLarge, color = colors.dangerText)
                     }
                     TextButton(onClick = onDismiss) {
-                        Text("닫기", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                        Text(if (isEn) "Close" else "닫기", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
                     }
                 }
                 error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.dangerText) }
                 Text(
-                    "바꾸면 대화에도 한 줄 남아서 비서가 바뀐 시각을 알아요.",
+                    if (isEn) "Changes are also noted in chat so the assistant knows the updated time."
+                    else "바꾸면 대화에도 한 줄 남아서 비서가 바뀐 시각을 알아요.",
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.textMuted
                 )
@@ -112,12 +119,13 @@ fun ReminderEditSheet(
         }
     }
 
+    val isEn = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     if (picking) {
         val pickerState = rememberTimePickerState(initialHour = initialHour, initialMinute = initialMinute, is24Hour = false)
         AlertDialog(
             onDismissRequest = { picking = false },
             containerColor = colors.surface,
-            title = { Text("시간 바꾸기", style = MaterialTheme.typography.titleLarge) },
+            title = { Text(if (isEn) "Change time" else "시간 바꾸기", style = MaterialTheme.typography.titleLarge) },
             text = {
                 TimePicker(
                     state = pickerState,
@@ -131,10 +139,10 @@ fun ReminderEditSheet(
             },
             confirmButton = {
                 TextButton(onClick = { picking = false; onReschedule(pickerState.hour, pickerState.minute) }) {
-                    Text("바꾸기", color = colors.brandText)
+                    Text(if (isEn) "Change" else "바꾸기", color = colors.brandText)
                 }
             },
-            dismissButton = { TextButton(onClick = { picking = false }) { Text("그대로 두기", color = colors.textSecondary) } }
+            dismissButton = { TextButton(onClick = { picking = false }) { Text(if (isEn) "Keep" else "그대로 두기", color = colors.textSecondary) } }
         )
     }
 
@@ -142,12 +150,20 @@ fun ReminderEditSheet(
         AlertDialog(
             onDismissRequest = { confirmingCancel = false },
             containerColor = colors.surface,
-            title = { Text("알림을 취소할까요?", style = MaterialTheme.typography.titleLarge) },
-            text = { Text("취소한 알림은 되살릴 수 없어요. 할 일 목록에서도 빠져요.", style = MaterialTheme.typography.bodyMedium) },
-            confirmButton = {
-                TextButton(onClick = { confirmingCancel = false; onCancelReminder() }) { Text("알림 취소", color = colors.dangerText) }
+            title = { Text(if (isEn) "Cancel this reminder?" else "알림을 취소할까요?", style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Text(
+                    if (isEn) "Cancelled reminders cannot be restored and are removed from your task list."
+                    else "취소한 알림은 되살릴 수 없어요. 할 일 목록에서도 빠져요.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
             },
-            dismissButton = { TextButton(onClick = { confirmingCancel = false }) { Text("그대로 두기", color = colors.textSecondary) } }
+            confirmButton = {
+                TextButton(onClick = { confirmingCancel = false; onCancelReminder() }) {
+                    Text(if (isEn) "Cancel reminder" else "알림 취소", color = colors.dangerText)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmingCancel = false }) { Text(if (isEn) "Keep" else "그대로 두기", color = colors.textSecondary) } }
         )
     }
 }

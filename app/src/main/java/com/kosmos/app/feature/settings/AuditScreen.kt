@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.settings
 
+import com.kosmos.app.core.common.AppLanguage
+
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -28,10 +30,12 @@ fun AuditScreen(
     onNavigateBack: () -> Unit
 ) {
     val auditLogItems = viewModel.auditLogPagingData.collectAsLazyPagingItems()
+    val lang = KosmosTheme.language
+    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
 
     Scaffold(
         topBar = {
-            com.kosmos.app.ui.component.KosmosTopBar(title = "활동 기록", onBack = onNavigateBack)
+            com.kosmos.app.ui.component.KosmosTopBar(title = if (en) "Activity Log" else "활동 기록", onBack = onNavigateBack)
         }
     ) { innerPadding ->
         Column(
@@ -41,7 +45,11 @@ fun AuditScreen(
                 .background(KosmosTheme.colors.bg)
         ) {
             if (auditLogItems.itemCount == 0) {
-                com.kosmos.app.ui.component.EmptyState(com.kosmos.app.R.drawable.ic_ph_shield_check, "아직 기록된 활동이 없어요.\n모델 답, 도구 실행, 승인이 여기에 남아요.")
+                com.kosmos.app.ui.component.EmptyState(
+                    com.kosmos.app.R.drawable.ic_ph_shield_check,
+                    if (en) "No activity recorded yet.\nModel replies, tool runs, and approvals appear here."
+                    else "아직 기록된 활동이 없어요.\n모델 답, 도구 실행, 승인이 여기에 남아요."
+                )
             } else {
                 val today = com.kosmos.app.ui.component.rememberToday()
                 val zone = ZoneId.systemDefault()
@@ -69,7 +77,7 @@ fun AuditScreen(
                         Column {
                             if (first) {
                                 if (index > 0) Spacer(Modifier.height(16.dp))
-                                day?.let { com.kosmos.app.ui.component.SectionHeader(IsoDateTimeParser.dayLabelKorean(it, today)) }
+                                day?.let { com.kosmos.app.ui.component.SectionHeader(IsoDateTimeParser.dayLabelKorean(it, today, lang)) }
                             }
                             AuditEventRow(event, divider = !last, modifier = Modifier.groupItem(position))
                         }
@@ -89,7 +97,9 @@ fun AuditScreen(
 @Composable
 fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modifier) {
     val colors = KosmosTheme.colors
-    val display = remember(event.id) { AuditLabels.of(event) }
+    val lang = KosmosTheme.language
+    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+    val display = remember(event.id, lang) { AuditLabels.of(event, lang) }
     var expanded by rememberSaveable(event.id) { mutableStateOf(false) }
     Column(modifier) {
         com.kosmos.app.ui.component.KosmosListRow(
@@ -100,7 +110,7 @@ fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modi
             onClick = { expanded = !expanded },
             trailing = {
                 Text(
-                    IsoDateTimeParser.timeKorean(event.timestamp),
+                    IsoDateTimeParser.timeKorean(event.timestamp, lang = lang),
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.textMuted,
                     modifier = Modifier.padding(end = 12.dp)
@@ -119,7 +129,7 @@ fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modi
                 }
                 if (display.tags.isNotEmpty()) {
                     Column {
-                        Text("쓸 수 있던 도구", style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
+                        Text(if (en) "Available tools" else "쓸 수 있던 도구", style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
                         androidx.compose.foundation.layout.FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -137,7 +147,15 @@ fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modi
                 }
             }
             TextButton(onClick = { showRaw = !showRaw }, modifier = Modifier.padding(start = 36.dp)) {
-                Text(if (showRaw) "원문 접기" else "원문 보기", style = MaterialTheme.typography.labelLarge, color = colors.brandText)
+                Text(
+                    if (en) {
+                        if (showRaw) "Hide raw" else "View raw"
+                    } else {
+                        if (showRaw) "원문 접기" else "원문 보기"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.brandText
+                )
             }
         }
         if (divider) HorizontalDivider(Modifier.padding(start = 48.dp), color = colors.border)

@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.cleanup
 
+import com.kosmos.app.core.common.AppLanguage
+
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.foundation.selection.toggleable
@@ -57,11 +59,13 @@ fun MemoryCleanupScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val checked by viewModel.checked.collectAsStateWithLifecycle()
     val checkedEpisodes by viewModel.checkedEpisodes.collectAsStateWithLifecycle()
+    val lang = KosmosTheme.language
+    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
 
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            com.kosmos.app.ui.component.KosmosTopBar(title = "기억 정리", onBack = onBack)
+            com.kosmos.app.ui.component.KosmosTopBar(title = if (en) "Memory Cleanup" else "기억 정리", onBack = onBack)
         }
     ) { padding ->
         Column(
@@ -74,20 +78,34 @@ fun MemoryCleanupScreen(
         ) {
             when (val s = state) {
                 MemoryCleanupRunner.State.Idle -> Intro(onStart = viewModel::start)
-                MemoryCleanupRunner.State.Waiting -> Progress("자동 정리가 끝나길 기다리는 중…", null, viewModel::cancel)
+                MemoryCleanupRunner.State.Waiting -> Progress(
+                    if (en) "Waiting for automatic cleanup to finish…" else "자동 정리가 끝나길 기다리는 중…",
+                    null,
+                    viewModel::cancel
+                )
                 is MemoryCleanupRunner.State.Running -> Progress(
                     label = when (s.step) {
-                        MemoryCleanupRunner.Step.WEEKLY_REVIEW -> "이번 주 회고를 쓰는 중…"
-                        MemoryCleanupRunner.Step.MERGE ->
+                        MemoryCleanupRunner.Step.WEEKLY_REVIEW -> if (en) "Writing weekly review…" else "이번 주 회고를 쓰는 중…"
+                        MemoryCleanupRunner.Step.MERGE -> if (en) {
+                            if (s.total > 0) "Checking overlapping memories… (${s.done}/${s.total})" else "Finding overlapping memories…"
+                        } else {
                             if (s.total > 0) "겹치는 기억을 살펴보는 중… (${s.done}/${s.total})" else "겹치는 기억을 찾는 중…"
-                        MemoryCleanupRunner.Step.EPISODE_MERGE ->
+                        }
+                        MemoryCleanupRunner.Step.EPISODE_MERGE -> if (en) {
+                            if (s.total > 0) "Checking related conversations… (${s.done}/${s.total})" else "Finding related conversations…"
+                        } else {
                             if (s.total > 0) "이어지는 대화를 살펴보는 중… (${s.done}/${s.total})" else "이어지는 대화를 찾는 중…"
+                        }
                     },
                     fraction = if (s.step != MemoryCleanupRunner.Step.WEEKLY_REVIEW && s.total > 0) s.done.toFloat() / s.total else null,
                     onCancel = viewModel::cancel
                 )
-                is MemoryCleanupRunner.State.Blocked -> Notice(s.reason, "다시 시도", viewModel::start)
-                MemoryCleanupRunner.State.Applying -> Progress("고른 항목을 정리하는 중… 대화를 합치면 다시 요약해요.", null, onCancel = null)
+                is MemoryCleanupRunner.State.Blocked -> Notice(s.reason, if (en) "Retry" else "다시 시도", viewModel::start)
+                MemoryCleanupRunner.State.Applying -> Progress(
+                    if (en) "Applying selected items… Re-summarizing merged conversations." else "고른 항목을 정리하는 중… 대화를 합치면 다시 요약해요.",
+                    null,
+                    onCancel = null
+                )
                 is MemoryCleanupRunner.State.Review -> ReviewContent(
                     review = s.weeklyReview,
                     proposals = s.proposals,
@@ -100,13 +118,20 @@ fun MemoryCleanupScreen(
                 )
                 is MemoryCleanupRunner.State.Done -> Notice(
                     message = buildString {
-                        append(if (s.weeklyReview != null) "이번 주 회고를 기억에 저장했어요." else "회고할 대화가 없었어요.")
-                        append(if (s.merged > 0) " 기억 ${s.merged}건을 합쳤어요." else " 합친 기억은 없어요.")
-                        if (s.episodesMerged > 0) append(" 이어지는 대화 ${s.episodesMerged}건을 하나로 합쳤어요.")
-                        // [WHY] 체크했는데 안 합쳐진 이유를 숨기지 않는다 — 재요약이 두 주제로 갈리면 합치지 않는다(exp44 갈린 점).
-                        if (s.episodesSkipped > 0) append(" ${s.episodesSkipped}건은 다시 요약해 보니 다른 주제라 그대로 뒀어요.")
+                        if (en) {
+                            append(if (s.weeklyReview != null) "Saved this week's review to memory." else "No conversations to review this week.")
+                            append(if (s.merged > 0) " Merged ${s.merged} memories." else " No memories merged.")
+                            if (s.episodesMerged > 0) append(" Merged ${s.episodesMerged} related conversations into one.")
+                            if (s.episodesSkipped > 0) append(" Kept ${s.episodesSkipped} separate because re-summarization showed different topics.")
+                        } else {
+                            append(if (s.weeklyReview != null) "이번 주 회고를 기억에 저장했어요." else "회고할 대화가 없었어요.")
+                            append(if (s.merged > 0) " 기억 ${s.merged}건을 합쳤어요." else " 합친 기억은 없어요.")
+                            if (s.episodesMerged > 0) append(" 이어지는 대화 ${s.episodesMerged}건을 하나로 합쳤어요.")
+                            // [WHY] 체크했는데 안 합쳐진 이유를 숨기지 않는다 — 재요약이 두 주제로 갈리면 합치지 않는다(exp44 갈린 점).
+                            if (s.episodesSkipped > 0) append(" ${s.episodesSkipped}건은 다시 요약해 보니 다른 주제라 그대로 뒀어요.")
+                        }
                     },
-                    action = "닫기",
+                    action = if (en) "Close" else "닫기",
                     onAction = {
                         viewModel.finish()
                         onBack()
@@ -119,19 +144,26 @@ fun MemoryCleanupScreen(
 
 @Composable
 private fun Intro(onStart: () -> Unit) {
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     Card {
         Text(
-            "지난 7일의 대화로 이번 주 회고를 만들어 기억에 저장하고, 같은 내용이 여러 번 저장된 기억을 찾아 합칠지 물어봐요. " +
-                "기억이 많으면 몇 분 걸릴 수 있어요. 앱을 닫으면 멈추고, 다시 누르면 처음부터 해요.",
+            if (en) {
+                "Creates a weekly review from the last 7 days of conversations and finds duplicate memories to merge. " +
+                    "This may take a few minutes if you have many memories. Closing the app stops it, and tapping again restarts from the beginning."
+            } else {
+                "지난 7일의 대화로 이번 주 회고를 만들어 기억에 저장하고, 같은 내용이 여러 번 저장된 기억을 찾아 합칠지 물어봐요. " +
+                    "기억이 많으면 몇 분 걸릴 수 있어요. 앱을 닫으면 멈추고, 다시 누르면 처음부터 해요."
+            },
             color = KosmosTheme.colors.textSecondary,
             style = MaterialTheme.typography.bodyMedium
         )
     }
-    KosmosButton("정리 시작", onStart, Modifier.fillMaxWidth(), accent = true)
+    KosmosButton(if (en) "Start cleanup" else "정리 시작", onStart, Modifier.fillMaxWidth(), accent = true)
 }
 
 @Composable
 private fun Progress(label: String, fraction: Float?, onCancel: (() -> Unit)?) {
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     Card {
         Text(label, color = KosmosTheme.colors.textPrimary, modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite })
         Spacer(modifier = Modifier.height(12.dp))
@@ -142,7 +174,7 @@ private fun Progress(label: String, fraction: Float?, onCancel: (() -> Unit)?) {
         }
     }
     // [WHY] 적용 중에는 취소가 없다 — 노트 병합·대화 통합이 반쯤 된 상태로 끊기지 않게(각 건은 트랜잭션이지만 묶음은 아니다).
-    if (onCancel != null) TextButton(onClick = onCancel) { Text("취소", color = KosmosTheme.colors.textMuted) }
+    if (onCancel != null) TextButton(onClick = onCancel) { Text(if (en) "Cancel" else "취소", color = KosmosTheme.colors.textMuted) }
 }
 
 @Composable
@@ -162,22 +194,24 @@ private fun ReviewContent(
     onToggleEpisode: (EpisodeMergeProposal) -> Unit,
     onApply: () -> Unit
 ) {
+    val lang = KosmosTheme.language
+    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
     // [WHY] 섹션 제목은 subtitle 단계 문장체, 제안은 한 묶음 안의 행(0.38.3 M2) — 제안마다 카드였고 제목은 작은 회색 글씨였다.
-    com.kosmos.app.ui.component.SectionHeader("이번 주 회고")
+    com.kosmos.app.ui.component.SectionHeader(if (en) "Weekly review" else "이번 주 회고")
     Card {
         Text(
-            review?.content ?: "지난 7일 동안 정리된 대화가 없어 회고를 만들지 않았어요.",
+            review?.content ?: if (en) "No summarized conversations from the past 7 days to review." else "지난 7일 동안 정리된 대화가 없어 회고를 만들지 않았어요.",
             color = if (review != null) KosmosTheme.colors.textPrimary else KosmosTheme.colors.textMuted,
             style = MaterialTheme.typography.bodyMedium
         )
     }
 
-    com.kosmos.app.ui.component.SectionHeader("합칠 수 있는 기억")
+    com.kosmos.app.ui.component.SectionHeader(if (en) "Memories to merge" else "합칠 수 있는 기억")
     if (proposals.isEmpty()) {
-        Text("겹치는 기억이 없어요.", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
+        Text(if (en) "No overlapping memories found." else "겹치는 기억이 없어요.", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
     } else {
         Text(
-            "합칠 것만 골라 주세요. 고르지 않은 기억은 그대로 둬요.",
+            if (en) "Select only what you want to merge. Unchecked memories stay as they are." else "합칠 것만 골라 주세요. 고르지 않은 기억은 그대로 둬요.",
             color = KosmosTheme.colors.textMuted,
             style = MaterialTheme.typography.bodySmall
         )
@@ -194,20 +228,20 @@ private fun ReviewContent(
             }
         }
     }
-    com.kosmos.app.ui.component.SectionHeader("이어지는 대화")
+    com.kosmos.app.ui.component.SectionHeader(if (en) "Related conversations" else "이어지는 대화")
     if (episodeProposals.isEmpty()) {
-        Text("끊겨 있는 같은 대화가 없어요.", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
+        Text(if (en) "No split conversations found." else "끊겨 있는 같은 대화가 없어요.", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
     } else {
         Text(
-            "같은 일이 끊겨 여러 대화로 나뉜 것 같아요. 고르면 하나로 합친 뒤 다시 요약해요.",
+            if (en) "These appear to be parts of the same conversation. Selected ones will be merged and re-summarized." else "같은 일이 끊겨 여러 대화로 나뉜 것 같아요. 고르면 하나로 합친 뒤 다시 요약해요.",
             color = KosmosTheme.colors.textMuted,
             style = MaterialTheme.typography.bodySmall
         )
         com.kosmos.app.ui.component.KosmosListGroup {
             episodeProposals.forEachIndexed { index, proposal ->
                 ProposalRow(
-                    lines = proposal.episodes.map { ep -> "${com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(ep.startAt)} ${ep.title.orEmpty()}" },
-                    result = "하나의 대화로 합쳐 다시 요약",
+                    lines = proposal.episodes.map { ep -> "${com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(ep.startAt, lang = lang)} ${ep.title.orEmpty()}" },
+                    result = if (en) "Merge into one conversation and re-summarize" else "하나의 대화로 합쳐 다시 요약",
                     resultEmphasis = false,
                     isChecked = proposal.key in checkedEpisodes,
                     divider = index < episodeProposals.lastIndex,
@@ -217,7 +251,12 @@ private fun ReviewContent(
         }
     }
     val count = proposals.count { it.key in checked } + episodeProposals.count { it.key in checkedEpisodes }
-    KosmosButton(if (count > 0) "고른 ${count}건 합치기" else "합치지 않고 마치기", onApply, Modifier.fillMaxWidth(), accent = true)
+    val buttonLabel = if (en) {
+        if (count > 0) "Merge $count selected" else "Finish without merging"
+    } else {
+        if (count > 0) "고른 ${count}건 합치기" else "합치지 않고 마치기"
+    }
+    KosmosButton(buttonLabel, onApply, Modifier.fillMaxWidth(), accent = true)
 }
 
 /**

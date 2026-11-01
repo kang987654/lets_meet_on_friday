@@ -43,8 +43,19 @@ class ChatExtrasViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val knowledgeRepository: KnowledgeRepository,
     private val getTodaySchedule: GetTodayScheduleUseCase,
-    private val reminderEditor: ReminderEditor
+    private val reminderEditor: ReminderEditor,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) : ViewModel() {
+
+    constructor(
+        taskRepository: TaskRepository,
+        knowledgeRepository: KnowledgeRepository,
+        getTodaySchedule: GetTodayScheduleUseCase,
+        reminderEditor: ReminderEditor
+    ) : this(taskRepository, knowledgeRepository, getTodaySchedule, reminderEditor, null)
+
+    private val currentLang: com.kosmos.app.core.common.AppLanguage
+        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
 
     private val _results = MutableStateFlow<Map<String, ResultCardState>>(emptyMap())
     val results: StateFlow<Map<String, ResultCardState>> = _results.asStateFlow()
@@ -82,11 +93,11 @@ class ChatExtrasViewModel @Inject constructor(
     private fun stateFlowOf(result: MessageResult, today: LocalDate): Flow<ResultCardState> = when (result.kind) {
         MessageResult.Kind.REMINDER -> taskRepository.observeById(result.ref).map { task ->
             task?.remindAtIso?.let { iso -> IsoDateTimeParser.toEpochMillis(iso)?.let { reminderTimes[result.ref] = it } }
-            ResultCardMapper.reminder(task, today)
+            ResultCardMapper.reminder(task, today, lang = currentLang)
         }
-        MessageResult.Kind.SCHEDULE -> taskRepository.observeById(result.ref).map { ResultCardMapper.schedule(it, today) }
-        MessageResult.Kind.MEMORY_NOTE -> flow { emit(ResultCardMapper.note(noteOf(result.ref))) }
-        MessageResult.Kind.MEMORY_RECALL -> flow { emit(ResultCardMapper.recall(result.ref.takeIf { it.isNotEmpty() }?.let { noteOf(it) }, result.meta)) }
+        MessageResult.Kind.SCHEDULE -> taskRepository.observeById(result.ref).map { ResultCardMapper.schedule(it, today, lang = currentLang) }
+        MessageResult.Kind.MEMORY_NOTE -> flow { emit(ResultCardMapper.note(noteOf(result.ref), lang = currentLang)) }
+        MessageResult.Kind.MEMORY_RECALL -> flow { emit(ResultCardMapper.recall(result.ref.takeIf { it.isNotEmpty() }?.let { noteOf(it) }, result.meta, lang = currentLang)) }
     }
 
     private suspend fun noteOf(id: String) = (knowledgeRepository.getById(id) as? AppResult.Success)?.data
@@ -94,6 +105,7 @@ class ChatExtrasViewModel @Inject constructor(
     /** 요약 타일을 다시 센다. 시각 판정은 [now] 기준(AGENTS §2-④). */
     fun refreshSummary(now: Long = System.currentTimeMillis(), zone: ZoneId = ZoneId.systemDefault()) {
         viewModelScope.launch {
+            val lang = currentLang
             val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
             val next = (taskRepository.getActiveReminders() as? AppResult.Success)?.data.orEmpty()
                 .mapNotNull { task -> task.remindAtIso?.let { iso -> IsoDateTimeParser.toEpochMillis(iso, zone)?.let { it to iso } } }
@@ -101,8 +113,8 @@ class ChatExtrasViewModel @Inject constructor(
                 .minByOrNull { it.first }
                 ?.second
             val nextLabel = next?.let { iso ->
-                if (IsoDateTimeParser.toLocalDate(iso, zone) == today) IsoDateTimeParser.toDisplayTimeKorean(iso, zone)
-                else IsoDateTimeParser.toDisplayKorean(iso, zone)
+                if (IsoDateTimeParser.toLocalDate(iso, zone) == today) IsoDateTimeParser.toDisplayTimeKorean(iso, zone, lang)
+                else IsoDateTimeParser.toDisplayKorean(iso, zone, lang)
             }
             val schedules = (getTodaySchedule(ScheduleData.RangeType.TODAY, now, zone) as? AppResult.Success)?.data?.events?.size ?: 0
             val pending = (taskRepository.getCounts() as? AppResult.Success)?.data?.pending ?: 0
@@ -152,7 +164,8 @@ class ChatExtrasViewModel @Inject constructor(
                     refreshSummary()
                 }
                 is AppResult.Failure -> _editError.value =
-                    (result.error as? com.kosmos.app.core.common.AppError.ValidationError)?.reason ?: "알림을 바꾸지 못했어요. 다시 시도해 주세요."
+                    (result.error as? com.kosmos.app.core.common.AppError.ValidationError)?.reason
+                        ?: if (currentLang == com.kosmos.app.core.common.AppLanguage.EN) "Couldn't update the reminder. Please try again." else "알림을 바꾸지 못했어요. 다시 시도해 주세요."
             }
         }
     }

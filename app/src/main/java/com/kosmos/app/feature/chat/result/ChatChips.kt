@@ -27,12 +27,15 @@ object ChatChipRules {
 
     private const val MAX_OPTION = 16
     private val SENTENCE_END = Regex("(?<=[.!?。])\\s+")
-    private val OR_SPLIT = Regex(",\\s*(?:아니면\\s+)?|\\s+아니면\\s+")
+    private val OR_SPLIT = Regex(",\\s*(?:아니면\\s+|or\\s+)?|\\s+(?:아니면|or)\\s+", RegexOption.IGNORE_CASE)
     private val PARTICLE = Regex("(이|가|을|를|은|는)$")
 
-    fun of(message: ChatMessage): List<ChatChip> {
+    fun of(
+        message: ChatMessage,
+        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    ): List<ChatChip> {
         if (message.role != ChatMessage.Role.ASSISTANT) return emptyList()
-        return answerChips(message.content) + actionChips(message.result)
+        return answerChips(message.content) + actionChips(message.result, lang)
     }
 
     /** 양자택일 질문의 두 선택지. 아니면 빈 목록. */
@@ -59,8 +62,11 @@ object ChatChipRules {
      * [WHY] 결과 카드를 누르는 것과 같은 칩([메모 보기]·[캘린더에서 보기]·[대화 보기])은 뺐다 — 한 답에 같은 곳으로 가는 길이
      * 두세 개였다(0.38.6 M3 사용자 결정).
      */
-    fun actionChips(result: MessageResult?): List<ChatChip> = when (result?.kind) {
-        MessageResult.Kind.MEMORY_RECALL -> listOfNotNull(conflictChip(result.meta))
+    fun actionChips(
+        result: MessageResult?,
+        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    ): List<ChatChip> = when (result?.kind) {
+        MessageResult.Kind.MEMORY_RECALL -> listOfNotNull(conflictChip(result.meta, lang))
         MessageResult.Kind.MEMORY_NOTE, MessageResult.Kind.SCHEDULE, MessageResult.Kind.REMINDER, null -> emptyList()
     }
 
@@ -75,11 +81,17 @@ object ChatChipRules {
         return json.optString("episodeId").takeIf { it.isNotEmpty() }
     }
 
-    private fun conflictChip(meta: String?): ChatChip? {
+    private fun conflictChip(meta: String?, lang: com.kosmos.app.core.common.AppLanguage): ChatChip? {
         val json = meta?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return null
         val ids = json.optJSONArray("conflictEpisodeIds") ?: return null
         val first = ids.optString(0).takeIf { it.isNotEmpty() } ?: return null
         val count = json.optInt("conflictCount", ids.length())
-        return ChatChip(if (count > 1) "지난 대화 ${count}건 정리" else "지난 대화 정리", ChatChip.Action.OpenEpisode(first), R.drawable.ic_ph_chat_text)
+        val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
+        val label = if (isEn) {
+            if (count > 1) "Review $count past chats" else "Review past chat"
+        } else {
+            if (count > 1) "지난 대화 ${count}건 정리" else "지난 대화 정리"
+        }
+        return ChatChip(label, ChatChip.Action.OpenEpisode(first), R.drawable.ic_ph_chat_text)
     }
 }

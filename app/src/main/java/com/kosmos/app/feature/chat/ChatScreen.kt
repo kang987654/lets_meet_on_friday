@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.chat
 
+import com.kosmos.app.core.common.AppLanguage
+
 import androidx.compose.ui.res.painterResource
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
@@ -198,6 +200,7 @@ fun ChatScreen(
 
     val context = LocalContext.current
     val contentResolver = context.contentResolver
+    val lang = KosmosTheme.language
     
     // [WHY] 오류와 토글 피드백을 스낵바 한 곳으로 모으고, 문구는 ErrorMessages로 인간화한다.
     // 첨부 피커와 권한 런처들이 이 두 값을 쓰므로 먼저 선언한다.
@@ -205,8 +208,8 @@ fun ChatScreen(
     val snackbarScope = rememberCoroutineScope()
     val notify: (String) -> Unit = { message -> snackbarScope.launch { snackbarHostState.showSnackbar(message) } }
     // [WHY] 행마다 새 람다를 만들지 않는다 — 타임라인은 페이징 목록이라 행 수만큼 재할당된다.
-    val copyMessage: (String) -> Unit = remember(clipboard, snackbarHostState) {
-        { content -> copyToClipboard(snackbarScope, clipboard, snackbarHostState, content) }
+    val copyMessage: (String) -> Unit = remember(clipboard, snackbarHostState, lang) {
+        { content -> copyToClipboard(snackbarScope, clipboard, snackbarHostState, content, lang) }
     }
     val today = com.kosmos.app.ui.component.rememberToday()
 
@@ -225,16 +228,36 @@ fun ChatScreen(
                 return@rememberLauncherForActivityResult
             }
             if (result.rejected) {
-                notify("이 파일은 글자로 첨부할 수 없어요. PDF, 엑셀, 워드, 한글(hwpx), 텍스트 파일을 첨부해 주세요.")
+                notify(
+                    if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
+                        "Can't attach this file as text. Please attach a PDF, Excel, Word, HWPX, or text file."
+                    } else {
+                        "이 파일은 글자로 첨부할 수 없어요. PDF, 엑셀, 워드, 한글(hwpx), 텍스트 파일을 첨부해 주세요."
+                    }
+                )
                 return@rememberLauncherForActivityResult
             }
-            if (result.truncated) notify("문서가 길어 앞부분만 첨부돼요. 긴 문서 요약은 아직 지원하지 않아요.")
+            if (result.truncated) {
+                notify(
+                    if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
+                        "Only the beginning of this long document was attached. Long document summarization isn't supported yet."
+                    } else {
+                        "문서가 길어 앞부분만 첨부돼요. 긴 문서 요약은 아직 지원하지 않아요."
+                    }
+                )
+            }
             val shared = result.input
             if (shared != null) {
                 viewModel.setSharedInput(shared)
             } else {
                 // [WHY] 읽기 실패(예외·null 스트림)를 조용히 넘기면 사용자는 버튼이 고장 났다고 본다.
-                notify("첨부 파일을 읽지 못했어요. 다른 파일을 골라 주세요.")
+                notify(
+                    if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
+                        "Couldn't read the attached file. Please choose another file."
+                    } else {
+                        "첨부 파일을 읽지 못했어요. 다른 파일을 골라 주세요."
+                    }
+                )
             }
         }
     }
@@ -246,7 +269,7 @@ fun ChatScreen(
         if (isGranted) {
             viewModel.toggleRecording()
         } else {
-            notify(ErrorMessages.userMessage(AppError.PermissionDenied(PermissionPolicy.MICROPHONE)))
+            notify(ErrorMessages.userMessage(AppError.PermissionDenied(PermissionPolicy.MICROPHONE), lang))
         }
     }
     // 마이크 버튼과 음성 실행 요청이 같은 권한 게이트를 쓴다.
@@ -274,7 +297,7 @@ fun ChatScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         viewModel.onApprovalObstructionCleared()
-        if (!granted) notify(NotificationAccess.DENIED_MESSAGE)
+        if (!granted) notify(NotificationAccess.deniedMessage(lang))
     }
 
     LaunchedEffect(uiState.pendingApproval) {
@@ -298,13 +321,19 @@ fun ChatScreen(
     // [WHY] 기존에는 uiState.error가 화면에 전혀 표시되지 않아 실패가 무음으로 사라졌다.
     LaunchedEffect(uiState.error) {
         val error = uiState.error ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(ErrorMessages.userMessage(error))
+        snackbarHostState.showSnackbar(ErrorMessages.userMessage(error, lang))
         viewModel.dismissError()
     }
 
     LaunchedEffect(uiState.searchFailedNotice) {
         if (!uiState.searchFailedNotice) return@LaunchedEffect
-        snackbarHostState.showSnackbar("웹 검색 보강에 실패해 기기 안의 정보만으로 답했어요.")
+        snackbarHostState.showSnackbar(
+            if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
+                "Web search failed. Answered using only on-device information."
+            } else {
+                "웹 검색 보강에 실패해 기기 안의 정보만으로 답했어요."
+            }
+        )
         viewModel.dismissSearchFailedNotice()
     }
 
@@ -360,7 +389,13 @@ fun ChatScreen(
                 webSearchEnabled = webSearchEnabled,
                 onToggleWebSearch = { enabled ->
                     onToggleWebSearch(enabled)
-                    notify(if (enabled) "웹 검색을 켰어요. 위키백과를 찾아볼 수 있어요." else "웹 검색을 껐어요. 기기 안에서만 답해요.")
+                    notify(
+                        if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
+                            if (enabled) "Web search turned on. Can search Wikipedia." else "Web search turned off. Answering on-device only."
+                        } else {
+                            if (enabled) "웹 검색을 켰어요. 위키백과를 찾아볼 수 있어요." else "웹 검색을 껐어요. 기기 안에서만 답해요."
+                        }
+                    )
                 }
             )
         }
@@ -369,7 +404,7 @@ fun ChatScreen(
         val lastMessageId = (liveTail.firstOrNull() ?: if (history.itemCount > 0) history.peek(0) else null)?.id
         val chipsFor: (ChatMessage) -> List<com.kosmos.app.feature.chat.result.ChatChip> = { message ->
             if (message.id == lastMessageId && !uiState.isInFlight && uiState.streamingText == null) {
-                com.kosmos.app.feature.chat.result.ChatChipRules.of(message)
+                com.kosmos.app.feature.chat.result.ChatChipRules.of(message, lang)
             } else emptyList()
         }
         val timelineRow: @Composable (ChatMessage, ChatMessage?) -> Unit = { message, older ->
@@ -485,7 +520,7 @@ fun ChatScreen(
                 ) {
                     Icon(
                         painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_caret_down),
-                        contentDescription = "최신 메시지로",
+                        contentDescription = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Scroll to latest" else "최신 메시지로",
                         tint = KosmosTheme.colors.brandText,
                         modifier = Modifier.size(20.dp)
                     )
@@ -505,7 +540,7 @@ fun ChatScreen(
             request = request,
             onApprove = { viewModel.approvePendingRequest() },
             onReject = { viewModel.rejectPendingRequest() },
-            footnote = if (inexact) NotificationAccess.INEXACT_NOTE else null,
+            footnote = if (inexact) NotificationAccess.inexactNote(lang) else null,
             timeoutKey = uiState.approvalTimeoutEpoch,
             onFootnoteAction = if (inexact) {
                 {
@@ -626,8 +661,9 @@ private fun MessageWithDate(
     chips: List<com.kosmos.app.feature.chat.result.ChatChip> = emptyList(),
     onChipClick: (com.kosmos.app.feature.chat.result.ChatChip) -> Unit = {}
 ) {
+    val lang = KosmosTheme.language
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        val label = dateLabelIfBoundary(message, older, today)
+        val label = dateLabelIfBoundary(message, older, today, lang = lang)
         if (label != null) DateSeparator(label)
 
         // 점프 도착 하이라이트 — 배경 은은한 강조 1회성 (jumpToTimeline 후 2.5초).
@@ -682,6 +718,7 @@ private fun SummaryTiles(
     onOpenTasks: () -> Unit,
     onOpenCalendar: () -> Unit
 ) {
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     Row(
         modifier = Modifier
             .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
@@ -690,11 +727,32 @@ private fun SummaryTiles(
             .kosmosSurface(shape = RoundedCornerShape(99.dp)),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        SummarySegment(com.kosmos.app.R.drawable.ic_ph_bell, "다음", summary.nextReminder ?: "없음", "다음 알림", onOpenTasks, Modifier.weight(1.3f))
+        SummarySegment(
+            com.kosmos.app.R.drawable.ic_ph_bell,
+            if (en) "Next" else "다음",
+            summary.nextReminder ?: if (en) "None" else "없음",
+            if (en) "Next reminder" else "다음 알림",
+            onOpenTasks,
+            Modifier.weight(1.3f)
+        )
         SummaryDivider()
-        SummarySegment(com.kosmos.app.R.drawable.ic_ph_calendar_blank, "일정", "${summary.todaySchedules}", "오늘 일정", onOpenCalendar, Modifier.weight(1f))
+        SummarySegment(
+            com.kosmos.app.R.drawable.ic_ph_calendar_blank,
+            if (en) "Events" else "일정",
+            "${summary.todaySchedules}",
+            if (en) "Today's events" else "오늘 일정",
+            onOpenCalendar,
+            Modifier.weight(1f)
+        )
         SummaryDivider()
-        SummarySegment(com.kosmos.app.R.drawable.ic_ph_check_square, "할 일", "${summary.pendingTasks}", "남은 할 일", onOpenTasks, Modifier.weight(1f))
+        SummarySegment(
+            com.kosmos.app.R.drawable.ic_ph_check_square,
+            if (en) "To-dos" else "할 일",
+            "${summary.pendingTasks}",
+            if (en) "Pending to-dos" else "남은 할 일",
+            onOpenTasks,
+            Modifier.weight(1f)
+        )
     }
 }
 
@@ -712,10 +770,15 @@ private fun SummarySegment(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     Row(
         modifier = modifier
             .fillMaxHeight()
-            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "$accessibleLabel 보기", onClick = onClick),
+            .clickable(
+                role = androidx.compose.ui.semantics.Role.Button,
+                onClickLabel = if (en) "Open $accessibleLabel" else "$accessibleLabel 보기",
+                onClick = onClick
+            ),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -775,17 +838,19 @@ private fun copyToClipboard(
     scope: kotlinx.coroutines.CoroutineScope,
     clipboard: androidx.compose.ui.platform.Clipboard,
     snackbarHostState: androidx.compose.material3.SnackbarHostState,
-    content: String
+    content: String,
+    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
 ) {
+    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
     // [WHY] LocalClipboard 의 setClipEntry 는 suspend 다. 스낵바용 스코프에서 복사와 안내를
     // 순서대로 처리한다 — onLongPress 의 `() -> Unit` 콜백 계약은 그대로 유지된다.
     scope.launch {
         clipboard.setClipEntry(
             androidx.compose.ui.platform.ClipEntry(
-                android.content.ClipData.newPlainText("채팅 메시지", content)
+                android.content.ClipData.newPlainText(if (en) "Chat message" else "채팅 메시지", content)
             )
         )
-        snackbarHostState.showSnackbar("메시지를 복사했어요.")
+        snackbarHostState.showSnackbar(if (en) "Message copied." else "메시지를 복사했어요.")
     }
 }
 
@@ -797,11 +862,12 @@ internal fun dateLabelIfBoundary(
     message: ChatMessage,
     older: ChatMessage?,
     today: java.time.LocalDate,
-    zone: java.time.ZoneId = java.time.ZoneId.systemDefault()
+    zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
 ): String? {
     if (older == null) return null
     val date = java.time.Instant.ofEpochMilli(message.createdAt).atZone(zone).toLocalDate()
     val olderDate = java.time.Instant.ofEpochMilli(older.createdAt).atZone(zone).toLocalDate()
     if (date == olderDate) return null
-    return com.kosmos.app.domain.util.IsoDateTimeParser.dayLabelKorean(date, today)
+    return com.kosmos.app.domain.util.IsoDateTimeParser.dayLabelKorean(date, today, lang)
 }

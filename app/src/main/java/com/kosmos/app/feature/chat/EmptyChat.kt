@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.chat
 
+import com.kosmos.app.core.common.AppLanguage
+
 import com.kosmos.app.feature.splash.splashAnchor
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Canvas
@@ -34,6 +36,7 @@ import com.kosmos.app.ui.theme.KosmosTheme
 @Composable
 fun EmptyChat(onStarter: (String) -> Unit, modifier: Modifier = Modifier) {
     val colors = KosmosTheme.colors
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     Column(
         modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp).splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.EMPTY),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -44,15 +47,19 @@ fun EmptyChat(onStarter: (String) -> Unit, modifier: Modifier = Modifier) {
             points.zipWithNext().forEach { (a, b) -> drawLine(colors.brand.copy(alpha = 0.3f), a, b, strokeWidth = 1.dp.toPx()) }
             STAR_RADII.forEachIndexed { i, r -> sparkle(points[i], r.dp.toPx(), colors.brand.copy(alpha = if (i == BRIGHTEST) 1f else 0.7f)) }
         }
-        Text("오늘은 무엇을 맡길까요?", style = MaterialTheme.typography.titleLarge, color = colors.textPrimary)
         Text(
-            "알림, 일정, 기억을 휴대폰 안에서만 처리해요.",
+            if (en) "What can I help with today?" else "오늘은 무엇을 맡길까요?",
+            style = MaterialTheme.typography.titleLarge,
+            color = colors.textPrimary
+        )
+        Text(
+            if (en) "Reminders, events, and memories stay right on your phone." else "알림, 일정, 기억을 휴대폰 안에서만 처리해요.",
             style = MaterialTheme.typography.bodyMedium,
             color = colors.textSecondary,
             textAlign = TextAlign.Center
         )
         Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            STARTERS.forEach { (icon, text) -> Starter(icon, text) { onStarter(text) } }
+            (if (en) STARTERS_EN else STARTERS).forEach { (icon, text) -> Starter(icon, text) { onStarter(text) } }
         }
     }
 }
@@ -80,4 +87,10 @@ private val STARTERS = listOf(
     R.drawable.ic_ph_bell to "30분 뒤에 물 마시라고 알려 줘",
     R.drawable.ic_ph_calendar_blank to "오늘 일정 알려 줘",
     R.drawable.ic_ph_clock_counter_clockwise to "지난번에 기억해 둔 거 찾아 줘"
+)
+
+private val STARTERS_EN = listOf(
+    R.drawable.ic_ph_bell to "Remind me to drink water in 30 minutes",
+    R.drawable.ic_ph_calendar_blank to "What's on my schedule today?",
+    R.drawable.ic_ph_clock_counter_clockwise to "Find what I asked you to remember"
 )

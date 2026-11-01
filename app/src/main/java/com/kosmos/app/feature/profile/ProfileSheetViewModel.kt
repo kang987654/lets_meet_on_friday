@@ -36,8 +36,14 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileSheetViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
-    private val tokenizer: Tokenizer
+    private val tokenizer: Tokenizer,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) : ViewModel() {
+
+    constructor(profileRepository: ProfileRepository, tokenizer: Tokenizer) : this(profileRepository, tokenizer, null)
+
+    private val currentLang: com.kosmos.app.core.common.AppLanguage
+        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
 
     val entries: StateFlow<List<ProfileEntry>> = profileRepository.observeEntries()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -56,11 +62,16 @@ class ProfileSheetViewModel @Inject constructor(
         val trimmedValue = value.trim()
         if (trimmedKey.isEmpty() || trimmedValue.isEmpty()) return
         viewModelScope.launch {
+            val lang = currentLang
             // [WHY] 저장 전에 "편집이 반영된 전체"를 렌더해 검사한다 — 항목 단위 검사는
             // 합계 초과를 못 막는다. 초과분은 저장 자체를 차단해 예산 불변식을 지킨다.
             val estimated = projectedProfileTokens(entries.value, trimmedKey, trimmedValue, tokenizer)
             if (estimated > Constants.PROFILE_MAX_TOKENS) {
-                _error.value = "프로필이 너무 길어요(${estimated}/${Constants.PROFILE_MAX_TOKENS}토큰). 항목을 줄이거나 짧게 써 주세요."
+                _error.value = if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
+                    "Profile is too long ($estimated/${Constants.PROFILE_MAX_TOKENS} tokens). Please shorten or remove some entries."
+                } else {
+                    "프로필이 너무 길어요(${estimated}/${Constants.PROFILE_MAX_TOKENS}토큰). 항목을 줄이거나 짧게 써 주세요."
+                }
                 return@launch
             }
             when (val result = profileRepository.upsert(trimmedKey, trimmedValue)) {
@@ -68,7 +79,7 @@ class ProfileSheetViewModel @Inject constructor(
                     _error.value = null
                     onSaved()
                 }
-                is AppResult.Failure -> _error.value = ErrorMessages.userMessage(result.error)
+                is AppResult.Failure -> _error.value = ErrorMessages.userMessage(result.error, lang)
             }
         }
     }
@@ -79,7 +90,7 @@ class ProfileSheetViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = profileRepository.delete(key)) {
                 is AppResult.Success -> _error.value = null
-                is AppResult.Failure -> _error.value = ErrorMessages.userMessage(result.error)
+                is AppResult.Failure -> _error.value = ErrorMessages.userMessage(result.error, currentLang)
             }
         }
     }
@@ -89,7 +100,7 @@ class ProfileSheetViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = profileRepository.upsert(entry.key, entry.value, entry.source)) {
                 is AppResult.Success -> _error.value = null
-                is AppResult.Failure -> _error.value = ErrorMessages.userMessage(result.error)
+                is AppResult.Failure -> _error.value = ErrorMessages.userMessage(result.error, currentLang)
             }
         }
     }

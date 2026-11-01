@@ -28,7 +28,7 @@ import com.kosmos.app.ui.theme.KosmosTheme
 fun KosmosTopBar(
     title: String,
     onBack: (() -> Unit)?,
-    backDescription: String = "뒤로",
+    backDescription: String = if (KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN) "Back" else "뒤로",
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val colors = KosmosTheme.colors

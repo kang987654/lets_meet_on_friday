@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.chat
 
+import com.kosmos.app.core.common.AppLanguage
+
 import com.kosmos.app.feature.splash.splashAnchor
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.semantics.contentDescription
@@ -90,13 +92,14 @@ fun ChatInputBar(
             .imePadding()
             .splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.INPUT_BAR)
     ) {
+        val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
         when (sharedInput) {
             is com.kosmos.app.platform.share.SharedInput.Image -> AttachmentPreview(
                 needsText = textState.text.isBlank(),
                 onClear = onClearSharedInput,
                 leading = { AttachmentThumbnail(uri = sharedInput.uri) },
-                title = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.image_attached),
-                subtitle = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.image_size_kb, sharedInput.sizeBytes / 1024)
+                title = if (en) "Image attached" else "이미지 첨부됨",
+                subtitle = "${sharedInput.sizeBytes / 1024} KB"
             )
             // [WHY] "Document Attached" 는 E2E 셀렉터다(MultimodalChatE2ETest) —
             // "Attach"/"Send" contentDescription 과 같은 불변 계약이라 한글화에서 제외.
@@ -104,11 +107,13 @@ fun ChatInputBar(
                 needsText = textState.text.isBlank(),
                 onClear = onClearSharedInput,
                 title = "Document Attached",
-                subtitle = if (sharedInput.truncated) "${sharedInput.fileName} · 앞부분만" else sharedInput.fileName
+                subtitle = if (sharedInput.truncated) {
+                    if (en) "${sharedInput.fileName} · truncated" else "${sharedInput.fileName} · 앞부분만"
+                } else sharedInput.fileName
             )
             else -> if (attachmentExtracting) {
                 androidx.compose.material3.Text(
-                    text = "문서를 읽는 중…",
+                    text = if (en) "Reading document…" else "문서를 읽는 중…",
                     color = KosmosTheme.colors.textSecondary,
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(start = 24.dp, top = 8.dp)
@@ -147,11 +152,17 @@ fun ChatInputBar(
             IconButton(
                 onClick = { onToggleWebSearch(!webSearchEnabled) },
                 modifier = Modifier.size(width = 40.dp, height = 48.dp)
-                    .semantics { stateDescription = if (webSearchEnabled) "켜짐" else "꺼짐" }
+                    .semantics {
+                        stateDescription = if (en) {
+                            if (webSearchEnabled) "On" else "Off"
+                        } else {
+                            if (webSearchEnabled) "켜짐" else "꺼짐"
+                        }
+                    }
             ) {
                 Icon(
                     painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_globe),
-                    contentDescription = "웹 검색",
+                    contentDescription = if (en) "Web search" else "웹 검색",
                     tint = if (webSearchEnabled) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted,
                     modifier = Modifier.size(22.dp)
                 )
@@ -166,16 +177,16 @@ fun ChatInputBar(
                 if (isRecording && !reduced) {
                     // [WHY] 듣는 중에는 지나온 소리가 흐르는 파형 — 글자만으로는 실제로 들리는지 알 수 없었다(0.38.4 M5, 사용자 선택 B). 화면 읽기에는 같은 말을 알린다.
                     RecordingWave(recordingLevel, Modifier.fillMaxWidth().height(28.dp).semantics {
-                        contentDescription = "듣고 있어요"
+                        contentDescription = if (en) "Listening" else "듣고 있어요"
                         liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite
                     })
                 } else if (textState.text.isEmpty()) {
                     // [WHY] 입력란이 잠긴 이유를 그 자리에서 말한다 — 답을 쓰는 중·듣는 중에도 "메시지를 입력하세요"가 떠 있었다(0.38.2 M7).
                     Text(
                         text = when {
-                            isRecording -> "듣고 있어요…"
-                            isLoading -> "답을 쓰는 중이에요…"
-                            else -> androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.chat_input_hint)
+                            isRecording -> if (en) "Listening…" else "듣고 있어요…"
+                            isLoading -> if (en) "Writing a reply…" else "답을 쓰는 중이에요…"
+                            else -> if (en) "Message…" else "메시지를 입력하세요…"
                         },
                         color = if (isRecording) KosmosTheme.colors.textSecondary else KosmosTheme.colors.textMuted,
                         // 상태가 바뀌면(듣는 중·답을 쓰는 중·끝) 화면 읽기가 알린다(0.38.3 점검 P2).
@@ -224,7 +235,7 @@ fun ChatInputBar(
                     ) {
                         Icon(
                             painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_stop_fill),
-                            contentDescription = "답 멈추기",
+                            contentDescription = if (en) "Stop reply" else "답 멈추기",
                             tint = KosmosTheme.colors.brandText,
                             modifier = Modifier.size(20.dp)
                         )
@@ -268,7 +279,11 @@ fun ChatInputBar(
                     ) {
                         Icon(
                             painter = painterResource(id = if (isRecording) com.kosmos.app.R.drawable.ic_ph_stop_fill else com.kosmos.app.R.drawable.ic_ph_microphone),
-                            contentDescription = if (isRecording) "녹음 중지" else "음성 입력",
+                            contentDescription = if (en) {
+                                if (isRecording) "Stop recording" else "Voice input"
+                            } else {
+                                if (isRecording) "녹음 중지" else "음성 입력"
+                            },
                             tint = micIconColor,
                             modifier = Modifier.size(24.dp)
                         )
@@ -295,6 +310,7 @@ private fun AttachmentPreview(
     subtitle: String,
     leading: (@Composable () -> Unit)? = null
 ) {
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -320,7 +336,7 @@ private fun AttachmentPreview(
                     Text(subtitle, color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodySmall)
                     if (needsText) {
                         Text(
-                            androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.attachment_needs_text),
+                            if (en) "Type a message to send with this attachment" else "보내려면 메시지도 적어 주세요",
                             color = KosmosTheme.colors.brandText,
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -330,7 +346,7 @@ private fun AttachmentPreview(
             IconButton(onClick = onClear) {
                 Icon(
                     painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_x),
-                    contentDescription = "첨부 취소",
+                    contentDescription = if (en) "Remove attachment" else "첨부 취소",
                     tint = KosmosTheme.colors.textMuted
                 )
             }

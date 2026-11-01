@@ -32,20 +32,32 @@ interface BriefingNotifier {
 
 @Singleton
 class AndroidBriefingNotifier @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) : BriefingNotifier {
 
+    constructor(context: Context) : this(context, null)
+
     override fun notifyPreview(eventCount: Int, taskCount: Int, deviceCalendarFailed: Boolean) {
+        val en = (appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.fromLocale(
+            if (!context.resources.configuration.locales.isEmpty) context.resources.configuration.locales.get(0) else java.util.Locale.getDefault()
+        )) == com.kosmos.app.core.common.AppLanguage.EN
         val body = buildString {
-            append("오늘 일정 ${eventCount}건, 남은 할 일 ${taskCount}건")
-            if (deviceCalendarFailed) append("\n기기 캘린더는 확인하지 못했어요.")
+            if (en) {
+                append("$eventCount events today, $taskCount pending tasks")
+                if (deviceCalendarFailed) append("\nCouldn't check your device calendar.")
+            } else {
+                append("오늘 일정 ${eventCount}건, 남은 할 일 ${taskCount}건")
+                if (deviceCalendarFailed) append("\n기기 캘린더는 확인하지 못했어요.")
+            }
         }
+        val tail = if (en) "\nOpen the app to see your briefing." else "\n앱을 열면 브리핑이 도착해요."
         val notification = NotificationCompat.Builder(context, NotificationChannels.BRIEFING)
             .setSmallIcon(R.drawable.ic_stat_briefing)
             .setColor(ContextCompat.getColor(context, R.color.notification_accent))
-            .setContentTitle("좋은 아침이에요")
+            .setContentTitle(if (en) "Good morning" else "좋은 아침이에요")
             .setContentText(body.lineSequence().first())
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body + "\n앱을 열면 브리핑이 도착해요."))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body + tail))
             .setAutoCancel(true)
             // [WHY] 딥링크가 필요 없다 — 브리핑 카드는 타임라인 최신 위치라 앱만 열리면 보인다.
             .setContentIntent(contentIntent())

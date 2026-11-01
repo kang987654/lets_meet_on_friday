@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.document
 
+import com.kosmos.app.core.common.AppLanguage
+
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -74,10 +76,12 @@ fun DocumentViewerScreen(
     selectionActions: SelectionActions = SelectionActions()
 ) {
     val colors = KosmosTheme.colors
+    val lang = KosmosTheme.language
+    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
     var zoom by rememberSaveable { mutableFloatStateOf(MIN_ZOOM) }
     var detailText by remember { mutableStateOf<String?>(null) }
 
-    val title = state.fileName ?: "문서"
+    val title = state.fileName ?: if (en) "Document" else "문서"
     // [WHY] 고르는 중에 시스템 뒤로를 누르면 뷰어가 통째로 닫혔다 — 먼저 고르기를 취소한다(0.38.3 점검 P2).
     androidx.activity.compose.BackHandler(enabled = selection != null) { selectionActions.cancel() }
 
@@ -87,20 +91,25 @@ fun DocumentViewerScreen(
             com.kosmos.app.ui.component.KosmosTopBar(
                 title = title,
                 onBack = onClose,
-                backDescription = "닫기",
+                backDescription = if (en) "Close" else "닫기",
                 actions = {
                     val ready = state is DocumentViewerState.Pdf || state is DocumentViewerState.Flow ||
                         (state is DocumentViewerState.Spreadsheet && state.sheet != null)
                     if (selection == null && ready) {
-                        TextButton(onClick = selectionActions.start) { Text("채팅으로", color = colors.brandText) }
+                        TextButton(onClick = selectionActions.start) { Text(if (en) "To chat" else "채팅으로", color = colors.brandText) }
                     }
                     if (state is DocumentViewerState.Flow) {
-                        TextButton(onClick = { onTextScale(-1) }, enabled = textScaleStep > 0, modifier = Modifier.semantics { contentDescription = "글자 작게" }) { Text("가−", color = colors.brandText, style = MaterialTheme.typography.labelMedium) }
-                        TextButton(onClick = { onTextScale(1) }, enabled = textScaleStep < 2, modifier = Modifier.semantics { contentDescription = "글자 크게" }) { Text("가+", color = colors.brandText, style = MaterialTheme.typography.titleMedium) }
+                        TextButton(onClick = { onTextScale(-1) }, enabled = textScaleStep > 0, modifier = Modifier.semantics { contentDescription = if (en) "Smaller text" else "글자 작게" }) { Text(if (en) "A−" else "가−", color = colors.brandText, style = MaterialTheme.typography.labelMedium) }
+                        TextButton(onClick = { onTextScale(1) }, enabled = textScaleStep < 2, modifier = Modifier.semantics { contentDescription = if (en) "Larger text" else "글자 크게" }) { Text(if (en) "A+" else "가+", color = colors.brandText, style = MaterialTheme.typography.titleMedium) }
                     }
                     if (state is DocumentViewerState.Pdf) {
                         // 버튼은 1배 → 1.5배 → 2배 → 1배로 돈다(두 손가락 확대와 같은 값을 쓴다).
-                        TextButton(onClick = { zoom = nextZoom(zoom) }, modifier = Modifier.semantics { contentDescription = "확대 ${(zoom * 100).toInt()}%, 누르면 바꾸기" }) {
+                        TextButton(
+                            onClick = { zoom = nextZoom(zoom) },
+                            modifier = Modifier.semantics {
+                                contentDescription = if (en) "Zoom ${(zoom * 100).toInt()}%, tap to change" else "확대 ${(zoom * 100).toInt()}%, 누르면 바꾸기"
+                            }
+                        ) {
                             Text("${(zoom * 100).toInt()}%", color = colors.brandText)
                         }
                     }
@@ -116,11 +125,11 @@ fun DocumentViewerScreen(
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (state) {
-                DocumentViewerState.Loading -> Centered { Loading("여는 중…") }
-                is DocumentViewerState.Failed -> Centered { Message(documentErrorMessage(state.error)) }
+                DocumentViewerState.Loading -> Centered { Loading(if (en) "Opening…" else "여는 중…") }
+                is DocumentViewerState.Failed -> Centered { Message(documentErrorMessage(state.error, lang)) }
                 is DocumentViewerState.Pdf -> PdfView(state.pages, zoom, onZoomChange = { zoom = it }, onPageChange = selectionActions.pdfPage)
                 is DocumentViewerState.Flow -> when {
-                    state.document.blocks.isEmpty() -> Centered { Message("내용이 없는 문서예요") }
+                    state.document.blocks.isEmpty() -> Centered { Message(if (en) "This document is empty" else "내용이 없는 문서예요") }
                     else -> FlowView(
                         state.document,
                         state.images,
@@ -130,9 +139,9 @@ fun DocumentViewerScreen(
                     )
                 }
                 is DocumentViewerState.Spreadsheet -> when {
-                    state.sheetError != null -> Centered { Message(documentErrorMessage(state.sheetError)) }
-                    state.sheet == null -> Centered { Loading("시트를 읽는 중…") }
-                    state.sheet.rows.isEmpty() -> Centered { Message("빈 시트예요") }
+                    state.sheetError != null -> Centered { Message(documentErrorMessage(state.sheetError, lang)) }
+                    state.sheet == null -> Centered { Loading(if (en) "Reading sheet…" else "시트를 읽는 중…") }
+                    state.sheet.rows.isEmpty() -> Centered { Message(if (en) "This sheet is empty" else "빈 시트예요") }
                     else -> SheetView(
                         state.sheet,
                         onCellLongPress = { detailText = it },
@@ -161,18 +170,24 @@ data class SelectionActions(
 @Composable
 private fun SelectionBar(selection: ChatSelection, actions: SelectionActions) {
     val colors = KosmosTheme.colors
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     val preview = selection.preview
     val message = when {
         preview != null -> buildString {
-            append("${preview.text.length} / ${CHAT_CAP}자")
-            if (preview.truncated) append(" · 앞부분만 보내요(전체 ${preview.fullLength}자)")
+            if (en) {
+                append("${preview.text.length} / $CHAT_CAP chars")
+                if (preview.truncated) append(" · Sending first part only (total ${preview.fullLength} chars)")
+            } else {
+                append("${preview.text.length} / ${CHAT_CAP}자")
+                if (preview.truncated) append(" · 앞부분만 보내요(전체 ${preview.fullLength}자)")
+            }
         }
-        selection is ChatSelection.Rows && selection.anchor == null -> "보낼 시작 행의 번호를 누르세요"
-        selection is ChatSelection.Rows -> "끝 행의 번호를 누르세요"
-        selection is ChatSelection.Blocks -> "보낼 문단·표를 누르세요"
-        selection is ChatSelection.PdfPage && selection.unsupported -> "이 기기에서는 PDF 글자를 꺼낼 수 없어요(안드로이드 15 이상)"
-        selection is ChatSelection.PdfPage && selection.noText -> "이 페이지에는 보낼 글자가 없어요(이미지로 된 페이지일 수 있어요)"
-        else -> "이 페이지에서 보낼 글자를 찾는 중이에요"
+        selection is ChatSelection.Rows && selection.anchor == null -> if (en) "Tap the starting row number to send" else "보낼 시작 행의 번호를 누르세요"
+        selection is ChatSelection.Rows -> if (en) "Tap the ending row number" else "끝 행의 번호를 누르세요"
+        selection is ChatSelection.Blocks -> if (en) "Tap paragraphs or tables to send" else "보낼 문단·표를 누르세요"
+        selection is ChatSelection.PdfPage && selection.unsupported -> if (en) "Cannot extract PDF text on this device (Android 15+ required)" else "이 기기에서는 PDF 글자를 꺼낼 수 없어요(안드로이드 15 이상)"
+        selection is ChatSelection.PdfPage && selection.noText -> if (en) "No text on this page (it may be an image)" else "이 페이지에는 보낼 글자가 없어요(이미지로 된 페이지일 수 있어요)"
+        else -> if (en) "Finding text on this page…" else "이 페이지에서 보낼 글자를 찾는 중이에요"
     }
     Column(
         Modifier
@@ -185,8 +200,8 @@ private fun SelectionBar(selection: ChatSelection, actions: SelectionActions) {
             modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite })
         // [WHY] 이 막대의 주 동작은 보내기 — 시트·승인과 같은 [보조][주] 버튼(0.38.3 점검 P2 버튼 어휘).
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            com.kosmos.app.ui.component.KosmosButton("취소", actions.cancel, Modifier.weight(1f))
-            com.kosmos.app.ui.component.KosmosButton("채팅으로 보내기", actions.send, Modifier.weight(1f), accent = true, enabled = preview != null)
+            com.kosmos.app.ui.component.KosmosButton(if (en) "Cancel" else "취소", actions.cancel, Modifier.weight(1f))
+            com.kosmos.app.ui.component.KosmosButton(if (en) "Send to chat" else "채팅으로 보내기", actions.send, Modifier.weight(1f), accent = true, enabled = preview != null)
         }
     }
 }
@@ -248,6 +263,7 @@ private fun SheetTabs(names: List<String>, selected: Int, onSelect: (Int) -> Uni
 
 @Composable
 private fun CellDetailDialog(text: String, onDismiss: () -> Unit) {
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     AlertDialog(
@@ -262,12 +278,12 @@ private fun CellDetailDialog(text: String, onDismiss: () -> Unit) {
         confirmButton = {
             TextButton(onClick = {
                 scope.launch {
-                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("셀 내용", text)))
+                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(if (en) "Cell content" else "셀 내용", text)))
                     onDismiss()
                 }
-            }) { Text("복사", color = KosmosTheme.colors.brandText) }
+            }) { Text(if (en) "Copy" else "복사", color = KosmosTheme.colors.brandText) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("닫기", color = KosmosTheme.colors.textSecondary) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(if (en) "Close" else "닫기", color = KosmosTheme.colors.textSecondary) } },
         containerColor = KosmosTheme.colors.surface
     )
 }
@@ -292,12 +308,18 @@ private fun Message(text: String) {
 }
 
 /** 읽기 실패 사유 → 사용자 안내. */
-internal fun documentErrorMessage(error: DocumentError): String = when (error) {
-    DocumentError.UNSUPPORTED -> "이 형식은 아직 열 수 없어요.\nPDF, 엑셀(xlsx), CSV, 워드(docx), 한글(hwpx)을 열 수 있어요."
-    DocumentError.UNREADABLE -> "파일을 열 수 없어요.\n권한이 만료됐거나 파일이 옮겨졌을 수 있어요."
-    DocumentError.TOO_LARGE -> "파일이 너무 커서 열 수 없어요."
-    DocumentError.CORRUPT -> "파일이 손상됐거나 내용이 형식과 달라요."
-    DocumentError.ENCRYPTED -> "암호가 걸린 문서이거나 지원하지 않는 옛 형식(xls, doc, hwp)이에요."
+internal fun documentErrorMessage(
+    error: DocumentError,
+    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+): String {
+    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+    return when (error) {
+        DocumentError.UNSUPPORTED -> if (en) "This format isn't supported yet.\nSupported: PDF, Excel (xlsx), CSV, Word (docx), and HWPX." else "이 형식은 아직 열 수 없어요.\nPDF, 엑셀(xlsx), CSV, 워드(docx), 한글(hwpx)을 열 수 있어요."
+        DocumentError.UNREADABLE -> if (en) "Couldn't open the file.\nPermission may have expired or the file may have moved." else "파일을 열 수 없어요.\n권한이 만료됐거나 파일이 옮겨졌을 수 있어요."
+        DocumentError.TOO_LARGE -> if (en) "This file is too large to open." else "파일이 너무 커서 열 수 없어요."
+        DocumentError.CORRUPT -> if (en) "This file appears corrupted or doesn't match its format." else "파일이 손상됐거나 내용이 형식과 달라요."
+        DocumentError.ENCRYPTED -> if (en) "Password-protected or legacy format (xls, doc, hwp) isn't supported." else "암호가 걸린 문서이거나 지원하지 않는 옛 형식(xls, doc, hwp)이에요."
+    }
 }
 
 internal fun nextZoom(zoom: Float): Float = when {

@@ -15,7 +15,8 @@ data class WidgetSnapshot(
     val eventLines: List<WidgetEventLine>,
     val overflowCount: Int,
     val pendingTaskCount: Int,
-    val deviceCalendarFailed: Boolean
+    val deviceCalendarFailed: Boolean,
+    val lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
 )
 
 data class WidgetEventLine(val time: String, val title: String)
@@ -27,18 +28,20 @@ internal fun buildWidgetSnapshot(
     schedule: ScheduleData?,
     pendingTasks: List<TaskItem>,
     nowMs: Long,
-    zone: ZoneId = ZoneId.systemDefault()
+    zone: ZoneId = ZoneId.systemDefault(),
+    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
 ): WidgetSnapshot {
     val events = schedule?.events.orEmpty()
+    val allDayLabel = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "All day" else "종일"
     val lines = events.take(WIDGET_MAX_EVENTS).map { event ->
         WidgetEventLine(
             // [WHY] 날짜-only ISO(기기 캘린더 종일 일정)는 "오전 12:00"으로 오해되므로 "종일".
-            time = if (!event.startIso.contains('T')) "종일"
-            else IsoDateTimeParser.toDisplayTimeKorean(event.startIso, zone) ?: "",
+            time = if (!event.startIso.contains('T')) allDayLabel
+            else IsoDateTimeParser.toDisplayTimeKorean(event.startIso, zone, lang) ?: "",
             title = event.title
         )
     }
-    val dateLabel = IsoDateTimeParser.longDateKorean(nowMs, zone)
+    val dateLabel = IsoDateTimeParser.longDateKorean(nowMs, zone, lang)
     return WidgetSnapshot(
         dateLabel = dateLabel,
         eventLines = lines,
@@ -48,6 +51,7 @@ internal fun buildWidgetSnapshot(
         pendingTaskCount = pendingTasks.count { !it.isCompleted },
         // [WHY] 조회 실패(null)도 true — 위젯은 권한 요청 UI 를 못 띄우므로 이 표기가
         // "일정 없음"과 "확인 못 함"을 가르는 유일한 정직한 신호다 (EC4, ADR-004).
-        deviceCalendarFailed = schedule?.deviceCalendarFailed ?: true
+        deviceCalendarFailed = schedule?.deviceCalendarFailed ?: true,
+        lang = lang
     )
 }

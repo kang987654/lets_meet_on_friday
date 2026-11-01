@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- General -->
+    <string name="document_viewer_label">Document Viewer</string>
+    <string name="widget_label">KOSMOS Today</string>
+    <string name="widget_description">Shows today\'s schedule and tasks, and lets you ask by voice with a tap.</string>
+    <string name="tile_voice_label">KOSMOS Voice</string>
+    <string name="tile_voice_subtitle">Tap and speak</string>
+
+    <!-- Common -->
+    <string name="common_cancel">Cancel</string>
+    <string name="common_confirm">OK</string>
+    <string name="common_close">Close</string>
+    <string name="common_save">Save</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_edit">Edit</string>
+    <string name="common_retry">Retry</string>
+    <string name="common_undo">Undo</string>
+    <string name="common_back">Back</string>
+    <string name="common_more">More</string>
+    <string name="common_add">Add</string>
+    <string name="common_continue">Continue</string>
+    <string name="common_copy">Copy</string>
+    <string name="common_clear">Clear</string>
+    <string name="common_collapse">Collapse</string>
+    <string name="common_expand">Expand</string>
+    <string name="common_refresh">Refresh</string>
+    <string name="common_download">Download</string>
+    <string name="common_later">Later</string>
+    <string name="common_ignore">Ignore</string>
+    <string name="common_today">Today</string>
+    <string name="common_yesterday">Yesterday</string>
+    <string name="common_all_day">All day</string>
+
+    <!-- Theme & Display Options -->
+    <string name="lang_option_system">System</string>
+    <string name="theme_mode_system">System</string>
+    <string name="theme_mode_light">Light</string>
+    <string name="theme_mode_dark">Dark</string>
+    <string name="font_mode_app">App font</string>
+    <string name="font_mode_system">System font</string>
+    <string name="chat_text_size_small">Small</string>
+    <string name="chat_text_size_default">Default</string>
+    <string name="chat_text_size_large">Large</string>
+    <string name="chat_text_size_xlarge">Extra large</string>
+    <string name="splash_style_planet">Planet</string>
+    <string name="splash_style_galaxy">Galaxy</string>
+    <string name="response_style_concise">Concise</string>
+    <string name="response_style_default">Default</string>
+    <string name="response_style_detailed">Detailed</string>
+
+    <!-- Splash -->
+    <string name="splash_checking_model">Checking model file…</string>
+    <string name="splash_preparing_engine">Preparing AI engine…</string>
+    <string name="splash_ready">Ready</string>
+    <string name="splash_model_needed_title">AI model required</string>
+    <string name="splash_model_needed_body">To start chatting, you need to download the on-device AI model.\nThe file size is about 3.6 GB. Wi‑Fi is recommended.</string>
+    <string name="splash_download_model">Download model</string>
+    <string name="splash_engine_error_title">Couldn\'t start AI engine</string>
+    <string name="splash_manage_model">Manage model</string>
+
+    <!-- Chat Screen & Header & Input -->
+    <string name="image_attached">Image attached.</string>
+    <string name="image_size_kb">Size: %1$d KB</string>
+    <string name="chat_input_hint">Message…</string>
+    <string name="attachment_needs_text">Add a question to send with the attachment</string>
+    <string name="chat_menu_cd">Menu</string>
+    <string name="chat_status_sheet_cd">%1$s — tap for details</string>
+    <string name="chat_web_search_on_cd">Wikipedia search on (tap to turn off)</string>
+    <string name="chat_web_search_off_cd">Wikipedia search off (tap to turn on)</string>
+    <string name="chat_status_sheet_title">System Status</string>
+    <string name="chat_status_engine_label">AI Engine</string>
+    <string name="chat_status_device_label">Device</string>
+    <string name="chat_shared_text_label">Shared text</string>
+    <string name="chat_remove_attachment_cd">Remove attachment</string>
+    <string name="chat_stop_generation_cd">Stop generating</string>
+    <string name="chat_stop_recording_cd">Finish recording</string>
+    <string name="chat_voice_input_cd">Voice input</string>
+    <string name="chat_reading_document">Reading document…</string>
+    <string name="chat_doc_binary_error">This file can\'t be read as text. Please choose a PDF, Excel, Word, HWPX, or text file.</string>
+    <string name="chat_doc_read_error">Couldn\'t read the document.</string>
+    <string name="chat_Scroll_to_bottom_cd">Scroll to bottom</string>
+    <string name="chat_voice_placeholder">(Voice message)</string>
+    <string name="chat_Empty_greeting_morning">Good morning</string>
+    <string name="chat_Empty_greeting_Morning_with_name">Good morning, %1$s</string>
+    <string name="chat_Empty_greeting_afternoon">Hello</string>
+    <string name="chat_Empty_greeting_afternoon_with_name">Hello, %1$s</string>
+    <string name="chat_Empty_greeting_evening">Good evening</string>
+    <string name="chat_Empty_greeting_evening_with_name">Good evening, %1$s</string>
+    <string name="chat_Empty_subtitle">Ask about your schedule, set a reminder, or tell me something to remember.</string>
+    <string name="chat_Empty_prompt_1">Remind me to drink water in 30 minutes</string>
+    <string name="chat_Empty_prompt_2">What\'s on my schedule today?</string>
+    <string name="chat_Empty_prompt_3">Remember that the front door code is 2580</string>
+    <string name="chat_summary_today_schedule">Today</string>
+    <string name="chat_summary_tasks">Tasks</string>
+    <string name="chat_summary_count">%1$d</string>
+    <string name="chat_summary_none">None</string>
+    <string name="chat_summary_check_needed">Check permissions</string>
+    <string name="chat_briefing_title">Morning Briefing</string>
+    <string name="chat_bubble_stop_reading_cd">Stop reading</string>
+    <string name="chat_bubble_read_aloud_cd">Read aloud</string>
+    <string name="chat_bubble_view_past_chat">View past chat</string>
+    <string name="chat_bubble_view_past_chats_count">View %1$d past chats</string>
+    <string name="chat_bubble_view_chat">View chat</string>
+    <string name="chat_bubble_streaming_suffix"> — writing</string>
+    <string name="chat_tts_no_voice_notice">Offline voice data is missing. Install it in Settings > Voice.</string>
+    <string name="chat_tts_failed_notice">Couldn\'t start voice output.</string>
+    <string name="chat_profile_saved_single">Saved \'%1$s: %2$s\' to your profile.</string>
+    <string name="chat_profile_saved_multi">Saved %1$d items to your profile.</string>
+
+    <!-- Reminder Edit Sheet -->
+    <string name="reminder_edit_title">Edit Reminder</string>
+    <string name="reminder_edit_current_label">Current reminder</string>
+    <string name="reminder_edit_snooze_10m">Snooze 10 minutes</string>
+    <string name="reminder_edit_change_time">Change time</string>
+    <string name="reminder_edit_cancel_reminder">Cancel reminder</string>
+    <string name="reminder_edit_save_time">Save new time</string>
+
+    <!-- Approval & Profile Suggestion Sheet -->
+    <string name="approval_allow_permission">Allow permission</string>
+    <string name="profile_suggestion_sheet_label">Profile Suggestion</string>
+    <string name="profile_suggestion_sheet_title">Found items from your chat to remember</string>
+    <string name="profile_suggestion_sheet_subtitle">Check the items you want to save. You can turn off automatic suggestions in Settings > Memory.</string>
+    <string name="profile_suggestion_save_selected">Save selected (%1$d)</string>
+
+    <!-- Drawer -->
+    <string name="drawer_new_chat">New chat</string>
+    <string name="drawer_search_hint">Search past chats…</string>
+    <string name="drawer_search_clear_cd">Clear search</string>
+    <string name="drawer_section_search_results">Search results</string>
+    <string name="drawer_section_recent_chats">Recent chats</string>
+    <string name="drawer_empty_search">No matching chats</string>
+    <string name="drawer_empty_episodes">No summarized chats yet</string>
+    <string name="drawer_untitled_episode">(Untitled)</string>
+    <string name="drawer_summarizing">Summarizing…</string>
+    <string name="drawer_profile_title">My Profile</string>
+    <string name="drawer_profile_empty">Add your name, title, or preferences</string>
+    <string name="drawer_profile_Format_one">%1$s: %2$s</string>
+    <string name="drawer_profile_Format_more">%1$s: %2$s +%3$d more</string>
+    <string name="drawer_nav_section">Navigate</string>
+    <string name="drawer_nav_calendar">Calendar</string>
+    <string name="drawer_nav_memory">Notes · Tasks</string>
+    <string name="drawer_nav_documents">Documents</string>
+    <string name="drawer_nav_audit">Activity Log</string>
+    <string name="drawer_nav_settings">Settings</string>
+
+    <!-- Episode Sheet -->
+    <string name="episode_sheet_title">Past Chat</string>
+    <string name="episode_sheet_loading">Loading…</string>
+    <string name="episode_sheet_missing">Couldn\'t find this chat.</string>
+    <string name="episode_sheet_title_label">Title</string>
+    <string name="episode_sheet_tags_label">Tags (comma-separated)</string>
+    <string name="episode_sheet_summary_label">Summary</string>
+    <string name="episode_sheet_view_in_chat">View in chat</string>
+    <string name="episode_sheet_delete_confirm_title">Delete this chat summary?</string>
+    <string name="episode_sheet_delete_confirm_body">Only the summary card is deleted; original chat messages remain.</string>
+
+    <!-- Profile Sheet -->
+    <string name="profile_sheet_title">My Profile</string>
+    <string name="profile_sheet_subtitle">Information the assistant references in every conversation (e.g., name, role, interests).</string>
+    <string name="profile_sheet_budget_label">Prompt budget: %1$d / %2$d tokens</string>
+    <string name="profile_sheet_key_label">Field (e.g., Name)</string>
+    <string name="profile_sheet_value_label">Value (e.g., Alex)</string>
+    <string name="profile_sheet_empty">No profile items added yet.</string>
+    <string name="profile_sheet_auto_tag">Auto</string>
+    <string name="profile_sheet_deleted_snackbar">Deleted \'%1$s\'</string>
+    <string name="profile_error_over_budget">Exceeds profile limit (%1$d tokens, currently %2$d). Shorten or remove other items.</string>
+
+    <!-- Calendar Screen -->
+    <string name="calendar_title">Calendar</string>
+    <string name="calendar_tab_today">Today</string>
+    <string name="calendar_tab_month">Month</string>
+    <string name="calendar_permission_warning">Device calendar permission is off, so only KOSMOS events are shown.</string>
+    <string name="calendar_permission_allow">Allow calendar access</string>
+    <string name="calendar_today_section_timeline">Today\'s Events · Reminders</string>
+    <string name="calendar_today_empty_timeline">No events or reminders for today.</string>
+    <string name="calendar_today_section_tasks">Tasks</string>
+    <string name="calendar_today_section_upcoming">Upcoming (7 days)</string>
+    <string name="calendar_today_all_clear">Your schedule and tasks are all clear for today.</string>
+    <string name="calendar_source_device">Device calendar</string>
+    <string name="calendar_source_app">KOSMOS</string>
+    <string name="calendar_reminder_tag">Reminder</string>
+    <string name="calendar_complete_task_cd">Mark complete</string>
+    <string name="calendar_prev_month_cd">Previous month</string>
+    <string name="calendar_next_month_cd">Next month</string>
+    <string name="calendar_day_empty">No events.</string>
+
+    <!-- Memory Screen -->
+    <string name="memory_title">Notes · Tasks</string>
+    <string name="memory_tab_notes">Notes (%1$d)</string>
+    <string name="memory_tab_tasks">Tasks (%1$d)</string>
+    <string name="memory_menu_export">Export backup</string>
+    <string name="memory_menu_import">Import backup</string>
+    <string name="memory_search_notes_hint">Search notes…</string>
+    <string name="memory_search_tasks_hint">Search tasks…</string>
+    <string name="memory_empty_notes">No saved notes yet.\nAsk the assistant to \"remember\" something in chat.</string>
+    <string name="memory_empty_tasks">No pending tasks.\nTry adding a task or reminder in chat.</string>
+    <string name="memory_empty_search">No matching results.</string>
+    <string name="memory_note_auto_tag">Auto</string>
+    <string name="memory_note_deleted_snackbar">Deleted note.</string>
+    <string name="memory_task_deleted_snackbar">Deleted task.</string>
+    <string name="memory_tasks_completed_section">Completed (%1$d)</string>
+    <string name="memory_backup_export_done">Backup file saved.</string>
+    <string name="memory_backup_import_done">Restore complete — %1$d added, %2$d duplicates skipped</string>
+    <string name="memory_load_more">Load more</string>
+
+    <!-- Memory Cleanup Screen -->
+    <string name="cleanup_title">Memory Cleanup</string>
+    <string name="cleanup_idle_title">Review this week\'s chats and merge duplicate memories</string>
+    <string name="cleanup_idle_body">Creates a weekly review note from the last 7 days of chats, and finds duplicate notes or related chat summaries to merge. Uses the on-device AI model and takes about 10–30 seconds.</string>
+    <string name="cleanup_start_button">Start cleanup</string>
+    <string name="cleanup_running_review">Reviewing this week\'s chats…</string>
+    <string name="cleanup_running_merge">Finding duplicate notes and related chats…</string>
+    <string name="cleanup_running_apply">Merging selected items…</string>
+    <string name="cleanup_section_weekly_review">Weekly Review</string>
+    <string name="cleanup_weekly_review_saved">Also saved to your notes</string>
+    <string name="cleanup_section_note_merges">Merge Duplicate Notes (%1$d)</string>
+    <string name="cleanup_section_episode_merges">Merge Related Chats (%1$d)</string>
+    <string name="cleanup_empty_proposals">No duplicate items found to merge.</string>
+    <string name="cleanup_finish_without_merge">Finish without merging</string>
+    <string name="cleanup_apply_selected">Merge %1$d selected</string>
+    <string name="cleanup_done_title">Cleanup complete</string>
+    <string name="cleanup_done_body">Merged %1$d notes · %2$d chats</string>
+
+    <!-- Document Home & Viewer -->
+    <string name="doc_home_title">Documents</string>
+    <string name="doc_home_open_file">Open file</string>
+    <string name="doc_home_supported_formats">PDF · Excel (xlsx, csv) · Word (docx) · HWPX</string>
+    <string name="doc_home_section_recent">Recent Documents</string>
+    <string name="doc_home_empty_recent">Documents opened here will appear in this list. Files opened from other apps via \'Open with\' are not kept.</string>
+    <string name="doc_home_remove_recent_cd">Remove from recent</string>
+    <string name="doc_home_removed_snackbar">Removed \'%1$s\' from list</string>
+    <string name="doc_viewer_loading">Opening document…</string>
+    <string name="doc_viewer_send_to_chat_cd">Send to chat</string>
+    <string name="doc_viewer_cancel_selection_cd">Cancel selection</string>
+    <string name="doc_viewer_send_action">Send to chat</string>
+    <string name="doc_viewer_select_rows_guide">Tap the start and end row numbers to send</string>
+    <string name="doc_viewer_select_rows_from">From row %1$d — tap the end row number</string>
+    <string name="doc_viewer_select_rows_range">Rows %1$d–%2$d (%3$d rows)</string>
+    <string name="doc_viewer_select_blocks_guide">Tap paragraphs to select for chat</string>
+    <string name="doc_viewer_select_blocks_count">%1$d paragraphs selected</string>
+    <string name="doc_viewer_pdf_extracting">Extracting text from this page…</string>
+    <string name="doc_viewer_pdf_unsupported">PDF text extraction requires Android 15 or higher.</string>
+    <string name="doc_viewer_pdf_no_text">No extractable text on this page (it may be a scanned image).</string>
+    <string name="doc_viewer_pdf_page_ready">Page %1$d text ready</string>
+    <string name="doc_viewer_tokens_truncated">Truncated to fit limit (~%1$d tokens)</string>
+    <string name="doc_viewer_tokens_count">~%1$d tokens</string>
+    <string name="doc_flow_decrease_font">A−</string>
+    <string name="doc_flow_increase_font">A+</string>
+    <string name="doc_flow_decrease_font_cd">Decrease font size</string>
+    <string name="doc_flow_increase_font_cd">Increase font size</string>
+    <string name="doc_flow_empty">This document is empty</string>
+    <string name="doc_flow_truncated">Showing the first part of a long document</string>
+    <string name="doc_flow_image_placeholder">[Image]</string>
+    <string name="doc_sheet_empty">This sheet is empty</string>
+    <string name="doc_sheet_truncated">Large file — showing first %1$d rows</string>
+    <string name="doc_sheet_cell_detail_title">Cell %1$s%2$d</string>
+    <string name="doc_pdf_page_indicator">Page %1$d / %2$d</string>
+    <string name="doc_pdf_zoom_label">%1$sx</string>
+    <string name="doc_pdf_render_failed">Couldn\'t render this page</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_model">AI Model</string>
+    <string name="settings_model_local_title">On-device AI Model</string>
+    <string name="settings_model_checking">Checking status</string>
+    <string name="settings_model_file_found">Model file found, preparing engine</string>
+    <string name="settings_model_preparing">Preparing AI engine</string>
+    <string name="settings_model_tag_preparing">Preparing</string>
+    <string name="settings_model_tag_ready">Ready</string>
+    <string name="settings_model_info_title">Model Info</string>
+    <string name="settings_model_version">Version %1$s</string>
+    <string name="settings_model_quantization">Quantization %1$s</string>
+    <string name="settings_model_not_found_title">Model not found</string>
+    <string name="settings_model_not_found_body">Download the model to start chatting.</string>
+    <string name="settings_model_load_failed_title">Couldn\'t load model</string>
+    <string name="settings_section_display">Display</string>
+    <string name="settings_display_footnote">Splash screen changes take effect next time you open the app.</string>
+    <string name="settings_control_language">Language</string>
+    <string name="settings_control_theme">Theme</string>
+    <string name="settings_control_font">Font</string>
+    <string name="settings_control_chat_text_size">Chat text size</string>
+    <string name="settings_chat_text_preview">I\'ll remind you at 1:56 PM.</string>
+    <string name="settings_control_splash">Splash screen</string>
+    <string name="settings_section_conversation">Conversation</string>
+    <string name="settings_conversation_footnote">Increasing context range includes more past turns, but uses more memory and responds slower. This is separate from the model\'s total window limit.</string>
+    <string name="settings_control_response_style">Response length</string>
+    <string name="settings_control_context_budget">Context memory range</string>
+    <string name="settings_section_briefing">Morning Briefing</string>
+    <string name="settings_briefing_footnote">Sends a count of today\'s events and tasks on time, and delivers the full briefing in chat when you open the app.</string>
+    <string name="settings_briefing_switch">Receive daily morning briefing</string>
+    <string name="settings_briefing_time_row">Notification time</string>
+    <string name="settings_briefing_time_dialog_title">Briefing Time</string>
+    <string name="settings_section_memory">Memory</string>
+    <string name="settings_memory_footnote">Saves key facts when conversations are summarized. Profile items like your name ask for confirmation first, and notes can be deleted anytime.</string>
+    <string name="settings_memory_auto_extract">Automatically remember from chats</string>
+    <string name="settings_memory_cleanup_title">Memory Cleanup</string>
+    <string name="settings_memory_cleanup_sub">Weekly review and merge duplicate memories</string>
+    <string name="settings_section_voice">Voice</string>
+    <string name="settings_voice_footnote">Reads responses aloud when finished. Even when off, you can use the play button on each bubble. Recording stops playback immediately.</string>
+    <string name="settings_voice_no_offline_warning">This engine doesn\'t have offline voice data installed. Download voice data or choose another engine.</string>
+    <string name="settings_voice_init_failed_warning">Couldn\'t start this voice engine. Please choose another engine.</string>
+    <string name="settings_voice_auto_read">Read responses aloud</string>
+    <string name="settings_voice_engine_default">System default</string>
+    <string name="settings_voice_install_data">Install voice data</string>
+    <string name="settings_section_exact_alarm">Reminders</string>
+    <string name="settings_exact_alarm_warning">Alarms &amp; reminders permission is off, so reminders may be delayed by up to 10 minutes.</string>
+    <string name="settings_exact_alarm_allow">Allow alarms &amp; reminders</string>
+    <string name="settings_section_data">Data</string>
+    <string name="settings_data_reset_title">Reset Data</string>
+    <string name="settings_data_reset_sub">Choose to delete chat history, tasks, notes, or profile</string>
+    <string name="settings_reset_opt_conversations_title">Chat history</string>
+    <string name="settings_reset_opt_conversations_detail">Chats, briefing cards, episode summaries, activity log, profile suggestions</string>
+    <string name="settings_reset_opt_tasks_title">Tasks</string>
+    <string name="settings_reset_opt_tasks_detail">Includes completed tasks and cancels scheduled reminders</string>
+    <string name="settings_reset_opt_knowledge_title">Notes</string>
+    <string name="settings_reset_opt_knowledge_detail">Manually and automatically saved notes</string>
+    <string name="settings_reset_opt_profile_title">Profile</string>
+    <string name="settings_reset_opt_profile_detail">Your name, preferences, and personal info</string>
+    <string name="settings_reset_dialog_title">What would you like to delete?</string>
+    <string name="settings_reset_dialog_warning">Deleted data cannot be undone. Back up in Notes · Tasks first if needed.</string>
+    <string name="settings_reset_dialog_restart_note"> Deleting chat history will restart the app.</string>
+    <string name="settings_reset_deleting">Deleting…</string>
+    <string name="settings_reset_delete_action">Delete</string>
+    <string name="settings_reset_done_title">Deleted</string>
+    <string name="settings_reset_done_restart_body">The app needs to restart to clear chat history.</string>
+    <string name="settings_reset_done_body">Selected items have been deleted.</string>
+    <string name="settings_reset_restart_action">Restart</string>
+
+    <!-- Model Management Screen -->
+    <string name="model_mgmt_title">Manage Model</string>
+    <string name="model_mgmt_section_current">Current Status</string>
+    <string name="model_mgmt_status_ready">Ready</string>
+    <string name="model_mgmt_status_not_found">Model file missing</string>
+    <string name="model_mgmt_status_loading">Checking…</string>
+    <string name="model_mgmt_status_error">Load failed</string>
+    <string name="model_mgmt_size_gb">Size: %1$.2f GB</string>
+    <string name="model_mgmt_section_download">Download Model</string>
+    <string name="model_mgmt_url_label">Download URL</string>
+    <string name="model_mgmt_start_download">Start download</string>
+    <string name="model_mgmt_resume_download">Resume (%1$d MB downloaded)</string>
+    <string name="model_mgmt_cancel_download">Cancel download</string>
+    <string name="model_mgmt_discard_partial">Delete partial file</string>
+    <string name="model_mgmt_queued">Waiting for network connection…</string>
+    <string name="model_mgmt_queued_retry">Waiting to retry (attempt %1$d)…</string>
+    <string name="model_mgmt_running_percent">%1$d%% (%2$d / %3$d MB)</string>
+    <string name="model_mgmt_running_unknown">Downloading %1$d MB…</string>
+    <string name="model_mgmt_succeeded">Download complete. Preparing engine.</string>
+    <string name="model_mgmt_cancelled">Download cancelled.</string>
+
+    <!-- Audit Screen -->
+    <string name="audit_title">Activity Log</string>
+    <string name="audit_clear_cd">Clear log</string>
+    <string name="audit_empty">No recorded activity yet.\nTool runs, approvals, and model responses appear here.</string>
+    <string name="audit_raw_toggle_hide">Hide raw</string>
+    <string name="audit_raw_toggle_show">View raw</string>
+    <string name="audit_clear_dialog_title">Clear all activity logs?</string>
+    <string name="audit_clear_dialog_body">Cleared logs cannot be restored.</string>
+    <string name="audit_filter_all">All</string>
+    <string name="audit_filter_tool">Tools</string>
+    <string name="audit_filter_approval">Approvals</string>
+    <string name="audit_filter_model">Model</string>
+    <string name="audit_filter_error">Errors</string>
+</resources>

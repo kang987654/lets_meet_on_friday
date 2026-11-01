@@ -143,7 +143,10 @@ fun EmptyState(@DrawableRes icon: Int, message: String, modifier: Modifier = Mod
  * 행 끝 삭제 버튼 — 옅은 휴지통(48dp). 빨간 ✕ 가 화면에서 가장 눈에 띄는 색이었다(impeccable 0.38.2 P1). 지운 뒤에는 [showUndo] 로 되돌릴 기회를 준다.
  */
 @Composable
-fun DeleteIconButton(onClick: () -> Unit, contentDescription: String = "지우기") {
+fun DeleteIconButton(
+    onClick: () -> Unit,
+    contentDescription: String = if (KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN) "Clear" else "지우기"
+) {
     IconButton(onClick = onClick) {
         KosmosIcon(R.drawable.ic_ph_trash, contentDescription = contentDescription, size = IconSize.inline, tint = KosmosTheme.colors.textMuted)
     }
@@ -153,9 +156,23 @@ fun DeleteIconButton(onClick: () -> Unit, contentDescription: String = "지우�
  * 지운 뒤 "○○을 지웠어요 · 되돌리기" 스낵바 — 되돌리기를 누르면 [onUndo](같은 객체를 다시 저장).
  * 확인 창 대신 쓴다(사용자 결정 2026-10-20, ui-ux-pro-max `undo-support`). 일괄 삭제·초기화는 확인 창을 유지한다.
  */
-suspend fun SnackbarHostState.showUndo(message: String, onUndo: () -> Unit) {
+suspend fun SnackbarHostState.showUndo(
+    message: String,
+    lang: com.kosmos.app.core.common.AppLanguage,
+    onUndo: () -> Unit
+) = showUndo(
+    message = message,
+    actionLabel = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Undo" else "되돌리기",
+    onUndo = onUndo
+)
+
+suspend fun SnackbarHostState.showUndo(
+    message: String,
+    actionLabel: String = "되돌리기",
+    onUndo: () -> Unit
+) {
     // [WHY] 약 10초(Long) — 4초(Short)는 누르기 전에 사라졌다(0.38.3 에뮬레이터 확인, 0.38.4 결정 4).
-    val result = showSnackbar(message = message, actionLabel = "되돌리기", withDismissAction = false, duration = SnackbarDuration.Long)
+    val result = showSnackbar(message = message, actionLabel = actionLabel, withDismissAction = false, duration = SnackbarDuration.Long)
     if (result == SnackbarResult.ActionPerformed) onUndo()
 }
 

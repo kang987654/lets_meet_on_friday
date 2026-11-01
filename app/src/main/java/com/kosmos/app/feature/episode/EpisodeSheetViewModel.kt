@@ -42,8 +42,14 @@ sealed interface EpisodeSheetState {
  */
 @HiltViewModel
 class EpisodeSheetViewModel @Inject constructor(
-    private val episodeRepository: EpisodeRepository
+    private val episodeRepository: EpisodeRepository,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) : ViewModel() {
+
+    constructor(episodeRepository: EpisodeRepository) : this(episodeRepository, null)
+
+    private val currentLang: com.kosmos.app.core.common.AppLanguage
+        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
 
     private val _state = MutableStateFlow<EpisodeSheetState>(EpisodeSheetState.Loading)
     val state: StateFlow<EpisodeSheetState> = _state.asStateFlow()
@@ -57,7 +63,7 @@ class EpisodeSheetViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = when (val result = episodeRepository.getById(episodeId)) {
                 is AppResult.Success -> result.data?.let { EpisodeSheetState.Loaded(it) } ?: EpisodeSheetState.Missing
-                is AppResult.Failure -> EpisodeSheetState.Error(ErrorMessages.userMessage(result.error))
+                is AppResult.Failure -> EpisodeSheetState.Error(ErrorMessages.userMessage(result.error, currentLang))
             }
         }
     }
@@ -76,7 +82,7 @@ class EpisodeSheetViewModel @Inject constructor(
                     _state.value = EpisodeSheetState.Loaded(updated)
                     onSaved()
                 }
-                is AppResult.Failure -> _actionError.value = ErrorMessages.userMessage(result.error)
+                is AppResult.Failure -> _actionError.value = ErrorMessages.userMessage(result.error, currentLang)
             }
         }
     }
@@ -89,7 +95,7 @@ class EpisodeSheetViewModel @Inject constructor(
                     _state.value = EpisodeSheetState.Missing
                     onDeleted()
                 }
-                is AppResult.Failure -> _actionError.value = ErrorMessages.userMessage(result.error)
+                is AppResult.Failure -> _actionError.value = ErrorMessages.userMessage(result.error, currentLang)
             }
         }
     }

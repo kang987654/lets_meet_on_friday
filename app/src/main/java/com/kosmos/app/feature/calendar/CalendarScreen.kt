@@ -62,12 +62,19 @@ fun CalendarScreen(
         }
     }
 
+    val isEn = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     Column(modifier = Modifier.fillMaxSize()) {
-        com.kosmos.app.ui.component.KosmosTopBar(title = "일정", onBack = onBack)
+        com.kosmos.app.ui.component.KosmosTopBar(
+            title = if (isEn) "Calendar" else "일정",
+            onBack = onBack
+        )
 
         // [WHY] 오늘 / 월 탭(0.38.3 M1 사용자 결정) — 옛 목록 탭의 오늘·이번 주 두 겹 분할 버튼을 "오늘" 탭 하나로 흡수했다.
         com.kosmos.app.ui.component.KosmosSegmentedControl(
-            options = listOf(CalendarTab.TODAY to "오늘", CalendarTab.MONTH to "월"),
+            options = listOf(
+                CalendarTab.TODAY to if (isEn) "Today" else "오늘",
+                CalendarTab.MONTH to if (isEn) "Month" else "월"
+            ),
             selected = tab,
             onSelect = viewModel::onTabSelected,
             // [WHY] 화면 좌우 여백은 16 하나 — 20 이라 아래 묶음(16)과 끝선이 어긋났다(0.38.3 M6 점검 P1).
@@ -113,8 +120,9 @@ private fun TodayTab(viewModel: CalendarViewModel, today: java.time.LocalDate, o
     val reminders by viewModel.reminders.collectAsStateWithLifecycle()
     val pending by viewModel.pendingTasks.collectAsStateWithLifecycle()
     val zone = remember { java.time.ZoneId.systemDefault() }
+    val lang = KosmosTheme.language
     val schedule = (uiState as? CalendarUiState.Success)?.scheduleData
-    val model = remember(schedule, reminders, pending, today) { TodayComposer.compose(schedule, reminders, pending, today, zone) }
+    val model = remember(schedule, reminders, pending, today, lang) { TodayComposer.compose(schedule, reminders, pending, today, zone, lang) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -124,7 +132,7 @@ private fun TodayTab(viewModel: CalendarViewModel, today: java.time.LocalDate, o
         item {
             // [WHY] 바로 위 탭 이름이 "오늘"이라 머리에서 다시 말하지 않는다 — 날짜만(0.38.6 점검 P3).
             Text(
-                com.kosmos.app.domain.util.IsoDateTimeParser.longDateKorean(today.atStartOfDay(zone).toInstant().toEpochMilli(), zone),
+                com.kosmos.app.domain.util.IsoDateTimeParser.longDateKorean(today.atStartOfDay(zone).toInstant().toEpochMilli(), zone, lang),
                 style = MaterialTheme.typography.titleLarge,
                 color = KosmosTheme.colors.textPrimary,
                 modifier = Modifier.padding(bottom = 4.dp)
@@ -137,14 +145,18 @@ private fun TodayTab(viewModel: CalendarViewModel, today: java.time.LocalDate, o
                 Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = KosmosTheme.colors.brand) }
             }
             is CalendarUiState.Error -> item {
-                Text(com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error), color = KosmosTheme.colors.dangerText, modifier = Modifier.padding(16.dp))
+                Text(com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error, lang), color = KosmosTheme.colors.dangerText, modifier = Modifier.padding(16.dp))
             }
             is CalendarUiState.Success -> {
                 if (model.isEmpty) {
                     item {
                         com.kosmos.app.ui.component.EmptyState(
                             icon = com.kosmos.app.R.drawable.ic_ph_calendar_blank,
-                            message = "오늘은 일정도 할 일도 없어요.\n채팅에서 \"내일 3시에 회의 잡아줘\"처럼 말해 보세요."
+                            message = if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
+                                "No events or tasks for today.\nTry saying \"Schedule a meeting tomorrow at 3 PM\" in chat."
+                            } else {
+                                "오늘은 일정도 할 일도 없어요.\n채팅에서 \"내일 3시에 회의 잡아줘\"처럼 말해 보세요."
+                            }
                         )
                     }
                 } else {
@@ -161,7 +173,12 @@ private fun TodayTab(viewModel: CalendarViewModel, today: java.time.LocalDate, o
                     }
                 }
                 if (model.upcoming.isNotEmpty()) {
-                    item { com.kosmos.app.ui.component.SectionHeader("다가오는 일정", Modifier.padding(top = 8.dp)) }
+                    item {
+                        com.kosmos.app.ui.component.SectionHeader(
+                            if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Upcoming" else "다가오는 일정",
+                            Modifier.padding(top = 8.dp)
+                        )
+                    }
                     item {
                         com.kosmos.app.ui.component.KosmosListGroup {
                             model.upcoming.forEachIndexed { index, entry ->
@@ -181,12 +198,13 @@ private fun TodayTab(viewModel: CalendarViewModel, today: java.time.LocalDate, o
 @Composable
 private fun TodayTimeRow(entry: TodayEntry, divider: Boolean, onClick: (() -> Unit)?) {
     val isReminder = entry is TodayEntry.Reminder
+    val lang = KosmosTheme.language
     ScheduleRow(
         timeLabel = entry.timeLabel,
         title = entry.title,
         sub = when (entry) {
-            is TodayEntry.Reminder -> "알림"
-            is TodayEntry.Event -> eventSubLine(entry.endLabel, entry.event.source)
+            is TodayEntry.Reminder -> if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Reminder" else "알림"
+            is TodayEntry.Event -> eventSubLine(entry.endLabel, entry.event.source, lang)
         },
         icon = if (isReminder) com.kosmos.app.R.drawable.ic_ph_bell else com.kosmos.app.R.drawable.ic_ph_calendar_blank,
         accentTime = isReminder,
@@ -196,8 +214,17 @@ private fun TodayTimeRow(entry: TodayEntry, divider: Boolean, onClick: (() -> Un
 }
 
 /** 일정의 보조 줄 — 끝 시각과 출처. 출처는 색이 아니라 글자로(ui-ux-pro-max `color-not-only`). */
-internal fun eventSubLine(endLabel: String?, source: CalendarEvent.Source): String? =
-    listOfNotNull(endLabel, if (source == CalendarEvent.Source.DEVICE) "기기 캘린더" else null).joinToString("  ").ifEmpty { null }
+internal fun eventSubLine(
+    endLabel: String?,
+    source: CalendarEvent.Source,
+    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+): String? =
+    listOfNotNull(
+        endLabel,
+        if (source == CalendarEvent.Source.DEVICE) {
+            if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Device calendar" else "기기 캘린더"
+        } else null
+    ).joinToString("  ").ifEmpty { null }
 
 /**
  * 일정 화면의 한 줄 — 왼쪽 시각 칸, 제목·보조 줄, 오른쪽 종류 아이콘. "오늘" 탭과 월 탭 선택한 날이 같이 쓴다(0.38.3 M1).
@@ -237,12 +264,14 @@ internal fun ScheduleRow(
 @Composable
 private fun TodayTaskRow(title: String, divider: Boolean, onComplete: () -> Unit) {
     val colors = KosmosTheme.colors
+    val isEn = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
+    val completeCd = if (isEn) "Complete $title" else "$title 완료"
     Column {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 4.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             // [WHY] 완료 원은 체크 상자 — 버튼으로 읽혔다(0.38.3 점검 P2).
             Box(
                 Modifier.size(48.dp).toggleable(value = false, role = androidx.compose.ui.semantics.Role.Checkbox, onValueChange = { onComplete() })
-                    .semantics { contentDescription = "$title 완료" },
+                    .semantics { contentDescription = completeCd },
                 contentAlignment = Alignment.Center
             ) {
                 Box(Modifier.size(22.dp).border(1.5.dp, colors.textMuted, androidx.compose.foundation.shape.CircleShape))
@@ -276,10 +305,11 @@ private fun ReminderEditHost(viewModel: CalendarViewModel, reminders: List<com.k
     val error by viewModel.editError.collectAsStateWithLifecycle()
     val id = editing ?: return
     val task = reminders.firstOrNull { it.id == id } ?: return
+    val lang = KosmosTheme.language
     val at = task.remindAtIso?.let { com.kosmos.app.domain.util.IsoDateTimeParser.toEpochMillis(it) }
         ?.let { java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()) }
     com.kosmos.app.feature.chat.result.ReminderEditSheet(
-        state = com.kosmos.app.feature.chat.result.ResultCardMapper.reminder(task, today),
+        state = com.kosmos.app.feature.chat.result.ResultCardMapper.reminder(task, today, lang = lang),
         initialHour = at?.hour ?: 9,
         initialMinute = at?.minute ?: 0,
         error = error,
@@ -302,6 +332,7 @@ private fun DeviceCalendarNotice(
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
+    val isEn = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     Column(
         modifier = Modifier
             .padding(horizontal = 16.dp)
@@ -314,14 +345,15 @@ private fun DeviceCalendarNotice(
             .padding(16.dp)
     ) {
         Text(
-            text = "기기 캘린더를 읽지 못했어요. 아래에는 이 앱에 저장한 일정만 있어요.",
+            text = if (isEn) "Couldn't read the device calendar. Showing only events saved in KOSMOS."
+            else "기기 캘린더를 읽지 못했어요. 아래에는 이 앱에 저장한 일정만 있어요.",
             color = KosmosTheme.colors.textPrimary,
             style = MaterialTheme.typography.bodySmall
         )
         Spacer(modifier = Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KosmosButton("다시 시도", onRetry, Modifier.weight(1f))
-            KosmosButton("권한 설정 열기", onOpenSettings, Modifier.weight(1f), accent = true)
+            KosmosButton(if (isEn) "Retry" else "다시 시도", onRetry, Modifier.weight(1f))
+            KosmosButton(if (isEn) "Open permission settings" else "권한 설정 열기", onOpenSettings, Modifier.weight(1f), accent = true)
         }
     }
 }

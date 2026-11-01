@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.document
 
+import com.kosmos.app.core.common.AppLanguage
+
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
@@ -82,18 +84,20 @@ fun SheetView(
         val scrollRange = frozenColumns until layout.columnCount
         val (frozenRows, bodyRows) = sheet.rows.partition { it.index < layout.frozenRows }
 
+        val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
         Column(Modifier.fillMaxSize()) {
             if (!sheet.complete) {
                 Text(
-                    text = "나머지 행을 읽는 중…",
+                    text = if (en) "Reading remaining rows…" else "나머지 행을 읽는 중…",
                     color = colors.textMuted,
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
             if (sheet.truncated) {
+                val maxRow = sheet.rows.lastOrNull()?.index?.plus(1) ?: 0
                 Text(
-                    text = "파일이 커서 앞부분(${sheet.rows.lastOrNull()?.index?.plus(1) ?: 0}행까지)만 보여요",
+                    text = if (en) "File is large; showing the first $maxRow rows" else "파일이 커서 앞부분(${maxRow}행까지)만 보여요",
                     color = colors.warningText,
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)

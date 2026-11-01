@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.document
 
+import com.kosmos.app.core.common.AppLanguage
+
 import androidx.compose.material3.MaterialTheme
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
@@ -83,7 +85,11 @@ fun FlowView(
             ) {
                 if (document.truncated) {
                     item(key = "truncated") {
-                        Text("문서가 길어서 앞부분만 보여요", color = colors.warningText, style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            if (KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN) "Showing the first part of this long document" else "문서가 길어서 앞부분만 보여요",
+                            color = colors.warningText,
+                            style = MaterialTheme.typography.labelMedium
+                        )
                     }
                 }
                 itemsIndexed(document.blocks, key = { index, _ -> index }) { index, block ->
@@ -171,7 +177,7 @@ private fun FlowImage(entryName: String, images: suspend (String, Int) -> Bitmap
     } else {
         Image(
             bitmap = image.asImageBitmap(),
-            contentDescription = "문서 그림",
+            contentDescription = if (KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN) "Document image" else "문서 그림",
             contentScale = ContentScale.FillWidth,
             modifier = Modifier.fillMaxWidth().aspectRatio(image.width.toFloat() / image.height)
         )

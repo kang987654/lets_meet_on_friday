@@ -46,21 +46,30 @@ data class UpcomingEntry(val event: CalendarEvent, val dayLabel: String, val tim
  */
 object TodayComposer {
 
-    fun compose(week: ScheduleData?, reminders: List<TaskItem>, pending: List<TaskItem>, today: LocalDate, zone: ZoneId): TodayModel {
+    fun compose(
+        week: ScheduleData?,
+        reminders: List<TaskItem>,
+        pending: List<TaskItem>,
+        today: LocalDate,
+        zone: ZoneId,
+        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    ): TodayModel {
+        val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
         val events = week?.events.orEmpty()
         val todayEvents = events.filter { IsoDateTimeParser.toLocalDate(it.startIso, zone) == today }.map { event ->
             TodayEntry.Event(
                 event = event,
                 sortKey = sortKeyOf(event.startIso, today, zone),
-                timeLabel = timeOf(event.startIso, zone),
+                timeLabel = timeOf(event.startIso, zone, lang),
                 endLabel = event.endIso.takeIf { !IsoDateTimeParser.isDateOnly(it) && it != event.startIso }
-                    ?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zone) }?.let { "${it}까지" }
+                    ?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zone, lang) }
+                    ?.let { if (isEn) "until $it" else "${it}까지" }
             )
         }
         val todayReminders = reminders.mapNotNull { task ->
             val iso = task.remindAtIso ?: return@mapNotNull null
             if (IsoDateTimeParser.toLocalDate(iso, zone) != today) return@mapNotNull null
-            TodayEntry.Reminder(task, sortKeyOf(iso, today, zone), timeOf(iso, zone))
+            TodayEntry.Reminder(task, sortKeyOf(iso, today, zone), timeOf(iso, zone, lang))
         }
         // [WHY] 할 일 목록에는 날짜·알림이 없는 것만 — 일정(dueDate)과 알림(remindAt)은 위 시간순 묶음이 맡는다(같은 일을 두 번 보이지 않게).
         val plainTasks = pending.filter { it.remindAtIso == null && it.dueDateIso == null && !it.isCompleted }
@@ -68,7 +77,7 @@ object TodayComposer {
             .mapNotNull { event -> IsoDateTimeParser.toLocalDate(event.startIso, zone)?.let { it to event } }
             .filter { (date, _) -> date.isAfter(today) }
             .sortedBy { (_, event) -> IsoDateTimeParser.toEpochMillis(event.startIso, zone) ?: Long.MAX_VALUE }
-            .map { (date, event) -> UpcomingEntry(event, IsoDateTimeParser.dayWeekdayKorean(date), timeOf(event.startIso, zone)) }
+            .map { (date, event) -> UpcomingEntry(event, IsoDateTimeParser.dayWeekdayKorean(date, lang), timeOf(event.startIso, zone, lang)) }
         return TodayModel(
             timeline = (todayEvents + todayReminders).sortedBy { it.sortKey },
             tasks = plainTasks,
@@ -77,11 +86,14 @@ object TodayComposer {
         )
     }
 
-    private fun timeOf(iso: String, zone: ZoneId): String = IsoDateTimeParser.toDisplayTimeKorean(iso, zone) ?: ALL_DAY
+    private fun timeOf(iso: String, zone: ZoneId, lang: com.kosmos.app.core.common.AppLanguage): String =
+        IsoDateTimeParser.toDisplayTimeKorean(iso, zone, lang)
+            ?: if (lang == com.kosmos.app.core.common.AppLanguage.EN) ALL_DAY_EN else ALL_DAY
 
     private fun sortKeyOf(iso: String, today: LocalDate, zone: ZoneId): Long =
         if (IsoDateTimeParser.isDateOnly(iso)) today.atStartOfDay(zone).toInstant().toEpochMilli() - 1
         else IsoDateTimeParser.toEpochMillis(iso, zone) ?: Long.MAX_VALUE
 
     private const val ALL_DAY = "종일"
+    private const val ALL_DAY_EN = "All day"
 }

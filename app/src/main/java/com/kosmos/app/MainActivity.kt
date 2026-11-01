@@ -52,8 +52,14 @@ class MainActivity : ComponentActivity() {
             val fontMode by themeViewModel.fontMode.collectAsStateWithLifecycle()
             val chatTextSize by themeViewModel.chatTextSize.collectAsStateWithLifecycle()
             val splashStyle by themeViewModel.splashStyle.collectAsStateWithLifecycle()
+            val appLanguage by themeViewModel.appLanguage.collectAsStateWithLifecycle()
 
-            com.kosmos.app.ui.theme.KosmosTheme(themeMode = themeMode, fontMode = fontMode, chatTextSize = chatTextSize) {
+            com.kosmos.app.ui.theme.KosmosTheme(
+                themeMode = themeMode,
+                fontMode = fontMode,
+                chatTextSize = chatTextSize,
+                language = appLanguage
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

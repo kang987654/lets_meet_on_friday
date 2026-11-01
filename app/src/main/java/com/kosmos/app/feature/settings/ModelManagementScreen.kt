@@ -26,6 +26,7 @@ fun ModelManagementScreen(
 ) {
     val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
     var customUrl by remember { mutableStateOf("") }
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
 
     val defaultModelUrl = com.kosmos.app.core.common.Constants.DEFAULT_MODEL_DOWNLOAD_URL
     // 실패 후 "재시도"가 같은 대상을 다시 요청할 수 있도록 마지막 요청 URL을 기억한다.
@@ -48,7 +49,7 @@ fun ModelManagementScreen(
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
-            com.kosmos.app.ui.component.KosmosTopBar(title = "모델 관리", onBack = onBack)
+            com.kosmos.app.ui.component.KosmosTopBar(title = if (en) "Model Management" else "모델 관리", onBack = onBack)
         }
     ) { padding ->
         Column(
@@ -80,32 +81,32 @@ fun ModelManagementScreen(
             }
 
             // [WHY] 섹션 제목·묶음·버튼을 공통 부품으로(0.38.3 M3) — URL 버튼만 손으로 만든 상자라 다른 버튼과 모양·비활성 표현이 달랐다.
-            com.kosmos.app.ui.component.SectionHeader("기본 모델")
+            com.kosmos.app.ui.component.SectionHeader(if (en) "Default Model" else "기본 모델")
             com.kosmos.app.ui.component.KosmosListGroup {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Gemma 4 E4B", style = MaterialTheme.typography.titleMedium, color = KosmosTheme.colors.textPrimary)
                     Text(
-                        "LiteRT-LM 최적화, 크기 약 3.6GB",
+                        if (en) "LiteRT-LM optimized, approx. 3.6GB" else "LiteRT-LM 최적화, 크기 약 3.6GB",
                         style = MaterialTheme.typography.bodySmall,
                         color = KosmosTheme.colors.textMuted
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    KosmosButton("내려받기", { startDownload(defaultModelUrl) }, Modifier.fillMaxWidth(), accent = true)
+                    KosmosButton(if (en) "Download" else "내려받기", { startDownload(defaultModelUrl) }, Modifier.fillMaxWidth(), accent = true)
                 }
             }
 
-            com.kosmos.app.ui.component.SectionHeader("직접 URL로 내려받기", Modifier.padding(top = 16.dp))
+            com.kosmos.app.ui.component.SectionHeader(if (en) "Download from Custom URL" else "직접 URL로 내려받기", Modifier.padding(top = 16.dp))
             com.kosmos.app.ui.component.KosmosListGroup {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = customUrl,
                         onValueChange = { customUrl = it },
-                        label = { Text("URL (.litertlm 파일)", color = KosmosTheme.colors.textMuted) },
+                        label = { Text(if (en) "URL (.litertlm file)" else "URL (.litertlm 파일)", color = KosmosTheme.colors.textMuted) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = com.kosmos.app.ui.component.kosmosTextFieldColors(),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                     )
-                    KosmosButton("이 URL로 내려받기", { startDownload(customUrl) }, Modifier.fillMaxWidth(), enabled = customUrl.isNotBlank())
+                    KosmosButton(if (en) "Download from This URL" else "이 URL로 내려받기", { startDownload(customUrl) }, Modifier.fillMaxWidth(), enabled = customUrl.isNotBlank())
                 }
             }
         }
@@ -115,11 +116,11 @@ fun ModelManagementScreen(
         is DownloadState.Success -> {
             AlertDialog(
                 onDismissRequest = { viewModel.resetState() },
-                title = { Text("내려받기 완료") },
-                text = { Text("모델을 받아서 적용했어요. 이제 대화를 시작할 수 있어요.") },
+                title = { Text(if (en) "Download Complete" else "내려받기 완료") },
+                text = { Text(if (en) "The model has been downloaded and applied. You can now start chatting." else "모델을 받아서 적용했어요. 이제 대화를 시작할 수 있어요.") },
                 confirmButton = {
                     TextButton(onClick = { viewModel.resetState() }) {
-                        Text("확인", color = KosmosTheme.colors.brandText)
+                        Text(if (en) "OK" else "확인", color = KosmosTheme.colors.brandText)
                     }
                 },
                 containerColor = KosmosTheme.colors.surface,
@@ -130,12 +131,12 @@ fun ModelManagementScreen(
         is DownloadState.Error -> {
             AlertDialog(
                 onDismissRequest = { viewModel.resetState() },
-                title = { Text("내려받기 실패", color = KosmosTheme.colors.dangerText) },
+                title = { Text(if (en) "Download Failed" else "내려받기 실패", color = KosmosTheme.colors.dangerText) },
                 text = {
                     // 이어받을 부분 파일이 있으면 재시도가 저렴하다는 사실을 함께 알린다.
                     val resumeNote = if (state.resumableBytes > 0) {
-                        "\n\n%.1fGB까지 받아 두어서 다시 시도하면 이어서 받아요."
-                            .format(state.resumableBytes.toGigabytes())
+                        if (en) "\n\n%.1fGB has been saved, so retrying will resume from where it left off.".format(state.resumableBytes.toGigabytes())
+                        else "\n\n%.1fGB까지 받아 두어서 다시 시도하면 이어서 받아요.".format(state.resumableBytes.toGigabytes())
                     } else {
                         ""
                     }
@@ -146,12 +147,12 @@ fun ModelManagementScreen(
                         viewModel.resetState()
                         startDownload(lastRequestedUrl)
                     }) {
-                        Text("다시 시도", color = KosmosTheme.colors.brandText)
+                        Text(if (en) "Retry" else "다시 시도", color = KosmosTheme.colors.brandText)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { viewModel.resetState() }) {
-                        Text("닫기", color = KosmosTheme.colors.textMuted)
+                        Text(if (en) "Close" else "닫기", color = KosmosTheme.colors.textMuted)
                     }
                 },
                 containerColor = KosmosTheme.colors.surface,
@@ -199,6 +200,7 @@ private fun DownloadProgressCard(
     onDiscardPartial: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     // [WHY] usableSpace 는 디스크 stat 이므로 컴포지션마다 읽으면 안 된다. 진행률 10% 단위로만
     // 다시 조회해 표시 정확도와 비용을 맞바꾼다.
     val freeSpaceGb = remember(progress / 10) {
@@ -213,7 +215,8 @@ private fun DownloadProgressCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                if (isRetrying) "모델을 다시 내려받는 중" else "모델을 내려받는 중",
+                if (isRetrying) (if (en) "Retrying model download" else "모델을 다시 내려받는 중")
+                else (if (en) "Downloading model" else "모델을 내려받는 중"),
                 style = MaterialTheme.typography.titleSmall,
                 color = KosmosTheme.colors.textPrimary,
                 fontWeight = FontWeight.Bold
@@ -239,26 +242,28 @@ private fun DownloadProgressCard(
         val sizeText = if (totalBytes > 0) {
             "%.1fGB / %.1fGB".format(downloadedBytes.toGigabytes(), totalBytes.toGigabytes())
         } else {
-            "%.1fGB 받았어요".format(downloadedBytes.toGigabytes())
+            if (en) "%.1fGB downloaded".format(downloadedBytes.toGigabytes())
+            else "%.1fGB 받았어요".format(downloadedBytes.toGigabytes())
         }
         Text(
-            "$sizeText · 남은 저장 공간 %.1fGB".format(freeSpaceGb),
+            if (en) "$sizeText · %.1fGB free".format(freeSpaceGb)
+            else "$sizeText · 남은 저장 공간 %.1fGB".format(freeSpaceGb),
             style = MaterialTheme.typography.bodySmall,
             color = KosmosTheme.colors.textMuted
         )
         Text(
-            "앱을 닫아도 계속 내려받아요.",
+            if (en) "Download continues even if you close the app." else "앱을 닫아도 계속 내려받아요.",
             style = MaterialTheme.typography.bodySmall,
             color = KosmosTheme.colors.textMuted
         )
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TextButton(onClick = onCancel) {
-                Text("일시 중지", color = KosmosTheme.colors.textSecondary)
+                Text(if (en) "Pause" else "일시 중지", color = KosmosTheme.colors.textSecondary)
             }
             // [WHY] 취소는 이어받기용 부분 파일을 남긴다. 저장 공간을 즉시 회수하고 싶은
             // 사용자를 위해 폐기를 별도 동작으로 노출한다.
             TextButton(onClick = onDiscardPartial) {
-                Text("취소하고 지우기", color = KosmosTheme.colors.dangerText)
+                Text(if (en) "Cancel & Delete" else "취소하고 지우기", color = KosmosTheme.colors.dangerText)
             }
         }
     }
@@ -267,9 +272,10 @@ private fun DownloadProgressCard(
 /** Wi-Fi 연결이나 재시도 백오프를 기다리는 동안 표시하는 대기 카드입니다. */
 @Composable
 private fun DownloadQueuedCard(onCancel: () -> Unit) {
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     DownloadCardShell {
         Text(
-            "Wi-Fi 연결을 기다리는 중",
+            if (en) "Waiting for Wi-Fi" else "Wi-Fi 연결을 기다리는 중",
             style = MaterialTheme.typography.titleSmall,
             color = KosmosTheme.colors.textPrimary,
             fontWeight = FontWeight.Bold
@@ -280,12 +286,12 @@ private fun DownloadQueuedCard(onCancel: () -> Unit) {
             trackColor = KosmosTheme.colors.surface
         )
         Text(
-            "데이터 요금을 아끼려고 Wi-Fi에 연결되면 시작해요.",
+            if (en) "Download starts when connected to Wi-Fi to save mobile data." else "데이터 요금을 아끼려고 Wi-Fi에 연결되면 시작해요.",
             style = MaterialTheme.typography.bodySmall,
             color = KosmosTheme.colors.textMuted
         )
         TextButton(onClick = onCancel) {
-            Text("대기 취소", color = KosmosTheme.colors.dangerText)
+            Text(if (en) "Cancel Queue" else "대기 취소", color = KosmosTheme.colors.dangerText)
         }
     }
 }

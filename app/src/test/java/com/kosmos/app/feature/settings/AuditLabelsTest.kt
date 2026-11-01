@@ -141,4 +141,20 @@ class AuditLabelsTest {
         val display = AuditLabels.of(event(AuditEventType.APPROVAL_GRANTED, "AddSchedule: 일정: '치과' (2026-08-07T15:00:00)"))
         assertEquals("일정 추가: 일정: '치과' (8월 7일 오후 3:00)", display.summary)
     }
+
+    @Test
+    fun `영어 모드에서는 툴 이름·승인·모델 답·오류 표기가 영어로 조립된다`() {
+        val en = com.kosmos.app.core.common.AppLanguage.EN
+        val tool = AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: AddReminder\nResult: {\"status\":\"success\",\"message\":\"Reminder set: 'Take medicine' at 9:00 PM.\"}"), en)
+        assertEquals("Ran Add reminder", tool.title)
+        assertEquals("Success, Reminder set: 'Take medicine' at 9:00 PM.", tool.summary)
+
+        val approved = AuditLabels.of(event(AuditEventType.APPROVAL_GRANTED, "AddSchedule: Team meeting (2026-08-07T15:00:00)"), en)
+        assertEquals("Approved", approved.title)
+        assertEquals("Add event: Team meeting (Aug 7, 3:00 PM)", approved.summary)
+
+        val err = AuditLabels.of(event(AuditEventType.ERROR, "Blocked tool call outside allowlist: SearchWikipedia"), en)
+        assertEquals("Error", err.title)
+        assertEquals("Attempted disallowed tool: Search Wikipedia", err.summary)
+    }
 }

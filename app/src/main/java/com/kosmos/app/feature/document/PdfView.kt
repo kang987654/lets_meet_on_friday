@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.document
 
+import com.kosmos.app.core.common.AppLanguage
+
 import androidx.compose.material3.MaterialTheme
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
@@ -122,17 +124,19 @@ private fun PdfPage(pages: PdfPages, index: Int, renderWidthPx: Int, width: andr
         value = pages.render(index, renderWidthPx)
     }
     val height = width * pages.aspectRatio(index)
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
+    val pageLabel = if (en) "Page ${index + 1}" else "${index + 1}쪽"
     Box(
         modifier = Modifier.fillMaxWidth().height(height).background(KosmosTheme.colors.surface),
         contentAlignment = Alignment.Center
     ) {
         val image = bitmap
         if (image == null) {
-            Text("${index + 1}쪽", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.labelMedium)
+            Text(pageLabel, color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.labelMedium)
         } else {
             Image(
                 bitmap = image.asImageBitmap(),
-                contentDescription = "${index + 1}쪽",
+                contentDescription = pageLabel,
                 contentScale = ContentScale.FillWidth,
                 modifier = Modifier.fillMaxSize()
             )

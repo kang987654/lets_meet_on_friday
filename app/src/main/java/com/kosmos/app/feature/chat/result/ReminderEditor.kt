@@ -45,42 +45,75 @@ class ReminderEditor @Inject constructor(
     private val auditTrailService: AuditTrailService,
     private val conversationRepository: ConversationRepository,
     private val sessionStore: SessionStore,
-    private val modelRunner: ModelRunner
+    private val modelRunner: ModelRunner,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) {
+
+    constructor(
+        taskRepository: TaskRepository,
+        alarmScheduler: ReminderAlarmScheduler,
+        widgetRefresher: WidgetRefresher,
+        auditTrailService: AuditTrailService,
+        conversationRepository: ConversationRepository,
+        sessionStore: SessionStore,
+        modelRunner: ModelRunner
+    ) : this(taskRepository, alarmScheduler, widgetRefresher, auditTrailService, conversationRepository, sessionStore, modelRunner, null)
+
+    private val currentLang: com.kosmos.app.core.common.AppLanguage
+        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
 
     /** 지금 시각 또는 원래 시각 중 늦은 쪽에서 [minutes] 분 뒤로. */
     suspend fun snooze(taskId: String, minutes: Long = 10, now: Long = System.currentTimeMillis(), zone: ZoneId = ZoneId.systemDefault()): AppResult<ChatMessage> {
-        val task = load(taskId) ?: return notFound()
+        val lang = currentLang
+        val task = load(taskId) ?: return notFound(lang)
         val base = maxOf(task.remindAtIso?.let { IsoDateTimeParser.toEpochMillis(it, zone) } ?: now, now)
-        return moveTo(task, base + minutes * 60_000, now, zone, verb = "미뤘어요")
+        return moveTo(task, base + minutes * 60_000, now, zone, verb = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Snoozed" else "미뤘어요", lang = lang)
     }
 
     /** 원래 날짜(지났으면 오늘)의 [hour]:[minute] 로. 지난 시각이면 [AppError.ValidationError]. */
     suspend fun reschedule(taskId: String, hour: Int, minute: Int, now: Long = System.currentTimeMillis(), zone: ZoneId = ZoneId.systemDefault()): AppResult<ChatMessage> {
-        val task = load(taskId) ?: return notFound()
+        val lang = currentLang
+        val task = load(taskId) ?: return notFound(lang)
         val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val date = task.remindAtIso?.let { IsoDateTimeParser.toLocalDate(it, zone) }?.takeIf { !it.isBefore(today) } ?: today
         val target = date.atTime(hour, minute).atZone(zone).toInstant().toEpochMilli()
-        if (target <= now) return AppResult.Failure(AppError.ValidationError("time", "이미 지난 시각이에요."))
-        return moveTo(task, target, now, zone, verb = "바꿨어요")
+        if (target <= now) {
+            val reason = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "That time has already passed." else "이미 지난 시각이에요."
+            return AppResult.Failure(AppError.ValidationError("time", reason))
+        }
+        return moveTo(task, target, now, zone, verb = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Moved" else "바꿨어요", lang = lang)
     }
 
     suspend fun cancel(taskId: String, now: Long = System.currentTimeMillis()): AppResult<ChatMessage> {
-        val task = load(taskId) ?: return notFound()
+        val lang = currentLang
+        val task = load(taskId) ?: return notFound(lang)
         val saved = taskRepository.save(task.copy(cancelledAt = now))
         if (saved is AppResult.Failure) return saved
         alarmScheduler.cancel(taskId)
-        return finish(task, "'${task.title}' 알림을 취소했어요.", now)
+        val line = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Cancelled the '${task.title}' reminder." else "'${task.title}' 알림을 취소했어요."
+        return finish(task, line, now)
     }
 
-    private suspend fun moveTo(task: TaskItem, triggerAtMs: Long, now: Long, zone: ZoneId, verb: String): AppResult<ChatMessage> {
+    private suspend fun moveTo(
+        task: TaskItem,
+        triggerAtMs: Long,
+        now: Long,
+        zone: ZoneId,
+        verb: String,
+        lang: com.kosmos.app.core.common.AppLanguage
+    ): AppResult<ChatMessage> {
         val iso = LocalDateTime.ofInstant(Instant.ofEpochMilli(triggerAtMs), zone).format(ISO_SECONDS)
         val saved = taskRepository.save(task.copy(remindAtIso = iso, remindedAtMs = null))
         if (saved is AppResult.Failure) return saved
         alarmScheduler.schedule(task.id, triggerAtMs)
-        val display = IsoDateTimeParser.toDisplayTimeKorean(iso, zone)
-        val particle = if (endsWithConsonant(display)) "으로" else "로"
-        return finish(task, "'${task.title}' 알림을 $display$particle $verb.", now)
+        val display = IsoDateTimeParser.toDisplayTimeKorean(iso, zone, lang)
+        val line = if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
+            "$verb the '${task.title}' reminder to $display."
+        } else {
+            val particle = if (endsWithConsonant(display)) "으로" else "로"
+            "'${task.title}' 알림을 $display$particle $verb."
+        }
+        return finish(task, line, now)
     }
 
     private suspend fun finish(task: TaskItem, line: String, now: Long): AppResult<ChatMessage> {
@@ -99,7 +132,8 @@ class ReminderEditor @Inject constructor(
 
     private suspend fun load(taskId: String): TaskItem? = (taskRepository.getById(taskId) as? AppResult.Success)?.data
 
-    private fun notFound(): AppResult<ChatMessage> = AppResult.Failure(AppError.ValidationError("task", "지운 알림이에요."))
+    private fun notFound(lang: com.kosmos.app.core.common.AppLanguage): AppResult<ChatMessage> =
+        AppResult.Failure(AppError.ValidationError("task", if (lang == com.kosmos.app.core.common.AppLanguage.EN) "This reminder was deleted." else "지운 알림이에요."))
 
     private companion object {
         val ISO_SECONDS: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")

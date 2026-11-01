@@ -104,4 +104,22 @@ class ReminderEditorTest {
         assertEquals("'물 마시기' 알림을 취소했어요.", savedLine.captured.content)
         coVerify(exactly = 0) { tasks.delete(any()) }
     }
+
+    @Test
+    fun `영어 모드에서는 미루기·시간 바꾸기·취소 결과 한 줄이 영어로 저장된다`() = runTest {
+        stub()
+        val langHolder = mockk<com.kosmos.app.core.config.AppLanguageHolder> {
+            io.mockk.every { current } returns com.kosmos.app.core.common.AppLanguage.EN
+        }
+        val enEditor = ReminderEditor(tasks, alarms, widget, audit, conversations, sessions, runner, langHolder)
+
+        enEditor.snooze("t1", now = now, zone = zone)
+        assertEquals("Snoozed the '물 마시기' reminder to 2:06 PM.", savedLine.captured.content)
+
+        enEditor.reschedule("t1", 15, 5, now = now, zone = zone)
+        assertEquals("Moved the '물 마시기' reminder to 3:05 PM.", savedLine.captured.content)
+
+        enEditor.cancel("t1", now = now)
+        assertEquals("Cancelled the '물 마시기' reminder.", savedLine.captured.content)
+    }
 }

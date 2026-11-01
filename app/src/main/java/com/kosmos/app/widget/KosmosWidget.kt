@@ -62,6 +62,7 @@ class KosmosWidget : GlanceAppWidget() {
     interface WidgetEntryPoint {
         fun getTodayScheduleUseCase(): GetTodayScheduleUseCase
         fun taskRepository(): TaskRepository
+        fun appLanguageHolder(): com.kosmos.app.core.config.AppLanguageHolder
     }
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -69,11 +70,12 @@ class KosmosWidget : GlanceAppWidget() {
             context.applicationContext,
             WidgetEntryPoint::class.java
         )
+        val lang = entryPoint.appLanguageHolder().current
         val schedule = (entryPoint.getTodayScheduleUseCase()
             .invoke(ScheduleData.RangeType.TODAY) as? AppResult.Success)?.data
         val tasks = (entryPoint.taskRepository()
             .getPendingTodosData(0, 100) as? AppResult.Success)?.data.orEmpty()
-        val snapshot = buildWidgetSnapshot(schedule, tasks, System.currentTimeMillis())
+        val snapshot = buildWidgetSnapshot(schedule, tasks, System.currentTimeMillis(), lang = lang)
 
         provideContent { WidgetContent(snapshot) }
     }
@@ -95,6 +97,7 @@ private object WidgetPalette {
 
 @Composable
 private fun WidgetContent(snapshot: WidgetSnapshot) {
+    val en = snapshot.lang == com.kosmos.app.core.common.AppLanguage.EN
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -105,7 +108,7 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
     ) {
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "오늘",
+                text = if (en) "Today" else "오늘",
                 style = TextStyle(color = WidgetPalette.brandText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             )
             Spacer(modifier = GlanceModifier.width(8.dp))
@@ -118,7 +121,7 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
 
         if (snapshot.eventLines.isEmpty()) {
             Text(
-                text = "오늘 일정 없음",
+                text = if (en) "No events today" else "오늘 일정 없음",
                 style = TextStyle(color = WidgetPalette.textSecondary, fontSize = 13.sp)
             )
         } else {
@@ -139,14 +142,14 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
             }
             if (snapshot.overflowCount > 0) {
                 Text(
-                    text = "+${snapshot.overflowCount}개 더",
+                    text = if (en) "+${snapshot.overflowCount} more" else "+${snapshot.overflowCount}개 더",
                     style = TextStyle(color = WidgetPalette.textMuted, fontSize = 13.sp)
                 )
             }
         }
         if (snapshot.deviceCalendarFailed) {
             Text(
-                text = "기기 캘린더는 확인하지 못했어요",
+                text = if (en) "Couldn't check your device calendar" else "기기 캘린더는 확인하지 못했어요",
                 style = TextStyle(color = WidgetPalette.textMuted, fontSize = 13.sp)
             )
         }
@@ -154,16 +157,16 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
         Spacer(modifier = GlanceModifier.defaultWeight())
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "할 일 ${snapshot.pendingTaskCount}건",
+                text = if (en) "Tasks ${snapshot.pendingTaskCount}" else "할 일 ${snapshot.pendingTaskCount}건",
                 style = TextStyle(color = WidgetPalette.textSecondary, fontSize = 13.sp)
             )
             Spacer(modifier = GlanceModifier.defaultWeight())
-            WidgetButton(text = "열기", action = actionStartActivity<MainActivity>())
+            WidgetButton(text = if (en) "Open" else "열기", action = actionStartActivity<MainActivity>())
             Spacer(modifier = GlanceModifier.width(8.dp))
             // [WHY] 마이크 버튼은 VOICE_INPUT 액션 — 채팅 도착 즉시 녹음 시작(A3, 사용자 결정).
             WidgetIconButton(
                 icon = com.kosmos.app.R.drawable.ic_ph_microphone,
-                contentDescription = "음성 입력",
+                contentDescription = if (en) "Voice input" else "음성 입력",
                 // [WHY] Intent 오버로드는 core 가 아니라 appwidget 패키지에 있다 — core 의
                 // actionStartActivity 와 이름이 같아 FQN 으로 구분한다.
                 action = androidx.glance.appwidget.action.actionStartActivity(

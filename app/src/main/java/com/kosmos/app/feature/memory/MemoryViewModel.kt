@@ -48,8 +48,31 @@ class MemoryViewModel @Inject constructor(
     private val importMemoryUseCase: ImportMemoryUseCase,
     private val backupFileWriter: BackupFileWriter,
     private val reminderAlarmScheduler: com.kosmos.app.platform.alarm.ReminderAlarmScheduler,
-    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher
+    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) : ViewModel() {
+
+    constructor(
+        knowledgeRepository: KnowledgeRepository,
+        taskRepository: TaskRepository,
+        exportMemoryUseCase: ExportMemoryUseCase,
+        importMemoryUseCase: ImportMemoryUseCase,
+        backupFileWriter: BackupFileWriter,
+        reminderAlarmScheduler: com.kosmos.app.platform.alarm.ReminderAlarmScheduler,
+        widgetRefresher: com.kosmos.app.widget.WidgetRefresher
+    ) : this(
+        knowledgeRepository,
+        taskRepository,
+        exportMemoryUseCase,
+        importMemoryUseCase,
+        backupFileWriter,
+        reminderAlarmScheduler,
+        widgetRefresher,
+        null
+    )
+
+    private val currentLang: com.kosmos.app.core.common.AppLanguage
+        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
 
 
     private val _uiState = MutableStateFlow(MemoryUiState())
@@ -111,7 +134,7 @@ class MemoryViewModel @Inject constructor(
                     onSaved()
                 }
                 is AppResult.Failure ->
-                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error, currentLang)) }
             }
         }
     }
@@ -133,7 +156,7 @@ class MemoryViewModel @Inject constructor(
                     onDone()
                 }
                 is AppResult.Failure ->
-                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error, currentLang)) }
             }
         }
     }
@@ -154,7 +177,7 @@ class MemoryViewModel @Inject constructor(
                     onDone()
                 }
                 is AppResult.Failure ->
-                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error, currentLang)) }
             }
         }
     }
@@ -173,7 +196,7 @@ class MemoryViewModel @Inject constructor(
                     onDone()
                 }
                 is AppResult.Failure ->
-                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error, currentLang)) }
             }
         }
     }
@@ -197,7 +220,7 @@ class MemoryViewModel @Inject constructor(
                     onDone()
                 }
                 is AppResult.Failure ->
-                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error, currentLang)) }
             }
         }
     }
@@ -211,7 +234,7 @@ class MemoryViewModel @Inject constructor(
                     onDone()
                 }
                 is AppResult.Failure ->
-                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error, currentLang)) }
             }
         }
     }
@@ -240,7 +263,7 @@ class MemoryViewModel @Inject constructor(
             when (val result = knowledgeRepository.delete(noteId)) {
                 is AppResult.Success -> onDeleted()
                 is AppResult.Failure ->
-                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error, currentLang)) }
             }
         }
     }
@@ -251,7 +274,7 @@ class MemoryViewModel @Inject constructor(
             when (val result = knowledgeRepository.save(note)) {
                 is AppResult.Success -> onDone()
                 is AppResult.Failure ->
-                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error)) }
+                    _uiState.update { it.copy(actionError = ErrorMessages.userMessage(result.error, currentLang)) }
             }
         }
     }
@@ -280,7 +303,7 @@ class MemoryViewModel @Inject constructor(
         viewModelScope.launch {
             val next = when (val result = exportMemoryUseCase()) {
                 is AppResult.Success -> BackupState.ReadyToSave(result.data, result.data.name)
-                is AppResult.Failure -> BackupState.Failed(ErrorMessages.userMessage(result.error))
+                is AppResult.Failure -> BackupState.Failed(ErrorMessages.userMessage(result.error, currentLang))
             }
             _uiState.update { it.copy(backup = next) }
         }
@@ -297,7 +320,7 @@ class MemoryViewModel @Inject constructor(
         viewModelScope.launch {
             val next = when (val result = backupFileWriter.copyTo(ready.file, destination)) {
                 is AppResult.Success -> BackupState.Idle
-                is AppResult.Failure -> BackupState.Failed(ErrorMessages.userMessage(result.error))
+                is AppResult.Failure -> BackupState.Failed(ErrorMessages.userMessage(result.error, currentLang))
             }
             ready.file.delete()
             _uiState.update { it.copy(backup = next) }
@@ -323,7 +346,7 @@ class MemoryViewModel @Inject constructor(
                     widgetRefresher.refresh()
                     BackupState.ImportSucceeded
                 }
-                is AppResult.Failure -> BackupState.Failed(ErrorMessages.userMessage(result.error))
+                is AppResult.Failure -> BackupState.Failed(ErrorMessages.userMessage(result.error, currentLang))
             }
             _uiState.update { it.copy(backup = next) }
         }

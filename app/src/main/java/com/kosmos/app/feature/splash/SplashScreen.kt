@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.splash
 
+import com.kosmos.app.core.common.AppLanguage
+
 import androidx.compose.foundation.layout.fillMaxWidth
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.layout.Box
@@ -74,13 +76,16 @@ fun SplashScreen(
         }
     }
 
+    val lang = KosmosTheme.language
+    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         
         if (loadState is ModelLoadState.Error || loadState is ModelLoadState.NotFound) {
             val errorMessage = when (val state = loadState) {
-                is ModelLoadState.Error -> com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error)
+                is ModelLoadState.Error -> com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error, lang)
                 is ModelLoadState.NotFound ->
-                    "AI 모델 파일이 없어요. 모델 관리에서 내려받아 주세요."
+                    if (en) "AI model file not found. Please download it in Model Management."
+                    else "AI 모델 파일이 없어요. 모델 관리에서 내려받아 주세요."
                 else -> ""
             }
             
@@ -98,18 +103,18 @@ fun SplashScreen(
                 val canRedownload = loadState is ModelLoadState.NotFound ||
                     (loadState as? ModelLoadState.Error)?.error is com.kosmos.app.core.common.AppError.ModelLoadFailed
                 if (canRedownload) {
-                    com.kosmos.app.ui.component.KosmosButton("모델 내려받기", onNavigateToModelManagement, Modifier.fillMaxWidth(), accent = true)
+                    com.kosmos.app.ui.component.KosmosButton(if (en) "Download model" else "모델 내려받기", onNavigateToModelManagement, Modifier.fillMaxWidth(), accent = true)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
-                com.kosmos.app.ui.component.KosmosButton("다시 시도", { viewModel.retry() }, Modifier.fillMaxWidth())
+                com.kosmos.app.ui.component.KosmosButton(if (en) "Retry" else "다시 시도", { viewModel.retry() }, Modifier.fillMaxWidth())
             }
         } else {
             // [WHY] 장면만 있으면 "빈 화면"으로 오인된다(2026-08-15 실기기 문의) — 워드마크와 지금 무엇을 하는 중인지를 함께 보여
             // 살아 있음을 드러낸다. 엔진 재초기화는 실측 9~12초라(0.16.2) 그 시간 동안의 침묵이 가장 큰 불안 요소다.
             val statusText = when (loadState) {
-                is ModelLoadState.Loading -> "모델 상태를 확인하고 있어요…"
-                is ModelLoadState.FileFound -> "모델 파일을 찾았어요. 엔진을 준비하고 있어요…"
-                is ModelLoadState.InitializingEngine -> "AI 엔진을 깨우는 중이에요 (10초 정도)…"
+                is ModelLoadState.Loading -> if (en) "Checking model status…" else "모델 상태를 확인하고 있어요…"
+                is ModelLoadState.FileFound -> if (en) "Model file found. Preparing engine…" else "모델 파일을 찾았어요. 엔진을 준비하고 있어요…"
+                is ModelLoadState.InitializingEngine -> if (en) "Waking up AI engine (~10 sec)…" else "AI 엔진을 깨우는 중이에요 (10초 정도)…"
                 else -> ""
             }
             if (statusText.isNotEmpty()) last.text = statusText

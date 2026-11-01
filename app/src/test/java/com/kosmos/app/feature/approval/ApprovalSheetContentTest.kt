@@ -63,4 +63,34 @@ class ApprovalSheetContentTest {
         assertEquals("프로필에 저장", profile.approveLabel)
         assertEquals("대화에서 찾은 항목 3개", ApprovalSheetContent.of(listOf(s, s.copy(id = "p2"), s.copy(id = "p3"))).title)
     }
+
+    @Test
+    fun `영어 모드 — 일정·알림·메모·프로필 시트 문구가 영어로 조립된다`() {
+        val en = com.kosmos.app.core.common.AppLanguage.EN
+        val schedule = ApprovalSheetContent.of(
+            request(ApprovalPreview(ApprovalPreview.Kind.SCHEDULE, "Team Meeting", "2026-10-15T15:00:00", "2026-10-15T16:00:00", "Room 301")),
+            today, zone, en
+        )
+        assertEquals("Add Event", schedule.label)
+        assertEquals("3:00 PM", schedule.value)
+        assertEquals("Today", schedule.sub)
+        assertEquals("until 4:00 PM", schedule.valueSub)
+        assertEquals("Add", schedule.approveLabel)
+        assertEquals("Cancel", schedule.rejectLabel)
+
+        val reminder = ApprovalSheetContent.of(
+            request(ApprovalPreview(ApprovalPreview.Kind.REMINDER, "Take medicine", "2026-10-16T09:00:00")),
+            today, zone, en
+        )
+        assertEquals("Set Reminder", reminder.label)
+        assertEquals("9:00 AM", reminder.value)
+        assertEquals("Set", reminder.approveLabel)
+
+        val s = ProfileSuggestion("p1", "Role", "Developer", null, ProfileSuggestionStatus.PENDING, 0, 0)
+        val profile = ApprovalSheetContent.of(listOf(s, s.copy(id = "p2")), en)
+        assertEquals("Save Profile", profile.label)
+        assertEquals("2 items found in chat", profile.title)
+        assertEquals("Ignore all", profile.rejectLabel)
+        assertEquals("Save to profile", profile.approveLabel)
+    }
 }

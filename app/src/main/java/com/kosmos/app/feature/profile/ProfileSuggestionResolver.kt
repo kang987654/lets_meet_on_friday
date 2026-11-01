@@ -27,17 +27,29 @@ import javax.inject.Inject
 class ProfileSuggestionResolver @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val suggestionRepository: ProfileSuggestionRepository,
-    private val tokenizer: Tokenizer
+    private val tokenizer: Tokenizer,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) {
+
+    constructor(
+        profileRepository: ProfileRepository,
+        suggestionRepository: ProfileSuggestionRepository,
+        tokenizer: Tokenizer
+    ) : this(profileRepository, suggestionRepository, tokenizer, null)
 
     suspend fun accept(suggestion: ProfileSuggestion, now: Long = System.currentTimeMillis()): AppResult<Unit> {
         val current = (profileRepository.getEntries() as? AppResult.Success)?.data.orEmpty()
         val estimated = projectedProfileTokens(current, suggestion.key, suggestion.value, tokenizer)
         if (estimated > Constants.PROFILE_MAX_TOKENS) {
+            val en = appLanguageHolder?.current == com.kosmos.app.core.common.AppLanguage.EN
             return AppResult.Failure(
                 AppError.ValidationError(
                     "profile",
-                    "프로필이 너무 길어요(${estimated}/${Constants.PROFILE_MAX_TOKENS}토큰). 항목을 줄이면 저장할 수 있어요."
+                    if (en) {
+                        "Profile is too long ($estimated/${Constants.PROFILE_MAX_TOKENS} tokens). Shorten your profile to save this."
+                    } else {
+                        "프로필이 너무 길어요(${estimated}/${Constants.PROFILE_MAX_TOKENS}토큰). 항목을 줄이면 저장할 수 있어요."
+                    }
                 )
             )
         }

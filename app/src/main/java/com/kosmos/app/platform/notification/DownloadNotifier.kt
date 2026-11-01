@@ -50,8 +50,16 @@ interface DownloadNotifier {
  */
 @Singleton
 class AndroidDownloadNotifier @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) : DownloadNotifier {
+
+    constructor(context: Context) : this(context, null)
+
+    private val isEn: Boolean
+        get() = (appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.fromLocale(
+            if (!context.resources.configuration.locales.isEmpty) context.resources.configuration.locales.get(0) else java.util.Locale.getDefault()
+        )) == com.kosmos.app.core.common.AppLanguage.EN
 
     override fun progressNotification(
         percent: Int,
@@ -59,12 +67,13 @@ class AndroidDownloadNotifier @Inject constructor(
         totalBytes: Long,
         cancelIntent: PendingIntent?
     ): Notification {
+        val en = isEn
         val indeterminate = percent < 0
         val builder = NotificationCompat.Builder(context, NotificationChannels.MODEL_DOWNLOAD)
             .setSmallIcon(R.drawable.ic_stat_download)
             .setColor(accentColor())
-            .setContentTitle("AI 모델을 내려받는 중")
-            .setContentText(progressText(downloadedBytes, totalBytes))
+            .setContentTitle(if (en) "Downloading AI model" else "AI 모델을 내려받는 중")
+            .setContentText(progressText(downloadedBytes, totalBytes, en))
             .setProgress(100, percent.coerceAtLeast(0), indeterminate)
             .setOngoing(true)
             // [WHY] 진행률이 갱신될 때마다 알림음이 울리면 수십 분간 소음이 된다.
@@ -73,32 +82,38 @@ class AndroidDownloadNotifier @Inject constructor(
             .setContentIntent(contentIntent())
         // [WHY] 액션 아이콘은 플랫폼 X 를 그대로 쓴다 — API 24+ 대부분의 알림 UI 는 액션
         // 아이콘을 표시하지 않고 라벨만 보여주므로 전용 벡터를 만들 이득이 없다.
-        cancelIntent?.let { builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "취소", it) }
+        cancelIntent?.let { builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, if (en) "Cancel" else "취소", it) }
         return builder.build()
     }
 
-    override fun notifySuccess() = notify(
-        NotificationCompat.Builder(context, NotificationChannels.MODEL_DOWNLOAD)
-            .setSmallIcon(R.drawable.ic_stat_download_done)
-            .setColor(accentColor())
-            .setContentTitle("모델을 다 내려받았어요")
-            .setContentText("이제 대화를 시작할 수 있어요.")
-            .setAutoCancel(true)
-            .setContentIntent(contentIntent())
-            .build()
-    )
+    override fun notifySuccess() {
+        val en = isEn
+        notify(
+            NotificationCompat.Builder(context, NotificationChannels.MODEL_DOWNLOAD)
+                .setSmallIcon(R.drawable.ic_stat_download_done)
+                .setColor(accentColor())
+                .setContentTitle(if (en) "Model download complete" else "모델을 다 내려받았어요")
+                .setContentText(if (en) "You can now start chatting." else "이제 대화를 시작할 수 있어요.")
+                .setAutoCancel(true)
+                .setContentIntent(contentIntent())
+                .build()
+        )
+    }
 
-    override fun notifyFailure(userMessage: String) = notify(
-        NotificationCompat.Builder(context, NotificationChannels.MODEL_DOWNLOAD)
-            .setSmallIcon(R.drawable.ic_stat_error)
-            .setColor(accentColor())
-            .setContentTitle("모델을 내려받지 못했어요")
-            .setContentText(userMessage)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(userMessage))
-            .setAutoCancel(true)
-            .setContentIntent(contentIntent())
-            .build()
-    )
+    override fun notifyFailure(userMessage: String) {
+        val en = isEn
+        notify(
+            NotificationCompat.Builder(context, NotificationChannels.MODEL_DOWNLOAD)
+                .setSmallIcon(R.drawable.ic_stat_error)
+                .setColor(accentColor())
+                .setContentTitle(if (en) "Couldn't download the model" else "모델을 내려받지 못했어요")
+                .setContentText(userMessage)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(userMessage))
+                .setAutoCancel(true)
+                .setContentIntent(contentIntent())
+                .build()
+        )
+    }
 
     /**
      * [WHY] 알림 권한이 거부되어 있으면 게시가 조용히 버려지거나 SecurityException 이 된다.
@@ -138,11 +153,12 @@ class AndroidDownloadNotifier @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-    private fun progressText(downloadedBytes: Long, totalBytes: Long): String =
+    private fun progressText(downloadedBytes: Long, totalBytes: Long, en: Boolean = false): String =
         if (totalBytes > 0) {
             "%.1fGB / %.1fGB".format(downloadedBytes.toGb(), totalBytes.toGb())
         } else {
-            "%.1fGB 받았어요".format(downloadedBytes.toGb())
+            if (en) "%.1fGB downloaded".format(downloadedBytes.toGb())
+            else "%.1fGB 받았어요".format(downloadedBytes.toGb())
         }
 
     private fun Long.toGb(): Double = this / GB

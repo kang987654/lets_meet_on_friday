@@ -91,16 +91,29 @@ fun MonthCalendarTab(
     val loaded = (monthState as? MonthUiState.Success)?.schedule?.takeIf { it.month == visibleMonth }
     val byDate = remember(loaded) { loaded?.let { eventsByDate(it.events, zoneId) } ?: emptyMap() }
 
+    val lang = KosmosTheme.language
+    val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
+    val monthHeaderText = if (isEn) {
+        val monthName = visibleMonth.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.US)
+        "$monthName ${visibleMonth.year}"
+    } else {
+        "${visibleMonth.year}년 ${visibleMonth.monthValue}월"
+    }
+
     Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) } }) {
-                Icon(painterResource(id = com.kosmos.app.R.drawable.ic_ph_caret_left), contentDescription = "이전 달", tint = KosmosTheme.colors.textSecondary)
+                Icon(
+                    painterResource(id = com.kosmos.app.R.drawable.ic_ph_caret_left),
+                    contentDescription = if (isEn) "Previous month" else "이전 달",
+                    tint = KosmosTheme.colors.textSecondary
+                )
             }
             Text(
-                text = "${visibleMonth.year}년 ${visibleMonth.monthValue}월",
+                text = monthHeaderText,
                 color = KosmosTheme.colors.textPrimary,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
@@ -110,11 +123,19 @@ fun MonthCalendarTab(
             if (visibleMonth != YearMonth.from(today)) {
                 // [WHY] 글자 clickable 은 누르는 영역이 약 32dp 였다 — 글자 버튼(0.38.3 M6 점검 P1).
                 androidx.compose.material3.TextButton(onClick = { viewModel.selectMonthDate(today) }) {
-                    Text(text = "오늘", color = KosmosTheme.colors.brandText, style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        text = if (isEn) "Today" else "오늘",
+                        color = KosmosTheme.colors.brandText,
+                        style = MaterialTheme.typography.labelLarge
+                    )
                 }
             }
             IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } }) {
-                Icon(painterResource(id = com.kosmos.app.R.drawable.ic_ph_caret_right), contentDescription = "다음 달", tint = KosmosTheme.colors.textSecondary)
+                Icon(
+                    painterResource(id = com.kosmos.app.R.drawable.ic_ph_caret_right),
+                    contentDescription = if (isEn) "Next month" else "다음 달",
+                    tint = KosmosTheme.colors.textSecondary
+                )
             }
         }
 
@@ -149,11 +170,12 @@ fun MonthCalendarTab(
 
 @Composable
 private fun WeekdayHeader() {
+    val lang = KosmosTheme.language
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
         listOf(DayOfWeek.SUNDAY, DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
             DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY).forEach { day ->
             Text(
-                text = IsoDateTimeParser.weekdayKorean(day),
+                text = IsoDateTimeParser.weekdayKorean(day, lang),
                 color = weekdayColor(day, inMonth = true),
                 style = MaterialTheme.typography.labelMedium,
                 textAlign = TextAlign.Center,
@@ -202,9 +224,19 @@ private fun DayCell(
     modifier: Modifier = Modifier
 ) {
     val colors = KosmosTheme.colors
-    val dateLabel = "${date.monthValue}월 ${date.dayOfMonth}일" +
-        (KoreanHolidays.nameOf(date)?.let { ", $it" } ?: "") +
-        if (events.isNotEmpty()) ", 일정 ${events.size}건" else ""
+    val lang = KosmosTheme.language
+    val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
+    val holidayName = KoreanHolidays.nameOf(date, lang)
+    val dateLabel = if (isEn) {
+        val m = date.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.US)
+        "$m ${date.dayOfMonth}" +
+            (holidayName?.let { ", $it" } ?: "") +
+            if (events.isNotEmpty()) ", ${events.size} events" else ""
+    } else {
+        "${date.monthValue}월 ${date.dayOfMonth}일" +
+            (holidayName?.let { ", $it" } ?: "") +
+            if (events.isNotEmpty()) ", 일정 ${events.size}건" else ""
+    }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
@@ -226,7 +258,7 @@ private fun DayCell(
                 color = when {
                     isSelected -> colors.onBrand
                     isToday -> colors.brandText
-                    else -> weekdayColor(date.dayOfWeek, inMonth, holiday = KoreanHolidays.nameOf(date) != null)
+                    else -> weekdayColor(date.dayOfWeek, inMonth, holiday = holidayName != null)
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal
@@ -242,20 +274,27 @@ private fun DayCell(
 
 @Composable
 private fun SelectedDayEvents(date: LocalDate, events: List<CalendarEvent>, zoneId: ZoneId) {
+    val lang = KosmosTheme.language
+    val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
+    val holiday = KoreanHolidays.nameOf(date, lang)
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Text(
-            text = IsoDateTimeParser.longDateKorean(date.atStartOfDay(zoneId).toInstant().toEpochMilli(), zoneId),
+            text = IsoDateTimeParser.longDateKorean(date.atStartOfDay(zoneId).toInstant().toEpochMilli(), zoneId, lang),
             color = KosmosTheme.colors.textPrimary,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = if (KoreanHolidays.nameOf(date) != null) 4.dp else 12.dp)
+            modifier = Modifier.padding(bottom = if (holiday != null) 4.dp else 12.dp)
         )
         // [WHY] 공휴일 이름 한 줄(사용자 결정 D-B2) — 빨간 날짜만으로는 무슨 날인지 모른다.
-        KoreanHolidays.nameOf(date)?.let { holiday ->
-            Text(holiday, color = KosmosTheme.colors.dangerText, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(bottom = 12.dp))
+        holiday?.let { h ->
+            Text(h, color = KosmosTheme.colors.dangerText, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(bottom = 12.dp))
         }
         if (events.isEmpty()) {
-            Text("일정이 없어요.", color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                if (isEn) "No events." else "일정이 없어요.",
+                color = KosmosTheme.colors.textMuted,
+                style = MaterialTheme.typography.bodyMedium
+            )
         } else {
             // [WHY] "오늘" 탭과 같은 묶음 하나 안의 행(0.38.3 M1) — 카드마다 색 띠를 두던 것은 상자 더미였고, 출처를 색으로만 나눴다.
             com.kosmos.app.ui.component.KosmosListGroup {
@@ -263,16 +302,23 @@ private fun SelectedDayEvents(date: LocalDate, events: List<CalendarEvent>, zone
                     val days = com.kosmos.app.ui.calendar.spanDays(event, zoneId)
                     // [WHY] 여러 날 일정은 시각 대신 기간 — "10월 3일 ~ 10월 5일"(D-C1). 하루짜리는 시각.
                     val (time, end) = if (days.size > 1) {
-                        "${days.first().monthValue}/${days.first().dayOfMonth}~" to "${days.last().monthValue}월 ${days.last().dayOfMonth}일까지"
+                        if (isEn) {
+                            val endM = days.last().month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.US)
+                            "${days.first().monthValue}/${days.first().dayOfMonth}~" to "until $endM ${days.last().dayOfMonth}"
+                        } else {
+                            "${days.first().monthValue}/${days.first().dayOfMonth}~" to "${days.last().monthValue}월 ${days.last().dayOfMonth}일까지"
+                        }
                     } else {
-                        (IsoDateTimeParser.toDisplayTimeKorean(event.startIso, zoneId) ?: "종일") to
+                        (IsoDateTimeParser.toDisplayTimeKorean(event.startIso, zoneId, lang)
+                            ?: if (isEn) "All day" else "종일") to
                             event.endIso.takeIf { !IsoDateTimeParser.isDateOnly(it) && it != event.startIso }
-                                ?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zoneId) }?.let { "${it}까지" }
+                                ?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zoneId, lang) }
+                                ?.let { if (isEn) "until $it" else "${it}까지" }
                     }
                     ScheduleRow(
                         timeLabel = time,
                         title = event.title,
-                        sub = eventSubLine(end, event.source),
+                        sub = eventSubLine(end, event.source, lang),
                         icon = com.kosmos.app.R.drawable.ic_ph_calendar_blank,
                         divider = index < events.lastIndex
                     )

@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.document
 
+import com.kosmos.app.core.common.AppLanguage
+
 import androidx.compose.material3.MaterialTheme
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -49,6 +51,8 @@ fun DocumentHomeScreen(
     onBack: () -> Unit
 ) {
     val colors = KosmosTheme.colors
+    val lang = KosmosTheme.language
+    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
     val context = LocalContext.current
     val recent by viewModel.recent.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -58,13 +62,16 @@ fun DocumentHomeScreen(
         uri?.let { viewModel.onPicked(it) }
     }
 
-    LaunchedEffect(viewModel) {
+    LaunchedEffect(viewModel, en) {
         viewModel.events.collect { event ->
             when (event) {
                 is DocumentHomeViewModel.Event.Open ->
                     context.startActivity(DocumentViewerActivity.intent(context, event.uri.toUri(), event.mimeType))
                 is DocumentHomeViewModel.Event.AccessLost ->
-                    snackbar.showSnackbar("'${event.name}'을(를) 열 수 없어요. 파일 열기로 다시 골라 주세요.")
+                    snackbar.showSnackbar(
+                        if (en) "Couldn't open '${event.name}'. Please select it again with Open file."
+                        else "'${event.name}'을(를) 열 수 없어요. 파일 열기로 다시 골라 주세요."
+                    )
             }
         }
     }
@@ -75,7 +82,7 @@ fun DocumentHomeScreen(
             var undone = false
             // [WHY] 화면을 떠나 스낵바가 취소돼도 권한은 돌려준다 — finally 의 remove 는 viewModelScope 에서 돈다.
             try {
-                snackbar.showUndo("'${document.name}'을(를) 목록에서 뺐어요") { undone = true; viewModel.restore(document) }
+                snackbar.showUndo(if (en) "Removed '${document.name}' from recent list" else "'${document.name}'을(를) 목록에서 뺐어요", lang) { undone = true; viewModel.restore(document) }
             } finally {
                 if (!undone) viewModel.remove(document)
             }
@@ -86,7 +93,7 @@ fun DocumentHomeScreen(
         containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            com.kosmos.app.ui.component.KosmosTopBar(title = "문서", onBack = onBack)
+            com.kosmos.app.ui.component.KosmosTopBar(title = if (en) "Documents" else "문서", onBack = onBack)
         }
     ) { padding ->
         LazyColumn(
@@ -95,9 +102,9 @@ fun DocumentHomeScreen(
         ) {
             item {
                 // [WHY] 파일 열기는 이 화면의 주 동작이라 주 버튼 — 하늘 면 + 하늘 테두리 상자는 버튼인지 안내인지 모호했다(0.38.3 M4 시안 A).
-                KosmosButton("파일 열기", { picker.launch(DocumentType.PICKER_MIME_TYPES.toTypedArray()) }, Modifier.fillMaxWidth(), accent = true)
+                KosmosButton(if (en) "Open file" else "파일 열기", { picker.launch(DocumentType.PICKER_MIME_TYPES.toTypedArray()) }, Modifier.fillMaxWidth(), accent = true)
                 Text(
-                    "PDF, 엑셀, CSV, 워드, 한글 문서를 AI 없이 가볍게 열어요.",
+                    if (en) "Open PDF, Excel, CSV, Word, and HWPX files lightweight without AI." else "PDF, 엑셀, CSV, 워드, 한글 문서를 AI 없이 가볍게 열어요.",
                     color = colors.textMuted,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 4.dp, top = 8.dp)
@@ -107,11 +114,12 @@ fun DocumentHomeScreen(
                 item {
                     com.kosmos.app.ui.component.EmptyState(
                         com.kosmos.app.R.drawable.ic_ph_file,
-                        "여기서 연 문서가 쌓여요. 다른 앱에서 '연결 프로그램'으로 연 문서는 남지 않아요."
+                        if (en) "Documents opened from here will appear below. Files opened from other apps via 'Open with' aren't saved here."
+                        else "여기서 연 문서가 쌓여요. 다른 앱에서 '연결 프로그램'으로 연 문서는 남지 않아요."
                     )
                 }
             } else {
-                item { com.kosmos.app.ui.component.SectionHeader("최근 문서", Modifier.padding(top = 16.dp)) }
+                item { com.kosmos.app.ui.component.SectionHeader(if (en) "Recent documents" else "최근 문서", Modifier.padding(top = 16.dp)) }
                 itemsIndexed(recent, key = { _, document -> document.uri }) { index, document ->
                     RecentRow(
                         document = document,
@@ -122,7 +130,7 @@ fun DocumentHomeScreen(
                 }
                 item {
                     Text(
-                        "목록에서만 빠지고 파일은 그대로예요.",
+                        if (en) "Removing from this list doesn't delete the file." else "목록에서만 빠지고 파일은 그대로예요.",
                         color = colors.textMuted,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp)
@@ -135,18 +143,20 @@ fun DocumentHomeScreen(
 
 @Composable
 private fun RecentRow(document: RecentDocument, position: GroupPosition, onClick: () -> Unit, onRemove: () -> Unit) {
+    val lang = KosmosTheme.language
+    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
     val today = com.kosmos.app.ui.component.rememberToday()
     val zone = java.time.ZoneId.systemDefault()
     val openedDay = java.time.Instant.ofEpochMilli(document.openedAt).atZone(zone).toLocalDate()
     com.kosmos.app.ui.component.KosmosListRow(
         title = document.name,
-        supporting = "${IsoDateTimeParser.dayLabelKorean(openedDay, today)} ${IsoDateTimeParser.timeKorean(document.openedAt)}",
+        supporting = "${IsoDateTimeParser.dayLabelKorean(openedDay, today, lang)} ${IsoDateTimeParser.timeKorean(document.openedAt, lang = lang)}",
         leadingIcon = documentIcon(document),
         titleMaxLines = 1,
         onClick = onClick,
         divider = position == GroupPosition.First || position == GroupPosition.Middle,
         modifier = Modifier.groupItem(position),
-        trailing = { com.kosmos.app.ui.component.DeleteIconButton(onRemove, contentDescription = "최근 목록에서 빼기") }
+        trailing = { com.kosmos.app.ui.component.DeleteIconButton(onRemove, contentDescription = if (en) "Remove from recent list" else "최근 목록에서 빼기") }
     )
 }
 

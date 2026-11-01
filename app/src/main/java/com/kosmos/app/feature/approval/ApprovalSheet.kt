@@ -77,24 +77,48 @@ data class ApprovalSheetContent(
 ) {
     companion object {
         /** 툴 승인 요청 → 시트 내용. 미리보기가 없는 요청은 제목·설명만. */
-        fun of(request: ApprovalRequest, today: LocalDate, zone: ZoneId = ZoneId.systemDefault()): ApprovalSheetContent {
-            val p = request.preview ?: return ApprovalSheetContent(R.drawable.ic_ph_shield_check, request.title, request.description)
-            val day = p.atIso?.let { dayOf(it, today, zone) }
-            val time = p.atIso?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zone) }
+        fun of(
+            request: ApprovalRequest,
+            today: LocalDate,
+            zone: ZoneId = ZoneId.systemDefault(),
+            lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+        ): ApprovalSheetContent {
+            val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
+            val defaultReject = if (isEn) "Cancel" else "취소"
+            val defaultApprove = if (isEn) "Approve" else "승인"
+            val p = request.preview ?: return ApprovalSheetContent(
+                R.drawable.ic_ph_shield_check, request.title, request.description,
+                rejectLabel = defaultReject, approveLabel = defaultApprove
+            )
+            val day = p.atIso?.let { dayOf(it, today, zone, lang) }
+            val time = p.atIso?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zone, lang) }
             return when (p.kind) {
                 ApprovalPreview.Kind.SCHEDULE -> ApprovalSheetContent(
-                    icon = R.drawable.ic_ph_calendar_blank_duotone, label = "일정 추가", title = p.subject,
+                    icon = R.drawable.ic_ph_calendar_blank_duotone,
+                    label = if (isEn) "Add Event" else "일정 추가",
+                    title = p.subject,
                     sub = day, value = time,
-                    valueSub = p.endIso?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zone) }?.let { "${it}까지" }, note = p.note?.takeIf { it.isNotBlank() },
-                    hint = "앱 일정과 기기 캘린더에 함께 추가돼요.", approveLabel = "추가하기"
+                    valueSub = p.endIso?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zone, lang) }?.let { if (isEn) "until $it" else "${it}까지" },
+                    note = p.note?.takeIf { it.isNotBlank() },
+                    hint = if (isEn) "Added to both KOSMOS and your device calendar." else "앱 일정과 기기 캘린더에 함께 추가돼요.",
+                    rejectLabel = defaultReject,
+                    approveLabel = if (isEn) "Add" else "추가하기"
                 )
                 ApprovalPreview.Kind.REMINDER -> ApprovalSheetContent(
-                    icon = R.drawable.ic_ph_bell_duotone, label = "알림 등록", title = p.subject, sub = day, value = time,
-                    hint = "정한 시각에 알림이 울려요.", approveLabel = "등록하기"
+                    icon = R.drawable.ic_ph_bell_duotone,
+                    label = if (isEn) "Set Reminder" else "알림 등록",
+                    title = p.subject, sub = day, value = time,
+                    hint = if (isEn) "You'll be notified at the scheduled time." else "정한 시각에 알림이 울려요.",
+                    rejectLabel = defaultReject,
+                    approveLabel = if (isEn) "Set" else "등록하기"
                 )
                 ApprovalPreview.Kind.MEMORY -> ApprovalSheetContent(
-                    icon = R.drawable.ic_ph_note, label = "메모 저장", title = p.subject,
-                    hint = "저장하면 비서가 다음 대화부터 참고해요.", approveLabel = "저장하기"
+                    icon = R.drawable.ic_ph_note,
+                    label = if (isEn) "Save Note" else "메모 저장",
+                    title = p.subject,
+                    hint = if (isEn) "The assistant will reference this note in future chats." else "저장하면 비서가 다음 대화부터 참고해요.",
+                    rejectLabel = defaultReject,
+                    approveLabel = if (isEn) "Save" else "저장하기"
                 )
             }
         }
@@ -104,23 +128,36 @@ data class ApprovalSheetContent(
          *
          * [WHY] 여러 건을 "외 N건"으로만 보이면 저장 버튼이 안 보이는 항목까지 저장하는 것처럼 읽혔다(0.38.5 impeccable P1).
          */
-        fun of(suggestions: List<ProfileSuggestion>): ApprovalSheetContent {
+        fun of(
+            suggestions: List<ProfileSuggestion>,
+            lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+        ): ApprovalSheetContent {
+            val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
             val single = suggestions.singleOrNull()
             return ApprovalSheetContent(
                 icon = R.drawable.ic_ph_user_circle,
-                label = "프로필 저장",
-                title = single?.value ?: "대화에서 찾은 항목 ${suggestions.size}개",
+                label = if (isEn) "Save Profile" else "프로필 저장",
+                title = single?.value ?: if (isEn) "${suggestions.size} items found in chat" else "대화에서 찾은 항목 ${suggestions.size}개",
                 sub = single?.key,
-                hint = if (single != null) "대화에서 찾은 항목이에요. 저장하면 비서가 항상 기억해요."
-                else "고른 항목만 저장하고 나머지는 무시해요. 저장하면 비서가 항상 기억해요.",
-                rejectLabel = if (single != null) "무시" else "모두 무시",
-                approveLabel = "프로필에 저장"
+                hint = if (single != null) {
+                    if (isEn) "Found in your chat. Once saved, the assistant will always remember it."
+                    else "대화에서 찾은 항목이에요. 저장하면 비서가 항상 기억해요."
+                } else {
+                    if (isEn) "Only checked items are saved; the rest are ignored. Once saved, the assistant will always remember them."
+                    else "고른 항목만 저장하고 나머지는 무시해요. 저장하면 비서가 항상 기억해요."
+                },
+                rejectLabel = if (single != null) (if (isEn) "Ignore" else "무시") else (if (isEn) "Ignore all" else "모두 무시"),
+                approveLabel = if (isEn) "Save to profile" else "프로필에 저장"
             )
         }
 
-        private fun dayOf(iso: String, today: LocalDate, zone: ZoneId): String? {
+        private fun dayOf(iso: String, today: LocalDate, zone: ZoneId, lang: com.kosmos.app.core.common.AppLanguage): String? {
             val date = IsoDateTimeParser.toLocalDate(iso, zone) ?: return null
-            return if (date == today) "오늘" else IsoDateTimeParser.toDisplayDateKorean(iso, zone)
+            return if (date == today) {
+                if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Today" else "오늘"
+            } else {
+                IsoDateTimeParser.toDisplayDateKorean(iso, zone, lang)
+            }
         }
     }
 }
@@ -212,27 +249,34 @@ fun ApprovalSheetLayout(
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val isEn = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
                 // 화면 읽기에는 남은 초를 [거절] 버튼에 알린다 — 줄어드는 선은 눈으로만 보이고 초점을 받지 않는다(impeccable 점검 P2).
                 val secondsLeft by remember(timeoutKey) {
                     derivedStateOf { ((1f - elapsedFraction) * ApprovalCoordinator.APPROVAL_TIMEOUT_MS / 1000).toInt() }
                 }
+                val autoCancelDesc = if (isEn) "Auto-cancels in ${secondsLeft}s" else "${secondsLeft}초 뒤 자동 취소"
                 KosmosButton(
                     content.rejectLabel, onReject,
-                    Modifier.weight(1f).then(if (timeoutKey != null) Modifier.semantics { stateDescription = "${secondsLeft}초 뒤 자동 취소" } else Modifier)
+                    Modifier.weight(1f).then(if (timeoutKey != null) Modifier.semantics { stateDescription = autoCancelDesc } else Modifier)
                 )
                 KosmosButton(content.approveLabel, onApprove, Modifier.weight(1f), accent = true, enabled = approveEnabled)
             }
+            val isEn = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
             if (footnote != null) {
                 // [WHY] 경고가 있으면 기본 안내("정한 시각에 울려요")를 숨긴다 — 둘이 서로 모순됐다(impeccable 점검 P1, 0.38.2 M8).
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(footnote, style = MaterialTheme.typography.labelMedium, color = colors.warningText, modifier = Modifier.weight(1f))
                     if (onFootnoteAction != null) {
-                        TextButton(onClick = onFootnoteAction) { Text("설정에서 켜기", style = MaterialTheme.typography.labelLarge, color = colors.brandText) }
+                        TextButton(onClick = onFootnoteAction) {
+                            Text(if (isEn) "Enable in Settings" else "설정에서 켜기", style = MaterialTheme.typography.labelLarge, color = colors.brandText)
+                        }
                     }
                 }
             }
             // [WHY] 줄어드는 선만으로는 "곧 자동 취소"를 눈으로 알 수 없었다(화면 읽기만 남은 초를 들었다, 0.38.6 M6 점검) — 안내 줄과 한 문단으로.
-            val timeoutNote = if (timeoutKey != null) "1분 안에 고르지 않으면 취소돼요." else null
+            val timeoutNote = if (timeoutKey != null) {
+                if (isEn) "Automatically cancelled if not chosen within 1 minute." else "1분 안에 고르지 않으면 취소돼요."
+            } else null
             val hintText = listOfNotNull(content.hint.takeIf { footnote == null }, timeoutNote).joinToString("\n")
             if (hintText.isNotEmpty()) Text(hintText, style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
         }
@@ -252,7 +296,8 @@ fun ApprovalSheet(
     onFootnoteAction: (() -> Unit)? = null
 ) {
     val today = rememberToday()
-    ApprovalSheetLayout(ApprovalSheetContent.of(request, today), onApprove, onReject, footnote = footnote, timeoutKey = timeoutKey, onFootnoteAction = onFootnoteAction)
+    val lang = KosmosTheme.language
+    ApprovalSheetLayout(ApprovalSheetContent.of(request, today, lang = lang), onApprove, onReject, footnote = footnote, timeoutKey = timeoutKey, onFootnoteAction = onFootnoteAction)
 }
 
 /**
@@ -270,14 +315,18 @@ fun ProfileSuggestionSheet(
     // 지금 프로필(항목 → 내용). 제안이 이미 있는 항목을 바꾸면 그 사실을 보인다.
     current: Map<String, String> = emptyMap()
 ) {
+    val lang = KosmosTheme.language
+    val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
     // [WHY] 이미 있는 항목을 바꾸는 제안이 표시 없이 덮어썼다(0.38.6 M6 점검 P2).
-    fun replaces(s: ProfileSuggestion): String? = current[s.key]?.takeIf { it != s.value }?.let { "지금은 '$it'예요. 저장하면 바뀌어요." }
+    fun replaces(s: ProfileSuggestion): String? = current[s.key]?.takeIf { it != s.value }?.let {
+        if (isEn) "Currently '$it'. Saving will replace it." else "지금은 '$it'예요. 저장하면 바뀌어요."
+    }
     val colors = KosmosTheme.colors
     val ids = suggestions.map { it.id }
     var selected by remember(ids) { mutableStateOf(ids.toSet()) }
-    val base = ApprovalSheetContent.of(suggestions)
+    val base = ApprovalSheetContent.of(suggestions, lang)
     val multi = suggestions.size > 1
-    val content = if (multi) base.copy(approveLabel = "고른 ${selected.size}개 저장") else base
+    val content = if (multi) base.copy(approveLabel = if (isEn) "Save ${selected.size} selected" else "고른 ${selected.size}개 저장") else base
     ApprovalSheetLayout(
         content, onApprove = { onSave(selected) }, onReject = onRejectAll, onDismiss = onLater,
         footnote = suggestions.singleOrNull()?.let(::replaces),

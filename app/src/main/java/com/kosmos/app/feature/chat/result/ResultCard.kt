@@ -73,85 +73,126 @@ data class ChatSummary(
  */
 object ResultCardMapper {
 
-    fun reminder(task: TaskItem?, today: LocalDate, zone: ZoneId = ZoneId.systemDefault()): ResultCardState {
+    fun reminder(
+        task: TaskItem?,
+        today: LocalDate,
+        zone: ZoneId = ZoneId.systemDefault(),
+        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    ): ResultCardState {
+        val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
+        val label = if (isEn) "Reminder" else "알림"
         if (task == null) {
-            return ResultCardState(MessageResult.Kind.REMINDER, R.drawable.ic_ph_bell_duotone, "알림", "지운 알림", "지운 알림", muted = true)
+            val deleted = if (isEn) "Deleted reminder" else "지운 알림"
+            return ResultCardState(MessageResult.Kind.REMINDER, R.drawable.ic_ph_bell_duotone, label, deleted, deleted, muted = true)
         }
         val iso = task.remindAtIso
         val status = when {
-            task.cancelledAt != null -> "취소함"
-            task.isCompleted -> "완료"
-            task.remindedAtMs != null -> "울렸음"
-            else -> "울리기 전"
+            task.cancelledAt != null -> if (isEn) "Cancelled" else "취소함"
+            task.isCompleted -> if (isEn) "Done" else "완료"
+            task.remindedAtMs != null -> if (isEn) "Fired" else "울렸음"
+            else -> if (isEn) "Upcoming" else "울리기 전"
         }
         return ResultCardState(
             kind = MessageResult.Kind.REMINDER,
             icon = R.drawable.ic_ph_bell_duotone,
-            label = "알림",
+            label = label,
             status = status,
             title = task.title,
-            value = iso?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zone) },
-            sub = iso?.let { dayOf(it, today, zone) },
+            value = iso?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zone, lang) },
+            sub = iso?.let { dayOf(it, today, zone, lang) },
             muted = task.cancelledAt != null || task.isCompleted,
             struck = task.cancelledAt != null
         )
     }
 
-    fun schedule(task: TaskItem?, today: LocalDate, zone: ZoneId = ZoneId.systemDefault()): ResultCardState {
+    fun schedule(
+        task: TaskItem?,
+        today: LocalDate,
+        zone: ZoneId = ZoneId.systemDefault(),
+        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    ): ResultCardState {
+        val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
+        val label = if (isEn) "Event" else "일정"
         if (task == null) {
-            return ResultCardState(MessageResult.Kind.SCHEDULE, R.drawable.ic_ph_calendar_blank_duotone, "일정", "지운 일정", "지운 일정", muted = true)
+            val deleted = if (isEn) "Deleted event" else "지운 일정"
+            return ResultCardState(MessageResult.Kind.SCHEDULE, R.drawable.ic_ph_calendar_blank_duotone, label, deleted, deleted, muted = true)
         }
         val start = task.dueDateIso
         return ResultCardState(
             kind = MessageResult.Kind.SCHEDULE,
             icon = R.drawable.ic_ph_calendar_blank_duotone,
-            label = "일정",
+            label = label,
             title = task.title,
-            value = start?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zone) },
-            sub = start?.let { dayOf(it, today, zone) }
+            value = start?.let { IsoDateTimeParser.toDisplayTimeKorean(it, zone, lang) },
+            sub = start?.let { dayOf(it, today, zone, lang) }
         )
     }
 
-    fun note(note: KnowledgeNote?): ResultCardState =
-        if (note == null) {
-            ResultCardState(MessageResult.Kind.MEMORY_NOTE, R.drawable.ic_ph_clock_counter_clockwise_duotone, "메모", "지운 메모", "지운 메모", muted = true)
+    fun note(
+        note: KnowledgeNote?,
+        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    ): ResultCardState {
+        val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
+        val label = if (isEn) "Note" else "메모"
+        return if (note == null) {
+            val deleted = if (isEn) "Deleted note" else "지운 메모"
+            ResultCardState(MessageResult.Kind.MEMORY_NOTE, R.drawable.ic_ph_clock_counter_clockwise_duotone, label, deleted, deleted, muted = true)
         } else {
-            ResultCardState(MessageResult.Kind.MEMORY_NOTE, R.drawable.ic_ph_clock_counter_clockwise_duotone, "메모", "저장함", note.content)
+            val saved = if (isEn) "Saved" else "저장함"
+            ResultCardState(MessageResult.Kind.MEMORY_NOTE, R.drawable.ic_ph_clock_counter_clockwise_duotone, label, saved, note.content)
         }
+    }
 
     /**
      * 기억 답 — 근거 메모가 있으면 그 내용, 없으면 과거 대화만이 근거.
      * 근거 줄은 모델에게 간 문구와 같은 판정(RecallConflict)을 화면 말로 옮긴다(사용자 결정: 근거를 명시적으로).
      */
-    fun recall(note: KnowledgeNote?, meta: String?, zone: ZoneId = ZoneId.systemDefault()): ResultCardState {
+    fun recall(
+        note: KnowledgeNote?,
+        meta: String?,
+        zone: ZoneId = ZoneId.systemDefault(),
+        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    ): ResultCardState {
+        val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
         val json = meta?.let { runCatching { JSONObject(it) }.getOrNull() }
         val evidence = buildList {
             // [WHY] 가운뎃점으로 이은 정보 줄 대신 문장으로 — taste "AI 티" 목록(middle-dot strings), 0.38.2 M7b.
             if (note != null) {
                 val at = json?.optLong("noteAt", note.createdAt) ?: note.createdAt
-                add(Evidence(Evidence.Kind.NOTE, "${IsoDateTimeParser.monthDayKorean(at, zone)}에 저장한 메모"))
+                val dateStr = IsoDateTimeParser.monthDayKorean(at, zone, lang)
+                add(Evidence(Evidence.Kind.NOTE, if (isEn) "Note saved on $dateStr" else "${dateStr}에 저장한 메모"))
             } else {
-                add(Evidence(Evidence.Kind.CONVERSATION, "지난 대화에서 찾았어요"))
+                add(Evidence(Evidence.Kind.CONVERSATION, if (isEn) "Found in past chats" else "지난 대화에서 찾았어요"))
             }
             val conflicts = json?.optInt("conflictCount", 0) ?: 0
             if (conflicts > 0) {
                 val values = json?.optJSONArray("otherValues")?.let { arr -> (0 until arr.length()).map { arr.getString(it) } }.orEmpty()
-                add(Evidence(Evidence.Kind.CONFLICT, "지난 대화 ${conflicts}건엔 ${values.joinToString(", ")}, 메모 값을 따랐어요"))
+                val joined = values.joinToString(", ")
+                val text = if (isEn) {
+                    "Past chat${if (conflicts > 1) "s ($conflicts)" else ""} had $joined; followed your saved note"
+                } else {
+                    "지난 대화 ${conflicts}건엔 $joined, 메모 값을 따랐어요"
+                }
+                add(Evidence(Evidence.Kind.CONFLICT, text))
             }
         }
         return ResultCardState(
             kind = MessageResult.Kind.MEMORY_RECALL,
             icon = R.drawable.ic_ph_clock_counter_clockwise_duotone,
-            label = "기억",
+            label = if (isEn) "Memory" else "기억",
             // [WHY] 큰 값을 따로 두지 않는다 — 메모 문장에 값이 이미 있어 "…는 134 / 134"로 겹쳐 보였다(0.38.2 M3 렌더).
-            title = note?.content ?: "지난 대화에서 찾았어요",
+            title = note?.content ?: if (isEn) "Found in past chats" else "지난 대화에서 찾았어요",
             evidence = evidence
         )
     }
 
-    private fun dayOf(iso: String, today: LocalDate, zone: ZoneId): String? {
+    private fun dayOf(iso: String, today: LocalDate, zone: ZoneId, lang: com.kosmos.app.core.common.AppLanguage): String? {
         val date = IsoDateTimeParser.toLocalDate(iso, zone) ?: return null
-        return if (date == today) "오늘" else IsoDateTimeParser.toDisplayDateKorean(iso, zone)
+        return if (date == today) {
+            if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Today" else "오늘"
+        } else {
+            IsoDateTimeParser.toDisplayDateKorean(iso, zone, lang)
+        }
     }
 }
 
@@ -199,14 +240,17 @@ fun ResultRow(state: ResultCardState, onClick: (() -> Unit)?, modifier: Modifier
                 state.sub?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary, maxLines = 1) }
             }
             state.value?.let { value ->
-                // [WHY] "오후 1:56" 을 통째로 크게 쓰면 폭을 먹어 왼쪽 글이 꺾였다 — 오전/오후는 작게, 숫자만 크게(0.38.2 M3 렌더).
-                val period = PERIOD.find(value)
+                // [WHY] "오후 1:56" 또는 "1:56 PM" 을 통째로 크게 쓰면 폭을 먹어 왼쪽 글이 꺾였다 — 오전/오후(AM/PM)는 작게, 숫자만 크게(0.38.2 M3 렌더).
+                val periodKo = PERIOD.find(value)
+                val periodEn = PERIOD_EN.find(value)
+                val smallPeriod = periodKo?.groupValues?.get(1) ?: periodEn?.groupValues?.get(2)
+                val mainTime = periodKo?.groupValues?.get(2) ?: periodEn?.groupValues?.get(1) ?: value
                 Column(horizontalAlignment = Alignment.End) {
-                    if (period != null) {
-                        Text(period.groupValues[1], style = MaterialTheme.typography.labelMedium, color = colors.textSecondary, textDecoration = strike)
+                    if (smallPeriod != null) {
+                        Text(smallPeriod, style = MaterialTheme.typography.labelMedium, color = colors.textSecondary, textDecoration = strike)
                     }
                     Text(
-                        text = period?.groupValues?.get(2) ?: value,
+                        text = mainTime,
                         style = MaterialTheme.typography.titleLarge,
                         color = if (state.muted) colors.textMuted else colors.textPrimary,
                         textDecoration = strike,
@@ -220,3 +264,4 @@ fun ResultRow(state: ResultCardState, onClick: (() -> Unit)?, modifier: Modifier
 }
 
 private val PERIOD = Regex("^(오전|오후) (.+)$")
+private val PERIOD_EN = Regex("^(.+) (AM|PM)$")

@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.chat
 
+import com.kosmos.app.core.common.AppLanguage
+
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -66,8 +68,33 @@ class ChatViewModel @Inject constructor(
     private val voiceLaunchHandler: com.kosmos.app.platform.launch.VoiceLaunchHandler,
     private val suggestionRepository: com.kosmos.app.domain.memory.ProfileSuggestionRepository,
     private val suggestionResolver: com.kosmos.app.feature.profile.ProfileSuggestionResolver,
-    private val speechOutput: com.kosmos.app.platform.speech.SpeechOutput
+    private val speechOutput: com.kosmos.app.platform.speech.SpeechOutput,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) : ViewModel() {
+
+    constructor(
+        context: Context,
+        savedStateHandle: SavedStateHandle,
+        sessionStore: SessionStore,
+        conversationRepository: ConversationRepository,
+        sendChatMessageUseCase: SendChatMessageUseCase,
+        episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
+        approvalCoordinator: ApprovalCoordinator,
+        shareIntentHandler: ShareIntentHandler,
+        runtimeMetricsCollector: RuntimeMetricsCollector,
+        modelRunner: ModelRunner,
+        audioRecorder: com.kosmos.app.platform.speech.AudioRecorder,
+        briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator,
+        voiceLaunchHandler: com.kosmos.app.platform.launch.VoiceLaunchHandler,
+        suggestionRepository: com.kosmos.app.domain.memory.ProfileSuggestionRepository,
+        suggestionResolver: com.kosmos.app.feature.profile.ProfileSuggestionResolver,
+        speechOutput: com.kosmos.app.platform.speech.SpeechOutput
+    ) : this(
+        context, savedStateHandle, sessionStore, conversationRepository, sendChatMessageUseCase,
+        episodeRepository, approvalCoordinator, shareIntentHandler, runtimeMetricsCollector,
+        modelRunner, audioRecorder, briefingGenerator, voiceLaunchHandler, suggestionRepository,
+        suggestionResolver, speechOutput, null
+    )
 
     /** 녹음 중 소리 크기(0..1) — 입력바 파형(0.38.4 M5). */
     val recordingLevel: kotlinx.coroutines.flow.StateFlow<Float> get() = audioRecorder.level
@@ -125,6 +152,9 @@ class ChatViewModel @Inject constructor(
     private val _episodeChipLabels = MutableStateFlow<Map<String, String?>>(emptyMap())
     val episodeChipLabels: StateFlow<Map<String, String?>> = _episodeChipLabels.asStateFlow()
 
+    private val currentLang: com.kosmos.app.core.common.AppLanguage
+        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+
     /** [episodeId] 라벨을 캐시에 채웁니다 — 이미 조회했으면(실패 포함) 재조회하지 않습니다. */
     fun ensureEpisodeChipLabel(episodeId: String) {
         if (_episodeChipLabels.value.containsKey(episodeId)) return
@@ -133,8 +163,10 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val episode = (episodeRepository.getById(episodeId) as? AppResult.Success)?.data
                 ?: return@launch
-            val date = com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt)
-            val label = "${episode.title ?: "지난 대화"} ($date)"
+            val lang = currentLang
+            val date = com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt, lang = lang)
+            val defaultTitle = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Past chat" else "지난 대화"
+            val label = "${episode.title ?: defaultTitle} ($date)"
             _episodeChipLabels.update { it + (episodeId to label) }
         }
     }
@@ -219,13 +251,17 @@ class ChatViewModel @Inject constructor(
     /** 체크 목록 시트의 결과 — 고른 것은 저장, 나머지는 무시. */
     fun resolveSuggestions(suggestions: List<ProfileSuggestion>, selectedIds: Set<String>) {
         viewModelScope.launch {
+            val lang = currentLang
+            val en = lang == com.kosmos.app.core.common.AppLanguage.EN
             val result = suggestionResolver.resolve(suggestions, selectedIds)
             val error = result.error
             val notice = when {
                 // [WHY] 상한 초과는 ValidationError.reason 에 "N/100토큰" 안내가 담겨 있다 — 일반 매핑보다 조치 가능하다.
-                error != null -> (error as? AppError.ValidationError)?.reason ?: ErrorMessages.userMessage(error)
-                result.saved.size == 1 -> result.saved.single().let { "프로필에 저장했어요. ${it.key}: ${it.value}" }
-                result.saved.isNotEmpty() -> "프로필에 ${result.saved.size}개 저장했어요."
+                error != null -> (error as? AppError.ValidationError)?.reason ?: ErrorMessages.userMessage(error, lang)
+                result.saved.size == 1 -> result.saved.single().let {
+                    if (en) "Saved to profile. ${it.key}: ${it.value}" else "프로필에 저장했어요. ${it.key}: ${it.value}"
+                }
+                result.saved.isNotEmpty() -> if (en) "Saved ${result.saved.size} items to profile." else "프로필에 ${result.saved.size}개 저장했어요."
                 else -> null
             }
             if (notice != null) _uiState.update { it.copy(suggestionNotice = notice) }
@@ -303,9 +339,10 @@ class ChatViewModel @Inject constructor(
     private fun observeThermalWarning() {
         viewModelScope.launch {
             runtimeMetricsCollector.thermalWarning.collectLatest { warning ->
+                val en = currentLang == com.kosmos.app.core.common.AppLanguage.EN
                 val warningMessage = when (warning) {
-                    is AppError.TemperatureCritical -> "기기가 뜨거워 보호하려고 속도를 줄였어요."
-                    is AppError.TemperatureWarning -> "기기가 따뜻해져 답이 조금 늦을 수 있어요."
+                    is AppError.TemperatureCritical -> if (en) "Device is hot. Slowing down to protect it." else "기기가 뜨거워 보호하려고 속도를 줄였어요."
+                    is AppError.TemperatureWarning -> if (en) "Device is warm. Replies may be slightly slower." else "기기가 따뜻해져 답이 조금 늦을 수 있어요."
                     else -> null
                 }
                 _uiState.update { it.copy(warningMessage = warningMessage) }
@@ -390,10 +427,11 @@ class ChatViewModel @Inject constructor(
         // [WHY] 지난 요청 끝에 늦게 도착한 중지가 이 요청의 첫 채팅 턴을 막지 않게 한다.
         modelRunner.clearPendingCancel()
 
+        val en = currentLang == com.kosmos.app.core.common.AppLanguage.EN
         val currentSharedInput = _uiState.value.sharedInput
         val isImageAttached = currentSharedInput is SharedInput.Image
         val documentText = (currentSharedInput as? SharedInput.Document)?.let {
-            "첨부된 문서 내용(${it.fileName}):\n${it.textContent}"
+            if (en) "Attached document (${it.fileName}):\n${it.textContent}" else "첨부된 문서 내용(${it.fileName}):\n${it.textContent}"
         }
 
         clearSharedInput()
@@ -402,7 +440,9 @@ class ChatViewModel @Inject constructor(
             id = UUID.randomUUID().toString(),
             sessionId = sessionId,
             role = ChatMessage.Role.USER,
-            content = if (audioFilePath != null && text.isBlank()) "(음성 메시지)" else text,
+            content = if (audioFilePath != null && text.isBlank()) {
+                if (en) "(Voice message)" else "(음성 메시지)"
+            } else text,
             inputType = if (audioFilePath != null) InputType.VOICE else if (isImageAttached) InputType.IMAGE else InputType.TEXT,
             createdAt = System.currentTimeMillis()
         )
@@ -633,14 +673,15 @@ class ChatViewModel @Inject constructor(
         } else {
             viewModelScope.launch {
                 if (speechOutput.speak(message.id, message.content)) return@launch
+                val en = currentLang == com.kosmos.app.core.common.AppLanguage.EN
                 // [WHY] 눌렀는데 아무 일도 없으면 고장으로 보인다(0.29.0 에뮬레이터 — 한국어 음성 데이터 없는 구글 엔진).
                 // 사용자가 직접 누른 경우만 알린다 — 자동 낭독은 답변마다 같은 안내를 반복하게 되므로 조용히 넘긴다.
                 // 일시 안내 스낵바 채널(suggestionNotice)을 같이 쓴다.
                 val notice = when (speechOutput.voiceStatus.value) {
                     com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE ->
-                        "기기에 한국어 음성이 없어 읽을 수 없어요. 설정 > 음성에서 확인해 주세요."
+                        if (en) "No offline voice installed for this language. Check Settings > Voice." else "기기에 한국어 음성이 없어 읽을 수 없어요. 설정 > 음성에서 확인해 주세요."
                     com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.INIT_FAILED ->
-                        "음성 엔진을 시작하지 못했어요. 설정 > 음성에서 다른 엔진을 골라 주세요."
+                        if (en) "Couldn't start voice engine. Choose another engine in Settings > Voice." else "음성 엔진을 시작하지 못했어요. 설정 > 음성에서 다른 엔진을 골라 주세요."
                     else -> null
                 }
                 if (notice != null) _uiState.update { it.copy(suggestionNotice = notice) }

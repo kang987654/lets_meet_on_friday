@@ -66,4 +66,21 @@ class ResultCardMapperTest {
 
         assertEquals(listOf("지난 대화에서 찾았어요"), ResultCardMapper.recall(null, null, zone).evidence.map { it.text })
     }
+
+    @Test
+    fun `영어 모드 — 리마인더·일정·기억 답 카드가 영어로 매핑된다`() {
+        val en = com.kosmos.app.core.common.AppLanguage.EN
+        val before = ResultCardMapper.reminder(reminder, today, zone, en)
+        assertEquals("Upcoming", before.status)
+        assertEquals("1:56 PM", before.value)
+        assertEquals("Today", before.sub)
+
+        val cancelled = ResultCardMapper.reminder(reminder.copy(cancelledAt = 5), today, zone, en)
+        assertEquals("Cancelled", cancelled.status)
+
+        val note = KnowledgeNote(id = "k1", content = "Bike PIN is 134", createdAt = 0, updatedAt = 0)
+        val noteAt = java.time.ZonedDateTime.of(2026, 10, 12, 9, 0, 0, 0, zone).toInstant().toEpochMilli()
+        val recall = ResultCardMapper.recall(note, """{"noteAt":$noteAt,"conflictCount":1,"otherValues":["4321"]}""", zone, en)
+        assertEquals(listOf("Note saved on Oct 12", "Past chat had 4321; followed your saved note"), recall.evidence.map { it.text })
+    }
 }

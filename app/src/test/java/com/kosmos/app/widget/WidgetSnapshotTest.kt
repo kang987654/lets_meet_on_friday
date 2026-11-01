@@ -103,4 +103,23 @@ class WidgetSnapshotTest {
 
         assertEquals("8월 28일 금요일", snapshot.dateLabel)
     }
+
+    @Test
+    fun `영어 모드에서는 날짜 라벨과 종일·시각 표기가 영어로 조립된다`() {
+        val snapshot = buildWidgetSnapshot(
+            schedule(
+                event("All-day event", "2026-08-28"),
+                event("Morning sync", "2026-08-28T09:00:00")
+            ),
+            pendingTasks = emptyList(),
+            nowMs = 1_787_875_200_000L, // 2026-08-28T00:00:00Z
+            zone = utc,
+            lang = com.kosmos.app.core.common.AppLanguage.EN
+        )
+
+        assertEquals("Friday, Aug 28", snapshot.dateLabel)
+        assertEquals(WidgetEventLine("All day", "All-day event"), snapshot.eventLines[0])
+        assertEquals(WidgetEventLine("9:00 AM", "Morning sync"), snapshot.eventLines[1])
+        assertEquals(com.kosmos.app.core.common.AppLanguage.EN, snapshot.lang)
+    }
 }

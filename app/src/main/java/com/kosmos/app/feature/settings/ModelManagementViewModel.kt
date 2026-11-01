@@ -55,8 +55,14 @@ sealed class DownloadState {
  */
 @HiltViewModel
 class ModelManagementViewModel @Inject constructor(
-    private val downloadModelUseCase: DownloadModelUseCase
+    private val downloadModelUseCase: DownloadModelUseCase,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) : ViewModel() {
+
+    constructor(downloadModelUseCase: DownloadModelUseCase) : this(downloadModelUseCase, null)
+
+    private val currentLang: com.kosmos.app.core.common.AppLanguage
+        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
 
     val downloadState: StateFlow<DownloadState> = downloadModelUseCase.status
         .map { it.toUiState() }
@@ -83,7 +89,7 @@ class ModelManagementViewModel @Inject constructor(
         )
         is ModelDownloadStatus.Succeeded -> DownloadState.Success
         is ModelDownloadStatus.Failed -> DownloadState.Error(
-            message = ErrorMessages.userMessage(error),
+            message = ErrorMessages.userMessage(error, currentLang),
             resumableBytes = resumableBytes
         )
         // [WHY] 사용자가 스스로 취소한 것이므로 오류로 알리지 않고 조용히 초기 상태로 돌아간다.

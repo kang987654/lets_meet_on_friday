@@ -26,8 +26,14 @@ import javax.inject.Singleton
 @Singleton
 class ReminderFireHandler @Inject constructor(
     private val taskRepository: TaskRepository,
-    private val notifier: ReminderNotifier
+    private val notifier: ReminderNotifier,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) {
+    constructor(taskRepository: TaskRepository, notifier: ReminderNotifier) : this(taskRepository, notifier, null)
+
+    private val currentLang: com.kosmos.app.core.common.AppLanguage
+        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+
     suspend fun fire(taskId: String, now: Long = System.currentTimeMillis()) {
         val task = when (val result = taskRepository.getById(taskId)) {
             is AppResult.Success -> result.data
@@ -42,7 +48,7 @@ class ReminderFireHandler @Inject constructor(
 
         // [WHY] 알림 먼저, 기록은 뒤 — 순서를 뒤집으면 기록 후 알림 실패 시 리마인더가 조용히
         // 사라진다. 이 순서에서는 기록 실패 시 재부팅 복원이 한 번 더 울릴 수 있을 뿐이다.
-        notifier.notifyReminder(task.id, task.title, IsoDateTimeParser.toDisplayKorean(remindAtIso))
+        notifier.notifyReminder(task.id, task.title, IsoDateTimeParser.toDisplayKorean(remindAtIso, lang = currentLang))
         taskRepository.markReminded(task.id, now)
     }
 

@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.chat
 
+import com.kosmos.app.core.common.AppLanguage
+
 import com.kosmos.app.feature.splash.splashAnchor
 import com.kosmos.app.ui.component.appearOnce
 import com.kosmos.app.ui.component.pressScale
@@ -84,6 +86,7 @@ fun ChatBubbleUser(
     inputType: com.kosmos.app.domain.model.InputType = com.kosmos.app.domain.model.InputType.TEXT,
     onLongPress: () -> Unit = {}
 ) {
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     // [WHY] 첨부 문서는 모델 입력용 구분자째 저장된다 — 원문 대신 접힌 칩으로 그리고 눌러서 펼친다(0.36.0 D6).
     val attachedBody = remember(text) { AttachedDocumentBlock.bodyOrNull(text) }
     var expanded by remember(text) { mutableStateOf(false) }
@@ -107,8 +110,8 @@ fun ChatBubbleUser(
         ) {
             Column {
                 val inputLabel = when (inputType) {
-                    com.kosmos.app.domain.model.InputType.IMAGE -> com.kosmos.app.R.drawable.ic_ph_image to "첨부된 이미지"
-                    com.kosmos.app.domain.model.InputType.VOICE -> com.kosmos.app.R.drawable.ic_ph_microphone to "음성 메시지"
+                    com.kosmos.app.domain.model.InputType.IMAGE -> com.kosmos.app.R.drawable.ic_ph_image to (if (en) "Attached image" else "첨부된 이미지")
+                    com.kosmos.app.domain.model.InputType.VOICE -> com.kosmos.app.R.drawable.ic_ph_microphone to (if (en) "Voice message" else "음성 메시지")
                     else -> null
                 }
                 inputLabel?.let { (icon, label) ->
@@ -122,11 +125,20 @@ fun ChatBubbleUser(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_paperclip, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textSecondary)
                         Text(
-                            text = " 첨부 문서 · ${attachedBody.length}자",
+                            text = if (en) " Attached document · ${attachedBody.length} chars" else " 첨부 문서 · ${attachedBody.length}자",
                             color = KosmosTheme.colors.textSecondary,
                             style = MaterialTheme.typography.bodySmall
                         )
-                        com.kosmos.app.ui.component.KosmosIcon(if (expanded) com.kosmos.app.R.drawable.ic_ph_caret_up else com.kosmos.app.R.drawable.ic_ph_caret_down, contentDescription = if (expanded) "접기" else "펼치기", size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textSecondary)
+                        com.kosmos.app.ui.component.KosmosIcon(
+                            if (expanded) com.kosmos.app.R.drawable.ic_ph_caret_up else com.kosmos.app.R.drawable.ic_ph_caret_down,
+                            contentDescription = if (en) {
+                                if (expanded) "Collapse" else "Expand"
+                            } else {
+                                if (expanded) "접기" else "펼치기"
+                            },
+                            size = com.kosmos.app.ui.component.IconSize.inline,
+                            tint = KosmosTheme.colors.textSecondary
+                        )
                     }
                     if (expanded) {
                         Spacer(modifier = Modifier.size(6.dp))
@@ -166,13 +178,16 @@ fun ChatBubbleAssistant(
     // [WHY] 방금 생긴 답의 결과 행만 아래에서 올라오며 나타난다(0.38.4 M4) — 스크롤로 다시 보일 때는 움직이지 않는다. 기본 false(E2E 단독 compose 그대로).
     animateResult: Boolean = false
 ) {
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     var isThinkingExpanded by remember { mutableStateOf(false) }
     // [WHY] 지난 대화만 근거인 기억 카드는 카드 자체가 그 대화를 연다 — 제목을 대화 이름으로 두고 안의 "지난 대화:" 줄은 뺀다.
     // 카드·안쪽 줄·행동 칩이 모두 같은 대화로 가는 길이었다(0.38.6 M3 사용자 지적).
     val episodeOnly = result?.kind == com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL &&
         result.evidence.firstOrNull()?.kind == com.kosmos.app.feature.chat.result.Evidence.Kind.CONVERSATION
     // [WHY] 라벨까지 "지난 대화"로, 제목과 같은 말을 하던 근거 줄 "지난 대화에서 찾았어요"는 뺀다(0.38.6 M6 점검 P1).
-    val card = if (episodeOnly && recallChipLabel != null) result?.copy(label = "지난 대화", title = recallChipLabel, evidence = emptyList()) else result
+    val card = if (episodeOnly && recallChipLabel != null) {
+        result.copy(label = if (en) "Past chat" else "지난 대화", title = recallChipLabel, evidence = emptyList())
+    } else result
     val recallInCard = recallChipLabel != null && result?.kind == com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL && !episodeOnly
 
     Row(
@@ -197,7 +212,11 @@ fun ChatBubbleAssistant(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_lightbulb, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 6.dp))
                         Text(
-                            text = if (isThinkingExpanded) "고민 과정 숨기기" else "고민 과정 보기",
+                            text = if (en) {
+                                if (isThinkingExpanded) "Hide thinking" else "Show thinking"
+                            } else {
+                                if (isThinkingExpanded) "고민 과정 숨기기" else "고민 과정 보기"
+                            },
                             color = KosmosTheme.colors.textSecondary,
                             style = MaterialTheme.typography.labelMedium
                         )
@@ -261,12 +280,16 @@ fun ChatBubbleAssistant(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "대화 열기", onClick = onRecallChipClick)
+                                        .clickable(
+                                            role = androidx.compose.ui.semantics.Role.Button,
+                                            onClickLabel = if (en) "Open conversation" else "대화 열기",
+                                            onClick = onRecallChipClick
+                                        )
                                         .padding(vertical = 2.dp)
                                 ) {
                                     com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_chat_text, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText, modifier = Modifier.padding(end = 8.dp))
                                     Text(
-                                        "지난 대화: $recallChipLabel",
+                                        if (en) "Past chat: $recallChipLabel" else "지난 대화: $recallChipLabel",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = KosmosTheme.colors.brandText,
                                         // 큰 글자에서 날짜가 말줄임에 잘렸다(0.38.6 M6 점검) — 두 줄까지. 끝 화살표는 따로 그려 혼자 넘어가지 않는다.
@@ -289,7 +312,7 @@ fun ChatBubbleAssistant(
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 14.dp, top = 4.dp)) {
                     com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_globe, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textMuted, modifier = Modifier.padding(end = 4.dp))
                     Text(
-                        text = "위키백과 검색 결과를 참고했어요",
+                        text = if (en) "Referenced Wikipedia search results" else "위키백과 검색 결과를 참고했어요",
                         color = KosmosTheme.colors.textMuted,
                         style = MaterialTheme.typography.labelSmall
                     )
@@ -309,7 +332,7 @@ fun ChatBubbleAssistant(
                 ) {
                     com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_clock_counter_clockwise, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 4.dp))
                     Text(
-                        text = "지난 대화: $recallChipLabel",
+                        text = if (en) "Past chat: $recallChipLabel" else "지난 대화: $recallChipLabel",
                         color = KosmosTheme.colors.textSecondary,
                         style = MaterialTheme.typography.labelSmall
                     )
@@ -321,7 +344,11 @@ fun ChatBubbleAssistant(
                 IconButton(onClick = onToggleSpeak, modifier = Modifier.size(36.dp)) {
                     Icon(
                         painter = painterResource(id = if (isSpeaking) com.kosmos.app.R.drawable.ic_ph_stop_fill else com.kosmos.app.R.drawable.ic_ph_speaker_high),
-                        contentDescription = if (isSpeaking) "읽기 멈추기" else "답 읽기",
+                        contentDescription = if (en) {
+                            if (isSpeaking) "Stop reading" else "Read reply"
+                        } else {
+                            if (isSpeaking) "읽기 멈추기" else "답 읽기"
+                        },
                         // 답마다 반복되는 아이콘이라 한 단계 옅게 — 읽는 중일 때만 진하게(impeccable 점검 P3).
                         tint = if (isSpeaking) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted.copy(alpha = 0.6f),
                         modifier = Modifier.size(18.dp)
@@ -441,6 +468,7 @@ internal fun AttachmentThumbnail(uri: Uri, sizeDp: Int = 48) {
         }
     }
 
+    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     Box(
         modifier = Modifier
             .size(sizeDp.dp)
@@ -450,7 +478,7 @@ internal fun AttachmentThumbnail(uri: Uri, sizeDp: Int = 48) {
         bitmap?.let {
             androidx.compose.foundation.Image(
                 bitmap = it.asImageBitmap(),
-                contentDescription = "첨부 이미지",
+                contentDescription = if (en) "Attached image" else "첨부 이미지",
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
