@@ -1,12 +1,14 @@
 package com.kosmos.app.domain.usecase
 
 import com.kosmos.app.core.common.AppError
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.tool.Tokenizer
+import com.kosmos.app.domain.util.ContentLanguage
 import javax.inject.Inject
 
 /**
@@ -19,7 +21,7 @@ import javax.inject.Inject
  *
  * [WHY] 프롬프트 형식은 exp33 에서 검증됐다 — 실기기 대화 픽스처 9개 에피소드에서 형식 준수 9/9, 다중 주제 분리 지시를 얹어도
  * 9/9 유지 + 단일 주제 비분리(M0 게이트). 요약 칸의 말투만 해요체 + 주어 명시로 바꿨다(exp59 S1: 형식·보존·회수 그대로, 해요 0 → 100%).
- * 문구를 바꾸면 그 측정이 무효가 되므로 바꾸기 전에 exp59 를 다시 돌릴 것.
+ * 영어 판은 exp72 에서 5/5 검증됐다.
  *
  * [WHY] `oneShot = true` — 부수 계산이다. 붙이지 않으면 시스템 지시와 sessionId 가 채팅과
  * 달라 런타임이 캐시된 채팅 대화를 파괴한다 (ADR-010·014, SummarizeScheduleUseCase 전례).
@@ -36,17 +38,22 @@ class SummarizeEpisodeUseCase @Inject constructor(
         val summary: String
     )
 
-    suspend operator fun invoke(messages: List<ChatMessage>): AppResult<List<EpisodeDoc>> {
+    suspend operator fun invoke(
+        messages: List<ChatMessage>,
+        fallbackLang: AppLanguage = AppLanguage.KO
+    ): AppResult<List<EpisodeDoc>> {
         if (messages.isEmpty()) {
             return AppResult.Failure(AppError.ValidationError("messages", "빈 에피소드는 요약할 수 없어요"))
         }
 
-        val transcript = buildEpisodeTranscript(messages, tokenizer, MAX_INPUT_TOKENS)
+        val lang = ContentLanguage.detectMessages(messages, fallbackLang)
+        val en = lang == AppLanguage.EN
+        val transcript = buildEpisodeTranscript(messages, tokenizer, MAX_INPUT_TOKENS, lang)
         val prompt = ChatPrompt(
             sessionId = SESSION_ID,
-            systemInstruction = SYSTEM_INSTRUCTION,
+            systemInstruction = if (en) SYSTEM_INSTRUCTION_EN else SYSTEM_INSTRUCTION,
             history = emptyList(),
-            currentInput = "다음 대화를 요약하세요.\n\n$transcript",
+            currentInput = if (en) "Summarize the following conversation.\n\n$transcript" else "다음 대화를 요약하세요.\n\n$transcript",
             oneShot = true
         )
 
@@ -68,7 +75,7 @@ class SummarizeEpisodeUseCase @Inject constructor(
     // 전사 조립은 buildEpisodeTranscript(EpisodeTranscript.kt) — 자동 추출(C′2)과 공유한다.
 
     /**
-     * "제목:/태그:/요약:" 블록을 파싱합니다. `---` 로 구분된 다중 문서를 지원합니다.
+     * "제목:/태그:/요약:" 또는 "Title:/Tags:/Summary:" 블록을 파싱합니다. `---` 로 구분된 다중 문서를 지원합니다.
      *
      * [WHY] 세 필드가 모두 있는 블록만 문서로 인정한다 — 부분 형식은 검색 품질을 조용히
      * 깎으므로(태그 없는 문서는 태그 회수에 안 걸림) 실패로 취급해 재시도가 낫다.
@@ -104,10 +111,21 @@ class SummarizeEpisodeUseCase @Inject constructor(
             대화에 서로 무관한 주제가 2개 이상 섞여 있으면, 주제마다 위 형식을 반복하되 문서 사이를 '---' 한 줄로 구분하세요. 주제가 하나면 절대 나누지 마세요.
         """.trimIndent()
 
+        // exp72 실측 원문 (5/5 형식 + 상위 개념 태그 5/5).
+        val SYSTEM_INSTRUCTION_EN = """
+            [System]
+            You are a librarian who summarizes conversation logs into searchable index documents. Output only in the exact format below.
+            Title: (one line)
+            Tags: (5 to 8 comma-separated key nouns — include broader categories and synonyms as well as literal nouns. e.g., coffee->beverage, dentist->clinic, dog->pet, running->exercise)
+            Summary: (3 to 5 sentences. State clearly who did what, e.g., "The user asked...", "The assistant added...". Preserve dates, times, names, and numbers verbatim.)
+
+            If the conversation mixes 2 or more unrelated topics, repeat the format for each topic and separate documents with a single '---' line. Never split a single topic.
+        """.trimIndent()
+
         val DOC_SEPARATOR = Regex("\\n-{3,}\\n")
-        val FIELD_TITLE = Regex("제목\\s*[:：]\\s*(.+)")
-        val FIELD_TAGS = Regex("태그\\s*[:：]\\s*(.+)")
-        val FIELD_SUMMARY = Regex("요약\\s*[:：]\\s*(.+)", RegexOption.DOT_MATCHES_ALL)
+        val FIELD_TITLE = Regex("(?i)(?:제목|Title)\\s*[:：]\\s*(.+)")
+        val FIELD_TAGS = Regex("(?i)(?:태그|Tags)\\s*[:：]\\s*(.+)")
+        val FIELD_SUMMARY = Regex("(?i)(?:요약|Summary)\\s*[:：]\\s*(.+)", RegexOption.DOT_MATCHES_ALL)
 
         // [WHY] 요약 입력 상한 — 프리필 예산 상한([Constants.MAX_CONTEXT_TOKENS])에서 지시·구조 여유를 뺀 값. 에피소드가
         // 정상 경로(리셋 경계)로 닫혔다면 어차피 이 안이다.

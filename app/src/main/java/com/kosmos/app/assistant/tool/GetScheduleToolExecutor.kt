@@ -1,10 +1,11 @@
 package com.kosmos.app.assistant.tool
 
-import com.kosmos.app.domain.tool.ToolNames
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.config.AppLanguageHolder
 import com.kosmos.app.domain.model.ScheduleData
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
-import org.json.JSONObject
 import javax.inject.Inject
 
 /**
@@ -19,10 +20,24 @@ import javax.inject.Inject
  * 1. `date` 인자("today"/"week")로 조회 범위를 결정합니다.
  * 2. 조회 결과를 JSON(JSONObject 이스케이프 적용) 문자열로 반환합니다.
  */
-class GetScheduleToolExecutor @Inject constructor(
+class GetScheduleToolExecutor internal constructor(
     private val getTodayScheduleUseCase: GetTodayScheduleUseCase,
-    private val summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase
+    private val summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase,
+    private val languageProvider: () -> AppLanguage = { AppLanguage.KO }
 ) : ToolExecutor {
+
+    @Inject constructor(
+        getTodayScheduleUseCase: GetTodayScheduleUseCase,
+        summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase,
+        appLanguageHolder: AppLanguageHolder
+    ) : this(getTodayScheduleUseCase, summarizeScheduleUseCase, { appLanguageHolder.current })
+
+    /** 단위 테스트 하위 호환용 생성자. */
+    constructor(
+        getTodayScheduleUseCase: GetTodayScheduleUseCase,
+        summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase
+    ) : this(getTodayScheduleUseCase, summarizeScheduleUseCase, { AppLanguage.KO })
+
     override val name: String = ToolNames.GET_SCHEDULE
 
     override suspend fun execute(args: ToolArguments, sessionId: String): String {
@@ -39,27 +54,34 @@ class GetScheduleToolExecutor @Inject constructor(
             raw.contains("today") || raw.contains("오늘") -> ScheduleData.RangeType.TODAY
             else -> ScheduleData.RangeType.WEEK
         }
+        val lang = languageProvider()
+        val en = lang == AppLanguage.EN
         val res = getTodayScheduleUseCase(range)
         return if (res is AppResult.Success) {
             val data = res.data
-            val summary = (summarizeScheduleUseCase(data.events, range) as? AppResult.Success)?.data
+            val summary = if (en) {
+                (summarizeScheduleUseCase(data.events, range, lang) as? AppResult.Success)?.data
+            } else {
+                (summarizeScheduleUseCase(data.events, range) as? AppResult.Success)?.data
+            }
+            val emptySummary = if (en) "No schedule summary." else "일정 요약이 없습니다."
             val text = buildString {
-                append(summary?.takeIf { it.isNotBlank() } ?: "일정 요약이 없습니다.")
+                append(summary?.takeIf { it.isNotBlank() } ?: emptySummary)
                 append("\n\n")
                 data.events.forEach { event ->
-                    // [WHY] ISO 원문 대신 한국어 표기("8월 20일 오후 4:00")를 준다 — 모델이 툴
+                    // [WHY] ISO 원문 대신 한국어/영어 표기("8월 20일 오후 4:00" / "Aug 20, 4:00 PM")를 준다 — 모델이 툴
                     // 결과를 그대로 인용하므로, 원문을 주면 답변에 "2026-08-20T16:00:00" 이
                     // 노출됐다 (2026-08-15 사용자 피드백). 예전의 "관측값 동결" 유보(2026-08-12
                     // 툴 호출 실패 조사)는 이후 실기기에서 툴 호출이 안정 확인되어 해제한다.
                     val display = com.kosmos.app.domain.util.IsoDateTimeParser
-                        .toDisplayKorean(event.startIso) ?: event.startIso
+                        .toDisplayKorean(event.startIso, lang = lang) ?: event.startIso
                     append("- ${event.title} ($display)\n")
                 }
             }
             // [WHY] 일정 제목에 따옴표/개행이 있어도 JSON이 깨지지 않도록 JSONObject로 조립한다.
             ToolResultJson.success().put("data", text).toString()
         } else {
-            ToolResultJson.error("일정 조회 실패")
+            ToolResultJson.error(if (en) "Failed to load schedule" else "일정 조회 실패")
         }
     }
 }

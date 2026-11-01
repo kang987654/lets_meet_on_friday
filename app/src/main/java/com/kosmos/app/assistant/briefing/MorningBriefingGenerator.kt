@@ -50,7 +50,7 @@ import javax.inject.Singleton
  * 복원한다.
  */
 @Singleton
-class MorningBriefingGenerator @Inject constructor(
+class MorningBriefingGenerator internal constructor(
     private val settingsDataStore: SettingsDataStore,
     private val sessionStore: SessionStore,
     private val conversationRepository: ConversationRepository,
@@ -62,8 +62,51 @@ class MorningBriefingGenerator @Inject constructor(
     private val auditTrailService: AuditTrailService,
     private val metricsCollector: RuntimeMetricsCollector,
     private val modelRunner: ModelRunner,
-    private val notificationScheduler: com.kosmos.app.work.BriefingNotificationScheduler
+    private val notificationScheduler: com.kosmos.app.work.BriefingNotificationScheduler,
+    private val languageProvider: () -> com.kosmos.app.core.common.AppLanguage = { com.kosmos.app.core.common.AppLanguage.KO }
 ) {
+
+    @Inject constructor(
+        settingsDataStore: SettingsDataStore,
+        sessionStore: SessionStore,
+        conversationRepository: ConversationRepository,
+        episodeRepository: EpisodeRepository,
+        taskRepository: TaskRepository,
+        getTodaySchedule: GetTodayScheduleUseCase,
+        generateBriefing: GenerateBriefingUseCase,
+        boundaryManager: EpisodeBoundaryManager,
+        auditTrailService: AuditTrailService,
+        metricsCollector: RuntimeMetricsCollector,
+        modelRunner: ModelRunner,
+        notificationScheduler: com.kosmos.app.work.BriefingNotificationScheduler,
+        appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder
+    ) : this(
+        settingsDataStore, sessionStore, conversationRepository, episodeRepository,
+        taskRepository, getTodaySchedule, generateBriefing, boundaryManager,
+        auditTrailService, metricsCollector, modelRunner, notificationScheduler,
+        { appLanguageHolder.current }
+    )
+
+    /** 단위 테스트 하위 호환용 생성자. */
+    constructor(
+        settingsDataStore: SettingsDataStore,
+        sessionStore: SessionStore,
+        conversationRepository: ConversationRepository,
+        episodeRepository: EpisodeRepository,
+        taskRepository: TaskRepository,
+        getTodaySchedule: GetTodayScheduleUseCase,
+        generateBriefing: GenerateBriefingUseCase,
+        boundaryManager: EpisodeBoundaryManager,
+        auditTrailService: AuditTrailService,
+        metricsCollector: RuntimeMetricsCollector,
+        modelRunner: ModelRunner,
+        notificationScheduler: com.kosmos.app.work.BriefingNotificationScheduler
+    ) : this(
+        settingsDataStore, sessionStore, conversationRepository, episodeRepository,
+        taskRepository, getTodaySchedule, generateBriefing, boundaryManager,
+        auditTrailService, metricsCollector, modelRunner, notificationScheduler,
+        { com.kosmos.app.core.common.AppLanguage.KO }
+    )
 
     /**
      * 브리핑 저장 완료 신호 — ChatViewModel 이 구독해 라이브 테일을 재동기화한다.
@@ -175,8 +218,9 @@ class MorningBriefingGenerator @Inject constructor(
         val episodes = (episodeRepository.getEpisodes(0, MAX_EPISODES) as? AppResult.Success)
             ?.data.orEmpty().filter { it.status == EpisodeStatus.SUMMARIZED }
 
+        val lang = languageProvider()
         // [WHY] 모델 입력("오늘은 9월 30일 수요일입니다.")이라 출력 바이트가 고정돼야 한다 — 표기 단일 출처.
-        val dateLabel = com.kosmos.app.domain.util.IsoDateTimeParser.longDateKorean(now, zone)
+        val dateLabel = com.kosmos.app.domain.util.IsoDateTimeParser.longDateKorean(now, zone, lang)
 
         return GenerateBriefingUseCase.BriefingMaterials(
             dateLabel = dateLabel,
@@ -186,7 +230,8 @@ class MorningBriefingGenerator @Inject constructor(
             deviceCalendarFailed = schedule?.deviceCalendarFailed ?: true,
             pendingTasks = tasks,
             recentEpisodes = episodes,
-            zoneId = zone
+            zoneId = zone,
+            lang = lang
         )
     }
 

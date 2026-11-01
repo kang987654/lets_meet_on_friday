@@ -149,4 +149,30 @@ class SummarizeEpisodeUseCaseTest {
         assertTrue(result is AppResult.Failure)
         assertTrue((result as AppResult.Failure).error is AppError.ValidationError)
     }
+
+    @Test
+    fun `영어 대화는 영어 지시문과 User-Assistant 라벨로 나가고 Title-Tags-Summary 를 파싱한다(0·40·0 M2b)`() = runBlocking {
+        val prompt = slot<ChatPrompt>()
+        val enOutput = """
+            Title: Bike lock code update
+            Tags: bike, lock, password, security, code
+            Summary: The user asked to save their bike lock password as 134. The assistant confirmed and saved it.
+        """.trimIndent()
+        coEvery { modelRunner.generate(capture(prompt), any()) } returns
+            AppResult.Success(ModelTurn(enOutput))
+
+        val docs = (useCase()(
+            listOf(
+                msg(ChatMessage.Role.USER, "Please remember my bike lock password is 134", 1),
+                msg(ChatMessage.Role.ASSISTANT, "Saved to memory.", 2)
+            )
+        ) as AppResult.Success).data
+
+        assertTrue(prompt.captured.systemInstruction.contains("Title: (one line)"))
+        assertTrue(prompt.captured.currentInput.contains("User: Please remember my bike lock password is 134"))
+        assertTrue(prompt.captured.currentInput.contains("Assistant: Saved to memory."))
+        assertEquals(1, docs.size)
+        assertEquals("Bike lock code update", docs[0].title)
+        assertEquals(listOf("bike", "lock", "password", "security", "code"), docs[0].tags)
+    }
 }

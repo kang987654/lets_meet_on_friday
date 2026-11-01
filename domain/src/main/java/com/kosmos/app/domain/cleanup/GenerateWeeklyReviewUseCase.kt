@@ -1,5 +1,6 @@
 package com.kosmos.app.domain.cleanup
 
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.memory.EpisodeRepository
 import com.kosmos.app.domain.memory.KnowledgeRepository
@@ -8,6 +9,7 @@ import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.tool.Tokenizer
+import com.kosmos.app.domain.util.IsoDateTimeParser
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.IsoFields
@@ -35,11 +37,18 @@ class GenerateWeeklyReviewUseCase @Inject constructor(
     private val tokenizer: Tokenizer
 ) {
 
-    /** @return 저장한 회고 노트, 대상 에피소드가 없으면 Success(null) */
     suspend operator fun invoke(
         now: Long = System.currentTimeMillis(),
         zoneId: ZoneId = ZoneId.systemDefault()
+    ): AppResult<KnowledgeNote?> = invoke(now, zoneId, AppLanguage.KO)
+
+    /** @return 저장한 회고 노트, 대상 에피소드가 없으면 Success(null) */
+    suspend operator fun invoke(
+        now: Long,
+        zoneId: ZoneId,
+        lang: AppLanguage
     ): AppResult<KnowledgeNote?> {
+        val en = lang == AppLanguage.EN
         val episodes = when (val loaded = episodeRepository.getByStatus(EpisodeStatus.SUMMARIZED)) {
             is AppResult.Success -> loaded.data
             is AppResult.Failure -> return AppResult.Failure(loaded.error)
@@ -48,8 +57,13 @@ class GenerateWeeklyReviewUseCase @Inject constructor(
             .filter { it.startAt in (now - WINDOW_MS)..now && !it.summary.isNullOrBlank() }
             .sortedByDescending { it.startAt }
             .map { ep ->
-                val date = Instant.ofEpochMilli(ep.startAt).atZone(zoneId)
-                "- ${date.monthValue}월 ${date.dayOfMonth}일 · ${ep.title.orEmpty()}: ${ep.summary.orEmpty()}"
+                val dayLabel = if (en) {
+                    IsoDateTimeParser.monthDayKorean(ep.startAt, zoneId, AppLanguage.EN)
+                } else {
+                    val date = Instant.ofEpochMilli(ep.startAt).atZone(zoneId)
+                    "${date.monthValue}월 ${date.dayOfMonth}일"
+                }
+                "- $dayLabel · ${ep.title.orEmpty()}: ${ep.summary.orEmpty()}"
             }
         if (lines.isEmpty()) return AppResult.Success(null)
 
@@ -61,12 +75,13 @@ class GenerateWeeklyReviewUseCase @Inject constructor(
             kept += line
             budget -= cost
         }
+        val inputPrefix = if (en) "Past 7 days conversation summaries:\n" else "지난 7일 대화 요약:\n"
         val prompt = ChatPrompt(
             sessionId = SESSION_ID,
-            systemInstruction = REVIEW_SYSTEM,
+            systemInstruction = if (en) REVIEW_SYSTEM_EN else REVIEW_SYSTEM,
             history = emptyList(),
             // [WHY] 시간순으로 다시 세운다 — 예산 컷은 최신부터 담았으므로.
-            currentInput = "지난 7일 대화 요약:\n" + kept.reversed().joinToString("\n"),
+            currentInput = inputPrefix + kept.reversed().joinToString("\n"),
             oneShot = true
         )
         val text = when (val result = modelRunner.generate(prompt)) {
@@ -76,10 +91,11 @@ class GenerateWeeklyReviewUseCase @Inject constructor(
         if (text.isBlank()) return AppResult.Success(null)
 
         val week = weekKey(now, zoneId)
+        val tag = if (en) TAG_EN else TAG
         val note = KnowledgeNote(
             id = "weekly-review-$week",
             content = text,
-            tags = listOf(TAG, week),
+            tags = listOf(tag, week),
             createdAt = now,
             updatedAt = now,
             source = KnowledgeNote.SOURCE_AUTO
@@ -93,6 +109,7 @@ class GenerateWeeklyReviewUseCase @Inject constructor(
     companion object {
         const val SESSION_ID = "weekly-review"
         const val TAG = "주간 회고"
+        const val TAG_EN = "Weekly Review"
         private const val WINDOW_MS = 7L * 24 * 60 * 60 * 1000
         // [WHY] 에피소드 요약은 건당 100토큰 안팎 — 1,000 이면 7일치가 들어가고 프리필 예산([Constants.MIN_CONTEXT_TOKENS] 이상) 안에 지시가 남는다.
         private const val MAX_INPUT_TOKENS = 1_000
@@ -115,6 +132,15 @@ class GenerateWeeklyReviewUseCase @Inject constructor(
             - 사용자에게 말하듯 해요체로 쓰세요(…하셨어요, …있어요). "사용자는"처럼 3인칭으로 쓰지 마세요.
             - 요약에 없는 사실·숫자·이름은 절대 지어내지 마세요.
             - 목록이나 제목 없이 문단 하나로 쓰세요.
+        """.trimIndent()
+
+        val REVIEW_SYSTEM_EN = """
+            [System]
+            You are a personal assistant writing a short weekly review in English based on the past 7 days of conversation summaries. Follow these rules:
+            - Review the week in 3-5 sentences, highlighting what the user focused on and any upcoming plans.
+            - Address the user directly in second person ("you") with a warm, polite tone. Do not refer to "the user" in third person.
+            - Never invent facts, numbers, or names not present in the summaries.
+            - Write as a single paragraph without bullet points or titles.
         """.trimIndent()
     }
 }

@@ -1,12 +1,14 @@
 package com.kosmos.app.domain.usecase
 
 import com.kosmos.app.core.common.AppError
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.tool.Tokenizer
+import com.kosmos.app.domain.util.ContentLanguage
 import javax.inject.Inject
 
 /**
@@ -19,13 +21,11 @@ import javax.inject.Inject
  *
  * ### Key Flow
  * 1. 요약과 같은 전사([buildEpisodeTranscript])를 oneShot 프롬프트에 싣는다
- * 2. "프로필:/지식:" 라벨 줄을 파싱해 [ExtractedFacts] 로 돌려준다 — 프로필 급은 승인 카드,
+ * 2. "프로필:/지식:"(또는 "Profile:/Knowledge:") 라벨 줄을 파싱해 [ExtractedFacts] 로 돌려준다 — 프로필 급은 승인 카드,
  *    지식 급은 자동 저장(호출자 [EpisodeFactExtractor] 몫)
  *
  * [WHY] 프롬프트는 exp36 v2 실측 문구 **원문 그대로**다 — 실대화 9 + 합성 6 에피소드에서
- * 형식 준수 15/15, 심은 사실 회수 8/8, 잡담 오추출 0. v1 초안은 "규칙:" 라벨을 모델이 따라 써
- * 지식 절에 섞였고 일회성 일정(치과 예약)을 뽑았다 — 그래서 규칙이 라벨 없는 문장이고
- * "예약·약속 제외"가 명시돼 있다. 문구를 바꾸면 그 측정이 무효가 되므로 exp36 을 다시 돌릴 것.
+ * 형식 준수 15/15, 심은 사실 회수 8/8, 잡담 오추출 0. 영어 판은 exp72 에서 5/5 검증됐다.
  *
  * [WHY] `oneShot = true` — 부수 계산이다. 빼면 채팅 KV 가 파괴된다 (ADR-010·014).
  */
@@ -43,17 +43,22 @@ class ExtractFactsUseCase @Inject constructor(
         val isEmpty: Boolean get() = profile.isEmpty() && knowledge.isEmpty()
     }
 
-    suspend operator fun invoke(messages: List<ChatMessage>): AppResult<ExtractedFacts> {
+    suspend operator fun invoke(
+        messages: List<ChatMessage>,
+        fallbackLang: AppLanguage = AppLanguage.KO
+    ): AppResult<ExtractedFacts> {
         if (messages.isEmpty()) {
             return AppResult.Failure(AppError.ValidationError("messages", "빈 에피소드에서는 추출할 것이 없어요"))
         }
 
-        val transcript = buildEpisodeTranscript(messages, tokenizer, MAX_INPUT_TOKENS)
+        val lang = ContentLanguage.detectMessages(messages, fallbackLang)
+        val en = lang == AppLanguage.EN
+        val transcript = buildEpisodeTranscript(messages, tokenizer, MAX_INPUT_TOKENS, lang)
         val prompt = ChatPrompt(
             sessionId = SESSION_ID,
-            systemInstruction = SYSTEM_INSTRUCTION,
+            systemInstruction = if (en) SYSTEM_INSTRUCTION_EN else SYSTEM_INSTRUCTION,
             history = emptyList(),
-            currentInput = USER_PREFIX + transcript,
+            currentInput = (if (en) USER_PREFIX_EN else USER_PREFIX) + transcript,
             oneShot = true
         )
 
@@ -73,7 +78,7 @@ class ExtractFactsUseCase @Inject constructor(
     }
 
     /**
-     * "프로필:/지식:" 라벨 줄을 수집합니다. 라벨 줄이 0개면 null(형식 이탈).
+     * "프로필:/지식:"(또는 "Profile:/Knowledge:") 라벨 줄을 수집합니다. 라벨 줄이 0개면 null(형식 이탈).
      *
      * [WHY] exp36 실측에서 모델은 ① 항목마다 라벨을 반복하고("지식: A\n지식: B") ② 빈 절의
      * "프로필: 없음" 줄을 생략하고 ③ 한 줄에 여러 항목을 쉼표로 잇는다("이름: 진우, 직업: 개발자").
@@ -93,15 +98,16 @@ class ExtractFactsUseCase @Inject constructor(
             val labelMatch = LABEL_LINE.find(raw)
             if (labelMatch != null) {
                 labeled++
-                current = if (labelMatch.groupValues[1] == "프로필") profileBodies else knowledgeBodies
+                val kind = labelMatch.groupValues[1].lowercase()
+                current = if (kind == "프로필" || kind == "profile") profileBodies else knowledgeBodies
                 val body = labelMatch.groupValues[2].trim()
-                if (body.isNotEmpty() && !body.startsWith(NONE)) current.add(body)
+                if (body.isNotEmpty() && !isNone(body)) current.add(body)
                 continue
             }
             val bullet = BULLET_LINE.find(raw)
             if (bullet != null && current != null) {
                 val body = bullet.groupValues[1].trim()
-                if (body.isNotEmpty() && !body.startsWith(NONE)) current.add(body)
+                if (body.isNotEmpty() && !isNone(body)) current.add(body)
             }
         }
         if (labeled == 0) return null
@@ -117,6 +123,11 @@ class ExtractFactsUseCase @Inject constructor(
             .filter { it.second.isNotEmpty() }
             .associate { it.first to it.second }
         return ExtractedFacts(profile = profile, knowledge = knowledge, knowledgeTags = knowledgeTags)
+    }
+
+    private fun isNone(body: String): Boolean {
+        val lower = body.lowercase()
+        return lower.startsWith(NONE) || lower.startsWith(NONE_EN)
     }
 
     /** "아침에 커피보다 녹차를 마심 [음료, 차]" → ("아침에 커피보다 녹차를 마심", ["음료", "차"]). */
@@ -148,6 +159,7 @@ class ExtractFactsUseCase @Inject constructor(
         const val SESSION_ID = "fact-extraction"
 
         internal const val USER_PREFIX = "다음 대화에서 기억할 사실을 골라내세요.\n\n"
+        internal const val USER_PREFIX_EN = "Extract facts to remember from the following conversation.\n\n"
 
         // exp36 v2 + 0.39.6 M2(exp71 E1: 문장 끝 [상위 분류·동의어 태그] 추가 — 상위 개념 적중 0/11 → 11/11, 합성 6개 회수 8/8·오추출 0).
         internal val SYSTEM_INSTRUCTION = """
@@ -160,12 +172,23 @@ class ExtractFactsUseCase @Inject constructor(
             지식: (특정 상황에서만 필요한 사실 — 비밀번호·번호·장소·습관·반복 일정, 문장 끝에 [상위 분류·동의어 태그 2~3개]를 붙임. 예: 아침에 커피보다 녹차를 마심 [음료, 차], 최대 3개, 없으면 "없음")
         """.trimIndent()
 
+        // exp72 실측 원문 (5/5 형식 + 상위 개념 태그 5/5).
+        internal val SYSTEM_INSTRUCTION_EN = """
+            [System]
+            You extract durable facts about the user from a conversation log.
+            Select only facts explicitly stated by the user. Exclude guesses, general trivia, small talk, and the assistant's own statements. Exclude one-time appointments or schedules (the calendar handles those). Preserve dates and numbers verbatim, one fact per line.
+            Output only in the exact format below:
+            Profile: (always-relevant facts such as name, preferred title, tone preference, job, city, family — in "Key: Value" format, up to 2 items, or "None")
+            Knowledge: (situational facts — passwords, codes, places, habits, recurring routines, with [2 to 3 broader category or synonym tags] at the end. e.g., Drinks green tea instead of coffee in the morning [beverage, tea], up to 3 items, or "None")
+        """.trimIndent()
+
         private const val NONE = "없음"
+        private const val NONE_EN = "none"
         private const val MAX_PROFILE = 2
         private const val MAX_KNOWLEDGE = 3
         private const val MAX_TOTAL = 3
 
-        private val LABEL_LINE = Regex("^\\s*[-*•]?\\s*(프로필|지식)\\s*[:：]\\s*(.*)$")
+        private val LABEL_LINE = Regex("(?i)^\\s*[-*•]?\\s*(프로필|지식|Profile|Knowledge)\\s*[:：]\\s*(.*)$")
         private val BULLET_LINE = Regex("^\\s*[-*•]\\s+(.+)$")
         private val TRAILING_TAGS = Regex("\\[([^\\]]+)]\\s*$")
 

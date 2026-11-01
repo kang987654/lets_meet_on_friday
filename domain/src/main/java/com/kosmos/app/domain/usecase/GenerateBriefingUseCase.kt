@@ -1,6 +1,7 @@
 package com.kosmos.app.domain.usecase
 
 import com.kosmos.app.core.common.AppError
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.model.CalendarEvent
@@ -34,7 +35,7 @@ class GenerateBriefingUseCase @Inject constructor(
 
     /**
      * 브리핑 재료. 수집은 호출자(생성기) 몫 — 이 유스케이스는 직렬화·추론만 담당한다.
-     * [dateLabel] 예: "8월 21일 금요일". [deviceCalendarFailed] 가 true 면 기기 캘린더를
+     * [dateLabel] 예: "8월 21일 금요일" / "Friday, Aug 21". [deviceCalendarFailed] 가 true 면 기기 캘린더를
      * 못 읽었음을 브리핑 문구에 반영해야 한다 (PRD EC4 — 조용히 생략하면 오표시).
      */
     data class BriefingMaterials(
@@ -43,13 +44,15 @@ class GenerateBriefingUseCase @Inject constructor(
         val deviceCalendarFailed: Boolean,
         val pendingTasks: List<TaskItem>,
         val recentEpisodes: List<Episode>,
-        val zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault()
+        val zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+        val lang: AppLanguage = AppLanguage.KO
     )
 
     suspend operator fun invoke(materials: BriefingMaterials): AppResult<String> {
+        val en = materials.lang == AppLanguage.EN
         val prompt = ChatPrompt(
             sessionId = SESSION_ID,
-            systemInstruction = SYSTEM_INSTRUCTION,
+            systemInstruction = if (en) SYSTEM_INSTRUCTION_EN else SYSTEM_INSTRUCTION,
             history = emptyList(),
             currentInput = buildInput(materials),
             oneShot = true
@@ -69,25 +72,38 @@ class GenerateBriefingUseCase @Inject constructor(
     }
 
     /**
-     * 재료를 한국어 블록으로 직렬화하고 토큰 상한에서 자릅니다.
+     * 재료를 한국어/영어 블록으로 직렬화하고 토큰 상한에서 자릅니다.
      *
      * [WHY] 상한 초과 시 **에피소드 → 할 일 → 일정** 역순으로 뒤에서부터 항목을 떨군다 —
      * 브리핑의 뼈대는 오늘 일정이고, 후속 질문 재료(에피소드)는 있으면 좋은 층이다.
      * 일정 시각은 [IsoDateTimeParser.toDisplayKorean] — 표기 규칙 단일 출처 (0.19.2).
      */
     internal fun buildInput(materials: BriefingMaterials): String {
-        val header = "오늘은 ${materials.dateLabel}입니다. 아래 재료로 아침 브리핑을 작성하세요.\n"
+        val lang = materials.lang
+        val en = lang == AppLanguage.EN
+        val header = if (en) {
+            "Today is ${materials.dateLabel}. Write a morning briefing using the materials below.\n"
+        } else {
+            "오늘은 ${materials.dateLabel}입니다. 아래 재료로 아침 브리핑을 작성하세요.\n"
+        }
 
+        val noneLine = if (en) "- None" else "- 없음"
         val scheduleBlock = buildString {
-            appendLine("[오늘 일정]")
+            appendLine(if (en) "[Today's Schedule]" else "[오늘 일정]")
             if (materials.deviceCalendarFailed) {
-                appendLine("(주의: 기기 캘린더를 읽지 못했습니다 — 아래는 앱에 저장된 일정만이며, 브리핑에서 이 사실을 알려야 합니다)")
+                appendLine(
+                    if (en) {
+                        "(Note: Could not read device calendar — below are app-saved events only; mention this in the briefing)"
+                    } else {
+                        "(주의: 기기 캘린더를 읽지 못했습니다 — 아래는 앱에 저장된 일정만이며, 브리핑에서 이 사실을 알려야 합니다)"
+                    }
+                )
             }
             if (materials.events.isEmpty()) {
-                appendLine("- 없음")
+                appendLine(noneLine)
             } else {
                 materials.events.forEach { event ->
-                    val time = IsoDateTimeParser.toDisplayKorean(event.startIso) ?: event.startIso
+                    val time = IsoDateTimeParser.toDisplayKorean(event.startIso, lang = lang) ?: event.startIso
                     appendLine("- ${event.title} ($time)")
                 }
             }
@@ -96,16 +112,17 @@ class GenerateBriefingUseCase @Inject constructor(
         val taskLines = materials.pendingTasks.map { "- ${it.title}" }
         // [WHY] 에피소드마다 날짜를 붙인다 — 날짜가 없으면 모델이 지시문 예시를 따라 두 달 전 대화도 "어제"라고 불렀다(0.36.0 실기기, exp49
         // brief: 날짜만 붙이면 효과 없고 예시 교체와 함께여야 0/4).
+        val untitled = if (en) "(Untitled)" else "(제목 없음)"
         val episodeLines = materials.recentEpisodes.map { episode ->
-            val day = IsoDateTimeParser.monthDayKorean(episode.startAt, materials.zoneId)
-            "- ($day) ${episode.title ?: "(제목 없음)"}: ${episode.summary.orEmpty()}"
+            val day = IsoDateTimeParser.monthDayKorean(episode.startAt, materials.zoneId, lang)
+            "- ($day) ${episode.title ?: untitled}: ${episode.summary.orEmpty()}"
         }
 
         // 뒤에서부터 항목을 떨구며 상한에 맞춘다 — 에피소드 먼저, 그다음 할 일.
         var tasks = taskLines
         var episodes = episodeLines
         while (true) {
-            val input = assemble(header, scheduleBlock, tasks, episodes)
+            val input = assemble(header, scheduleBlock, tasks, episodes, en)
             if (tokenizer.sizeInTokens(input) <= MAX_INPUT_TOKENS) return input
             when {
                 episodes.isNotEmpty() -> episodes = episodes.dropLast(1)
@@ -119,17 +136,19 @@ class GenerateBriefingUseCase @Inject constructor(
         header: String,
         scheduleBlock: String,
         tasks: List<String>,
-        episodes: List<String>
+        episodes: List<String>,
+        en: Boolean
     ): String = buildString {
+        val noneLine = if (en) "- None" else "- 없음"
         append(header)
         appendLine()
         append(scheduleBlock)
         appendLine()
-        appendLine("[미완료 할 일]")
-        if (tasks.isEmpty()) appendLine("- 없음") else tasks.forEach { appendLine(it) }
+        appendLine(if (en) "[Pending Tasks]" else "[미완료 할 일]")
+        if (tasks.isEmpty()) appendLine(noneLine) else tasks.forEach { appendLine(it) }
         appendLine()
-        appendLine("[최근 대화 기억]")
-        if (episodes.isEmpty()) appendLine("- 없음") else episodes.forEach { appendLine(it) }
+        appendLine(if (en) "[Recent Conversation Memories]" else "[최근 대화 기억]")
+        if (episodes.isEmpty()) appendLine(noneLine) else episodes.forEach { appendLine(it) }
     }.trimEnd()
 
     companion object {
@@ -151,6 +170,15 @@ class GenerateBriefingUseCase @Inject constructor(
             - 마지막에 [최근 대화 기억]을 근거로 자연스러운 후속 질문을 **정확히 1개** 하세요.
               (예: "지난번에 말씀하신 ○○은 잘 돼가요?" — 기억 앞의 날짜를 보고 "어제"·"지난주"를 맞게 쓰세요) 기억이 없으면 오늘 계획을 묻는 가벼운 질문 1개로 대체하세요.
             - 전체 5~8문장, 과장 없이. 목록이 비어 있으면 억지로 채우지 마세요.
+        """.trimIndent()
+
+        private val SYSTEM_INSTRUCTION_EN = """
+            [System]
+            You are a personal assistant writing a short morning briefing in English. Follow these rules:
+            - Start with a brief, calm greeting like "Good morning." Avoid exclamation marks or exaggerated cheerfulness.
+            - Summarize today's schedule and pending tasks concisely in a warm, polite tone. Preserve times, names, and numbers verbatim.
+            - End with **exactly 1** natural follow-up question based on [Recent Conversation Memories] (check the date prefix on the memory to refer to "yesterday" or "last week" accurately). If there are no memories, ask one light question about today's plans instead.
+            - Keep the entire briefing to 5-8 sentences. If a section is empty, do not pad it.
         """.trimIndent()
 
         // [WHY] 프리필 예산 상한([Constants.MAX_CONTEXT_TOKENS])에서 지시·구조 여유를 뺀 값 — SummarizeEpisodeUseCase 와

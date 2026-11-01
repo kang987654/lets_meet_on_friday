@@ -6,6 +6,8 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.config.AppLanguageHolder
 import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.data.local.prefs.SettingsDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,11 +26,11 @@ import javax.inject.Singleton
  *
  * ### Architecture Context
  * - **Layer**: Platform (Speech)
- * - **Dependencies**: Android [TextToSpeech], [SettingsDataStore](엔진 선택), [AudioManager](오디오 포커스)
+ * - **Dependencies**: Android [TextToSpeech], [SettingsDataStore](엔진 선택), [AudioManager](오디오 포커스), [AppLanguageHolder]
  *
  * ### Key Flow
  * 1. [speak] — 설정의 엔진으로 [TextToSpeech] 를 (필요하면 다시) 만들고 초기화를 기다린다.
- * 2. 초기화가 끝나면 **한국어·오프라인** 음성만 고른다. 없으면 [VoiceStatus.NO_KOREAN_OFFLINE_VOICE] 로 낭독하지 않는다.
+ * 2. 초기화가 끝나면 현재 언어(**한국어/영어·오프라인**) 음성만 고른다. 없으면 [VoiceStatus.NO_KOREAN_OFFLINE_VOICE] 로 낭독하지 않는다.
  * 3. [SpeakableText] 로 마크다운을 걷어내고 상한 이하로 나눠 큐에 넣는다. 마지막 조각이 끝나면 [speakingMessageId] 가 null.
  *
  * [WHY] 네트워크 음성으로 몰래 넘어가지 않는다 — 앱 전체가 오프라인 원칙(NFR1)이다. 음성 데이터가 없으면 설정 화면이
@@ -37,10 +39,24 @@ import javax.inject.Singleton
  * [WHY] init 에서 엔진을 만들지 않는다(§2-④) — 첫 [speak]/[availableEngines] 때 만든다. 낭독을 안 쓰는 사용자는 엔진 바인딩 비용이 없다.
  */
 @Singleton
-open class SpeechOutput @Inject constructor(
+open class SpeechOutput internal constructor(
     @ApplicationContext private val context: Context,
-    private val settings: SettingsDataStore
+    private val settings: SettingsDataStore,
+    private val languageProvider: () -> AppLanguage = { AppLanguage.KO }
 ) {
+
+    @Inject constructor(
+        @ApplicationContext context: Context,
+        settings: SettingsDataStore,
+        appLanguageHolder: AppLanguageHolder
+    ) : this(context, settings, { appLanguageHolder.current })
+
+    /** 단위 테스트 하위 호환용 생성자. */
+    constructor(
+        context: Context,
+        settings: SettingsDataStore
+    ) : this(context, settings, { AppLanguage.KO })
+
     /** 엔진·음성 준비 상태 — 설정 화면 안내에 쓴다. */
     enum class VoiceStatus { UNKNOWN, READY, NO_KOREAN_OFFLINE_VOICE, INIT_FAILED }
 
@@ -49,6 +65,7 @@ open class SpeechOutput @Inject constructor(
 
     private var tts: TextToSpeech? = null
     private var enginePackage: String? = null
+    private var selectedLangCode: String? = null
     private var initialized = CompletableDeferred<Boolean>()
 
     @Volatile
@@ -64,13 +81,16 @@ open class SpeechOutput @Inject constructor(
 
     /**
      * [markdown] 을 읽습니다. 다른 메시지를 읽던 중이면 끊고 새로 읽는다.
-     * @return 실제로 낭독을 시작했으면 true (빈 텍스트·엔진 실패·한국어 오프라인 음성 없음이면 false)
+     * @return 실제로 낭독을 시작했으면 true (빈 텍스트·엔진 실패·오프라인 음성 없음이면 false)
      */
     open suspend fun speak(messageId: String, markdown: String): Boolean {
         val text = SpeakableText.from(markdown)
         if (text.isBlank()) return false
         val engine = ensureEngine(settings.ttsEngineFlow.first())
         val ready = withTimeoutOrNull(INIT_TIMEOUT_MS) { initialized.await() } ?: false
+        if (ready && selectedLangCode != targetLangCode()) {
+            selectOfflineVoice(engine)
+        }
         if (!ready || _voiceStatus.value != VoiceStatus.READY) return false
 
         engine.stop()
@@ -89,8 +109,11 @@ open class SpeechOutput @Inject constructor(
 
     /** 설정의 엔진을 준비하고 음성 상태를 확인합니다 — 설정 화면이 안내를 띄우려고 부른다. */
     open suspend fun prepare(): VoiceStatus {
-        ensureEngine(settings.ttsEngineFlow.first())
-        withTimeoutOrNull(INIT_TIMEOUT_MS) { initialized.await() }
+        val engine = ensureEngine(settings.ttsEngineFlow.first())
+        val ready = withTimeoutOrNull(INIT_TIMEOUT_MS) { initialized.await() } ?: false
+        if (ready && selectedLangCode != targetLangCode()) {
+            selectOfflineVoice(engine)
+        }
         return _voiceStatus.value
     }
 
@@ -113,6 +136,7 @@ open class SpeechOutput @Inject constructor(
         tts?.shutdown()
         tts = null
         enginePackage = null
+        selectedLangCode = null
     }
 
     private fun ensureEngine(packageName: String): TextToSpeech {
@@ -126,6 +150,7 @@ open class SpeechOutput @Inject constructor(
     private fun create(packageName: String?): TextToSpeech {
         initialized = CompletableDeferred()
         _voiceStatus.value = VoiceStatus.UNKNOWN
+        selectedLangCode = null
         val listener = TextToSpeech.OnInitListener { status -> onInit(status) }
         val engine = if (packageName == null) {
             TextToSpeech(context, listener)
@@ -160,17 +185,27 @@ open class SpeechOutput @Inject constructor(
             initialized.complete(false)
             return
         }
-        // [WHY] 한국어이면서 네트워크가 필요 없고 데이터가 설치된 음성만 — 품질이 높은 것부터.
+        selectOfflineVoice(engine)
+        initialized.complete(true)
+    }
+
+    private fun targetLangCode(): String =
+        if (languageProvider() == AppLanguage.EN) ENGLISH else KOREAN
+
+    private fun selectOfflineVoice(engine: TextToSpeech) {
+        val targetLang = targetLangCode()
+        // [WHY] 현재 언어(한국어 또는 영어)이면서 네트워크가 필요 없고 데이터가 설치된 음성만 — 품질이 높은 것부터.
         val voice = runCatching { engine.voices }.getOrNull().orEmpty()
-            .filter { it.locale.language == KOREAN && !it.isNetworkConnectionRequired }
+            .filter { it.locale.language == targetLang && !it.isNetworkConnectionRequired }
             .filter { TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED !in it.features.orEmpty() }
             .maxByOrNull { it.quality }
         _voiceStatus.value = if (voice != null && engine.setVoice(voice) == TextToSpeech.SUCCESS) {
+            selectedLangCode = targetLang
             VoiceStatus.READY
         } else {
+            selectedLangCode = null
             VoiceStatus.NO_KOREAN_OFFLINE_VOICE
         }
-        initialized.complete(true)
     }
 
     private fun finish() {
@@ -203,6 +238,7 @@ open class SpeechOutput @Inject constructor(
     private companion object {
         const val TAG = "SpeechOutput"
         const val KOREAN = "ko"
+        const val ENGLISH = "en"
         // [WHY] 엔진 바인딩은 보통 1초 안이지만 첫 실행(엔진 프로세스 기동)은 더 걸린다 — 넘으면 이번 낭독만 포기.
         const val INIT_TIMEOUT_MS = 5_000L
     }

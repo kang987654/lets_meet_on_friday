@@ -44,7 +44,7 @@ import javax.inject.Singleton
  * onStop 에서는 취소한다(§2-⑥: 백그라운드 모델 로드 금지). 다시 누르면 처음부터 — 회고는 주차 키로 교체, 병합은 새로 계산(멱등).
  */
 @Singleton
-class MemoryCleanupRunner @Inject constructor(
+class MemoryCleanupRunner internal constructor(
     private val gate: BackgroundInferenceGate,
     private val generateWeeklyReview: GenerateWeeklyReviewUseCase,
     private val planMerge: PlanMemoryMergeUseCase,
@@ -52,8 +52,39 @@ class MemoryCleanupRunner @Inject constructor(
     private val planEpisodeMerge: PlanEpisodeMergeUseCase,
     private val applyEpisodeMerge: ApplyEpisodeMergeUseCase,
     private val metricsCollector: RuntimeMetricsCollector,
-    private val modelRunner: ModelRunner
+    private val modelRunner: ModelRunner,
+    private val languageProvider: () -> com.kosmos.app.core.common.AppLanguage = { com.kosmos.app.core.common.AppLanguage.KO }
 ) {
+
+    @Inject constructor(
+        gate: BackgroundInferenceGate,
+        generateWeeklyReview: GenerateWeeklyReviewUseCase,
+        planMerge: PlanMemoryMergeUseCase,
+        applyMerge: ApplyMemoryMergeUseCase,
+        planEpisodeMerge: PlanEpisodeMergeUseCase,
+        applyEpisodeMerge: ApplyEpisodeMergeUseCase,
+        metricsCollector: RuntimeMetricsCollector,
+        modelRunner: ModelRunner,
+        appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder
+    ) : this(
+        gate, generateWeeklyReview, planMerge, applyMerge, planEpisodeMerge, applyEpisodeMerge,
+        metricsCollector, modelRunner, { appLanguageHolder.current }
+    )
+
+    /** 단위 테스트 하위 호환용 생성자. */
+    constructor(
+        gate: BackgroundInferenceGate,
+        generateWeeklyReview: GenerateWeeklyReviewUseCase,
+        planMerge: PlanMemoryMergeUseCase,
+        applyMerge: ApplyMemoryMergeUseCase,
+        planEpisodeMerge: PlanEpisodeMergeUseCase,
+        applyEpisodeMerge: ApplyEpisodeMergeUseCase,
+        metricsCollector: RuntimeMetricsCollector,
+        modelRunner: ModelRunner
+    ) : this(
+        gate, generateWeeklyReview, planMerge, applyMerge, planEpisodeMerge, applyEpisodeMerge,
+        metricsCollector, modelRunner, { com.kosmos.app.core.common.AppLanguage.KO }
+    )
     /** 정리 진행 단계. */
     enum class Step { WEEKLY_REVIEW, MERGE, EPISODE_MERGE }
 
@@ -96,10 +127,16 @@ class MemoryCleanupRunner @Inject constructor(
         job = scope.launch {
             gate.mutex.withLock {
                 _state.value = State.Running(Step.WEEKLY_REVIEW, 0, 1)
-                val review = when (val result = generateWeeklyReview()) {
-                    is AppResult.Success -> result.data
+                val lang = languageProvider()
+                val reviewResult = if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
+                    generateWeeklyReview(System.currentTimeMillis(), java.time.ZoneId.systemDefault(), lang)
+                } else {
+                    generateWeeklyReview()
+                }
+                val review = when (reviewResult) {
+                    is AppResult.Success -> reviewResult.data
                     is AppResult.Failure -> {
-                        AppLogger.w(TAG, "주간 회고 실패: ${result.error}")
+                        AppLogger.w(TAG, "주간 회고 실패: ${reviewResult.error}")
                         null
                     }
                 }
@@ -159,10 +196,15 @@ class MemoryCleanupRunner @Inject constructor(
         if (job?.isActive != true) _state.value = State.Idle
     }
 
-    private fun blockReason(): String? = when {
-        metricsCollector.shouldDeferBackgroundInference() -> "기기가 뜨거워요. 잠시 식힌 뒤 다시 시도해 주세요."
-        modelRunner.loadState.value !is ModelLoadState.Ready -> "AI 모델이 준비되면 다시 시도해 주세요."
-        else -> null
+    private fun blockReason(): String? {
+        val en = languageProvider() == com.kosmos.app.core.common.AppLanguage.EN
+        return when {
+            metricsCollector.shouldDeferBackgroundInference() ->
+                if (en) "Device is warm. Please let it cool down and try again." else "기기가 뜨거워요. 잠시 식힌 뒤 다시 시도해 주세요."
+            modelRunner.loadState.value !is ModelLoadState.Ready ->
+                if (en) "Please try again once the AI model is ready." else "AI 모델이 준비되면 다시 시도해 주세요."
+            else -> null
+        }
     }
 
     private companion object {

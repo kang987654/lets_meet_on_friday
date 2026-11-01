@@ -1,10 +1,12 @@
 package com.kosmos.app.domain.cleanup
 
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.memory.KnowledgeRepository
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.domain.util.ContentLanguage
 import javax.inject.Inject
 
 /**
@@ -78,18 +80,26 @@ class PlanMemoryMergeUseCase @Inject constructor(
         return MergeProposal(sources, merged)
     }
 
-    /** "같음"이면 합친 문장, 아니면(다름·형식 이탈·추론 실패) null. */
+    /** "같음"/"Same" 이면 합친 문장, 아니면(다름·형식 이탈·추론 실패) null. */
     private suspend fun judge(contents: List<String>): String? {
+        val lang = ContentLanguage.detect(contents.joinToString("\n"), AppLanguage.KO)
+        val en = lang == AppLanguage.EN
+        val inputPrefix = if (en) "Memories:\n" else "기억들:\n"
         val prompt = ChatPrompt(
             sessionId = SESSION_ID,
-            systemInstruction = JUDGE_SYSTEM,
+            systemInstruction = if (en) JUDGE_SYSTEM_EN else JUDGE_SYSTEM,
             history = emptyList(),
-            currentInput = "기억들:\n" + contents.joinToString("\n") { "- $it" },
+            currentInput = inputPrefix + contents.joinToString("\n") { "- $it" },
             oneShot = true
         )
         val text = (modelRunner.generate(prompt) as? AppResult.Success)?.data?.text ?: return null
-        if (VERDICT.find(text)?.groupValues?.get(1) != SAME) return null
-        return MERGED.find(text)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() && it != NONE }?.let(MemoryMergeGuard::toMemoEnding)
+        val verdict = VERDICT.find(text)?.groupValues?.get(1)?.lowercase() ?: return null
+        if (verdict != SAME && verdict != SAME_EN) return null
+        val mergedRaw = MERGED.find(text)?.groupValues?.get(1)?.trim() ?: return null
+        if (mergedRaw.isBlank() || mergedRaw.equals(NONE, ignoreCase = true) || mergedRaw.equals(NONE_EN, ignoreCase = true)) {
+            return null
+        }
+        return if (en) mergedRaw.trimEnd('.') else MemoryMergeGuard.toMemoEnding(mergedRaw)
     }
 
     companion object {
@@ -97,9 +107,11 @@ class PlanMemoryMergeUseCase @Inject constructor(
         // [WHY] 1인 기억 규모(수백)에서 쌍 비교는 수 ms — 상한은 판정 횟수 폭주를 막는 안전판이다.
         private const val MAX_NOTES = 500
         private const val SAME = "같음"
+        private const val SAME_EN = "same"
         private const val NONE = "없음"
-        private val VERDICT = Regex("판정\\s*[:：]\\s*(같음|다름)")
-        private val MERGED = Regex("합친 문장\\s*[:：]\\s*(.+)")
+        private const val NONE_EN = "none"
+        private val VERDICT = Regex("(?i)(?:판정|Verdict)\\s*[:：]\\s*(같음|다름|Same|Different)")
+        private val MERGED = Regex("(?i)(?:합친 문장|Merged)\\s*[:：]\\s*(.+)")
 
         /** exp42 v1 원문 — 바꾸면 그 실측(오병합·숫자 보존)이 무효가 된다. */
         val JUDGE_SYSTEM = """
@@ -109,6 +121,15 @@ class PlanMemoryMergeUseCase @Inject constructor(
             출력은 정확히 두 줄:
             판정: 같음 또는 다름
             합친 문장: 같을 때 한 문장, 다르면 없음
+        """.trimIndent()
+
+        val JUDGE_SYSTEM_EN = """
+            You are a memory cleanup assistant. Decide whether the notes below state the exact same fact.
+            If any number, date, time, person, or subject differs, output 'Different'. Even if they are on a similar topic, output 'Different'.
+            If they state the exact same fact, combine them into a single accurate sentence preserving all numbers and proper nouns verbatim.
+            Output Must be exactly two lines:
+            Verdict: Same or Different
+            Merged: one combined sentence if Same, or None if Different
         """.trimIndent()
     }
 }

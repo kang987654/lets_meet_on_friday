@@ -1,10 +1,11 @@
 package com.kosmos.app.domain.usecase
 
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.tool.Tokenizer
 
 /**
- * 에피소드 원문을 "사용자:/비서:" 라벨로 이어 붙이고 토큰 상한에서 자릅니다.
+ * 에피소드 원문을 "사용자:/비서:"(KO) 또는 "User:/Assistant:"(EN) 라벨로 이어 붙이고 토큰 상한에서 자릅니다.
  *
  * 요약([SummarizeEpisodeUseCase])과 자동 추출([ExtractFactsUseCase])이 같은 원문을 본다 —
  * 두 oneShot 이 다른 전사를 읽으면 "요약에는 있는데 추출에는 없는" 사실이 생긴다.
@@ -16,11 +17,18 @@ import com.kosmos.app.domain.tool.Tokenizer
 internal fun buildEpisodeTranscript(
     messages: List<ChatMessage>,
     tokenizer: Tokenizer,
-    maxTokens: Int
+    maxTokens: Int,
+    lang: AppLanguage = AppLanguage.KO
 ): String {
+    val en = lang == AppLanguage.EN
     val lines = StringBuilder()
     for (m in messages) {
-        val label = if (m.role == ChatMessage.Role.USER) "사용자" else "비서"
+        val label = when {
+            m.role == ChatMessage.Role.USER && en -> "User"
+            m.role == ChatMessage.Role.USER -> "사용자"
+            en -> "Assistant"
+            else -> "비서"
+        }
         val line = "$label: ${m.content}\n"
         if (tokenizer.sizeInTokens(lines.toString() + line) > maxTokens) break
         lines.append(line)

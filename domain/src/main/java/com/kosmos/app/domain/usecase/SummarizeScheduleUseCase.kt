@@ -1,5 +1,6 @@
 package com.kosmos.app.domain.usecase
 
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.CalendarEvent
 import com.kosmos.app.domain.model.ScheduleData
@@ -29,22 +30,35 @@ class SummarizeScheduleUseCase @Inject constructor(
     suspend operator fun invoke(
         events: List<CalendarEvent>,
         range: ScheduleData.RangeType
+    ): AppResult<String> = invoke(events, range, AppLanguage.KO)
+
+    suspend operator fun invoke(
+        events: List<CalendarEvent>,
+        range: ScheduleData.RangeType,
+        lang: AppLanguage
     ): AppResult<String> {
         if (events.isEmpty()) return AppResult.Success("")
+        val en = lang == AppLanguage.EN
 
-        // [WHY] 시각은 한국어 표기로 넣는다 — ISO 를 주면 "시각 원문 보존" 규칙대로 ISO 를 그대로 옮겨 적었다(exp54 c4 1/5 → c5 0/5, AGENTS §4-7).
+        // [WHY] 시각은 한국어/영어 표기로 넣는다 — ISO 를 주면 "시각 원문 보존" 규칙대로 ISO 를 그대로 옮겨 적었다(exp54 c4 1/5 → c5 0/5, AGENTS §4-7).
+        val timeLabel = if (en) "Time" else "시간"
         val eventListText = events.joinToString("\n") {
-            "- ${it.title} (시간: ${IsoDateTimeParser.toDisplayKorean(it.startIso) ?: it.startIso})"
+            "- ${it.title} ($timeLabel: ${IsoDateTimeParser.toDisplayKorean(it.startIso, lang = lang) ?: it.startIso})"
         }
-        val rangeStr = if (range == ScheduleData.RangeType.TODAY) "오늘" else "이번 주"
-        val userInput = "다음은 사용자의 $rangeStr 일정입니다.\n\n일정:\n$eventListText"
+        val userInput = if (en) {
+            val rangeStr = if (range == ScheduleData.RangeType.TODAY) "today's" else "this week's"
+            "Here is the user's $rangeStr schedule.\n\nSchedule:\n$eventListText"
+        } else {
+            val rangeStr = if (range == ScheduleData.RangeType.TODAY) "오늘" else "이번 주"
+            "다음은 사용자의 $rangeStr 일정입니다.\n\n일정:\n$eventListText"
+        }
 
         // [WHY] `oneShot = true` — 사용자 대화가 아니라 부수 계산이다. 붙이지 않으면 시스템 지시와
         // sessionId 가 채팅과 달라 런타임이 **캐시된 채팅 대화를 파괴**하고, 캘린더 화면을 열 때마다
         // 채팅이 다음 턴에 전체 프리필(툴 선언 ~2천 토큰 포함)을 다시 낸다 (ADR-010·014).
         val prompt = ChatPrompt(
             sessionId = SESSION_ID,
-            systemInstruction = SYSTEM_INSTRUCTION,
+            systemInstruction = if (en) SYSTEM_INSTRUCTION_EN else SYSTEM_INSTRUCTION,
             history = emptyList(),
             currentInput = userInput,
             oneShot = true
@@ -65,6 +79,13 @@ class SummarizeScheduleUseCase @Inject constructor(
             당신은 사용자의 일정을 요약하는 개인 비서입니다. 아래 규칙을 지키세요.
             - 일정을 1~2문장의 해요체로 간결히 요약하세요.
             - 시각·이름은 일정의 원문 그대로 보존하세요.
+        """.trimIndent()
+
+        val SYSTEM_INSTRUCTION_EN = """
+            [System]
+            You are a personal assistant summarizing the user's schedule in English. Follow these rules:
+            - Summarize the schedule concisely in 1-2 polite sentences.
+            - Preserve event names and times verbatim.
         """.trimIndent()
     }
 }

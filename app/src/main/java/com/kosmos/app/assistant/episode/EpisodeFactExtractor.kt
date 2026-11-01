@@ -157,7 +157,12 @@ class EpisodeFactExtractor @Inject constructor(
         val events = auditRepository.getEventsBetween(AuditEventType.APPROVAL_REJECTED, episode.startAt, episode.endAt ?: now)
         return (events as? AppResult.Success)?.data.orEmpty()
             .filter { it.details.startsWith(prefix) }
-            .map { it.details.removePrefix(prefix).trim() }
+            .map {
+                it.details.removePrefix(prefix).trim()
+                    .removePrefix("저장할 내용:")
+                    .removePrefix("Content to save:")
+                    .trim()
+            }
     }
 
     private companion object {

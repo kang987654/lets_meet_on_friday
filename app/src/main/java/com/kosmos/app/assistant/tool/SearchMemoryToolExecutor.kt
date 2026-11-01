@@ -1,13 +1,15 @@
 package com.kosmos.app.assistant.tool
 
-import com.kosmos.app.domain.tool.ToolNames
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
+import com.kosmos.app.core.config.AppLanguageHolder
 import com.kosmos.app.domain.memory.KnowledgeRepository
 import com.kosmos.app.domain.memory.RecallConflict
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.search.BigramMatcher
 import com.kosmos.app.domain.search.searchText
+import com.kosmos.app.domain.tool.ToolNames
 import org.json.JSONObject
 import javax.inject.Inject
 
@@ -34,13 +36,31 @@ import javax.inject.Inject
  * (인덱스 없이도 수백 건), 바이그램은 글자가 어긋난 미스를 건지는 2차 통로다. 인메모리 스코어러인
  * 이유와 FTS5 규모 게이트는 [BigramMatcher] KDoc·ADR-025.
  */
-class SearchMemoryToolExecutor @Inject constructor(
+class SearchMemoryToolExecutor internal constructor(
     private val repository: KnowledgeRepository,
     private val episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
     private val tokenizer: com.kosmos.app.domain.tool.Tokenizer,
     // 지금 대화의 사용자 말(결과 맨 위 "방금 이 대화" 줄) — 없으면 그 줄을 싣지 않는다(단위 테스트 생성부 호환).
-    private val conversations: com.kosmos.app.domain.memory.ConversationRepository? = null
+    private val conversations: com.kosmos.app.domain.memory.ConversationRepository? = null,
+    private val languageProvider: () -> AppLanguage = { AppLanguage.KO }
 ) : ToolExecutor {
+
+    @Inject constructor(
+        repository: KnowledgeRepository,
+        episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
+        tokenizer: com.kosmos.app.domain.tool.Tokenizer,
+        conversations: com.kosmos.app.domain.memory.ConversationRepository,
+        appLanguageHolder: AppLanguageHolder
+    ) : this(repository, episodeRepository, tokenizer, conversations, { appLanguageHolder.current })
+
+    /** 단위 테스트 하위 호환용 생성자. */
+    constructor(
+        repository: KnowledgeRepository,
+        episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
+        tokenizer: com.kosmos.app.domain.tool.Tokenizer,
+        conversations: com.kosmos.app.domain.memory.ConversationRepository? = null
+    ) : this(repository, episodeRepository, tokenizer, conversations, { AppLanguage.KO })
+
     override val name: String = ToolNames.SEARCH_MEMORY
 
     // [WHY] actionType 을 재정의하지 않는다(ToolExecutor 기본값 null = 승인 없음) — 기억 **읽기**는 로컬 조회라
@@ -70,9 +90,11 @@ class SearchMemoryToolExecutor @Inject constructor(
             .filter { it.isNotEmpty() }
             .distinct()
             .take(MAX_TOKENS)
+        val lang = languageProvider()
+        val en = lang == AppLanguage.EN
 
         // [WHY] 지금 대화에서 사용자가 방금 말한 값을 맨 위에 — 검색된 옛 값보다 최신이다(0.38.8 결정 2, [com.kosmos.app.domain.memory.CurrentConversationLines]).
-        val head = currentHead(sessionId, tokens)
+        val head = currentHead(sessionId, tokens, en)
 
         // ── 1. 정밀 후보 ─────────────────────────────────────────────────────────
         // [WHY] 토큰마다 따로 조회한 뒤 합친다. SQLite LIKE 는 `%자전거 비밀번호%` 처럼
@@ -86,18 +108,18 @@ class SearchMemoryToolExecutor @Inject constructor(
         val candidates = LinkedHashMap<String, Hit>()
         for (token in tokens) {
             val byContent = repository.search(token, PER_TOKEN_LIMIT)
-            if (byContent is AppResult.Failure) return errorJson(byContent.error.toString())
+            if (byContent is AppResult.Failure) return errorJson(byContent.error.toString(), en)
             val byTag = repository.searchByTags(listOf(token), PER_TOKEN_LIMIT)
-            if (byTag is AppResult.Failure) return errorJson(byTag.error.toString())
+            if (byTag is AppResult.Failure) return errorJson(byTag.error.toString(), en)
             val epByContent = episodeRepository.search(token, PER_TOKEN_LIMIT)
-            if (epByContent is AppResult.Failure) return errorJson(epByContent.error.toString())
+            if (epByContent is AppResult.Failure) return errorJson(epByContent.error.toString(), en)
             val epByTag = episodeRepository.searchByTags(token, PER_TOKEN_LIMIT)
-            if (epByTag is AppResult.Failure) return errorJson(epByTag.error.toString())
+            if (epByTag is AppResult.Failure) return errorJson(epByTag.error.toString(), en)
 
             ((byContent as AppResult.Success).data + (byTag as AppResult.Success).data)
                 .distinctBy { it.id }.forEach { candidates.putIfAbsent(it.id, it.toHit()) }
             ((epByContent as AppResult.Success).data + (epByTag as AppResult.Success).data)
-                .distinctBy { it.id }.forEach { hit -> hit.toHit().let { candidates.putIfAbsent(it.key, it) } }
+                .distinctBy { it.id }.forEach { hit -> hit.toHit(en).let { candidates.putIfAbsent(it.key, it) } }
         }
 
         // ── 2. 랭킹 = 바이그램 점수 ──────────────────────────────────────────────
@@ -105,7 +127,9 @@ class SearchMemoryToolExecutor @Inject constructor(
         // 보다 앞서는 기존 계약은 그대로 성립하고, 항이 온전히 들어 있는 정도까지 반영된다(exp33 원문).
         val ranked = rank(tokens, candidates.values)
         if (ranked.isNotEmpty()) {
-            return formatHits(tokens, ranked, current = head.isNotEmpty()).let { successJson(head + it.text, episodeIds = it.episodeIds, recall = it.recall) }
+            return formatHits(tokens, ranked, current = head.isNotEmpty(), en = en).let {
+                successJson(head + it.text, episodeIds = it.episodeIds, recall = it.recall)
+            }
         }
 
         // ── 3. 정밀 0건 → 바이그램 전수 스캔 ─────────────────────────────────────
@@ -113,18 +137,20 @@ class SearchMemoryToolExecutor @Inject constructor(
         // 조사). 최근 문서를 훑어 바이그램으로 건진다. **최소 항 겹침 임계**가 핵심 — 없으면 아무
         // 문서나 조금씩 겹쳐 올라와 "없다"고 답해야 할 질의에 잡음을 돌려준다.
         val recent = repository.searchRecent(Constants.MEMORY_SCAN_LIMIT)
-        if (recent is AppResult.Failure) return errorJson(recent.error.toString())
+        if (recent is AppResult.Failure) return errorJson(recent.error.toString(), en)
         val allNotes = (recent as AppResult.Success).data
         val recentEpisodes = (episodeRepository.getEpisodes(0, Constants.MEMORY_SCAN_LIMIT) as? AppResult.Success)
             ?.data.orEmpty()
 
         val scanned = rank(
             tokens,
-            (allNotes.map { it.toHit() } + recentEpisodes.filter { it.title != null }.map { it.toHit() }),
+            (allNotes.map { it.toHit() } + recentEpisodes.filter { it.title != null }.map { it.toHit(en) }),
             minTermOverlap = Constants.BIGRAM_MIN_TERM_OVERLAP
         )
         if (scanned.isNotEmpty()) {
-            return formatHits(tokens, scanned, current = head.isNotEmpty()).let { successJson(head + it.text, episodeIds = it.episodeIds, recall = it.recall) }
+            return formatHits(tokens, scanned, current = head.isNotEmpty(), en = en).let {
+                successJson(head + it.text, episodeIds = it.episodeIds, recall = it.recall)
+            }
         }
 
         // ── 4. 태그 목록 폴백 ───────────────────────────────────────────────────
@@ -133,34 +159,55 @@ class SearchMemoryToolExecutor @Inject constructor(
         // "조회 실패 → 태그로 재조회 → 답변"이 들어간다.
         if (allNotes.isEmpty() && recentEpisodes.none { it.title != null }) {
             // [WHY] "없다"만 시키면 바로 앞 대화에 사용자가 말한 답도 "기억이 없어요"라고 했다 — 대화 속 답을 허용한다(exp58c 1/6 → 6/6, 지어냄 0/4).
-            return successJson(head + "저장된 기억이 하나도 없습니다. 사용자가 이 대화에서 이미 말한 내용이 있으면 그것으로 답하고, 없으면 저장된 것이 없다고 답하세요. 추측하지 마세요.")
+            val emptyMsg = if (en) {
+                "No saved memories yet. If the user already mentioned the answer in this conversation, answer using that; otherwise say nothing is saved. Do not guess."
+            } else {
+                "저장된 기억이 하나도 없습니다. 사용자가 이 대화에서 이미 말한 내용이 있으면 그것으로 답하고, 없으면 저장된 것이 없다고 답하세요. 추측하지 마세요."
+            }
+            return successJson(head + emptyMsg)
         }
 
         // [WHY] 2차 회수의 태그 목록은 메모 ∪ 에피소드 — 과거 대화의 태그로도 재조회가 가능해야
         // "그 고깃집" 류 질문이 에피소드 문서에 닿는다.
         val tags = (allNotes.flatMap { it.tags } + recentEpisodes.flatMap { it.tags })
             .distinct().take(MAX_TAGS)
-        val data = buildString {
-            append("'$keyword' 로는 일치하는 기억이 없습니다. ")
-            if (tags.isNotEmpty()) {
-                append("저장된 기억에 붙은 분류는 다음과 같습니다: ")
-                append(tags.joinToString(", "))
-                append(".\n이 중 질문에 해당할 만한 분류가 있으면 그 단어로 `search_memory` 를 ")
-                append("한 번 더 호출하세요. 해당하는 분류가 없으면 그런 기억이 없다고 답하세요.\n")
+        val data = if (en) {
+            buildString {
+                append("No memory matched '$keyword'. ")
+                if (tags.isNotEmpty()) {
+                    append("Saved memories have the following categories: ")
+                    append(tags.joinToString(", "))
+                    append(".\nIf any category might relate to the question, call `search_memory` ")
+                    append("once more with that word. Otherwise, say there is no such memory.\n")
+                }
+                append("Most recently saved memories:\n")
+                append(format(allNotes.take(Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS)))
+                append("\nIf the answer is not in this list, answer using what the user already said in this conversation. If not there either, say you don't have it. Never make it up.")
             }
-            append("가장 최근에 저장된 기억:\n")
-            append(format(allNotes.take(Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS)))
-            // [WHY] 위 빈 결과와 같은 이유 — 대화 속 답 1/6 → 5/6, 지어냄 0/4(exp58b RES1).
-            append("\n이 목록에 질문의 답이 없으면, 사용자가 이 대화에서 이미 말한 내용으로 답하세요. 거기에도 없으면 없다고 답하세요. 절대 지어내지 마세요.")
+        } else {
+            buildString {
+                append("'$keyword' 로는 일치하는 기억이 없습니다. ")
+                if (tags.isNotEmpty()) {
+                    append("저장된 기억에 붙은 분류는 다음과 같습니다: ")
+                    append(tags.joinToString(", "))
+                    append(".\n이 중 질문에 해당할 만한 분류가 있으면 그 단어로 `search_memory` 를 ")
+                    append("한 번 더 호출하세요. 해당하는 분류가 없으면 그런 기억이 없다고 답하세요.\n")
+                }
+                append("가장 최근에 저장된 기억:\n")
+                append(format(allNotes.take(Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS)))
+                // [WHY] 위 빈 결과와 같은 이유 — 대화 속 답 1/6 → 5/6, 지어냄 0/4(exp58b RES1).
+                append("\n이 목록에 질문의 답이 없으면, 사용자가 이 대화에서 이미 말한 내용으로 답하세요. 거기에도 없으면 없다고 답하세요. 절대 지어내지 마세요.")
+            }
         }
         return successJson(head + data)
     }
 
-    /** 결과 맨 위 "- (방금 이 대화) …" 줄들 — 없으면 빈 문자열. */
-    private suspend fun currentHead(sessionId: String, terms: List<String>): String {
+    /** 결과 맨 위 "- (방금 이 대화) …" / "- (Earlier in this chat) …" 줄들 — 없으면 빈 문자열. */
+    private suspend fun currentHead(sessionId: String, terms: List<String>, en: Boolean): String {
         val recent = (conversations?.getRecentBySession(sessionId, CURRENT_SCAN_LIMIT) as? AppResult.Success)?.data.orEmpty()
         val lines = com.kosmos.app.domain.memory.CurrentConversationLines.pick(recent, terms, System.currentTimeMillis())
-        return lines.joinToString("") { "- (방금 이 대화) $it\n" }
+        val prefix = if (en) "- (Earlier in this chat)" else "- (방금 이 대화)"
+        return lines.joinToString("") { "$prefix $it\n" }
     }
 
     /**
@@ -202,7 +249,7 @@ class SearchMemoryToolExecutor @Inject constructor(
     //
     // [WHY] 맨 위에 "(방금 이 대화)" 줄이 있으면 안내를 [CURRENT_FIRST_GUIDE] 로 바꾼다 — 메모를 믿으라는 안내가 방금 말한 새 값까지 이겨,
     // 저장을 거절한 직후 "비밀번호 뭐였지?"에 옛 메모 값(134)을 답했다(실기기 0.39.3 M4). exp69: 1/8 → 7/8, 방금 줄이 없을 때는 그대로.
-    private fun formatHits(terms: List<String>, hits: List<Hit>, current: Boolean): Formatted {
+    private fun formatHits(terms: List<String>, hits: List<Hit>, current: Boolean, en: Boolean): Formatted {
         val notes = hits.filter { it.episodeId == null }.map { it.text }
         val (contradicting, kept) = hits.partition { it.episodeId != null && RecallConflict.contradicts(it.text, notes) }
         val lines = kept.sortedBy { it.episodeId != null }.map { hit ->
@@ -210,17 +257,28 @@ class SearchMemoryToolExecutor @Inject constructor(
             "- ${hit.text}$tagPart"
         } + listOfNotNull(
             contradicting.takeIf { it.isNotEmpty() }?.let {
-                "- (과거 대화) ${it.size}건에는 다른 값이 적혀 있습니다: ${RecallConflict.otherValues(it.map(Hit::text), notes).joinToString(", ")})"
+                val otherVals = RecallConflict.otherValues(it.map(Hit::text), notes).joinToString(", ")
+                if (en) {
+                    "- (Past conversation) ${it.size} item(s) have different values: $otherVals)"
+                } else {
+                    "- (과거 대화) ${it.size}건에는 다른 값이 적혀 있습니다: $otherVals)"
+                }
             }
         )
         val mixed = notes.isNotEmpty() && hits.any { it.episodeId != null }
         // [WHY] 결과가 있어도 질문의 답이 아닐 수 있다 — 관계없는 지난 대화가 약하게 걸리면 모델이 바로 앞에서 들은 값을 두고 "찾지 못했어요"라고 했다(실기기 T7).
         // 빈 결과와 같은 안내를 끝에 붙인다(exp60: 대화 속 답 4/6 → 5/6, 관련 결과·충돌 판정은 그대로).
-        val body = lines.joinToString("\n") + HIT_TAIL
+        val tail = if (en) HIT_TAIL_EN else HIT_TAIL
+        val body = lines.joinToString("\n") + tail
         // [WHY] 화면 근거(회수 칩·기억 카드)에는 질의 낱말이 충분히 겹친 지난 대화만 — "회의실"이 "팀 회의" 요약에 겹침 0.5 로 걸려 관계없는 대화가
         // 근거 카드가 됐다(실기기 T7, 0.38.7 M2). 모델 입력(본문)은 그대로라 실측 대상이 아니다.
         val shown = kept.filter { it.episodeId == null || BigramMatcher.bestTermOverlap(terms, it.scoreText) >= SHOWN_EPISODE_OVERLAP }
-        val guide = if (current) CURRENT_FIRST_GUIDE else MIXED_SOURCE_GUIDE
+        val guide = when {
+            current && en -> CURRENT_FIRST_GUIDE_EN
+            current -> CURRENT_FIRST_GUIDE
+            en -> MIXED_SOURCE_GUIDE_EN
+            else -> MIXED_SOURCE_GUIDE
+        }
         return Formatted(if (mixed) "$guide\n$body" else body, shown.mapNotNull { it.episodeId }, recallOf(hits, shown, contradicting, notes))
     }
 
@@ -250,10 +308,10 @@ class SearchMemoryToolExecutor @Inject constructor(
         tier = if (source == KnowledgeNote.SOURCE_AUTO) TIER_AUTO else TIER_MANUAL
     )
 
-    private fun com.kosmos.app.domain.model.Episode.toHit() = Hit(
+    private fun com.kosmos.app.domain.model.Episode.toHit(en: Boolean = false) = Hit(
         // [WHY] "ep:" 프리픽스 — 메모와 에피소드의 id 가 우연히 같아도 랭킹 키가 충돌하지 않는다.
         key = "ep:$id",
-        text = "(과거 대화) ${title.orEmpty()}: ${summary.orEmpty()}",
+        text = if (en) "(Past conversation) ${title.orEmpty()}: ${summary.orEmpty()}" else "(과거 대화) ${title.orEmpty()}: ${summary.orEmpty()}",
         scoreText = searchText(),
         tags = tags,
         createdAt = createdAt,
@@ -289,8 +347,8 @@ class SearchMemoryToolExecutor @Inject constructor(
         return json.toString()
     }
 
-    private fun errorJson(reason: String): String =
-        ToolResultJson.error("기억 검색 중 오류가 발생했습니다: $reason")
+    private fun errorJson(reason: String, en: Boolean): String =
+        ToolResultJson.error(if (en) "Error while searching memory: $reason" else "기억 검색 중 오류가 발생했습니다: $reason")
 
     private companion object {
         val WHITESPACE = Regex("\\s+")
@@ -314,6 +372,7 @@ class SearchMemoryToolExecutor @Inject constructor(
         const val CURRENT_SCAN_LIMIT = 30
 
         const val HIT_TAIL = "\n이 목록에 질문의 답이 없으면, 사용자가 이 대화에서 이미 말한 내용으로 답하세요."
+        const val HIT_TAIL_EN = "\nIf the answer is not in this list, answer using what the user already said in this conversation."
 
         const val TIER_MANUAL = 0
         const val TIER_AUTO = 1
@@ -322,9 +381,13 @@ class SearchMemoryToolExecutor @Inject constructor(
         // exp69 조건 D 실측 원문.
         const val CURRENT_FIRST_GUIDE =
             "(방금 이 대화)는 사용자가 방금 말한 가장 최신 값입니다. 메모·과거 대화와 다르면 그 값을 답하고, 예전 값이 있었다고 덧붙이세요."
+        const val CURRENT_FIRST_GUIDE_EN =
+            "(Earlier in this chat) is the latest value the user just mentioned. If it differs from notes or past conversations, answer with that value and mention that an older value existed."
 
         // exp50 조건 B 실측 원문.
         const val MIXED_SOURCE_GUIDE =
             "직접 저장한 메모는 사용자가 확인해 남긴 기록이고 (과거 대화)는 요약입니다. 둘이 다르면 메모의 값을 답하고, 과거 대화에 다른 값이 있었다고 덧붙이세요."
+        const val MIXED_SOURCE_GUIDE_EN =
+            "Saved notes are confirmed by the user, while (Past conversation) is a summary. If they differ, answer with the note's value and mention that a different value appeared in a past conversation."
     }
 }

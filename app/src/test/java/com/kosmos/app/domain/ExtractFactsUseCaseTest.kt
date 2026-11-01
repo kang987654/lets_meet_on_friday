@@ -176,4 +176,27 @@ class ExtractFactsUseCaseTest {
         assertEquals(listOf("음료", "차"), facts.knowledgeTags["아침에 커피보다 녹차를 마심"])
         assertEquals(listOf("알레르기", "음식"), facts.knowledgeTags["땅콩을 먹으면 두드러기가 남"])
     }
+
+    @Test
+    fun `영어 대화는 영어 지시문으로 나가고 Profile-Knowledge 라벨과 None 을 파싱한다(0·40·0 M2b)`() = runBlocking {
+        val prompt = slot<ChatPrompt>()
+        coEvery { modelRunner.generate(capture(prompt), any()) } returns
+            AppResult.Success(ModelTurn("Profile: Name: Jinwoo, City: Busan\nKnowledge: Drinks green tea in the morning [beverage, tea]"))
+
+        val facts = (useCase()(
+            listOf(
+                msg(ChatMessage.Role.USER, "My name is Jinwoo, I live in Busan, and I drink green tea in the morning.", 1),
+                msg(ChatMessage.Role.ASSISTANT, "Got it!", 2)
+            )
+        ) as AppResult.Success).data
+
+        assertTrue(prompt.captured.systemInstruction.contains("Profile:"))
+        assertTrue(prompt.captured.currentInput.contains("User: My name is Jinwoo"))
+        assertEquals(listOf("Name" to "Jinwoo", "City" to "Busan"), facts.profile)
+        assertEquals(listOf("Drinks green tea in the morning"), facts.knowledge)
+        assertEquals(listOf("beverage", "tea"), facts.knowledgeTags["Drinks green tea in the morning"])
+
+        val emptyEn = useCase().parse("Profile: None\nKnowledge: None")!!
+        assertTrue(emptyEn.isEmpty)
+    }
 }

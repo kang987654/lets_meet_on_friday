@@ -1,10 +1,12 @@
 package com.kosmos.app.assistant.tool
 
-import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.assistant.approval.ApprovalPreview
 import com.kosmos.app.assistant.approval.ApprovalRequest
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.config.AppLanguageHolder
 import com.kosmos.app.core.security.ApprovalRules
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.usecase.AddScheduleUseCase
 import javax.inject.Inject
 
@@ -21,20 +23,35 @@ import javax.inject.Inject
  * 2. 사용자 승인(BaseAgent 공통 경로, CALENDAR_WRITE)은 실행 전에 이미 완료된 상태입니다.
  * 3. [AddScheduleUseCase] 실행 결과를 JSON 문자열로 반환합니다.
  */
-class AddScheduleToolExecutor @Inject constructor(
+class AddScheduleToolExecutor internal constructor(
     private val addScheduleUseCase: AddScheduleUseCase,
-    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher
+    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
+    private val languageProvider: () -> AppLanguage = { AppLanguage.KO }
 ) : ToolExecutor {
+
+    @Inject constructor(
+        addScheduleUseCase: AddScheduleUseCase,
+        widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
+        appLanguageHolder: AppLanguageHolder
+    ) : this(addScheduleUseCase, widgetRefresher, { appLanguageHolder.current })
+
+    /** 단위 테스트 하위 호환용 생성자. */
+    constructor(
+        addScheduleUseCase: AddScheduleUseCase,
+        widgetRefresher: com.kosmos.app.widget.WidgetRefresher
+    ) : this(addScheduleUseCase, widgetRefresher, { AppLanguage.KO })
+
     override val name: String = ToolNames.ADD_SCHEDULE
 
     override val actionType: ApprovalRules.ActionType = ApprovalRules.ActionType.CALENDAR_WRITE
 
     override fun buildApprovalRequest(args: ToolArguments, sessionId: String): ApprovalRequest {
         val draft = parse(args)
+        val en = languageProvider() == AppLanguage.EN
         return ApprovalRequest(
             sessionId = sessionId,
-            title = "일정 추가 승인",
-            description = "일정: '${draft.title}' (${draft.startTime})",
+            title = if (en) "Approve Schedule" else "일정 추가 승인",
+            description = if (en) "Event: '${draft.title}' (${draft.startTime})" else "일정: '${draft.title}' (${draft.startTime})",
             preview = ApprovalPreview(
                 ApprovalPreview.Kind.SCHEDULE, draft.title, atIso = draft.startTime,
                 endIso = draft.endTime.takeIf { it.isNotBlank() }, note = draft.description
@@ -51,18 +68,19 @@ class AddScheduleToolExecutor @Inject constructor(
 
     override suspend fun execute(args: ToolArguments, sessionId: String): String {
         val draft = parse(args)
+        val en = languageProvider() == AppLanguage.EN
 
         val res = addScheduleUseCase(draft.title, draft.startTime, draft.endTime, draft.description)
         return if (res is AppResult.Success) {
             widgetRefresher.refresh()
             ToolResultJson.withResult(
-                ToolResultJson.success().put("message", "일정이 성공적으로 추가되었습니다."),
+                ToolResultJson.success().put("message", if (en) "Event added successfully." else "일정이 성공적으로 추가되었습니다."),
                 kind = com.kosmos.app.domain.model.MessageResult.Kind.SCHEDULE.name,
                 // [WHY] 카드는 앱이 저장한 일정(task)을 조회한다 — 기기 캘린더 이벤트 id 는 쓰기 결과로 오지 않는다.
                 ref = res.data
             ).toString()
         } else {
-            ToolResultJson.error("일정 추가 실패")
+            ToolResultJson.error(if (en) "Failed to add event" else "일정 추가 실패")
         }
     }
 

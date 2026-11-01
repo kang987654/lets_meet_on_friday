@@ -39,10 +39,10 @@ object KnowledgeAutoSaveFilter {
     private const val MIN_CONFLICT_SUBJECT_OVERLAP = 0.8
 
     private val digits = Regex("\\d+")
-    private val reminderVerb = Regex("알림|알려|리마인드|리마인더")
-    private val clockTime = Regex("\\d+\\s*시|\\d{1,2}:\\d{2}|\\d+\\s*분\\s*(뒤|후)|\\d+\\s*시간\\s*(뒤|후)")
+    private val reminderVerb = Regex("(?i)알림|알려|리마인드|리마인더|\\b(remind|reminder|alarm)\\b")
+    private val clockTime = Regex("(?i)\\d+\\s*시|\\d{1,2}:\\d{2}|\\d+\\s*분\\s*(뒤|후)|\\d+\\s*시간\\s*(뒤|후)|\\d{1,2}\\s*(am|pm)|in\\s+\\d+\\s*(min|minute|minutes|hour|hours)")
     // [WHY] "늘"은 넣지 않는다 — "오늘"에 걸려 일회성 요청이 반복으로 오판된다.
-    private val recurring = Regex("매일|매주|매달|매월|평일|마다|항상")
+    private val recurring = Regex("(?i)매일|매주|매달|매월|평일|마다|항상|\\b(every|daily|weekly|monthly|weekdays|always)\\b")
 
     /**
      * 저장하지 않을 이유. null 이면 저장한다.
@@ -89,9 +89,9 @@ object KnowledgeAutoSaveFilter {
      * 녹차 노트에 "자전거 비밀번호" 태그).
      */
     fun tagsFor(fact: String, candidates: List<String>, max: Int): List<String> {
-        val compactFact = fact.filter { it.isLetterOrDigit() }
+        val compactFact = fact.filter { it.isLetterOrDigit() }.lowercase()
         return candidates.filter { tag ->
-            val compactTag = tag.filter { it.isLetterOrDigit() }
+            val compactTag = tag.filter { it.isLetterOrDigit() }.lowercase()
             compactTag.isNotEmpty() && compactFact.contains(compactTag)
         }.take(max)
     }

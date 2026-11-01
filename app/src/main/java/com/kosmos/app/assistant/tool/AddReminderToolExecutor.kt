@@ -1,11 +1,13 @@
 package com.kosmos.app.assistant.tool
 
-import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.assistant.approval.ApprovalPreview
 import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.core.common.AppError
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.config.AppLanguageHolder
 import com.kosmos.app.core.security.ApprovalRules
+import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.usecase.AddReminderUseCase
 import com.kosmos.app.domain.util.IsoDateTimeParser
 import com.kosmos.app.platform.alarm.ReminderAlarmScheduler
@@ -22,21 +24,31 @@ import javax.inject.Inject
  * ### Key Flow
  * 1. 인자 검증([parse] — 승인·실행 공유, AddSchedule 규약). 지난 시각은 승인 요청 단계에서 PAST
  * 2. 사용자 승인(BaseAgent 공통 경로, REMINDER_WRITE → 기본 ApprovalSheet)
- * 3. 저장 → 알람 예약 → 한국어 표기로 결과 반환
+ * 3. 저장 → 알람 예약 → 한국어/영어 표기로 결과 반환
  */
 class AddReminderToolExecutor internal constructor(
     private val addReminderUseCase: AddReminderUseCase,
     private val reminderAlarmScheduler: ReminderAlarmScheduler,
     private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
+    private val languageProvider: () -> AppLanguage = { AppLanguage.KO },
     private val now: () -> Long
 ) : ToolExecutor {
 
-    /** Hilt 진입점 — 벽시계를 쓴다. 테스트는 내부 생성자로 시각을 고정한다(§2-④). */
+    /** 단위 테스트 하위 호환용 생성자. */
+    internal constructor(
+        addReminderUseCase: AddReminderUseCase,
+        reminderAlarmScheduler: ReminderAlarmScheduler,
+        widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
+        now: () -> Long
+    ) : this(addReminderUseCase, reminderAlarmScheduler, widgetRefresher, { AppLanguage.KO }, now)
+
+    /** Hilt 진입점 — 벽시계와 AppLanguageHolder 를 쓴다. 테스트는 내부 생성자로 시각을 고정한다(§2-④). */
     @Inject constructor(
         addReminderUseCase: AddReminderUseCase,
         reminderAlarmScheduler: ReminderAlarmScheduler,
-        widgetRefresher: com.kosmos.app.widget.WidgetRefresher
-    ) : this(addReminderUseCase, reminderAlarmScheduler, widgetRefresher, System::currentTimeMillis)
+        widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
+        appLanguageHolder: AppLanguageHolder
+    ) : this(addReminderUseCase, reminderAlarmScheduler, widgetRefresher, { appLanguageHolder.current }, System::currentTimeMillis)
 
     override val name: String = ToolNames.ADD_REMINDER
 
@@ -44,6 +56,7 @@ class AddReminderToolExecutor internal constructor(
 
     override fun buildApprovalRequest(args: ToolArguments, sessionId: String): ApprovalRequest {
         val draft = parse(args)
+        val en = languageProvider() == AppLanguage.EN
         // [WHY] 지난 시각은 카드를 띄우기 전에 되돌린다 — 예전에는 사용자가 승인한 뒤에야
         // UseCase 가 거절했다. 실행 쪽 검사(UseCase)는 그대로 둔다: 카드가 떠 있는 동안 시각이
         // 지나갈 수 있어 최종 판정은 실행 시점이어야 한다.
@@ -53,9 +66,9 @@ class AddReminderToolExecutor internal constructor(
         }
         return ApprovalRequest(
             sessionId = sessionId,
-            title = "알림 등록",
+            title = if (en) "Set Reminder" else "알림 등록",
             // [WHY] ISO 원문을 사용자에게 노출하지 않는다 — toDisplayKorean 단일 출처 (0.19.2).
-            description = "${draft.displayTime}에 알림: '${draft.content}'",
+            description = if (en) "Remind at ${draft.displayTime}: '${draft.content}'" else "${draft.displayTime}에 알림: '${draft.content}'",
             showsNotification = true,
             preview = ApprovalPreview(ApprovalPreview.Kind.REMINDER, draft.content, atIso = draft.time)
         )
@@ -63,6 +76,7 @@ class AddReminderToolExecutor internal constructor(
 
     override suspend fun execute(args: ToolArguments, sessionId: String): String {
         val draft = parse(args)
+        val en = languageProvider() == AppLanguage.EN
 
         return when (val res = addReminderUseCase(draft.content, draft.time)) {
             is AppResult.Success -> {
@@ -72,8 +86,13 @@ class AddReminderToolExecutor internal constructor(
                     reminderAlarmScheduler.schedule(res.data.id, triggerAtMs)
                 }
                 widgetRefresher.refresh()
+                val msg = if (en) {
+                    "Reminder set: '${draft.content}' at ${draft.displayTime}"
+                } else {
+                    "리마인더 등록: ${draft.displayTime}에 '${draft.content}' 알림"
+                }
                 ToolResultJson.withResult(
-                    ToolResultJson.success().put("message", "리마인더 등록: ${draft.displayTime}에 '${draft.content}' 알림"),
+                    ToolResultJson.success().put("message", msg),
                     kind = com.kosmos.app.domain.model.MessageResult.Kind.REMINDER.name,
                     ref = res.data.id
                 ).toString()
@@ -82,9 +101,10 @@ class AddReminderToolExecutor internal constructor(
                 // [WHY] 과거 시각은 형식 오류가 아니라 의미 오류다 — 모델이 자가수정할 수 있게
                 // 구체적 사유를 관측값으로 돌려준다 (BaseAgent 인자 오류 프로토콜과 같은 취지).
                 val message = if (res.error is AppError.ValidationError) {
-                    "이미 지난 시각입니다. 미래의 시각으로 다시 호출하세요."
+                    if (en) "That time has already passed. Call the tool again with a future time."
+                    else "이미 지난 시각입니다. 미래의 시각으로 다시 호출하세요."
                 } else {
-                    "리마인더 등록 실패"
+                    if (en) "Failed to set reminder" else "리마인더 등록 실패"
                 }
                 ToolResultJson.error(message)
             }
@@ -97,10 +117,11 @@ class AddReminderToolExecutor internal constructor(
      */
     private fun parse(args: ToolArguments): ReminderDraft {
         val time = args.requireIsoDateTime("time")
+        val lang = languageProvider()
         return ReminderDraft(
             time = time,
             content = args.requireString("content"),
-            displayTime = IsoDateTimeParser.toDisplayKorean(time) ?: time
+            displayTime = IsoDateTimeParser.toDisplayKorean(time, lang = lang) ?: time
         )
     }
 

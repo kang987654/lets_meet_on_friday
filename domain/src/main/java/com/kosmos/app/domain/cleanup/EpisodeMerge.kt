@@ -1,5 +1,6 @@
 package com.kosmos.app.domain.cleanup
 
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.domain.memory.ConversationRepository
@@ -10,6 +11,8 @@ import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.search.BigramMatcher
 import com.kosmos.app.domain.usecase.SummarizeEpisodeUseCase
+import com.kosmos.app.domain.util.ContentLanguage
+import com.kosmos.app.domain.util.IsoDateTimeParser
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
@@ -75,15 +78,24 @@ class PlanEpisodeMergeUseCase @Inject constructor(
     }
 
     private suspend fun judgeSame(a: Episode, b: Episode, zoneId: ZoneId): Boolean {
+        val sample = "${a.title.orEmpty()} ${a.summary.orEmpty()} ${b.title.orEmpty()} ${b.summary.orEmpty()}"
+        val lang = ContentLanguage.detect(sample, AppLanguage.KO)
+        val en = lang == AppLanguage.EN
+        val input = if (en) {
+            "Conversation A: ${describe(a, zoneId, AppLanguage.EN)}\nConversation B: ${describe(b, zoneId, AppLanguage.EN)}"
+        } else {
+            "대화 A: ${describe(a, zoneId, AppLanguage.KO)}\n대화 B: ${describe(b, zoneId, AppLanguage.KO)}"
+        }
         val prompt = ChatPrompt(
             sessionId = SESSION_ID,
-            systemInstruction = JUDGE_SYSTEM,
+            systemInstruction = if (en) JUDGE_SYSTEM_EN else JUDGE_SYSTEM,
             history = emptyList(),
-            currentInput = "대화 A: ${describe(a, zoneId)}\n대화 B: ${describe(b, zoneId)}",
+            currentInput = input,
             oneShot = true
         )
         val text = (modelRunner.generate(prompt) as? AppResult.Success)?.data?.text ?: return false
-        return VERDICT.find(text)?.groupValues?.get(1) == SAME
+        val verdict = VERDICT.find(text)?.groupValues?.get(1)?.lowercase() ?: return false
+        return verdict == SAME || verdict == SAME_EN
     }
 
     companion object {
@@ -92,7 +104,8 @@ class PlanEpisodeMergeUseCase @Inject constructor(
         private const val MIN_OVERLAP = 0.3
         private const val MIN_SHARED_TAGS = 2
         private const val SAME = "같음"
-        private val VERDICT = Regex("판정\\s*[:：]\\s*(같음|다름)")
+        private const val SAME_EN = "same"
+        private val VERDICT = Regex("(?i)(?:판정|Verdict)\\s*[:：]\\s*(같음|다름|Same|Different)")
 
         /**
          * 연속한 두 에피소드가 통합 후보인가 — exp44: containment 만이면 5/6("주말 러닝 계획 ↔ 러닝 준비물" 0.17 놓침),
@@ -103,14 +116,20 @@ class PlanEpisodeMergeUseCase @Inject constructor(
             val textA = a.title.orEmpty() + " " + a.tags.joinToString(" ")
             val textB = b.title.orEmpty() + " " + b.tags.joinToString(" ")
             if (BigramMatcher.containment(textA, textB) >= MIN_OVERLAP) return true
-            return a.tags.map { it.trim() }.toSet().intersect(b.tags.map { it.trim() }.toSet()).size >= MIN_SHARED_TAGS
+            return a.tags.map { it.trim().lowercase() }.toSet()
+                .intersect(b.tags.map { it.trim().lowercase() }.toSet()).size >= MIN_SHARED_TAGS
         }
 
         /** exp44 입력 형식 — "9월 24일 10시 · 제목: … · 태그: … · 요약: …". */
-        fun describe(e: Episode, zoneId: ZoneId): String {
+        fun describe(e: Episode, zoneId: ZoneId, lang: AppLanguage = AppLanguage.KO): String {
             val t = Instant.ofEpochMilli(e.startAt).atZone(zoneId)
-            return "${t.monthValue}월 ${t.dayOfMonth}일 ${t.hour}시 · 제목: ${e.title.orEmpty()} · " +
-                "태그: ${e.tags.joinToString(", ")} · 요약: ${e.summary.orEmpty()}"
+            return if (lang == AppLanguage.EN) {
+                val day = IsoDateTimeParser.monthDayKorean(e.startAt, zoneId, AppLanguage.EN)
+                "$day ${t.hour}:00 · Title: ${e.title.orEmpty()} · Tags: ${e.tags.joinToString(", ")} · Summary: ${e.summary.orEmpty()}"
+            } else {
+                "${t.monthValue}월 ${t.dayOfMonth}일 ${t.hour}시 · 제목: ${e.title.orEmpty()} · " +
+                    "태그: ${e.tags.joinToString(", ")} · 요약: ${e.summary.orEmpty()}"
+            }
         }
 
         /** exp44 원문 — 바꾸면 그 실측(참 6/6·오병합 1)이 무효가 된다. */
@@ -118,6 +137,12 @@ class PlanEpisodeMergeUseCase @Inject constructor(
             너는 대화 기록 정리 도우미다. 아래 두 대화 요약이 같은 일이 이어진 것인지 판정한다.
             같은 일이란 같은 약속·작업·계획·문제를 계속 이야기한 것이다. 분야가 같아도(둘 다 일정, 둘 다 비밀번호) 다른 일이면 '다름'이다.
             출력은 정확히 한 줄: 판정: 같음 또는 다름
+        """.trimIndent()
+
+        val JUDGE_SYSTEM_EN = """
+            You are a conversation log cleanup assistant. Decide whether the two conversation summaries below are a continuation of the exact same task or event.
+            The same task means continuing to discuss the exact same appointment, task, plan, or problem. Even if the category is the same (both schedules, both passwords), if they are different items, output 'Different'.
+            Output Must be a single line: Verdict: Same or Different
         """.trimIndent()
     }
 }

@@ -79,4 +79,25 @@ class SpeechOutputTest {
         assertNull(output.speakingMessageId.value)
         assertTrue(shadowOf(ShadowTextToSpeech.getLastTextToSpeechInstance()).isStopped)
     }
+
+    @Test
+    fun `영어 설정일 때는 영어 오프라인 음성을 고른다(0·40·0 M2b)`() = runTest {
+        val enOutput = SpeechOutput(
+            ApplicationProvider.getApplicationContext(),
+            settings
+        ) { com.kosmos.app.core.common.AppLanguage.EN }
+        val enVoice = Voice("en-test", Locale.US, Voice.QUALITY_HIGH, Voice.LATENCY_NORMAL, false, emptySet())
+        ShadowTextToSpeech.addVoice(enVoice)
+
+        val ok = kotlinx.coroutines.coroutineScope {
+            val result = async { enOutput.speak("m-en", "**Dentist** appointment is at 3 PM.") }
+            yield()
+            val tts = ShadowTextToSpeech.getLastTextToSpeechInstance()
+            shadowOf(tts).onInitListener.onInit(TextToSpeech.SUCCESS)
+            result.await()
+        }
+
+        assertTrue(ok)
+        assertEquals(SpeechOutput.VoiceStatus.READY, enOutput.voiceStatus.value)
+    }
 }
