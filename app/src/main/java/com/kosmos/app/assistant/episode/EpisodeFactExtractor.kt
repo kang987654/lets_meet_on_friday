@@ -105,9 +105,13 @@ class EpisodeFactExtractor @Inject constructor(
                 filtered++
                 continue
             }
+            // [WHY] 상위 개념 태그가 자리를 먼저 잡는다 — 본문에 이미 있는 낱말 태그가 칸을 다 채우면
+            // 본문에 없는 상위 개념(음료·병원)이 잘려 유의어 질문을 놓친다(ADR-032).
+            val extractedTags = facts.knowledgeTags[fact].orEmpty().distinct().take(MAX_TAGS)
             val literalTags = KnowledgeAutoSaveFilter.tagsFor(fact, episode.tags, MAX_TAGS)
-            val extractedTags = facts.knowledgeTags[fact].orEmpty()
-            val tags = (literalTags + extractedTags).distinct().take(MAX_TAGS)
+                .filterNot { it in extractedTags }
+                .take(MAX_TAGS - extractedTags.size)
+            val tags = literalTags + extractedTags
             if (saveKnowledge(fact, tags, KnowledgeNote.SOURCE_AUTO) is AppResult.Success) {
                 savedKnowledge++
             }

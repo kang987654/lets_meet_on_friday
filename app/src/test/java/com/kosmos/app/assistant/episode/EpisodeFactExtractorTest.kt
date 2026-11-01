@@ -262,4 +262,21 @@ class EpisodeFactExtractorTest {
             saveKnowledge("아침에는 커피보다 녹차를 더 마심", listOf("녹차", "음료", "차"), KnowledgeNote.SOURCE_AUTO)
         }
     }
+
+    @Test
+    fun `본문 일치 태그가 칸을 다 채워도 상위 개념 태그는 잘리지 않는다`() = runBlocking {
+        coEvery { extractFacts(any()) } returns AppResult.Success(
+            ExtractFactsUseCase.ExtractedFacts(
+                profile = emptyList(),
+                knowledge = listOf("아침에는 커피보다 녹차를 더 마심"),
+                knowledgeTags = mapOf("아침에는 커피보다 녹차를 더 마심" to listOf("음료", "차"))
+            )
+        )
+
+        extractor().extract(episode.copy(tags = listOf("커피", "녹차", "아침")), messages)
+
+        coVerify(exactly = 1) {
+            saveKnowledge("아침에는 커피보다 녹차를 더 마심", listOf("커피", "음료", "차"), KnowledgeNote.SOURCE_AUTO)
+        }
+    }
 }
