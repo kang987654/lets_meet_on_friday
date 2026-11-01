@@ -167,4 +167,13 @@ class ExtractFactsUseCaseTest {
         assertTrue(result is AppResult.Failure)
         assertTrue((result as AppResult.Failure).error is AppError.ValidationError)
     }
+
+    @Test
+    fun `지식 문장 끝에 붙은 대괄호 상위 개념 태그를 본문에서 떼어 knowledgeTags 에 담는다(0·39·6 M2)`() {
+        val facts = useCase().parse("프로필: 없음\n지식: 아침에 커피보다 녹차를 마심 [음료, 차]\n지식: 땅콩을 먹으면 두드러기가 남 [알레르기, 음식]")!!
+
+        assertEquals(listOf("아침에 커피보다 녹차를 마심", "땅콩을 먹으면 두드러기가 남"), facts.knowledge)
+        assertEquals(listOf("음료", "차"), facts.knowledgeTags["아침에 커피보다 녹차를 마심"])
+        assertEquals(listOf("알레르기", "음식"), facts.knowledgeTags["땅콩을 먹으면 두드러기가 남"])
+    }
 }

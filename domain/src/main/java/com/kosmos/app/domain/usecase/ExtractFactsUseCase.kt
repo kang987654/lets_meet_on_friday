@@ -34,10 +34,11 @@ class ExtractFactsUseCase @Inject constructor(
     private val tokenizer: Tokenizer
 ) {
 
-    /** 추출 결과. [profile] 은 "항목 → 값", [knowledge] 는 한 문장 사실. 둘 다 비어 있을 수 있다. */
+    /** 추출 결과. [profile] 은 "항목 → 값", [knowledge] 는 한 문장 사실, [knowledgeTags] 는 사실 문장 끝에 붙은 `[태그]` 목록. */
     data class ExtractedFacts(
         val profile: List<Pair<String, String>>,
-        val knowledge: List<String>
+        val knowledge: List<String>,
+        val knowledgeTags: Map<String, List<String>> = emptyMap()
     ) {
         val isEmpty: Boolean get() = profile.isEmpty() && knowledge.isEmpty()
     }
@@ -106,12 +107,24 @@ class ExtractFactsUseCase @Inject constructor(
         if (labeled == 0) return null
 
         val profile = profileBodies.flatMap(::splitProfileLine).take(MAX_PROFILE)
-        val knowledge = knowledgeBodies
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .distinct()
+        val parsedKnowledge = knowledgeBodies
+            .map(::splitKnowledgeTags)
+            .filter { it.first.isNotEmpty() }
+            .distinctBy { it.first }
             .take(minOf(MAX_KNOWLEDGE, MAX_TOTAL - profile.size))
-        return ExtractedFacts(profile = profile, knowledge = knowledge)
+        val knowledge = parsedKnowledge.map { it.first }
+        val knowledgeTags = parsedKnowledge
+            .filter { it.second.isNotEmpty() }
+            .associate { it.first to it.second }
+        return ExtractedFacts(profile = profile, knowledge = knowledge, knowledgeTags = knowledgeTags)
+    }
+
+    /** "아침에 커피보다 녹차를 마심 [음료, 차]" → ("아침에 커피보다 녹차를 마심", ["음료", "차"]). */
+    private fun splitKnowledgeTags(raw: String): Pair<String, List<String>> {
+        val match = TRAILING_TAGS.find(raw.trim()) ?: return raw.trim() to emptyList()
+        val body = raw.trim().substring(0, match.range.first).trim()
+        val tags = match.groupValues[1].split(",", "、").mapNotNull { it.trim().ifEmpty { null } }
+        return body to tags
     }
 
     /** "이름: 진우, 직업: 개발자" → [이름→진우, 직업→개발자]. 콜론 없는 조각은 앞 값에 붙인다(값 안의 쉼표 보존). */
@@ -136,7 +149,7 @@ class ExtractFactsUseCase @Inject constructor(
 
         internal const val USER_PREFIX = "다음 대화에서 기억할 사실을 골라내세요.\n\n"
 
-        // exp36 v2 원문 (scratch/lab/exp36_fact_extraction.py SYSTEM) — 바꾸기 전에 exp36 을 다시 돌릴 것.
+        // exp36 v2 + 0.39.6 M2(exp71 E1: 문장 끝 [상위 분류·동의어 태그] 추가 — 상위 개념 적중 0/11 → 11/11, 합성 6개 회수 8/8·오추출 0).
         internal val SYSTEM_INSTRUCTION = """
             [System]
             You extract durable facts about the user from a conversation log.
@@ -144,7 +157,7 @@ class ExtractFactsUseCase @Inject constructor(
             대화에 명시된 사실만 고르고, 추측·일반 상식·일회성 잡담·비서의 발언은 제외합니다. 예약·약속처럼 한 번 지나가는 일정은 캘린더가 맡으므로 제외합니다. 날짜·숫자는 원문 그대로, 사실 하나는 한 줄에 하나씩 씁니다.
             아래 형식만 출력하세요.
             프로필: (이름·호칭·말투 선호·직업·거주지·가족처럼 항상 관련 있는 사실 — "항목: 값" 형태, 최대 2개, 없으면 "없음")
-            지식: (특정 상황에서만 필요한 사실 — 비밀번호·번호·장소·습관·반복 일정, 최대 3개, 없으면 "없음")
+            지식: (특정 상황에서만 필요한 사실 — 비밀번호·번호·장소·습관·반복 일정, 문장 끝에 [상위 분류·동의어 태그 2~3개]를 붙임. 예: 아침에 커피보다 녹차를 마심 [음료, 차], 최대 3개, 없으면 "없음")
         """.trimIndent()
 
         private const val NONE = "없음"
@@ -154,6 +167,7 @@ class ExtractFactsUseCase @Inject constructor(
 
         private val LABEL_LINE = Regex("^\\s*[-*•]?\\s*(프로필|지식)\\s*[:：]\\s*(.*)$")
         private val BULLET_LINE = Regex("^\\s*[-*•]\\s+(.+)$")
+        private val TRAILING_TAGS = Regex("\\[([^\\]]+)]\\s*$")
 
         // [WHY] 요약과 같은 입력 상한 — 프리필 예산 상한([Constants.MAX_CONTEXT_TOKENS])에서 지시·구조 여유를 뺀 값.
         val MAX_INPUT_TOKENS = Constants.MAX_CONTEXT_TOKENS - 300

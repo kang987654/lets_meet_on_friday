@@ -105,7 +105,9 @@ class EpisodeFactExtractor @Inject constructor(
                 filtered++
                 continue
             }
-            val tags = KnowledgeAutoSaveFilter.tagsFor(fact, episode.tags, MAX_TAGS)
+            val literalTags = KnowledgeAutoSaveFilter.tagsFor(fact, episode.tags, MAX_TAGS)
+            val extractedTags = facts.knowledgeTags[fact].orEmpty()
+            val tags = (literalTags + extractedTags).distinct().take(MAX_TAGS)
             if (saveKnowledge(fact, tags, KnowledgeNote.SOURCE_AUTO) is AppResult.Success) {
                 savedKnowledge++
             }

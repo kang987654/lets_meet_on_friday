@@ -244,4 +244,22 @@ class EpisodeFactExtractorTest {
             auditTrailService.logModelRun(ExtractFactsUseCase.SESSION_ID, any(), match { it.contains("savedKnowledge=0") && it.contains("filtered=1") }, any())
         }
     }
+
+    @Test
+    fun `자동 추출된 사실에 상위 개념 태그가 붙어 있으면 본문 일치 태그와 합쳐 저장한다(0·39·6 M2)`() = runBlocking {
+        coEvery { extractFacts(any()) } returns AppResult.Success(
+            ExtractFactsUseCase.ExtractedFacts(
+                profile = emptyList(),
+                knowledge = listOf("아침에는 커피보다 녹차를 더 마심"),
+                knowledgeTags = mapOf("아침에는 커피보다 녹차를 더 마심" to listOf("음료", "차"))
+            )
+        )
+
+        val outcome = extractor().extract(episode.copy(tags = listOf("녹차", "자전거")), messages)
+
+        assertEquals(1, outcome!!.savedKnowledge)
+        coVerify(exactly = 1) {
+            saveKnowledge("아침에는 커피보다 녹차를 더 마심", listOf("녹차", "음료", "차"), KnowledgeNote.SOURCE_AUTO)
+        }
+    }
 }
