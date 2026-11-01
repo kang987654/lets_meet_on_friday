@@ -175,7 +175,80 @@ class SemanticRecallBenchmarkTest {
         assertEquals(40, enrichedHits)
     }
 
+    @Test
+    fun `영어 메모와 영문 혼합 한국어 메모도 무관한 메모 오염 없이 정확히 찾는다`() = runBlocking {
+        // 1. 영문 혼합 한국어 메모 불변 확인 ("KTX 예매", "와이파이 PIN 0427", "B2 구역 C-14")
+        val mixedKoNotes = listOf(
+            KnowledgeNote(id = "mk1", content = "부산행 KTX 예매 좌석은 5호차 12A", tags = listOf("KTX", "기차", "예매"), createdAt = 1L, updatedAt = 1L),
+            KnowledgeNote(id = "mk2", content = "거실 와이파이 PIN 번호는 0427", tags = listOf("와이파이", "PIN", "비밀번호"), createdAt = 2L, updatedAt = 2L),
+            KnowledgeNote(id = "mk3", content = "회사 지하 주차장 자리는 B2 구역 C-14", tags = listOf("주차장", "B2"), createdAt = 3L, updatedAt = 3L)
+        )
+        val mixedExec = inMemoryExecutor(mixedKoNotes)
+        assertTrue(isDirectHit(mixedExec.execute(ToolArguments.of(mapOf("keyword" to "KTX 좌석")), "s1"), "5호차 12A"))
+        assertTrue(isDirectHit(mixedExec.execute(ToolArguments.of(mapOf("keyword" to "와이파이 PIN")), "s1"), "0427"))
+        assertTrue(isDirectHit(mixedExec.execute(ToolArguments.of(mapOf("keyword" to "주차장 B2")), "s1"), "C-14"))
+
+        // 2. 영어 메모 상위 개념 검색 및 무관한 영어 메모("th"/"er" 겹침) 분리도 확인
+        val enNotes = EN_CASES.mapIndexed { idx, c ->
+            KnowledgeNote(id = c.id, content = c.content, tags = c.enrichedTags, createdAt = (idx + 1).toLong(), updatedAt = (idx + 1).toLong())
+        }
+        val enExec = inMemoryExecutor(enNotes)
+        for (c in EN_CASES) {
+            for (q in c.queries) {
+                val json = enExec.execute(ToolArguments.of(mapOf("keyword" to q)), "s1")
+                assertTrue("영어 질의 '$q' 가 '${c.content}' 를 찾아야 한다: $json", isDirectHit(json, c.content))
+            }
+        }
+        // 무관한 영어 질의("weather forecast tomorrow" — 'th', 'er', 'or' 글자가 겹침)가 엉뚱한 메모를 전수 스캔으로 끌어오지 않아야 한다.
+        val missJson = enExec.execute(ToolArguments.of(mapOf("keyword" to "weather forecast")), "s1")
+        val missData = JSONObject(missJson).optString("data")
+        assertTrue("무관한 영어 단어는 전수 스캔에 걸리지 않고 태그 폴백으로 가야 한다: $missData", missData.contains("일치하는 기억이 없습니다"))
+    }
+
     companion object {
+        val EN_CASES: List<Case> = listOf(
+            Case(
+                id = "en1",
+                content = "Bike lock code is 4821",
+                literalTags = listOf("bike", "lock", "code"),
+                enrichedTags = listOf("bike", "bicycle", "lock", "code", "password"),
+                queries = listOf("bike code", "bicycle password"),
+                kind = "surface"
+            ),
+            Case(
+                id = "en2",
+                content = "Drinks green tea instead of coffee in the morning",
+                literalTags = listOf("green tea", "coffee"),
+                enrichedTags = listOf("green tea", "coffee", "beverage", "drink"),
+                queries = listOf("favorite beverage", "morning drink"),
+                kind = "pure_semantic"
+            ),
+            Case(
+                id = "en3",
+                content = "Gets hives when eating peanuts or shrimp",
+                literalTags = listOf("peanuts", "shrimp", "hives"),
+                enrichedTags = listOf("peanuts", "shrimp", "allergy", "food"),
+                queries = listOf("food allergy", "allergic reaction"),
+                kind = "pure_semantic"
+            ),
+            Case(
+                id = "en4",
+                content = "Monthly checkup at Smile Dental Clinic near Gangnam Station",
+                literalTags = listOf("dental", "clinic"),
+                enrichedTags = listOf("dental", "clinic", "hospital", "dentist"),
+                queries = listOf("dentist clinic", "hospital checkup"),
+                kind = "pure_semantic"
+            ),
+            Case(
+                id = "en5",
+                content = "Runs 5km along the Han River every weekend morning",
+                literalTags = listOf("running", "river"),
+                enrichedTags = listOf("running", "exercise", "workout", "hobby"),
+                queries = listOf("weekend exercise", "workout routine"),
+                kind = "pure_semantic"
+            )
+        )
+
         val CASES: List<Case> = listOf(
             // --- 표면 변형 (surface, 4쌍 = 8질의): 붙여쓰기·축약어·부분 낱말 ---
             Case(

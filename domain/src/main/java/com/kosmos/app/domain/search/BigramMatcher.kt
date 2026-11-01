@@ -1,8 +1,10 @@
 package com.kosmos.app.domain.search
 
+import java.util.Locale
+
 /**
  * [BigramMatcher]
- * 문자 바이그램 겹침으로 질의 항과 문서의 어휘 유사도를 매깁니다 (C1+C′3, 0.25.0).
+ * 문자 바이그램(한글·숫자) + 소문자 단어/어간 토큰(라틴 알파벳) 겹침으로 질의 항과 문서의 어휘 유사도를 매깁니다 (C1+C′3, 0.25.0, 0.40.0 M1).
  *
  * ### Architecture Context
  * - **Layer**: Domain (Search) — 순수 함수, 의존성 없음
@@ -14,23 +16,76 @@ package com.kosmos.app.domain.search
  * 규모(문서 수백)에서 전수 스캔은 수 ms 다(BigramMatcherTest 2,000 문서 계측). FTS5 는 규모 게이트
  * (문서 2,000+ 또는 스캔 50ms+)에서 다시 본다 — ADR-025.
  *
- * [WHY] 바이그램(2글자 창)인 이유: 한국어는 조사·어미가 붙어("회의를", "회의에서") 어절 단위 토큰이
- * 불안정하고, 2글자 창은 "회의"를 보존한다. 3글자 창(FTS5 trigram)은 2글자 질의("회의")를 못 다룬다.
+ * [WHY] 한글은 조사·어미가 붙어("회의를", "회의에서") 어절 단위 토큰이 불안정하고, 2글자 창은 "회의"를 보존한다.
+ * 반면 영어(라틴 알파벳)는 공백을 지우고 2글자씩 자르면("mybikepassword" → "my", "yb", "ik", "ep") 단어 경계를 넘는 조각과
+ * "th"·"er"·"in" 같은 흔한 2글자가 무관한 영어 메모까지 높은 점수를 주므로(0.40.0 2차 검토), 라틴 단어는 단어 경계를 넘지 않는
+ * 소문자 단어/어간 토큰으로 매칭한다. 한글·숫자만 있는 한국어 문서는 기존 2글자 창과 100% 동일하다.
  */
 object BigramMatcher {
 
+    private val LATIN_WORD = Regex("[a-zA-Z]{2,}")
+    private val EN_STOPWORDS = setOf(
+        "the", "and", "for", "that", "this", "with", "from", "are", "was", "were",
+        "have", "has", "had", "what", "where", "when", "who", "how", "why", "into",
+        "onto", "about", "your", "our", "their", "his", "her", "its"
+    )
+
     /**
-     * 공백·구두점·기호를 지우고 2글자 창을 낸다 — exp33 `re.sub(r"[\s\W_]+", "", s)` 미러
-     * (문자·숫자만 남긴다). 1글자 이하면 빈 집합.
+     * 한글·숫자는 공백·구두점을 지운 2글자 창을 내고, 라틴 알파벳이 들어 있으면 단어 경계를 넘지 않는 소문자 단어/어간 토큰으로 뽑습니다.
      */
     fun bigrams(text: String): Set<String> {
-        val compact = buildString(text.length) {
-            for (ch in text) if (ch.isLetterOrDigit()) append(ch)
+        val hasLatin = text.any { it in 'a'..'z' || it in 'A'..'Z' }
+        if (!hasLatin) {
+            val compact = buildString(text.length) {
+                for (ch in text) if (ch.isLetterOrDigit()) append(ch)
+            }
+            if (compact.length < 2) return emptySet()
+            val out = HashSet<String>(compact.length)
+            for (i in 0 until compact.length - 1) out.add(compact.substring(i, i + 2))
+            return out
         }
-        if (compact.length < 2) return emptySet()
-        val out = HashSet<String>(compact.length)
-        for (i in 0 until compact.length - 1) out.add(compact.substring(i, i + 2))
+
+        val out = HashSet<String>(text.length)
+        // 1. 비-라틴(한글·숫자) 구간은 기존처럼 연속 2글자 창을 낸다 ("B2 구역 117번", "자전거 4821").
+        val nonLatinCompact = buildString(text.length) {
+            for (ch in text) {
+                if (ch.isLetterOrDigit() && ch !in 'a'..'z' && ch !in 'A'..'Z') append(ch)
+            }
+        }
+        for (i in 0 until nonLatinCompact.length - 1) {
+            out.add(nonLatinCompact.substring(i, i + 2))
+        }
+
+        // 2. 영숫자 혼합 코드("B2", "C14", "K20391", "sky7788") 보존을 위해 공백/기호로 나뉜 영숫자 덩어리 중 숫자가 섞인 것도 2글자 창으로 넣는다.
+        for (chunk in text.split(NON_ALNUM)) {
+            if (chunk.length >= 2 && chunk.any { it.isDigit() } && chunk.any { it in 'a'..'z' || it in 'A'..'Z' }) {
+                val lower = chunk.lowercase(Locale.ROOT)
+                for (i in 0 until lower.length - 1) out.add(lower.substring(i, i + 2))
+            }
+        }
+
+        // 3. 순수 라틴 단어는 소문자 단어 + 어간 토큰(`word:xxx`)으로 넣는다 — 단어 경계를 넘는 2글자나 "th"/"er" 오염을 막는다.
+        for (m in LATIN_WORD.findAll(text)) {
+            val w = m.value.lowercase(Locale.ROOT)
+            if (w in EN_STOPWORDS) continue
+            out.add("w:$w")
+            val stem = stemEnglish(w)
+            if (stem != w && stem.length >= 3) out.add("w:$stem")
+        }
         return out
+    }
+
+    private val NON_ALNUM = Regex("[^\\p{L}\\p{N}]+")
+
+    private fun stemEnglish(w: String): String = when {
+        w.length > 5 && w.endsWith("ing") -> w.dropLast(3).let { if (it.length >= 4 && it.last() == it[it.length - 2]) it.dropLast(1) else it }
+        w.length > 5 && w.endsWith("ic") -> w.dropLast(2)
+        w.length > 4 && w.endsWith("ies") -> w.dropLast(3) + "y"
+        w.length > 4 && w.endsWith("es") -> w.dropLast(2)
+        w.length > 4 && w.endsWith("ed") -> w.dropLast(2)
+        w.length > 4 && w.endsWith("y") -> w.dropLast(1)
+        w.length > 3 && w.endsWith("s") && !w.endsWith("ss") -> w.dropLast(1)
+        else -> w
     }
 
     /**

@@ -110,4 +110,30 @@ class IsoDateTimeParserTest {
         assertEquals("시작은 10월 26일 오후 4:30이", IsoDateTimeParser.humanizeStreaming("시작은 2026-10-26T16:30:00이", utc))
         assertEquals("오늘은 맑아요", IsoDateTimeParser.humanizeStreaming("오늘은 맑아요", utc))
     }
+
+    @Test
+    fun `영어(EN) 모드일 때 일시와 날짜를 영어 형식으로 표기한다`() {
+        val en = com.kosmos.app.core.common.AppLanguage.EN
+        assertEquals("Aug 20, 4:00 PM", IsoDateTimeParser.toDisplayKorean("2026-08-20T16:00:00", seoul, en))
+        assertEquals("Aug 15, All day", IsoDateTimeParser.toDisplayKorean("2026-08-15", seoul, en))
+        assertEquals("9:05 AM", IsoDateTimeParser.toDisplayTimeKorean("2026-08-28T09:05:00", seoul, en))
+        assertEquals("All day", IsoDateTimeParser.toDisplayTimeKorean("2026-08-28", seoul, en))
+        assertEquals("Sep 30 (Wed)", IsoDateTimeParser.toDisplayDateKorean("2026-09-30", seoul, en))
+        val sep30Ms = IsoDateTimeParser.toEpochMillis("2026-09-30T16:00:00", seoul)!!
+        assertEquals("Sep 30", IsoDateTimeParser.monthDayKorean(sep30Ms, seoul, en))
+        assertEquals("4:00 PM", IsoDateTimeParser.timeKorean(sep30Ms, seoul, en))
+        assertEquals("8:30 AM", IsoDateTimeParser.clockKorean(8 * 60 + 30, en))
+        assertEquals("Wednesday, Sep 30", IsoDateTimeParser.longDateKorean(sep30Ms, seoul, en))
+        val today = java.time.LocalDate.of(2026, 9, 30)
+        assertEquals("Today", IsoDateTimeParser.dayLabelKorean(today, today, en))
+        assertEquals("Yesterday", IsoDateTimeParser.dayLabelKorean(today.minusDays(1), today, en))
+        assertEquals("Sep 28", IsoDateTimeParser.dayLabelKorean(today.minusDays(2), today, en))
+        assertEquals("Wed 30", IsoDateTimeParser.dayWeekdayKorean(today, en))
+
+        val utc = ZoneId.of("UTC")
+        assertEquals(
+            "Starts at Oct 26, 4:30 PM and ends on Oct 26.",
+            IsoDateTimeParser.humanizeInText("Starts at 2026-10-26T16:30:00 and ends on 2026-10-26.", utc, en)
+        )
+    }
 }
