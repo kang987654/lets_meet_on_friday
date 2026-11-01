@@ -39,4 +39,16 @@ class RecallConflictTest {
         assertEquals(listOf("1234", "4321", "4521"), RecallConflict.otherValues(eps, bike))
         assertEquals(listOf("1234"), RecallConflict.otherValues(eps, bike, max = 1))
     }
+
+    @Test
+    fun `여러 주제가 섞인 요약이나 무관한 주제의 요약에서는 다른 주제의 숫자를 값으로 섞지 않는다`() {
+        val multiTopicEpisode = "(과거 대화) 회의실 및 비밀번호 이야기: 사용자는 다음 주 금요일 회의실이 5층 C룸이고 사물함 번호는 214번, 택배 송장번호는 6043 1122 9087이라고 말했어요. 이후 자전거 비밀번호를 4321로 바꿨다고 했어요."
+        val unrelatedEpisode = "(과거 대화) 사물함과 송장번호: 사물함 번호는 214번이고 택배 송장번호는 6043 1122 9087이라고 말했어요."
+
+        assertTrue(RecallConflict.contradicts(multiTopicEpisode, bike))
+        assertEquals(listOf("4321"), RecallConflict.otherValues(listOf(multiTopicEpisode), bike))
+
+        assertFalse("자전거가 전혀 언급되지 않은 다른 주제 요약은 충돌이 아니다", RecallConflict.contradicts(unrelatedEpisode, bike))
+        assertEquals(emptyList<String>(), RecallConflict.otherValues(listOf(unrelatedEpisode), bike))
+    }
 }

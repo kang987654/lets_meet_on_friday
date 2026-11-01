@@ -307,4 +307,35 @@ class SearchMemoryToolExecutorTest {
         assertTrue(data, data.startsWith("- (방금 이 대화) 내 자전거 비밀번호 4821이야 기억해줘\n(방금 이 대화)는 사용자가 방금 말한 가장 최신 값입니다."))
         assertTrue("메모 우선 안내는 싣지 않는다", !data.contains("둘이 다르면 메모의 값을 답하고"))
     }
+
+    @Test
+    fun `범용 어절로 함께 걸린 다른 주제 요약이나 여러 주제가 섞인 요약에서 무관한 숫자는 다른 값에 섞지 않는다(0·39·6 M1)`() = runBlocking {
+        val manual = note("k-manual", "자전거 비밀번호는 134")
+        val eps = listOf(
+            episode(
+                "e-multi",
+                "회의실 및 비밀번호 이야기",
+                "사용자는 회의실이 5층 C룸이고 사물함 번호는 214번, 택배 송장번호는 6043 1122 9087이라고 말했어요. 이후 자전거 비밀번호를 4321로 바꿨다고 했어요.",
+                listOf("자전거", "비밀번호")
+            ),
+            episode(
+                "e-other",
+                "사물함 비밀번호와 송장",
+                "사물함 비밀번호는 214번이고 송장번호는 6043 1122 9087이라고 말했어요.",
+                listOf("사물함", "비밀번호")
+            )
+        )
+        coEvery { repository.search(any(), any()) } returns AppResult.Success(listOf(manual))
+        coEvery { episodes.search(any(), any()) } returns AppResult.Success(eps)
+
+        val json = run("자전거 비밀번호")
+
+        assertTrue(json, json.contains("- (과거 대화) 1건에는 다른 값이 적혀 있습니다: 4321)"))
+        assertTrue("다른 주제의 숫자(5, 214, 6043)가 섞이면 안 된다", !json.contains("214번,") && !json.contains(": 5,"))
+        val result = org.json.JSONObject(json).getJSONObject("meta").getJSONObject("result")
+        val meta = org.json.JSONObject(result.getString("meta"))
+        assertEquals(1, meta.getInt("conflictCount"))
+        assertEquals(listOf("4321"), (0 until meta.getJSONArray("otherValues").length()).map { meta.getJSONArray("otherValues").getString(it) })
+        assertEquals(listOf("e-multi"), (0 until meta.getJSONArray("conflictEpisodeIds").length()).map { meta.getJSONArray("conflictEpisodeIds").getString(it) })
+    }
 }
