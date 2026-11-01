@@ -324,4 +324,78 @@ class EpisodeSummarizeSchedulerTest {
         coVerify(atLeast = 1) { summarize(any()) }
         assertTrue("재시도 카운트가 올라갔다: $saved", saved.none { it.retryCount > 0 || it.status == EpisodeStatus.FAILED })
     }
+
+    // --- 드레인 항목 사이 새 요청 확인 (0.39.4 M1) ---
+
+    @Test
+    fun `요약 도중 새 요청이 오면 자동 추출은 다음 조용한 창으로 미뤄지고 재요약하지 않는다`() = runBlocking {
+        var ep = closedEpisode("e1")
+        coEvery { episodeRepository.getById("e1") } answers { AppResult.Success(ep) }
+        coEvery { episodeRepository.update(any()) } answers {
+            ep = firstArg<Episode>(); saved += ep; AppResult.Success(Unit)
+        }
+        coEvery { conversationRepository.getByEpisode("e1") } returns AppResult.Success(messages())
+        var sumStarted = false
+        coEvery { summarize(any()) } coAnswers {
+            sumStarted = true
+            delay(300)
+            AppResult.Success(listOf(doc()))
+        }
+        val s = scheduler()
+
+        closed.emit(EpisodeBoundaryManager.ClosedEpisode("e1", EpisodeBoundaryManager.CloseTrigger.RESET))
+        delay(200)
+        s.onTurnCompleted()
+        waitUntil { sumStarted }
+        s.onUserActivity() // 요약 도중 새 요청 도착
+
+        waitUntil { saved.any { it.status == EpisodeStatus.SUMMARIZED } }
+        delay(150)
+        // 요약은 끝까지 돌았지만 자동 추출은 미뤄져야 한다
+        coVerify(exactly = 1) { summarize(any()) }
+        coVerify(exactly = 0) { factExtractor.extract(any(), any(), any()) }
+
+        // 다음 조용한 창에서 재요약 없이 자동 추출만 1회 돈다
+        s.onTurnCompleted()
+        waitUntil { runCatching { coVerify(exactly = 1) { factExtractor.extract(any(), any(), any()) } }.isSuccess }
+        coVerify(exactly = 1) { summarize(any()) }
+        coVerify(exactly = 1) {
+            factExtractor.extract(match { it.id == "e1" && it.tags == doc().tags }, messages(), any())
+        }
+    }
+
+    @Test
+    fun `두 항목 중 첫 항목 처리 중 새 요청이 오면 둘째 항목은 다음 창으로 미뤄진다`() = runBlocking {
+        var ep1 = closedEpisode("e1")
+        var ep2 = closedEpisode("e2")
+        coEvery { episodeRepository.getById("e1") } answers { AppResult.Success(ep1) }
+        coEvery { episodeRepository.getById("e2") } answers { AppResult.Success(ep2) }
+        coEvery { episodeRepository.update(any()) } answers {
+            val updated = firstArg<Episode>()
+            if (updated.id == "e1") ep1 = updated else if (updated.id == "e2") ep2 = updated
+            saved += updated
+            AppResult.Success(Unit)
+        }
+        coEvery { conversationRepository.getByEpisode(any()) } returns AppResult.Success(messages())
+        coEvery { summarize(any()) } returns AppResult.Success(listOf(doc()))
+        val s = scheduler()
+        coEvery { factExtractor.extract(match { it.id == "e1" }, any(), any()) } coAnswers {
+            s.onUserActivity() // 첫 항목의 추출 중 새 요청 도착
+            null
+        }
+
+        closed.emit(EpisodeBoundaryManager.ClosedEpisode("e1", EpisodeBoundaryManager.CloseTrigger.RESET))
+        closed.emit(EpisodeBoundaryManager.ClosedEpisode("e2", EpisodeBoundaryManager.CloseTrigger.RESET))
+        delay(200)
+        s.onTurnCompleted()
+        waitUntil { saved.any { it.id == "e1" && it.status == EpisodeStatus.SUMMARIZED } }
+        delay(200)
+
+        assertTrue("둘째 항목이 새 요청을 무시하고 돌았다", saved.none { it.id == "e2" && it.status == EpisodeStatus.SUMMARIZED })
+
+        // 다음 창에서 둘째 항목이 처리된다
+        s.onTurnCompleted()
+        waitUntil { saved.any { it.id == "e2" && it.status == EpisodeStatus.SUMMARIZED } }
+        assertTrue(saved.any { it.id == "e2" && it.status == EpisodeStatus.SUMMARIZED })
+    }
 }

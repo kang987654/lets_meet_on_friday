@@ -69,6 +69,8 @@ class EpisodeSummarizeScheduler @Inject constructor(
     // [WHY] 0.30.0: 수동 기억 정리와 같은 뮤텍스를 쓴다 — 정리 중 드레인은 정리가 끝난 뒤로 미뤄진다(BackgroundInferenceGate).
     private val drainMutex = inferenceGate.mutex
     private val deferred = ArrayDeque<String>()
+    private val pendingExtractions = LinkedHashSet<String>()
+    private val userActivitySeq = java.util.concurrent.atomic.AtomicLong(0)
     private val started = java.util.concurrent.atomic.AtomicBoolean(false)
     private val quietLock = Any()
     private var waiting: Job? = null
@@ -94,8 +96,9 @@ class EpisodeSummarizeScheduler @Inject constructor(
         }
     }
 
-    /** 오케스트레이터가 사용자 요청을 받자마자 호출 — 기다리던 요약을 미루고 조용해지기를 다시 센다. */
+    /** 오케스트레이터가 사용자 요청을 받자마자 호출 — 기다리던 요약을 미루고, 드레인이 항목 사이면 멈추게 한다. */
     fun onUserActivity() {
+        userActivitySeq.incrementAndGet()
         synchronized(quietLock) {
             waiting?.cancel()
             waiting = null
@@ -139,6 +142,7 @@ class EpisodeSummarizeScheduler @Inject constructor(
     }
 
     private suspend fun drain(now: Long = System.currentTimeMillis()) = drainMutex.withLock {
+        val activityAtStart = userActivitySeq.get()
         // [WHY] 스냅샷 배치 — 지금 큐에 있는 것만 처리한다. removeFirst 루프로 돌리면 발열
         // 게이트가 되돌려 넣은(addLast) 항목을 같은 루프가 즉시 다시 꺼내 **발열이 식을 때까지
         // 무한 회전**한다(테스트가 잡은 결함 — 뮤텍스를 쥔 채라 이후 드레인도 전부 막힌다).
@@ -148,19 +152,50 @@ class EpisodeSummarizeScheduler @Inject constructor(
             deferred.clear()
             b
         }
-        for (id in batch) process(id, now)
+        for (i in batch.indices) {
+            // [WHY] 드레인이 요약 → 자동 추출 → 다음 에피소드를 연달아 돌아 그사이 들어온 질문이 기다렸다(0.39.1 M3·0.39.4 M0).
+            // 돌고 있는 추론은 취소하지 않되(0.38.6 결함 경로), 항목 사이·추출 전에 새 요청이 있었으면 남은 항목을 큐 앞쪽으로 되돌리고 멈춘다.
+            if (userActivitySeq.get() != activityAtStart) {
+                requeueFront(batch.subList(i, batch.size))
+                return@withLock
+            }
+            val interruptedDuringItem = process(batch[i], now, activityAtStart)
+            if (interruptedDuringItem) {
+                requeueFront(batch.subList(i + 1, batch.size))
+                return@withLock
+            }
+        }
     }
 
-    private suspend fun process(episodeId: String, now: Long) {
+    private fun requeueFront(ids: List<String>) {
+        synchronized(deferred) {
+            for (id in ids.asReversed()) {
+                if (id !in deferred) deferred.addFirst(id)
+            }
+        }
+    }
+
+    private suspend fun process(episodeId: String, now: Long, activityAtStart: Long): Boolean {
         // [WHY] 발열 게이트 — 경고 온도(43°C) 이상이면 미룬다. 요약은 급하지 않은 추론이고,
         // 다음 드레인(턴 종료/Ready)에서 재시도된다.
         if (metricsCollector.shouldDeferBackgroundInference()) {
             synchronized(deferred) { deferred.addLast(episodeId) }
-            return
+            return false
         }
 
-        val episode = (episodeRepository.getById(episodeId) as? AppResult.Success)?.data ?: return
-        if (episode.status != EpisodeStatus.CLOSED) return // 이미 처리됐거나 종결
+        val episode = (episodeRepository.getById(episodeId) as? AppResult.Success)?.data ?: return false
+        val extractOnly = synchronized(deferred) { episodeId in pendingExtractions }
+        if (extractOnly) {
+            synchronized(deferred) { pendingExtractions.remove(episodeId) }
+            if (episode.status != EpisodeStatus.SUMMARIZED) return false
+            val messages = (conversationRepository.getByEpisode(episodeId) as? AppResult.Success)
+                ?.data.orEmpty()
+            if (messages.isEmpty()) return false
+            runCatchingCancellable { factExtractor.extract(episode, messages) }
+                .onFailure { AppLogger.w(TAG, "자동 추출 예외(${episode.id}): ${it.message}") }
+            return false
+        }
+        if (episode.status != EpisodeStatus.CLOSED) return false // 이미 처리됐거나 종결
 
         val messages = (conversationRepository.getByEpisode(episodeId) as? AppResult.Success)
             ?.data.orEmpty()
@@ -168,12 +203,21 @@ class EpisodeSummarizeScheduler @Inject constructor(
             // [WHY] 내용 없는 에피소드(경계 직후 강제종료 등)는 요약할 것이 없다 — 남겨 두면
             // catch-up 이 영원히 재시도하므로 지운다. 원문 메시지가 없으니 잃는 것도 없다.
             episodeRepository.delete(episodeId)
-            return
+            return false
         }
 
         when (val result = summarizeEpisode(messages)) {
             is AppResult.Success -> {
                 applyDocs(episode, result.data, now)
+                // [WHY] 요약 도중 사용자 요청이 들어왔으면 자동 추출은 다음 조용한 창으로 미룬다(0.39.4 M1).
+                // 이미 SUMMARIZED 로 바뀌었으므로 pendingExtractions 에 표시해 두어 다음 창에서 재요약 없이 추출만 돈다.
+                if (userActivitySeq.get() != activityAtStart) {
+                    synchronized(deferred) {
+                        pendingExtractions.add(episodeId)
+                        if (episodeId !in deferred) deferred.addFirst(episodeId)
+                    }
+                    return true
+                }
                 // [WHY] 자동 추출(C′2)은 요약 **성공 직후 같은 드레인**에서 1회 — 발열 게이트를
                 // 이미 지났고 llmDispatcher 경합도 없는 자리다. 실패·재시도 경로에서는 부르지
                 // 않는다(재시도마다 중복 추출 방지). 추출 실패는 요약 상태에 영향을 주지 않는다.
@@ -197,6 +241,7 @@ class EpisodeSummarizeScheduler @Inject constructor(
                 AppLogger.w(TAG, "에피소드 요약 실패(${retried.retryCount}/${MAX_RETRY}): ${result.error}")
             }
         }
+        return false
     }
 
     /**
