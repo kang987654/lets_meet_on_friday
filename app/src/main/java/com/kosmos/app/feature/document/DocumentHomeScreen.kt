@@ -70,7 +70,10 @@ fun DocumentHomeScreen(
                     context.startActivity(DocumentViewerActivity.intent(context, event.uri.toUri(), event.mimeType))
                 is DocumentHomeViewModel.Event.AccessLost ->
                     snackbar.showSnackbar(
-                        resources.getString(R.string.doc_home_access_lost_snackbar, event.name)
+                        resources.getString(
+                            R.string.doc_home_access_lost_snackbar,
+                            event.name.ifBlank { resources.getString(R.string.doc_viewer_default_title) }
+                        )
                     )
             }
         }
@@ -83,7 +86,10 @@ fun DocumentHomeScreen(
             // [WHY] 화면을 떠나 스낵바가 취소돼도 권한은 돌려준다 — finally 의 remove 는 viewModelScope 에서 돈다.
             try {
                 snackbar.showUndo(
-                    message = resources.getString(R.string.doc_home_removed_snackbar, document.name),
+                    message = resources.getString(
+                        R.string.doc_home_removed_snackbar,
+                        document.name.ifBlank { resources.getString(R.string.doc_viewer_default_title) }
+                    ),
                     actionLabel = resources.getString(R.string.common_undo)
                 ) { undone = true; viewModel.restore(document) }
             } finally {
@@ -150,7 +156,7 @@ private fun RecentRow(document: RecentDocument, position: GroupPosition, onClick
     val zone = java.time.ZoneId.systemDefault()
     val openedDay = java.time.Instant.ofEpochMilli(document.openedAt).atZone(zone).toLocalDate()
     com.kosmos.app.ui.component.KosmosListRow(
-        title = document.name,
+        title = document.name.ifBlank { stringResource(R.string.doc_viewer_default_title) },
         supporting = "${IsoDateTimeParser.dayLabelKorean(openedDay, today, lang)} ${IsoDateTimeParser.timeKorean(document.openedAt, lang = lang)}",
         leadingIcon = documentIcon(document),
         titleMaxLines = 1,

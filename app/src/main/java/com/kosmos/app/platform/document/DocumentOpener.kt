@@ -113,9 +113,10 @@ class AndroidDocumentOpener @Inject constructor(
     override suspend fun open(uri: Uri, mimeTypeHint: String?): DocumentResult<OpenedDocument> = withContext(Dispatchers.IO) {
         try {
             // [WHY] 표시 이름이 없는 file:// URI 는 마지막 경로 조각을 쓰는데, 경로 구분자가 섞여 오는 경우(백슬래시 경로 등)가
-            // 있어 마지막 조각만 남긴다 — 상단 바에 전체 경로가 보이지 않게.
+            // 있어 마지막 조각만 남긴다 — 상단 바에 전체 경로가 보이지 않게. 기본 제목은 현재 로케일 리소스를 쓴다(0.40.2 M2-7).
             val name = (context.contentResolver.displayName(uri) ?: uri.lastPathSegment)
-                ?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() } ?: "문서"
+                ?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }
+                ?: context.getString(com.kosmos.app.R.string.doc_viewer_default_title)
             val mime = runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: mimeTypeHint
             when (DocumentType.detect(mime, name)) {
                 DocumentType.XLSX -> openXlsx(uri, name)
@@ -253,23 +254,43 @@ class AndroidDocumentOpener @Inject constructor(
         return target
     }
 
-    private fun java.io.InputStream.readNBytesCompat(n: Int): ByteArray {
-        val out = ByteArray(n)
-        var read = 0
-        while (read < n) {
-            val r = read(out, read, n - read)
-            if (r < 0) break
-            read += r
-        }
-        return out.copyOf(read)
-    }
-
     private companion object {
         const val TAG = "DocumentOpener"
         const val CACHE_DIR = "documents"
         const val STALE_MS = 24L * 60 * 60 * 1000
         const val MAX_FILE_BYTES = 100L * 1024 * 1024
     }
+}
+
+private fun java.io.InputStream.readNBytesCompat(n: Int): ByteArray {
+    val out = ByteArray(n)
+    var read = 0
+    while (read < n) {
+        val r = read(out, read, n - read)
+        if (r < 0) break
+        read += r
+    }
+    return out.copyOf(read)
+}
+
+/**
+ * [input] 에서 최대 [maxBytes] 바이트까지만 읽습니다. [maxBytes] 를 초과하면 `null` 을 돌려줍니다 (0.40.2 M2-6).
+ *
+ * [WHY] `readBytes()` 로 엔트리 전체를 메모리에 올린 뒤 크기를 재면 압축 해제 폭탄이나 초고해상도 이미지에서
+ * 검사 전에 OOM 이 난다. `maxBytes + 1` 바이트까지만 읽고 멈춰 상한 초과를 안전하게 거른다.
+ */
+internal fun readBytesUpTo(input: java.io.InputStream, maxBytes: Int): ByteArray? {
+    val buffer = ByteArray(minOf(maxBytes + 1, 64 * 1024))
+    val out = java.io.ByteArrayOutputStream()
+    var total = 0
+    while (total <= maxBytes) {
+        val toRead = minOf(buffer.size, maxBytes + 1 - total)
+        val n = input.read(buffer, 0, toRead)
+        if (n < 0) break
+        out.write(buffer, 0, n)
+        total += n
+    }
+    return if (total > maxBytes) null else out.toByteArray()
 }
 
 /**
@@ -361,8 +382,7 @@ private class FlowImages(private val source: ZipSource) {
         cache.get(entryName)?.let { return@withLock it }
         withContext(Dispatchers.IO) {
             runCatching {
-                val bytes = source.open(entryName)?.use { it.readBytes() } ?: return@runCatching null
-                if (bytes.size > MAX_IMAGE_BYTES) return@runCatching null
+                val bytes = source.open(entryName)?.use { readBytesUpTo(it, MAX_IMAGE_BYTES) } ?: return@runCatching null
                 val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
                 var sample = 1

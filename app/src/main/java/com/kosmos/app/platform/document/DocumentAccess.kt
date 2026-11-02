@@ -42,7 +42,9 @@ class AndroidDocumentAccess @Inject constructor(
             resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }.onFailure { AppLogger.w(TAG, "영구 권한 실패: ${it.message}") }.isSuccess
         if (!persisted) return@withContext null
-        val name = resolver.displayName(uri) ?: "문서"
+        // [WHY] 이름을 모를 때 "문서" 를 그대로 저장하면 언어를 영어로 바꿔도 DataStore 에 한국어가 박혀 남는다(0.40.2 M2-7).
+        // 빈 문자열로 저장하고 화면에서 현재 로케일 리소스(doc_viewer_default_title)로 대체한다.
+        val name = resolver.displayName(uri).orEmpty()
         RecentDocument(uri.toString(), name, runCatching { resolver.getType(uri) }.getOrNull(), now)
     }
 

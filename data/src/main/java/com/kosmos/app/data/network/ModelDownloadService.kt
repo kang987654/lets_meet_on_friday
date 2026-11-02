@@ -137,6 +137,15 @@ class ModelDownloadService @Inject constructor(
         PartMeta.write(metaFile, PartMeta(url, probe.entityTag, probe.totalBytes))
 
         try {
+            // [WHY] 스트림이 다 내려받아진 직후 확정(rename) 전에 종료·취소된 경우 .part 길이가 전체 크기와 같다(0.40.2 M2-5).
+            // 이때 Range: bytes=<total>- 를 보내면 서버가 416 을 돌려줘 다 받은 3.6GB 파일을 지우고 처음부터 다시 받게 된다.
+            if (resumeFrom > 0 && probe.totalBytes > 0 && resumeFrom == probe.totalBytes) {
+                verifyAndFinalize(part, target, expected = probe.totalBytes)
+                metaFile.delete()
+                emit(DownloadProgress(target.length(), target.length()))
+                return@flow
+            }
+
             val request = Request.Builder().url(url).apply {
                 if (resumeFrom > 0) {
                     header("Range", "bytes=$resumeFrom-")
@@ -227,15 +236,17 @@ class ModelDownloadService @Inject constructor(
                 "Size mismatch: expected $expected bytes, got ${part.length()}"
             )
         }
+        // [WHY] 크기 검증을 통과한 뒤의 파일 교체 실패는 Permanent 로 던지면 catch 블록이 완성된 .part 파일을
+        // 지워버린다(0.40.2 M2-5). Transient 로 던져 .part 를 보존하고 다음 시도에서 재전송 없이 확정만 다시 시도하게 한다.
         val backup = File(target.parentFile, target.name + Constants.MODEL_BACKUP_SUFFIX)
         backup.delete()
         val staged = target.exists()
         if (staged && !target.renameTo(backup)) {
-            throw ModelDownloadException.Permanent("Cannot stage existing model: ${target.name}")
+            throw ModelDownloadException.Transient("Cannot stage existing model: ${target.name}")
         }
         if (!part.renameTo(target)) {
             if (staged) backup.renameTo(target)
-            throw ModelDownloadException.Permanent("Cannot finalize model file: ${target.name}")
+            throw ModelDownloadException.Transient("Cannot finalize model file: ${target.name}")
         }
         backup.delete()
     }

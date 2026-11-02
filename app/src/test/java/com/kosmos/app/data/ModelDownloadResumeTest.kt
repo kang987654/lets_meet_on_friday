@@ -236,4 +236,21 @@ class ModelDownloadResumeTest {
         assertFalse(meta.exists())
         assertEquals(0L, service.partialBytes(url, fileName))
     }
+
+    @Test
+    fun `부분 파일이 이미 전체 크기면 다시 받지 않고 확정한다`() {
+        // [WHY] 다 받은 직후 확정(rename) 전에 종료되면 .part 길이가 전체 크기와 같다(0.40.2 M2-5).
+        // Range 요청을 보내면 416 으로 파일이 지워지므로 전송 요청 없이 바로 확정해야 한다.
+        part.writeBytes(body)
+        meta.writeText("""{"url":"$url","entityTag":"\"v1\"","totalBytes":${body.size}}""")
+        server.enqueue(headResponse())
+
+        val emissions = download()
+
+        assertEquals("HEAD 프로브 1건만 가고 본문/Range 요청은 가지 않아야 한다", 1, server.requestCount)
+        assertArrayEquals(body, target.readBytes())
+        assertFalse(part.exists())
+        assertFalse(meta.exists())
+        assertEquals(body.size.toLong(), emissions.last().downloadedBytes)
+    }
 }

@@ -153,15 +153,20 @@ class ExportImportManager @Inject constructor(
                 return@withContext AppResult.Failure(AppError.ImportSchemaMismatch("Database file not found in the backup."))
             }
 
-            // [WHY] 더 새 앱에서 만든 백업은 거부한다. 그대로 덮어쓰면 다음 실행에서 Room 이
-            // 다운그레이드를 만나 fallbackToDestructiveMigrationOnDowngrade(dropAllTables) 로
-            // 복원한 기억을 **조용히 전부 지운다**. 내보내기는 WAL 을 체크포인트한 뒤 묶으므로
-            // 메인 파일 헤더의 user_version 이 곧 스키마 버전이다.
+            // [WHY] 더 새 앱에서 만든 백업이나 마이그레이션 경로가 없는 너무 옛 백업은 거부한다(0.40.2 M2-4).
+            // 새 백업을 그대로 덮어쓰면 다음 실행에서 Room 이 다운그레이드를 만나 fallbackToDestructiveMigrationOnDowngrade(dropAllTables) 로
+            // 복원한 기억을 **조용히 전부 지우고**, 최소 지원 버전 미만 백업은 업그레이드 경로가 없어 실행마다 크래시한다.
             val backupVersion = readSqliteUserVersion(extractedDb)
                 ?: return@withContext AppResult.Failure(AppError.ImportSchemaMismatch("Backup database header is unreadable."))
             if (backupVersion > KosmosDatabase.SCHEMA_VERSION) {
                 return@withContext AppResult.Failure(
                     AppError.ImportSchemaMismatch("Backup schema v$backupVersion is newer than app schema v${KosmosDatabase.SCHEMA_VERSION}.")
+                )
+            }
+            val minVersion = minSupportedSchemaVersion()
+            if (backupVersion < minVersion) {
+                return@withContext AppResult.Failure(
+                    AppError.ImportSchemaMismatch("Backup schema v$backupVersion is older than the oldest supported v$minVersion.")
                 )
             }
 
@@ -172,27 +177,8 @@ class ExportImportManager @Inject constructor(
             }
 
             val dbFile = context.getDatabasePath(dbName)
-            val dbDir = dbFile.parentFile ?: return@withContext AppResult.Failure(AppError.ImportFailed("Invalid DB path"))
-            if (!dbDir.exists()) dbDir.mkdirs()
-
-            extractedDb.copyTo(dbFile, overwrite = true)
-
-            // 4. 사이드카 교체 — 백업에 없으면 반드시 삭제.
-            // [WHY] stale -wal이 남으면 복원된 메인 DB 위에서 옛 트랜잭션이 재생되어 손상된다.
-            val walTarget = File(dbFile.absolutePath + "-wal")
-            val extractedWal = File(tempDir, "$dbName-wal")
-            if (extractedWal.exists()) {
-                extractedWal.copyTo(walTarget, overwrite = true)
-            } else if (walTarget.exists()) {
-                walTarget.delete()
-            }
-
-            val shmTarget = File(dbFile.absolutePath + "-shm")
-            val extractedShm = File(tempDir, "$dbName-shm")
-            if (extractedShm.exists()) {
-                extractedShm.copyTo(shmTarget, overwrite = true)
-            } else if (shmTarget.exists()) {
-                shmTarget.delete()
+            if (!replaceDatabaseFiles(tempDir, dbFile, dbName)) {
+                return@withContext AppResult.Failure(AppError.ImportFailed("Database replace failed"))
             }
 
             AppResult.Success(Unit)
@@ -287,3 +273,89 @@ fun readSqliteUserVersion(file: File): Int? = runCatching {
         raf.readInt()
     }
 }.getOrNull()
+
+/**
+ * 마이그레이션 경로가 존재하는 최소 지원 스키마 버전 (0.40.2 M2-4).
+ *
+ * [WHY] `:data` 에는 테스트 소스셋이 없어 `:app` 의 단위 테스트가 부를 수 있게 [readSqliteUserVersion] 과
+ * 마찬가지로 공개 함수로 둔다.
+ */
+fun minSupportedSchemaVersion(): Int =
+    com.kosmos.app.data.local.db.KosmosMigrations.ALL.minOf { it.startVersion }
+
+/** 백업 스키마 버전 [version] 이 현재 앱에서 복원 가능한 범위인지 판정합니다 (0.40.2 M2-4). */
+fun isRestorableVersion(version: Int): Boolean =
+    version in minSupportedSchemaVersion()..KosmosDatabase.SCHEMA_VERSION
+
+/**
+ * 압축 해제된 백업 DB([extractedDir])로 현재 DB([dbFile])를 원자적으로 교체합니다 (0.40.2 M2-4).
+ *
+ * [WHY] `File.copyTo(target, overwrite = true)` 는 대상을 **먼저 삭제한 뒤** 복사하므로, 복사 도중 디스크 공간 부족 등으로
+ * 실패하면 기존 `kosmos_db` 가 사라진 채 끝난다. 같은 폴더의 `.restore-tmp` 임시 파일로 먼저 복사를 마치고 크기까지 확인한 뒤
+ * `renameTo` 로 교체해야 실패 시에도 원래 DB 가 온전히 남는다.
+ */
+fun replaceDatabaseFiles(
+    extractedDir: File,
+    dbFile: File,
+    dbName: String,
+    copy: (File, File) -> Unit = { s, d -> s.copyTo(d, overwrite = true) }
+): Boolean {
+    val dbDir = dbFile.parentFile ?: return false
+    if (!dbDir.exists() && !dbDir.mkdirs()) return false
+
+    val extractedDb = File(extractedDir, dbName)
+    if (!extractedDb.exists()) return false
+    val extractedWal = File(extractedDir, "$dbName-wal")
+    val hasWal = extractedWal.exists()
+
+    val tmpDb = File(dbDir, "$dbName.restore-tmp")
+    val tmpWal = File(dbDir, "$dbName-wal.restore-tmp")
+    tmpDb.delete()
+    tmpWal.delete()
+
+    val staged = runCatching {
+        copy(extractedDb, tmpDb)
+        if (!tmpDb.exists() || tmpDb.length() != extractedDb.length()) return@runCatching false
+        if (hasWal) {
+            copy(extractedWal, tmpWal)
+            if (!tmpWal.exists() || tmpWal.length() != extractedWal.length()) return@runCatching false
+        }
+        true
+    }.getOrDefault(false)
+
+    if (!staged) {
+        tmpDb.delete()
+        tmpWal.delete()
+        return false
+    }
+
+    val walTarget = File(dbFile.absolutePath + "-wal")
+    val shmTarget = File(dbFile.absolutePath + "-shm")
+
+    if (dbFile.exists() && !dbFile.delete()) {
+        tmpDb.delete()
+        tmpWal.delete()
+        return false
+    }
+    if (!tmpDb.renameTo(dbFile)) {
+        tmpDb.delete()
+        tmpWal.delete()
+        return false
+    }
+
+    if (hasWal) {
+        if (walTarget.exists()) walTarget.delete()
+        if (!tmpWal.renameTo(walTarget)) {
+            tmpWal.delete()
+            return false
+        }
+    } else if (walTarget.exists()) {
+        walTarget.delete()
+    }
+
+    // [WHY] 공유 메모리 색인(-shm)은 복사하지 않고 삭제만 한다 — 다음 연결 때 SQLite 가 재생성한다.
+    if (shmTarget.exists()) {
+        shmTarget.delete()
+    }
+    return true
+}
