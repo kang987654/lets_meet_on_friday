@@ -66,11 +66,16 @@ fun SheetView(
     onRowNumberClick: ((Int) -> Unit)? = null
 ) {
     // [WHY] 열 너비는 실제 글꼴로 잰다 — 글자 수 × 고정 폭으로 어림하면 HadaRound 숫자가 더 넓어 금액이 "100…"으로 잘렸다(0.38.5 impeccable P1).
+    // 굵은 칸(bold)은 보통 굵기보다 넓으므로 그 칸의 굵기 스타일로 측정한다(0.40.2 M3-14).
     val measurer = rememberTextMeasurer()
-    val cellStyle = LocalTextStyle.current.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal)
+    val normalCellStyle = LocalTextStyle.current.copy(fontSize = SHEET_CELL_FONT_SIZE, fontWeight = FontWeight.Normal)
+    val boldCellStyle = LocalTextStyle.current.copy(fontSize = SHEET_CELL_FONT_SIZE, fontWeight = FontWeight.Bold)
     val density = LocalDensity.current
-    val layout = remember(sheet, cellStyle, density) {
-        SheetLayout.of(sheet) { text -> with(density) { measurer.measure(text, cellStyle, maxLines = 1, softWrap = false).size.width.toDp() } }
+    val layout = remember(sheet, normalCellStyle, boldCellStyle, density) {
+        SheetLayout.of(sheet) { text, bold ->
+            val style = if (bold) boldCellStyle else normalCellStyle
+            with(density) { measurer.measure(text, style, maxLines = 1, softWrap = false).size.width.toDp() }
+        }
     }
     val horizontal = rememberScrollState()
     val colors = KosmosTheme.colors
@@ -241,7 +246,7 @@ private fun GridCell(
         Text(
             text = text.replace('\n', ' '),
             color = if (header) colors.textMuted else paint?.text ?: colors.textPrimary,
-            fontSize = if (header) 11.sp else 13.sp,
+            fontSize = if (header) SHEET_HEADER_FONT_SIZE else SHEET_CELL_FONT_SIZE,
             fontWeight = if (header) FontWeight.Medium else if (paint?.bold == true) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -262,24 +267,27 @@ private fun GridCell(
  */
 private class Fit(val all: List<Dp>, val numeric: List<Dp>)
 
-private fun fittedWidths(sheet: Sheet, columnCount: Int, measure: (String) -> Dp): Fit {
-    val all = List(columnCount) { mutableListOf<String>() }
-    val numeric = List(columnCount) { mutableListOf<String>() }
+private data class FitSample(val text: String, val bold: Boolean)
+
+private fun fittedWidths(sheet: Sheet, columnCount: Int, measure: (String, Boolean) -> Dp): Fit {
+    val all = List(columnCount) { mutableListOf<FitSample>() }
+    val numeric = List(columnCount) { mutableListOf<FitSample>() }
     // 여러 열에 걸친 병합 칸은 넓이를 합쳐 쓰므로 한 열의 너비를 정하는 데 넣지 않는다.
     val spanning = sheet.merges.filter { it.lastColumn > it.firstColumn }.map { it.firstRow to it.firstColumn }.toSet()
     sheet.rows.take(FIT_SAMPLE_ROWS).forEach { row ->
         row.cells.forEach { cell ->
             val text = cell.text.substringBefore('\n')
             if (cell.column < columnCount && text.isNotEmpty() && (row.index to cell.column) !in spanning) {
-                all[cell.column] += text
-                if (NUMERIC.matches(text)) numeric[cell.column] += text
+                val sample = FitSample(text, sheet.styleOf(cell)?.bold == true)
+                all[cell.column] += sample
+                if (NUMERIC.matches(text)) numeric[cell.column] += sample
             }
         }
     }
-    fun widest(texts: List<String>): Dp = texts
-        .sortedByDescending { t -> t.sumOf { ch -> if (ch.code < 128) 3 else 5 } }
+    fun widest(samples: List<FitSample>): Dp = samples
+        .sortedByDescending { s -> s.text.sumOf { ch -> if (ch.code < 128) 3 else 5 } }
         .take(FIT_CANDIDATES)
-        .maxOfOrNull { measure(it) + CELL_CHROME } ?: 0.dp
+        .maxOfOrNull { measure(it.text, it.bold) + CELL_CHROME } ?: 0.dp
     return Fit(all.map(::widest), numeric.map(::widest))
 }
 
@@ -295,12 +303,12 @@ private class SheetLayout(
     fun mergesAt(row: Int): List<CellRange> = mergesByRow[row].orEmpty()
 
     companion object {
-        /** @param measure 칸 글자 한 줄의 실제 너비. */
-        fun of(sheet: Sheet, measure: (String) -> Dp): SheetLayout {
+        /** @param measure 칸 글자 한 줄의 실제 너비(굵기 반영, 0.40.2 M3-14). */
+        fun of(sheet: Sheet, measure: (String, Boolean) -> Dp): SheetLayout {
             val columnCount = sheet.columnCount.coerceIn(1, MAX_RENDER_COLUMNS)
             val fit = fittedWidths(sheet, columnCount, measure)
             // 엑셀 너비는 "기본 글꼴 숫자 몇 개" 단위다 — 우리 글꼴의 숫자 폭으로 환산한다(고정 7dp 는 HadaRound 숫자보다 좁았다).
-            val digit = measure("0")
+            val digit = measure("0", false)
             val widths = List(columnCount) { c ->
                 val excel = sheet.columnWidths[c]
                 when {
@@ -326,6 +334,8 @@ private class SheetLayout(
 }
 
 private val NUMERIC = Regex("""^[-+]?[\d,]*\.?\d+%?$""")
+private val SHEET_HEADER_FONT_SIZE = 11.sp
+private val SHEET_CELL_FONT_SIZE = 13.sp
 private val ROW_HEIGHT = 32.dp
 private val ROW_NUMBER_WIDTH = 44.dp
 private val DEFAULT_COLUMN_WIDTH = 72.dp

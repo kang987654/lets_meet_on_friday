@@ -50,6 +50,7 @@
     <string name="response_style_detailed">자세히</string>
 
     <!-- Splash -->
+    <string name="splash_tagline">기기 안에서만 생각하는 AI 비서</string>
     <string name="splash_checking_model">모델 상태를 확인하고 있어요…</string>
     <string name="splash_file_found">모델 파일을 찾았어요. 엔진을 준비하고 있어요…</string>
     <string name="splash_preparing_engine">AI 엔진을 깨우는 중이에요 (10초 정도)…</string>
@@ -86,6 +87,7 @@
     <string name="chat_listening_cd">듣고 있어요</string>
     <string name="chat_listening_hint">듣고 있어요…</string>
     <string name="chat_writing_reply_hint">답을 쓰는 중이에요…</string>
+    <string name="chat_preparing_answer_cd">답을 준비하는 중</string>
     <string name="chat_doc_truncated_subtitle">%1$s · 앞부분만</string>
     <string name="chat_remove_attachment_cd">첨부 취소</string>
     <string name="chat_stop_generation_cd">답 멈추기</string>
@@ -241,6 +243,7 @@
     <string name="calendar_tab_month">월</string>
     <string name="calendar_permission_warning">기기 캘린더를 읽지 못했어요. 아래에는 이 앱에 저장한 일정만 있어요.</string>
     <string name="calendar_permission_allow">권한 설정 열기</string>
+    <string name="calendar_month_load_failed">이 달 일정을 불러오지 못했어요.</string>
     <string name="calendar_today_section_upcoming">다가오는 일정</string>
     <string name="calendar_today_all_clear">오늘은 일정도 할 일도 없어요.\n채팅에서 \"내일 3시에 회의 잡아줘\"처럼 말해 보세요.</string>
     <string name="calendar_source_device">기기 캘린더</string>

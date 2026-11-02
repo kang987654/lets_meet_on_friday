@@ -42,9 +42,11 @@ class MainActivity : ComponentActivity() {
         // [WHY] 첫 실행 시 일괄 권한 요청(deprecated API, 결과 미처리)은 제거한다.
         // 권한은 각 기능 진입 시점에 컨텍스트와 함께 요청한다 (예: ChatScreen 마이크 요청 플로우).
 
-        // Handle intent on cold start
-        shareIntentHandler.handleIntent(intent)
-        voiceLaunchHandler.handleIntent(intent)
+        // [WHY] 앱 언어 전환·화면 회전·프로세스 복원으로 Activity 가 재생성될 때는 savedInstanceState != null 이므로
+        // 이미 소비한 공유/음성 실행 인텐트를 다시 처리하지 않는다(0.40.2 M3-8).
+        if (savedInstanceState == null) {
+            dispatchIntent(intent)
+        }
 
         setContent {
             // [WHY] 저장된 테마 모드를 앱 루트에서 구독해 전체 트리에 적용한다 (ADR-005).
@@ -81,6 +83,10 @@ class MainActivity : ComponentActivity() {
         // Set the new intent so getIntent() returns it
         setIntent(intent)
         // Handle intent when app is already running
+        dispatchIntent(intent)
+    }
+
+    private fun dispatchIntent(intent: Intent) {
         shareIntentHandler.handleIntent(intent)
         voiceLaunchHandler.handleIntent(intent)
     }

@@ -31,7 +31,9 @@ interface TaskDao {
     @Query("DELETE FROM task_item WHERE id = :taskId")
     suspend fun delete(taskId: String)
 
-    @Query("DELETE FROM task_item WHERE isCompleted = 1")
+    // [WHY] 기억 화면의 "완료 N개"([countCompleted])와 정확히 같은 조건으로만 지운다 — dueDateIso 가 있는 완료 일정이나
+    // 취소된 알림까지 지우면 확인 대화상자의 개수와 실제 삭제 대상이 어긋나고 일정이 사라진다(0.40.2 M3-15, 결정 D1).
+    @Query("DELETE FROM task_item WHERE isCompleted = 1 AND cancelledAt IS NULL AND dueDateIso IS NULL")
     suspend fun deleteCompleted(): Int
 
     @Query("SELECT * FROM task_item WHERE id = :taskId")

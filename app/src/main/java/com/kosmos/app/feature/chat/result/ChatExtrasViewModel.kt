@@ -64,7 +64,9 @@ class ChatExtrasViewModel @Inject constructor(
     val results: StateFlow<Map<String, ResultCardState>> = _results.asStateFlow()
 
     private val watching = mutableSetOf<String>()
+    private val watchedResults = mutableMapOf<String, Pair<Context, MessageResult>>()
     private val watchJobs = mutableListOf<kotlinx.coroutines.Job>()
+    private var today: LocalDate = LocalDate.now()
 
     init {
         // [WHY] 언어가 바뀌어 화면이 재생성돼도 ViewModel 은 살아남는다 — 옛 언어로 매핑된 카드 캐시를 비워
@@ -78,6 +80,7 @@ class ChatExtrasViewModel @Inject constructor(
                         watchJobs.forEach { it.cancel() }
                         watchJobs.clear()
                         watching.clear()
+                        watchedResults.clear()
                         _results.value = emptyMap()
                         _editError.value = null
                     }
@@ -98,13 +101,33 @@ class ChatExtrasViewModel @Inject constructor(
     private val _summary = MutableStateFlow<ChatSummary?>(null)
     val summary: StateFlow<ChatSummary?> = _summary.asStateFlow()
 
+    /**
+     * 오늘 날짜([date])를 갱신합니다. 날짜가 바뀌었으면 이미 지켜보던 결과들을 새 날짜 기준으로 다시 구독합니다 (0.40.2 M3-10).
+     *
+     * [WHY] 자정이 지나도 기존 구독은 처음 `ensure` 때의 `today` 를 붙들고 있어 "오늘" 표기가 그대로 남았다.
+     * `_results` 를 비우지 않고 덮어써서 화면 깜빡임 없이 날짜 표기만 바꾼다.
+     */
+    fun setToday(date: LocalDate) {
+        if (date == this.today) return
+        this.today = date
+        val snapshot = watchedResults.values.toList()
+        watchJobs.forEach { it.cancel() }
+        watchJobs.clear()
+        watching.clear()
+        snapshot.forEach { (appContext, result) ->
+            ensure(appContext, result, date)
+        }
+    }
+
     /** [result] 의 대상을 구독한다 — 같은 키는 한 번만. */
-    fun ensure(context: Context, result: MessageResult, today: LocalDate = LocalDate.now()) {
+    fun ensure(context: Context, result: MessageResult, today: LocalDate = this.today) {
+        this.today = today
         val key = keyOf(result)
         if (!watching.add(key)) return
         // [WHY] 구독은 화면 재생성을 넘어 산다 — 화면(Activity) Context 를 쥐면 버려진 화면이 해제되지 않는다.
         // 언어가 바뀌면 캐시를 비우고 새로 구독하므로 애플리케이션 Context 로도 새 언어가 반영된다.
         val appContext = context.applicationContext
+        watchedResults[key] = appContext to result
         val job = viewModelScope.launch {
             var previous: ResultCardState? = null
             stateFlowOf(appContext, result, today).collect { state ->

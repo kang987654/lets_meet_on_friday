@@ -145,6 +145,24 @@ class CalendarViewModelTest {
         io.mockk.coVerify(exactly = 1) { useCase.month(september, any()) }
     }
 
+    @Test
+    fun `월 조회가 실패하면 Error 가 되고 다시 시도하면 Success 로 바뀐다`() = runTest {
+        val october = java.time.YearMonth.of(2026, 10)
+        val err = com.kosmos.app.core.common.AppError.CalendarReadError("db failed")
+        coEvery { useCase.month(october, any()) } returns AppResult.Failure(err)
+        val viewModel = CalendarViewModel(useCase, tasks, mockk(relaxed = true), widget)
+
+        viewModel.showMonth(october)
+
+        assertEquals(MonthUiState.Error(err), viewModel.monthState.value)
+
+        givenMonth(october)
+        viewModel.showMonth(october, force = true)
+
+        val state = viewModel.monthState.value as MonthUiState.Success
+        assertEquals(october, state.schedule.month)
+    }
+
     private fun givenMonth(month: java.time.YearMonth) {
         coEvery { useCase.month(month, any()) } returns AppResult.Success(
             com.kosmos.app.domain.model.MonthSchedule(month, persistentListOf())

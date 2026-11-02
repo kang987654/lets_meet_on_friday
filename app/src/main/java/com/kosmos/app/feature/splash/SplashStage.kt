@@ -130,7 +130,7 @@ internal fun SplashStage(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "기기 안에서만 생각하는 AI 비서",
+                text = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.splash_tagline),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textMuted,
                 modifier = Modifier.graphicsLayer { alpha = clamp01((time() - 900) / 400f) * exitFade() }

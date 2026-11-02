@@ -82,6 +82,8 @@ fun AppNavHost(
             // [WHY] ChatScreen 의 기본 hiltViewModel() 과 같은 인스턴스(같은 내비게이션 항목) — 수정 결과 한 줄을 대화 끝에 붙이려고 꺼낸다.
             val chatViewModel: com.kosmos.app.feature.chat.ChatViewModel = androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
             val context = androidx.compose.ui.platform.LocalContext.current
+            val today = com.kosmos.app.ui.component.rememberToday()
+            androidx.compose.runtime.LaunchedEffect(today) { extras.setToday(today) }
             ChatScreen(
                 viewModel = chatViewModel,
                 // [WHY] 설정 진입은 드로어 타일로 이동(M2-2) — ☰ 이 셸의 드로어를 연다.

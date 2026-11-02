@@ -89,4 +89,26 @@ class ResultCardMapperTest {
         val recall = ResultCardMapper.recall(context, note, """{"noteAt":$noteAt,"conflictCount":1,"otherValues":["4321"]}""", zone, en)
         assertEquals(listOf("Note saved on Oct 12", "Past chat had 4321; followed your saved note"), recall.evidence.map { it.text })
     }
+
+    @Test
+    fun `ChatExtrasViewModel — setToday 로 날짜가 바뀌면 같은 키의 카드가 새 날짜 기준으로 다시 매핑된다`() {
+        val taskRepo: com.kosmos.app.domain.memory.TaskRepository = io.mockk.mockk(relaxed = true)
+        io.mockk.every { taskRepo.observeById("t1") } returns kotlinx.coroutines.flow.flowOf(reminder)
+        val vm = ChatExtrasViewModel(
+            taskRepository = taskRepo,
+            knowledgeRepository = io.mockk.mockk(relaxed = true),
+            getTodaySchedule = io.mockk.mockk(relaxed = true),
+            reminderEditor = io.mockk.mockk(relaxed = true)
+        )
+        val msgResult = com.kosmos.app.domain.model.MessageResult(com.kosmos.app.domain.model.MessageResult.Kind.REMINDER, "t1")
+        val key = ChatExtrasViewModel.keyOf(msgResult)
+
+        vm.ensure(context, msgResult, today)
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals("오늘", vm.results.value[key]?.sub)
+
+        vm.setToday(today.plusDays(1))
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals("10월 15일 (목)", vm.results.value[key]?.sub)
+    }
 }

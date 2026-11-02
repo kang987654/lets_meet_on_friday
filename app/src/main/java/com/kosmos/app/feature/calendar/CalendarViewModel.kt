@@ -107,11 +107,22 @@ class CalendarViewModel @Inject constructor(
 
     // ── 알림 수정 시트(0.38.2 수정 시트 재사용) ──
 
+    /**
+     * 알림 수정 실패 표식 (0.40.2 M3-12).
+     *
+     * [WHY] ViewModel 이 Android Context 를 갖지 않도록 일반 실패는 [Generic] 으로만 내보내고,
+     * 화면이 현재 로케일의 `stringResource(R.string.chat_reminder_update_failed)` 로 푼다.
+     */
+    sealed interface ReminderEditError {
+        data class Message(val text: String) : ReminderEditError
+        data object Generic : ReminderEditError
+    }
+
     private val _editingReminder = MutableStateFlow<String?>(null)
     val editingReminder: StateFlow<String?> = _editingReminder.asStateFlow()
 
-    private val _editError = MutableStateFlow<String?>(null)
-    val editError: StateFlow<String?> = _editError.asStateFlow()
+    private val _editError = MutableStateFlow<ReminderEditError?>(null)
+    val editError: StateFlow<ReminderEditError?> = _editError.asStateFlow()
 
     fun openReminder(taskId: String) {
         _editError.value = null
@@ -131,8 +142,10 @@ class CalendarViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = action()) {
                 is AppResult.Success -> { closeReminder(); loadTasks() }
-                is AppResult.Failure -> _editError.value =
-                    (result.error as? com.kosmos.app.core.common.AppError.ValidationError)?.reason ?: "알림을 바꾸지 못했어요. 다시 시도해 주세요."
+                is AppResult.Failure -> {
+                    val reason = (result.error as? com.kosmos.app.core.common.AppError.ValidationError)?.reason
+                    _editError.value = if (!reason.isNullOrBlank()) ReminderEditError.Message(reason) else ReminderEditError.Generic
+                }
             }
         }
     }

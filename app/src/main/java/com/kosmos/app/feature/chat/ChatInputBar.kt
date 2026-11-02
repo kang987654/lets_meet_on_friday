@@ -199,16 +199,18 @@ fun ChatInputBar(
                     modifier = Modifier.fillMaxWidth(),
                     textStyle = MaterialTheme.typography.bodyMedium.copy(color = KosmosTheme.colors.textPrimary),
                     cursorBrush = SolidColor(KosmosTheme.colors.brand),
-                    enabled = !isLoading,
+                    // [WHY] 녹음 중 글자를 입력하면 전송 버튼으로 바뀌어 진행 중인 녹음이 조용히 버려진다 — 녹음 중에는 입력란을 잠근다(0.40.2 M3-9, 결정 D2).
+                    enabled = !isLoading && !isRecording,
                     maxLines = 5
                 )
             }
             
-            // [WHY] 생성 중에는 전송/마이크 대신 정지 버튼을 노출한다. 설명 문자열은 E2E 계약인
-            // "Attach"/"Send" 만 영어로 두고 나머지는 한국어다(TalkBack 이 그대로 읽는다) — 정지
+            // [WHY] 생성 중에는 전송/마이크 대신 정지 버튼을, 녹음 중에는 입력 글자와 무관하게 녹음 중지(MIC) 버튼을 노출한다(0.40.2 M3-9).
+            // 설명 문자열은 E2E 계약인 "Attach"/"Send" 만 영어로 두고 나머지는 리소스다(TalkBack 이 그대로 읽는다) — 정지
             // 버튼 "응답 중단"과 녹음 버튼 "녹음 중지"는 서로 겹치지 않게 다른 말을 쓴다.
             val inputAction = when {
                 isLoading -> InputAction.STOP
+                isRecording -> InputAction.MIC
                 textState.text.isNotBlank() -> InputAction.SEND
                 else -> InputAction.MIC
             }

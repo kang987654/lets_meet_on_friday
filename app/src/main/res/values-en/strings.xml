@@ -47,6 +47,7 @@
     <string name="response_style_detailed">Detailed</string>
 
     <!-- Splash -->
+    <string name="splash_tagline">An AI assistant that thinks only on your device</string>
     <string name="splash_checking_model">Checking model status…</string>
     <string name="splash_file_found">Model file found. Preparing engine…</string>
     <string name="splash_preparing_engine">Waking up AI engine (~10 sec)…</string>
@@ -83,6 +84,7 @@
     <string name="chat_listening_cd">Listening</string>
     <string name="chat_listening_hint">Listening…</string>
     <string name="chat_writing_reply_hint">Writing a reply…</string>
+    <string name="chat_preparing_answer_cd">Preparing an answer</string>
     <string name="chat_doc_truncated_subtitle">%1$s · truncated</string>
     <string name="chat_remove_attachment_cd">Remove attachment</string>
     <string name="chat_stop_generation_cd">Stop reply</string>
@@ -238,6 +240,7 @@
     <string name="calendar_tab_month">Month</string>
     <string name="calendar_permission_warning">Couldn\'t read the device calendar. Showing only events saved in KOSMOS.</string>
     <string name="calendar_permission_allow">Open permission settings</string>
+    <string name="calendar_month_load_failed">Couldn\'t load this month\'s events.</string>
     <string name="calendar_today_section_upcoming">Upcoming</string>
     <string name="calendar_today_all_clear">No events or tasks for today.\nTry saying \"Schedule a meeting tomorrow at 3 PM\" in chat.</string>
     <string name="calendar_source_device">Device calendar</string>

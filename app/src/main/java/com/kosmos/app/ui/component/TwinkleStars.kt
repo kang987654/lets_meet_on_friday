@@ -42,11 +42,12 @@ fun TwinkleStars(modifier: Modifier = Modifier) {
             label = "phase"
         )
     }
+    val preparingCd = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.chat_preparing_answer_cd)
     Canvas(
         modifier
             .padding(horizontal = 14.dp, vertical = 8.dp)
             .size(width = 44.dp, height = 20.dp)
-            .semantics { contentDescription = "답을 준비하는 중" }
+            .semantics { contentDescription = preparingCd }
     ) {
         PHASES.forEachIndexed { i, phase ->
             val p = (t - phase + 1f) % 1f

@@ -96,10 +96,18 @@ fun CalendarScreen(
         when (tab) {
             CalendarTab.MONTH -> {
                 val monthState by viewModel.monthState.collectAsStateWithLifecycle()
-                if ((monthState as? MonthUiState.Success)?.schedule?.deviceCalendarFailed == true) {
+                if (monthState is MonthUiState.Error) {
+                    // [WHY] 월 달력 조회 실패를 조용히 빈 달력으로 넘기면 일정이 없다고 오해한다(0.40.2 M3-11, PRD EC4).
+                    MonthLoadErrorNotice(
+                        onRetry = { viewModel.showMonth(viewModel.visibleMonth.value, force = true) },
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                } else if ((monthState as? MonthUiState.Success)?.schedule?.deviceCalendarFailed == true) {
                     DeviceCalendarNotice(
                         onRetry = { viewModel.showMonth(viewModel.visibleMonth.value, force = true) },
-                        onOpenSettings = openSettings
+                        onOpenSettings = openSettings,
+                        modifier = Modifier.padding(horizontal = 16.dp)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
@@ -305,13 +313,18 @@ private fun ReminderEditHost(viewModel: CalendarViewModel, reminders: List<com.k
     val id = editing ?: return
     val task = reminders.firstOrNull { it.id == id } ?: return
     val lang = currentAppLanguage()
+    val errorText = when (val e = error) {
+        null -> null
+        is CalendarViewModel.ReminderEditError.Message -> e.text
+        CalendarViewModel.ReminderEditError.Generic -> stringResource(R.string.chat_reminder_update_failed)
+    }
     val at = task.remindAtIso?.let { com.kosmos.app.domain.util.IsoDateTimeParser.toEpochMillis(it) }
         ?.let { java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()) }
     com.kosmos.app.feature.chat.result.ReminderEditSheet(
         state = com.kosmos.app.feature.chat.result.ResultCardMapper.reminder(context, task, today, lang = lang),
         initialHour = at?.hour ?: 9,
         initialMinute = at?.minute ?: 0,
-        error = error,
+        error = errorText,
         onSnooze = { viewModel.snooze(id) },
         onReschedule = { h, m -> viewModel.reschedule(id, h, m) },
         onCancelReminder = { viewModel.cancelReminder(id) },
@@ -325,15 +338,17 @@ private fun ReminderEditHost(viewModel: CalendarViewModel, reminders: List<com.k
  * [WHY] 재시도와 설정 이동을 함께 준다 — 원인이 일시적 Provider 오류일 수도(재시도),
  * 권한 영구 거부일 수도(설정 이동) 있는데 화면에서는 구분되지 않기 때문이다 (PRD EC2 "권한
  * 영구 거부 → 시스템 설정 화면으로 직접 이동 유도", EC4 "Provider 읽기 실패 → 재시도 버튼").
+ * 내부 가로 여백을 두지 않고 호출부가 여백을 정한다 — 오늘 탭 LazyColumn 은 이미 좌우 16dp contentPadding 이 있어
+ * 내부 여백이 있으면 32dp 가 된다(0.40.2 M3-13).
  */
 @Composable
 private fun DeviceCalendarNotice(
     onRetry: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
-            .padding(horizontal = 16.dp)
+        modifier = modifier
             .fillMaxWidth()
             .kosmosSurface(
                 backgroundColor = KosmosTheme.colors.warningText.copy(alpha = 0.15f),
@@ -352,6 +367,34 @@ private fun DeviceCalendarNotice(
             KosmosButton(stringResource(R.string.common_retry), onRetry, Modifier.weight(1f))
             KosmosButton(stringResource(R.string.calendar_permission_allow), onOpenSettings, Modifier.weight(1f), accent = true)
         }
+    }
+}
+
+/**
+ * 월 달력 조회 자체가 실패했을 때(`MonthUiState.Error`) 달력 격자 위에 띄우는 안내 카드 (0.40.2 M3-11).
+ */
+@Composable
+private fun MonthLoadErrorNotice(
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .kosmosSurface(
+                backgroundColor = KosmosTheme.colors.warningText.copy(alpha = 0.15f),
+                borderColor = KosmosTheme.colors.warningText.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .padding(16.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.calendar_month_load_failed),
+            color = KosmosTheme.colors.textPrimary,
+            style = MaterialTheme.typography.bodySmall
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        KosmosButton(stringResource(R.string.common_retry), onRetry, Modifier.fillMaxWidth())
     }
 }
 
