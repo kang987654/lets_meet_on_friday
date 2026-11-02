@@ -283,7 +283,7 @@ fun ChatScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         viewModel.onApprovalObstructionCleared()
-        if (!granted) notify(NotificationAccess.deniedMessage(lang))
+        if (!granted) notify(resources.getString(R.string.notif_permission_denied_message))
     }
 
     LaunchedEffect(uiState.pendingApproval) {
@@ -518,7 +518,7 @@ fun ChatScreen(
             request = request,
             onApprove = { viewModel.approvePendingRequest() },
             onReject = { viewModel.rejectPendingRequest() },
-            footnote = if (inexact) NotificationAccess.inexactNote(lang) else null,
+            footnote = if (inexact) stringResource(R.string.notif_inexact_alarm_note) else null,
             timeoutKey = uiState.approvalTimeoutEpoch,
             onFootnoteAction = if (inexact) {
                 {

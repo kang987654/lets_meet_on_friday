@@ -3,8 +3,11 @@ package com.kosmos.app.platform.notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.res.Configuration
 import androidx.core.content.getSystemService
+import com.kosmos.app.R
 import com.kosmos.app.core.common.AppLanguage
+import java.util.Locale
 
 /**
  * [NotificationChannels]
@@ -33,14 +36,17 @@ object NotificationChannels {
 
     fun ensureCreated(context: Context, lang: AppLanguage = AppLanguage.KO) {
         val manager = context.getSystemService<NotificationManager>() ?: return
-        val en = lang == AppLanguage.EN
+        val targetLocale = if (lang == AppLanguage.EN) Locale.ENGLISH else Locale.KOREAN
+        val resContext = context.createConfigurationContext(
+            Configuration(context.resources.configuration).apply { setLocale(targetLocale) }
+        )
         // [WHY] 진행률 바가 소리나 진동을 내면 수십 분간 사용자를 괴롭히므로 IMPORTANCE_LOW + 무음.
         val channel = NotificationChannel(
             MODEL_DOWNLOAD,
-            if (en) "Model Download" else "모델 내려받기",
+            resContext.getString(R.string.notif_channel_download_name),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = if (en) "Shows progress while downloading AI model files." else "AI 모델 파일을 내려받는 진행 상황을 보여 줘요."
+            description = resContext.getString(R.string.notif_channel_download_desc)
             setShowBadge(false)
             setSound(null, null)
             enableVibration(false)
@@ -51,10 +57,10 @@ object NotificationChannels {
         // 채널이 분리돼 있어야 사용자가 시스템 설정에서 브리핑만 무음/차단할 수 있다 (A4).
         val briefing = NotificationChannel(
             BRIEFING,
-            if (en) "Morning Briefing" else "아침 브리핑",
+            resContext.getString(R.string.notif_channel_briefing_name),
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = if (en) "Notifies you of today's schedule and tasks every morning." else "매일 아침 오늘 일정과 할 일을 미리 알려 줘요."
+            description = resContext.getString(R.string.notif_channel_briefing_desc)
         }
         manager.createNotificationChannel(briefing)
 
@@ -62,10 +68,10 @@ object NotificationChannels {
         // 과하다고 느끼면 사용자가 채널 설정에서 낮출 수 있다 (B1).
         val reminder = NotificationChannel(
             REMINDER,
-            if (en) "Scheduled Reminders" else "정한 시각 알림",
+            resContext.getString(R.string.notif_channel_reminder_name),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = if (en) "Rings your requested reminders at the scheduled time." else "부탁한 알림을 정한 시각에 울려요."
+            description = resContext.getString(R.string.notif_channel_reminder_desc)
         }
         manager.createNotificationChannel(reminder)
     }

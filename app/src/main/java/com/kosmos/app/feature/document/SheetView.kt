@@ -1,8 +1,5 @@
 package com.kosmos.app.feature.document
 
-import com.kosmos.app.core.common.AppLanguage
-
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -20,23 +17,26 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.material3.LocalTextStyle
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kosmos.app.R
 import com.kosmos.app.domain.document.CellRange
 import com.kosmos.app.domain.document.CellRef
 import com.kosmos.app.domain.document.Sheet
@@ -84,11 +84,10 @@ fun SheetView(
         val scrollRange = frozenColumns until layout.columnCount
         val (frozenRows, bodyRows) = sheet.rows.partition { it.index < layout.frozenRows }
 
-        val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
         Column(Modifier.fillMaxSize()) {
             if (!sheet.complete) {
                 Text(
-                    text = if (en) "Reading remaining rows…" else "나머지 행을 읽는 중…",
+                    text = stringResource(R.string.doc_sheet_reading_remaining),
                     color = colors.textMuted,
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
@@ -97,7 +96,7 @@ fun SheetView(
             if (sheet.truncated) {
                 val maxRow = sheet.rows.lastOrNull()?.index?.plus(1) ?: 0
                 Text(
-                    text = if (en) "File is large; showing the first $maxRow rows" else "파일이 커서 앞부분(${maxRow}행까지)만 보여요",
+                    text = stringResource(R.string.doc_sheet_truncated, maxRow),
                     color = colors.warningText,
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
@@ -341,4 +340,3 @@ private val CELL_CHROME = 16.dp
 
 /** 테스트가 격자를 찾는 태그. */
 internal const val SHEET_GRID_TAG = "sheet_grid"
-

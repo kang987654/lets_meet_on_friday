@@ -26,7 +26,7 @@ import org.robolectric.annotation.Config
 
 /**
  * [EnglishModeUiTest]
- * 영어 로케일(`qualifiers = "en"`) 및 `KosmosTheme(language = AppLanguage.EN)` 전환 시
+ * 영어 로케일(`qualifiers = "en"`) 전환 시
  * 안드로이드 표준 리소스(`values-en/strings.xml`)와 주요 화면(빈 채팅·설정 언어 토글)이
  * 영어로 렌더링되는지 검증합니다 (0.40.0 M3).
  */
@@ -98,7 +98,7 @@ class EnglishModeUiTest {
         )
 
         rule.setContent {
-            KosmosTheme(language = AppLanguage.EN) {
+            KosmosTheme {
                 SettingsScreen(
                     viewModel = settingsVm,
                     themeViewModel = themeVm,
@@ -118,7 +118,7 @@ class EnglishModeUiTest {
     @Config(qualifiers = "en")
     fun `영어 모드에서 빈 채팅 화면 문구가 영어로 표시된다`() {
         rule.setContent {
-            KosmosTheme(language = AppLanguage.EN) {
+            KosmosTheme {
                 EmptyChat(onStarter = {})
             }
         }

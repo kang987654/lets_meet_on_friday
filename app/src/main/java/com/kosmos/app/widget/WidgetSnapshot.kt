@@ -1,9 +1,13 @@
 package com.kosmos.app.widget
 
+import android.content.Context
+import com.kosmos.app.R
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.model.TaskItem
 import com.kosmos.app.domain.util.IsoDateTimeParser
 import java.time.ZoneId
+import java.util.Locale
 
 /**
  * [WidgetSnapshot]
@@ -16,7 +20,7 @@ data class WidgetSnapshot(
     val overflowCount: Int,
     val pendingTaskCount: Int,
     val deviceCalendarFailed: Boolean,
-    val lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    val lang: AppLanguage = AppLanguage.KO
 )
 
 data class WidgetEventLine(val time: String, val title: String)
@@ -25,14 +29,34 @@ data class WidgetEventLine(val time: String, val title: String)
 internal const val WIDGET_MAX_EVENTS = 3
 
 internal fun buildWidgetSnapshot(
+    context: Context,
     schedule: ScheduleData?,
     pendingTasks: List<TaskItem>,
     nowMs: Long,
     zone: ZoneId = ZoneId.systemDefault(),
-    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    lang: AppLanguage = run {
+        val locales = context.resources.configuration.locales
+        val locale = if (locales.isEmpty) Locale.KOREAN else locales[0]
+        AppLanguage.fromLocale(locale)
+    }
+): WidgetSnapshot = buildWidgetSnapshot(
+    schedule = schedule,
+    pendingTasks = pendingTasks,
+    nowMs = nowMs,
+    zone = zone,
+    lang = lang,
+    allDayLabel = context.getString(R.string.common_all_day)
+)
+
+internal fun buildWidgetSnapshot(
+    schedule: ScheduleData?,
+    pendingTasks: List<TaskItem>,
+    nowMs: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+    lang: AppLanguage = AppLanguage.KO,
+    allDayLabel: String = if (lang == AppLanguage.EN) "All day" else "종일"
 ): WidgetSnapshot {
     val events = schedule?.events.orEmpty()
-    val allDayLabel = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "All day" else "종일"
     val lines = events.take(WIDGET_MAX_EVENTS).map { event ->
         WidgetEventLine(
             // [WHY] 날짜-only ISO(기기 캘린더 종일 일정)는 "오전 12:00"으로 오해되므로 "종일".

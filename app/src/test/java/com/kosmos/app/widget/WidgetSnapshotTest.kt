@@ -1,14 +1,18 @@
 package com.kosmos.app.widget
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import com.kosmos.app.domain.model.CalendarEvent
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.model.TaskItem
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.time.ZoneOffset
 
 /**
@@ -16,9 +20,11 @@ import java.time.ZoneOffset
  * 위젯 재료 조립의 데이터 정확성을 고정합니다 — Glance 렌더는 JVM 게이트가 못 보므로
  * 이 순수 함수가 정확성의 전부를 진다. 시간대는 UTC 명시(결정성 수칙).
  */
+@RunWith(RobolectricTestRunner::class)
 class WidgetSnapshotTest {
 
     private val utc = ZoneOffset.UTC
+    private val context: Context get() = ApplicationProvider.getApplicationContext()
 
     private fun event(title: String, startIso: String) = CalendarEvent(
         id = title, title = title, startIso = startIso, endIso = startIso,
@@ -40,6 +46,7 @@ class WidgetSnapshotTest {
     @Test
     fun `일정은 3건까지 시각과 함께 담기고 초과분은 카운트로 남는다`() {
         val snapshot = buildWidgetSnapshot(
+            context,
             schedule(
                 event("아침 회의", "2026-08-28T09:00:00"),
                 event("점심", "2026-08-28T12:30:00"),
@@ -60,6 +67,7 @@ class WidgetSnapshotTest {
     @Test
     fun `종일 일정(날짜-only ISO)은 '종일'로 표기한다`() {
         val snapshot = buildWidgetSnapshot(
+            context,
             schedule(event("광복절", "2026-08-15")),
             pendingTasks = emptyList(),
             nowMs = 0L,
@@ -72,6 +80,7 @@ class WidgetSnapshotTest {
     @Test
     fun `할 일 카운트는 완료 항목을 걸러 센다`() {
         val snapshot = buildWidgetSnapshot(
+            context,
             schedule(),
             pendingTasks = listOf(task("a", false), task("b", true), task("c", false)),
             nowMs = 0L,
@@ -85,8 +94,8 @@ class WidgetSnapshotTest {
 
     @Test
     fun `조회 실패(null)는 캘린더 확인 실패로 표기한다`() {
-        val failed = buildWidgetSnapshot(null, emptyList(), nowMs = 0L, zone = utc)
-        val ok = buildWidgetSnapshot(schedule(), emptyList(), nowMs = 0L, zone = utc)
+        val failed = buildWidgetSnapshot(context, null, emptyList(), nowMs = 0L, zone = utc)
+        val ok = buildWidgetSnapshot(context, schedule(), emptyList(), nowMs = 0L, zone = utc)
 
         assertTrue(failed.deviceCalendarFailed)
         assertFalse(ok.deviceCalendarFailed)
@@ -96,6 +105,7 @@ class WidgetSnapshotTest {
     fun `날짜 라벨은 한국어 요일을 포함한다`() {
         // 2026-08-28 은 금요일 (프로젝트 명대로).
         val snapshot = buildWidgetSnapshot(
+            context,
             schedule(), emptyList(),
             nowMs = 1_787_875_200_000L, // 2026-08-28T00:00:00Z
             zone = utc
@@ -105,8 +115,10 @@ class WidgetSnapshotTest {
     }
 
     @Test
+    @Config(qualifiers = "en")
     fun `영어 모드에서는 날짜 라벨과 종일·시각 표기가 영어로 조립된다`() {
         val snapshot = buildWidgetSnapshot(
+            context,
             schedule(
                 event("All-day event", "2026-08-28"),
                 event("Morning sync", "2026-08-28T09:00:00")

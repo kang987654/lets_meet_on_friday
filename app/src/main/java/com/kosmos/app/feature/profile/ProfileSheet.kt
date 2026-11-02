@@ -1,7 +1,5 @@
 package com.kosmos.app.feature.profile
 
-import com.kosmos.app.core.common.AppLanguage
-
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -11,13 +9,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import com.kosmos.app.R
 import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.component.showUndo
 import kotlinx.coroutines.launch
@@ -61,9 +60,8 @@ fun ProfileSheet(
 
     val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val resources = androidx.compose.ui.platform.LocalResources.current
     val colors = KosmosTheme.colors
-    val lang = KosmosTheme.language
-    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -79,21 +77,21 @@ fun ProfileSheet(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = if (en) "Profile" else "프로필",
+                    text = stringResource(R.string.profile_sheet_title),
                     style = MaterialTheme.typography.titleMedium,
                     color = colors.textPrimary
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 // [WHY] 토큰은 사용자가 알 단위가 아니다 — 상한 대비 남은 비율만 보인다(0.38.3 M5). 상한 검사·초과 안내는 그대로 토큰 기준.
                 Text(
-                    text = if (en) "${remainingPercent(tokenUsage)}% free" else "남은 공간 ${remainingPercent(tokenUsage)}%",
+                    text = stringResource(R.string.profile_sheet_free_percent, remainingPercent(tokenUsage)),
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.textMuted
                 )
             }
             Text(
                 // 예시는 둘째 줄로 — 한 줄에 이어 쓰면 "직업."만 다음 줄로 넘어갔다(사용자 지적).
-                text = if (en) "Your assistant always remembers what you write here.\ne.g. Name, title, tone, job." else "여기 적은 내용은 비서가 항상 기억해요.\n예: 이름, 호칭, 말투, 직업.",
+                text = stringResource(R.string.profile_sheet_subtitle),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textMuted,
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
@@ -101,7 +99,7 @@ fun ProfileSheet(
 
             if (entries.isEmpty()) {
                 Text(
-                    text = if (en) "No entries added yet." else "아직 등록한 항목이 없어요.",
+                    text = stringResource(R.string.profile_sheet_empty),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.textMuted
                 )
@@ -118,7 +116,10 @@ fun ProfileSheet(
                             onDelete = {
                                 viewModel.delete(entry.key)
                                 scope.launch {
-                                    snackbar.showUndo(if (en) "Deleted '${entry.key}'" else "'${entry.key}'을(를) 지웠어요", lang) { viewModel.restore(entry) }
+                                    snackbar.showUndo(
+                                        message = resources.getString(R.string.profile_sheet_deleted_snackbar, entry.key),
+                                        actionLabel = resources.getString(R.string.common_undo)
+                                    ) { viewModel.restore(entry) }
                                 }
                             }
                         )
@@ -132,8 +133,8 @@ fun ProfileSheet(
                     value = keyInput,
                     onValueChange = { keyInput = it },
                     // [WHY] 폭 140 고정에 "항목 (예: 이름)" 라벨이 글자 1.3배에서 두 줄로 잘렸다 — 라벨은 짧게, 예시는 자리 표시로, 폭은 비율로(0.38.4 M0).
-                    label = { Text(if (en) "Key" else "항목") },
-                    placeholder = { Text(if (en) "e.g. Name" else "예: 이름") },
+                    label = { Text(stringResource(R.string.profile_sheet_key_label)) },
+                    placeholder = { Text(stringResource(R.string.profile_sheet_key_placeholder)) },
                     singleLine = true,
                     colors = com.kosmos.app.ui.component.kosmosTextFieldColors(),
                     modifier = Modifier.weight(2f)
@@ -141,7 +142,7 @@ fun ProfileSheet(
                 OutlinedTextField(
                     value = valueInput,
                     onValueChange = { valueInput = it },
-                    label = { Text(if (en) "Value" else "내용") },
+                    label = { Text(stringResource(R.string.profile_sheet_value_label)) },
                     singleLine = true,
                     colors = com.kosmos.app.ui.component.kosmosTextFieldColors(),
                     modifier = Modifier.weight(3f)
@@ -156,12 +157,12 @@ fun ProfileSheet(
                 )
             }
             Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                KosmosButton(if (en) "Clear" else "비우기", {
+                KosmosButton(stringResource(R.string.profile_sheet_clear), {
                     keyInput = ""
                     valueInput = ""
                     viewModel.dismissError()
                 }, Modifier.weight(1f))
-                KosmosButton(if (en) "Save" else "저장", {
+                KosmosButton(stringResource(R.string.common_save), {
                     viewModel.dismissError()
                     viewModel.upsert(keyInput, valueInput) {
                         keyInput = ""
@@ -182,7 +183,6 @@ internal fun remainingPercent(tokenUsage: Int, max: Int = Constants.PROFILE_MAX_
 @Composable
 private fun EntryRow(entry: com.kosmos.app.domain.model.ProfileEntry, divider: Boolean, onEdit: () -> Unit, onDelete: () -> Unit) {
     val colors = KosmosTheme.colors
-    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     Column {
         Row(
             modifier = Modifier
@@ -196,11 +196,11 @@ private fun EntryRow(entry: com.kosmos.app.domain.model.ProfileEntry, divider: B
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(entry.key, style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
                     // 출처 표시(관리 장치) — 자동 추출(C′2)로 들어온 항목.
-                    if (entry.source == com.kosmos.app.domain.model.ProfileEntry.SOURCE_AUTO) com.kosmos.app.ui.component.Tag(if (en) "Auto" else "자동")
+                    if (entry.source == com.kosmos.app.domain.model.ProfileEntry.SOURCE_AUTO) com.kosmos.app.ui.component.Tag(stringResource(R.string.profile_sheet_auto_tag))
                 }
                 Text(entry.value, style = MaterialTheme.typography.bodyLarge, color = colors.textPrimary)
             }
-            com.kosmos.app.ui.component.DeleteIconButton(onDelete, contentDescription = if (en) "Delete ${entry.key}" else "${entry.key} 지우기")
+            com.kosmos.app.ui.component.DeleteIconButton(onDelete, contentDescription = stringResource(R.string.profile_sheet_delete_cd, entry.key))
         }
         if (divider) androidx.compose.material3.HorizontalDivider(Modifier.padding(start = 16.dp), color = colors.border)
     }

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.TileService
 import com.kosmos.app.MainActivity
+import com.kosmos.app.R
 import com.kosmos.app.platform.launch.VoiceLaunchHandler
 
 /**
@@ -24,11 +25,9 @@ class VoiceTileService : TileService() {
     override fun onStartListening() {
         super.onStartListening()
         qsTile?.let { tile ->
-            val locale = if (!resources.configuration.locales.isEmpty) resources.configuration.locales.get(0) else java.util.Locale.getDefault()
-            val en = com.kosmos.app.core.common.AppLanguage.fromLocale(locale) == com.kosmos.app.core.common.AppLanguage.EN
-            tile.label = if (en) "Kosmos Voice" else "Kosmos 음성"
+            tile.label = getString(R.string.tile_voice_label)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                tile.subtitle = if (en) "Tap to speak" else "눌러서 말하기"
+                tile.subtitle = getString(R.string.tile_voice_subtitle)
             }
             tile.updateTile()
         }

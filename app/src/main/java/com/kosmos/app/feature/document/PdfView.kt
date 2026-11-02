@@ -1,8 +1,5 @@
 package com.kosmos.app.feature.document
 
-import com.kosmos.app.core.common.AppLanguage
-
-import androidx.compose.material3.MaterialTheme
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -24,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -39,8 +37,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.kosmos.app.R
 import com.kosmos.app.platform.document.PdfPages
 import com.kosmos.app.ui.theme.KosmosTheme
 
@@ -124,8 +123,7 @@ private fun PdfPage(pages: PdfPages, index: Int, renderWidthPx: Int, width: andr
         value = pages.render(index, renderWidthPx)
     }
     val height = width * pages.aspectRatio(index)
-    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
-    val pageLabel = if (en) "Page ${index + 1}" else "${index + 1}쪽"
+    val pageLabel = stringResource(R.string.doc_pdf_page_label, index + 1)
     Box(
         modifier = Modifier.fillMaxWidth().height(height).background(KosmosTheme.colors.surface),
         contentAlignment = Alignment.Center

@@ -1,17 +1,19 @@
 package com.kosmos.app.widget
 
 import android.content.Context
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.LocalContext
+import androidx.glance.action.actionStartActivity
+import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
-import androidx.glance.action.actionStartActivity
-import androidx.glance.action.clickable
 import androidx.glance.color.ColorProvider
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
@@ -25,8 +27,8 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.compose.runtime.Composable
 import com.kosmos.app.MainActivity
+import com.kosmos.app.R
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.memory.TaskRepository
 import com.kosmos.app.domain.model.ScheduleData
@@ -75,7 +77,7 @@ class KosmosWidget : GlanceAppWidget() {
             .invoke(ScheduleData.RangeType.TODAY) as? AppResult.Success)?.data
         val tasks = (entryPoint.taskRepository()
             .getPendingTodosData(0, 100) as? AppResult.Success)?.data.orEmpty()
-        val snapshot = buildWidgetSnapshot(schedule, tasks, System.currentTimeMillis(), lang = lang)
+        val snapshot = buildWidgetSnapshot(context, schedule, tasks, System.currentTimeMillis(), lang = lang)
 
         provideContent { WidgetContent(snapshot) }
     }
@@ -97,7 +99,7 @@ private object WidgetPalette {
 
 @Composable
 private fun WidgetContent(snapshot: WidgetSnapshot) {
-    val en = snapshot.lang == com.kosmos.app.core.common.AppLanguage.EN
+    val context = LocalContext.current
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -108,7 +110,7 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
     ) {
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = if (en) "Today" else "오늘",
+                text = context.getString(R.string.common_today),
                 style = TextStyle(color = WidgetPalette.brandText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             )
             Spacer(modifier = GlanceModifier.width(8.dp))
@@ -121,7 +123,7 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
 
         if (snapshot.eventLines.isEmpty()) {
             Text(
-                text = if (en) "No events today" else "오늘 일정 없음",
+                text = context.getString(R.string.widget_no_events),
                 style = TextStyle(color = WidgetPalette.textSecondary, fontSize = 13.sp)
             )
         } else {
@@ -142,14 +144,14 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
             }
             if (snapshot.overflowCount > 0) {
                 Text(
-                    text = if (en) "+${snapshot.overflowCount} more" else "+${snapshot.overflowCount}개 더",
+                    text = context.getString(R.string.widget_overflow_more, snapshot.overflowCount),
                     style = TextStyle(color = WidgetPalette.textMuted, fontSize = 13.sp)
                 )
             }
         }
         if (snapshot.deviceCalendarFailed) {
             Text(
-                text = if (en) "Couldn't check your device calendar" else "기기 캘린더는 확인하지 못했어요",
+                text = context.getString(R.string.widget_calendar_failed),
                 style = TextStyle(color = WidgetPalette.textMuted, fontSize = 13.sp)
             )
         }
@@ -157,20 +159,20 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
         Spacer(modifier = GlanceModifier.defaultWeight())
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = if (en) "Tasks ${snapshot.pendingTaskCount}" else "할 일 ${snapshot.pendingTaskCount}건",
+                text = context.getString(R.string.widget_pending_tasks, snapshot.pendingTaskCount),
                 style = TextStyle(color = WidgetPalette.textSecondary, fontSize = 13.sp)
             )
             Spacer(modifier = GlanceModifier.defaultWeight())
-            WidgetButton(text = if (en) "Open" else "열기", action = actionStartActivity<MainActivity>())
+            WidgetButton(text = context.getString(R.string.widget_open_app), action = actionStartActivity<MainActivity>())
             Spacer(modifier = GlanceModifier.width(8.dp))
             // [WHY] 마이크 버튼은 VOICE_INPUT 액션 — 채팅 도착 즉시 녹음 시작(A3, 사용자 결정).
             WidgetIconButton(
-                icon = com.kosmos.app.R.drawable.ic_ph_microphone,
-                contentDescription = if (en) "Voice input" else "음성 입력",
+                icon = R.drawable.ic_ph_microphone,
+                contentDescription = context.getString(R.string.chat_voice_input_cd),
                 // [WHY] Intent 오버로드는 core 가 아니라 appwidget 패키지에 있다 — core 의
                 // actionStartActivity 와 이름이 같아 FQN 으로 구분한다.
                 action = androidx.glance.appwidget.action.actionStartActivity(
-                    com.kosmos.app.platform.tile.voiceLaunchIntent(androidx.glance.LocalContext.current)
+                    com.kosmos.app.platform.tile.voiceLaunchIntent(context)
                 )
             )
         }

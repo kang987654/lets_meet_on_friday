@@ -49,9 +49,6 @@ enum class ChatTextSize(val key: String, val label: String, val bodySp: Int) {
 /** 채팅 목록이 읽는 글자 배율 — [KosmosTheme] 가 [ChatTextSize] 로 채운다. */
 val LocalChatTextScale = androidx.compose.runtime.staticCompositionLocalOf { 1f }
 
-/** 현재 화면 로케일에 대응하는 [com.kosmos.app.core.common.AppLanguage] — [KosmosTheme] 가 `LocalConfiguration` 으로부터 채운다. */
-val LocalAppLanguage = androidx.compose.runtime.compositionLocalOf { com.kosmos.app.core.common.AppLanguage.KO }
-
 /**
  * [FontMode]
  * 설정에서 고르는 글꼴 — 앱 글꼴(하다 라운드)이나 기기에서 고른 글꼴. 크기·굵기 단계는 같다(DESIGN.md v3 Typography).
@@ -140,7 +137,6 @@ fun KosmosTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     fontMode: FontMode = FontMode.APP,
     chatTextSize: ChatTextSize = ChatTextSize.DEFAULT,
-    language: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO,
     content: @Composable () -> Unit
 ) {
     val useDark = when (themeMode) {
@@ -171,8 +167,7 @@ fun KosmosTheme(
 
     CompositionLocalProvider(
         LocalKosmosColors provides kosmosColors,
-        LocalChatTextScale provides chatTextSize.scale,
-        LocalAppLanguage provides language
+        LocalChatTextScale provides chatTextSize.scale
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
@@ -188,11 +183,6 @@ object KosmosTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalKosmosColors.current
-
-    val language: com.kosmos.app.core.common.AppLanguage
-        @Composable
-        @ReadOnlyComposable
-        get() = LocalAppLanguage.current
 }
 
 /**

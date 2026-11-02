@@ -168,16 +168,6 @@ suspend fun SnackbarHostState.showUndo(
 
 suspend fun SnackbarHostState.showUndo(
     message: String,
-    lang: com.kosmos.app.core.common.AppLanguage,
-    onUndo: () -> Unit
-) = showUndo(
-    message = message,
-    actionLabel = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Undo" else "되돌리기",
-    onUndo = onUndo
-)
-
-suspend fun SnackbarHostState.showUndo(
-    message: String,
     actionLabel: String = "되돌리기",
     onUndo: () -> Unit
 ) {
@@ -224,4 +214,3 @@ fun Modifier.groupItem(position: GroupPosition): Modifier = composed {
         )
     }
 }
-

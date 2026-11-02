@@ -197,7 +197,7 @@ fun SettingsScreen(
             val notificationPermissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission()
             ) { granted -> notificationDenied = !granted }
-            val briefingWarning = if (uiState.briefingEnabled && (notificationDenied || !NotificationAccess.canPost(briefingContext))) NotificationAccess.deniedMessage(lang) else null
+            val briefingWarning = if (uiState.briefingEnabled && (notificationDenied || !NotificationAccess.canPost(briefingContext))) stringResource(R.string.notif_permission_denied_message) else null
             Section(
                 stringResource(R.string.settings_section_briefing),
                 footnote = if (uiState.briefingEnabled) stringResource(R.string.settings_briefing_footnote) else null,

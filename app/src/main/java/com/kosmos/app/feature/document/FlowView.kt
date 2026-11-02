@@ -1,8 +1,5 @@
 package com.kosmos.app.feature.document
 
-import com.kosmos.app.core.common.AppLanguage
-
-import androidx.compose.material3.MaterialTheme
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -28,6 +25,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,6 +35,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -47,6 +46,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kosmos.app.R
 import com.kosmos.app.domain.document.FlowBlock
 import com.kosmos.app.domain.document.FlowDocument
 import com.kosmos.app.domain.document.Span
@@ -86,7 +86,7 @@ fun FlowView(
                 if (document.truncated) {
                     item(key = "truncated") {
                         Text(
-                            if (KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN) "Showing the first part of this long document" else "문서가 길어서 앞부분만 보여요",
+                            stringResource(R.string.doc_flow_truncated),
                             color = colors.warningText,
                             style = MaterialTheme.typography.labelMedium
                         )
@@ -177,7 +177,7 @@ private fun FlowImage(entryName: String, images: suspend (String, Int) -> Bitmap
     } else {
         Image(
             bitmap = image.asImageBitmap(),
-            contentDescription = if (KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN) "Document image" else "문서 그림",
+            contentDescription = stringResource(R.string.doc_flow_image_cd),
             contentScale = ContentScale.FillWidth,
             modifier = Modifier.fillMaxWidth().aspectRatio(image.width.toFloat() / image.height)
         )

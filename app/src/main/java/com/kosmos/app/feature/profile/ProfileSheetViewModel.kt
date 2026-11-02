@@ -1,7 +1,9 @@
 package com.kosmos.app.feature.profile
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kosmos.app.R
 import com.kosmos.app.assistant.context.projectedProfileTokens
 import com.kosmos.app.assistant.context.profileBlockTokens
 import com.kosmos.app.core.common.AppResult
@@ -11,6 +13,7 @@ import com.kosmos.app.domain.memory.ProfileRepository
 import com.kosmos.app.domain.model.ProfileEntry
 import com.kosmos.app.domain.tool.Tokenizer
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -37,10 +40,11 @@ import javax.inject.Inject
 class ProfileSheetViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val tokenizer: Tokenizer,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null,
+    @param:ApplicationContext private val context: Context? = null
 ) : ViewModel() {
 
-    constructor(profileRepository: ProfileRepository, tokenizer: Tokenizer) : this(profileRepository, tokenizer, null)
+    constructor(profileRepository: ProfileRepository, tokenizer: Tokenizer) : this(profileRepository, tokenizer, null, null)
 
     private val currentLang: com.kosmos.app.core.common.AppLanguage
         get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
@@ -67,7 +71,11 @@ class ProfileSheetViewModel @Inject constructor(
             // 합계 초과를 못 막는다. 초과분은 저장 자체를 차단해 예산 불변식을 지킨다.
             val estimated = projectedProfileTokens(entries.value, trimmedKey, trimmedValue, tokenizer)
             if (estimated > Constants.PROFILE_MAX_TOKENS) {
-                _error.value = if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
+                _error.value = context?.getString(
+                    R.string.profile_error_over_budget,
+                    estimated,
+                    Constants.PROFILE_MAX_TOKENS
+                ) ?: if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
                     "Profile is too long ($estimated/${Constants.PROFILE_MAX_TOKENS} tokens). Please shorten or remove some entries."
                 } else {
                     "프로필이 너무 길어요(${estimated}/${Constants.PROFILE_MAX_TOKENS}토큰). 항목을 줄이거나 짧게 써 주세요."
