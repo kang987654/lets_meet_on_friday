@@ -14,6 +14,15 @@ import com.kosmos.app.domain.search.BigramMatcher
  */
 object RecallConflict {
 
+    const val EPISODE_MARKER_KO = "(과거 대화)"
+    const val EPISODE_MARKER_EN = "(Past conversation)"
+
+    const val META_NOTE_AT = "noteAt"
+    const val META_EPISODE_ID = "episodeId"
+    const val META_CONFLICT_COUNT = "conflictCount"
+    const val META_OTHER_VALUES = "otherValues"
+    const val META_CONFLICT_EPISODE_IDS = "conflictEpisodeIds"
+
     private val number = Regex("\\d+")
 
     // [WHY] 숫자 뒤에 날짜·시각·기간 단위가 붙으면 값이 아니다 — "10월 3일 자물쇠 교체"·"Oct 3 at 2 PM" 같은 요약을 충돌로 잘못 줄이지 않게.
@@ -62,7 +71,7 @@ object RecallConflict {
 
         val epBigrams = BigramMatcher.bigrams(episodeText)
         if (epBigrams.none { it in subjects }) {
-            val isEpisodeLine = episodeText.contains("(과거 대화)") || episodeText.contains("(Past conversation)")
+            val isEpisodeLine = episodeText.contains(EPISODE_MARKER_KO) || episodeText.contains(EPISODE_MARKER_EN)
             return if (isEpisodeLine) emptyList() else valuesIn(episodeText)
         }
 

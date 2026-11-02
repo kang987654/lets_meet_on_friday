@@ -191,7 +191,7 @@ class ApplyEpisodeMergeUseCase @Inject constructor(
             applied++
             auditTrailService.logToolCall(
                 sessionId = PlanEpisodeMergeUseCase.SESSION_ID,
-                toolName = "EpisodeMerge",
+                toolName = AuditTrailService.ACTION_EPISODE_MERGE,
                 resultJson = proposal.episodes.joinToString(" + ") { it.title.orEmpty() } + " → " + doc.title
             )
         }

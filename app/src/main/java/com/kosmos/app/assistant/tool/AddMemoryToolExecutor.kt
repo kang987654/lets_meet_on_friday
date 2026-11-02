@@ -43,7 +43,7 @@ class AddMemoryToolExecutor @Inject constructor(
         return ApprovalRequest(
             sessionId = sessionId,
             title = if (en) "Save Note" else "메모 저장",
-            description = if (en) "Content to save: $preview" else "저장할 내용: $preview",
+            description = if (en) "$APPROVAL_PREFIX_EN $preview" else "$APPROVAL_PREFIX_KO $preview",
             preview = ApprovalPreview(ApprovalPreview.Kind.MEMORY, content)
         )
     }
@@ -74,6 +74,21 @@ class AddMemoryToolExecutor @Inject constructor(
                     "저장에 실패했습니다. 기억하지 못했다고 사용자에게 분명히 알리고, 다시 시도할지 물어보세요."
                 }
             )
+        }
+    }
+
+    companion object {
+        const val APPROVAL_PREFIX_KO = "저장할 내용:"
+        const val APPROVAL_PREFIX_EN = "Content to save:"
+
+        /** 감사 기록(`"${ToolNames.ADD_MEMORY}: ${description}"`)에서 거절된 메모 본문만 뽑는다. */
+        fun extractRejectedContent(auditDetails: String): String? {
+            val prefix = "${ToolNames.ADD_MEMORY}:"
+            if (!auditDetails.startsWith(prefix)) return null
+            return auditDetails.removePrefix(prefix).trim()
+                .removePrefix(APPROVAL_PREFIX_KO)
+                .removePrefix(APPROVAL_PREFIX_EN)
+                .trim()
         }
     }
 }

@@ -2,6 +2,7 @@ package com.kosmos.app.feature.chat.result
 
 import android.content.Context
 import com.kosmos.app.R
+import com.kosmos.app.domain.memory.RecallConflict
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.MessageResult
 import org.json.JSONObject
@@ -79,14 +80,14 @@ object ChatChipRules {
     fun recallEpisode(result: MessageResult?): String? {
         if (result?.kind != MessageResult.Kind.MEMORY_RECALL || result.ref.isNotEmpty()) return null
         val json = result.meta?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return null
-        return json.optString("episodeId").takeIf { it.isNotEmpty() }
+        return json.optString(RecallConflict.META_EPISODE_ID).takeIf { it.isNotEmpty() }
     }
 
     private fun conflictChip(context: Context, meta: String?): ChatChip? {
         val json = meta?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return null
-        val ids = json.optJSONArray("conflictEpisodeIds") ?: return null
+        val ids = json.optJSONArray(RecallConflict.META_CONFLICT_EPISODE_IDS) ?: return null
         val first = ids.optString(0).takeIf { it.isNotEmpty() } ?: return null
-        val count = json.optInt("conflictCount", ids.length())
+        val count = json.optInt(RecallConflict.META_CONFLICT_COUNT, ids.length())
         val label = if (count > 1) {
             context.getString(R.string.chat_bubble_view_past_chats_count, count)
         } else {

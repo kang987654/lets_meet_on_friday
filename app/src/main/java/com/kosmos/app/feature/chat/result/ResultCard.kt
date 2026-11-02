@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.luminance
 import com.kosmos.app.R
+import com.kosmos.app.domain.memory.RecallConflict
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.model.MessageResult
 import com.kosmos.app.domain.model.TaskItem
@@ -159,15 +160,15 @@ object ResultCardMapper {
         val evidence = buildList {
             // [WHY] 가운뎃점으로 이은 정보 줄 대신 문장으로 — taste "AI 티" 목록(middle-dot strings), 0.38.2 M7b.
             if (note != null) {
-                val at = json?.optLong("noteAt", note.createdAt) ?: note.createdAt
+                val at = json?.optLong(RecallConflict.META_NOTE_AT, note.createdAt) ?: note.createdAt
                 val dateStr = IsoDateTimeParser.monthDayKorean(at, zone, lang)
                 add(Evidence(Evidence.Kind.NOTE, context.getString(R.string.result_memory_note_saved_on, dateStr)))
             } else {
                 add(Evidence(Evidence.Kind.CONVERSATION, context.getString(R.string.result_memory_found_in_chats)))
             }
-            val conflicts = json?.optInt("conflictCount", 0) ?: 0
+            val conflicts = json?.optInt(RecallConflict.META_CONFLICT_COUNT, 0) ?: 0
             if (conflicts > 0) {
-                val values = json?.optJSONArray("otherValues")?.let { arr -> (0 until arr.length()).map { arr.getString(it) } }.orEmpty()
+                val values = json?.optJSONArray(RecallConflict.META_OTHER_VALUES)?.let { arr -> (0 until arr.length()).map { arr.getString(it) } }.orEmpty()
                 val joined = values.joinToString(", ")
                 val text = if (conflicts > 1) {
                     context.getString(R.string.result_memory_conflict_multi, conflicts, joined)

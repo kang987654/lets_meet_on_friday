@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.annotation.DrawableRes
 import com.kosmos.app.R
 import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.domain.model.AuditEvent
 import com.kosmos.app.domain.model.AuditEventType
 import com.kosmos.app.domain.tool.ToolNames
@@ -41,14 +42,24 @@ object AuditLabels {
         ToolNames.SEARCH_WIKIPEDIA to R.string.audit_tool_search_wikipedia,
         ToolNames.ADD_REMINDER to R.string.audit_tool_add_reminder,
         ToolNames.LIST_REMINDERS to R.string.audit_tool_list_reminders,
-        "ReminderEdit(화면)" to R.string.audit_tool_reminder_edit,
+        AuditTrailService.ACTION_REMINDER_EDIT_UI to R.string.audit_tool_reminder_edit,
         // 기억 정리 실행기(0.30.0) — 모델 툴이 아니라 정리 화면이 남긴다.
-        "MemoryMerge" to R.string.audit_tool_memory_merge,
-        "EpisodeMerge" to R.string.audit_tool_episode_merge
+        AuditTrailService.ACTION_MEMORY_MERGE to R.string.audit_tool_memory_merge,
+        AuditTrailService.ACTION_EPISODE_MERGE to R.string.audit_tool_episode_merge
     )
 
     /** 기록 원문의 "키:" 줄 이름 — 여러 줄 값을 다음 키 전까지 읽는 데 쓴다. */
-    private val KEYS = listOf("Prompt", "Output", "Tools declared", "Tool", "Result", "Note", "Query", "Status", "Temperature")
+    private val KEYS = listOf(
+        AuditTrailService.KEY_PROMPT,
+        AuditTrailService.KEY_OUTPUT,
+        AuditTrailService.KEY_TOOLS_DECLARED,
+        AuditTrailService.KEY_TOOL,
+        AuditTrailService.KEY_RESULT,
+        AuditTrailService.KEY_NOTE,
+        AuditTrailService.KEY_QUERY,
+        AuditTrailService.KEY_STATUS,
+        AuditTrailService.KEY_TEMPERATURE
+    )
 
     /** 툴 이름의 한국어/영어 — 모르는 이름은 원문 그대로. */
     fun toolKorean(name: String, context: Context): String {
@@ -80,11 +91,11 @@ object AuditLabels {
                     listOf(AuditField(context.getString(R.string.audit_field_reason), reason))
                 )
             }
-            AuditEventType.EXPORT -> simple(R.drawable.ic_ph_download_simple, context.getString(R.string.audit_type_export), context.getString(R.string.audit_field_status), field(details, "Status") ?: details)
-            AuditEventType.IMPORT -> simple(R.drawable.ic_ph_folder_open, context.getString(R.string.audit_type_import), context.getString(R.string.audit_field_status), field(details, "Status") ?: details)
-            AuditEventType.SEARCH_USED -> simple(R.drawable.ic_ph_globe, context.getString(R.string.audit_type_search), context.getString(R.string.audit_field_query), field(details, "Query") ?: details)
-            AuditEventType.THERMAL_WARNING -> simple(R.drawable.ic_ph_thermometer, context.getString(R.string.audit_type_thermal_warning), context.getString(R.string.audit_field_temp), field(details, "Temperature") ?: details)
-            AuditEventType.THERMAL_SHUTDOWN -> simple(R.drawable.ic_ph_thermometer, context.getString(R.string.audit_type_thermal_shutdown), context.getString(R.string.audit_field_temp), field(details, "Temperature") ?: details)
+            AuditEventType.EXPORT -> simple(R.drawable.ic_ph_download_simple, context.getString(R.string.audit_type_export), context.getString(R.string.audit_field_status), field(details, AuditTrailService.KEY_STATUS) ?: details)
+            AuditEventType.IMPORT -> simple(R.drawable.ic_ph_folder_open, context.getString(R.string.audit_type_import), context.getString(R.string.audit_field_status), field(details, AuditTrailService.KEY_STATUS) ?: details)
+            AuditEventType.SEARCH_USED -> simple(R.drawable.ic_ph_globe, context.getString(R.string.audit_type_search), context.getString(R.string.audit_field_query), field(details, AuditTrailService.KEY_QUERY) ?: details)
+            AuditEventType.THERMAL_WARNING -> simple(R.drawable.ic_ph_thermometer, context.getString(R.string.audit_type_thermal_warning), context.getString(R.string.audit_field_temp), field(details, AuditTrailService.KEY_TEMPERATURE) ?: details)
+            AuditEventType.THERMAL_SHUTDOWN -> simple(R.drawable.ic_ph_thermometer, context.getString(R.string.audit_type_thermal_shutdown), context.getString(R.string.audit_field_temp), field(details, AuditTrailService.KEY_TEMPERATURE) ?: details)
         }
     }
 
@@ -96,17 +107,17 @@ object AuditLabels {
      * 기록하는 쪽의 프롬프트 머리(`morning briefing (`·`fact extraction (`)로 가른다.
      */
     private fun modelRun(details: String, context: Context, lang: AppLanguage): AuditDisplay {
-        val prompt = block(details, "Prompt").orEmpty()
-        val output = plain(block(details, "Output") ?: details)
+        val prompt = block(details, AuditTrailService.KEY_PROMPT).orEmpty()
+        val output = plain(block(details, AuditTrailService.KEY_OUTPUT) ?: details)
         return when {
-            prompt.startsWith("morning briefing") ->
+            prompt.startsWith(AuditTrailService.PROMPT_MORNING_BRIEFING) ->
                 AuditDisplay(
                     R.drawable.ic_ph_sun,
                     context.getString(R.string.audit_type_briefing),
                     summarize(output),
                     listOf(AuditField(context.getString(R.string.audit_field_briefing), output))
                 )
-            prompt.startsWith("fact extraction") -> {
+            prompt.startsWith(AuditTrailService.PROMPT_FACT_EXTRACTION) -> {
                 val summary = factSummary(output, context)
                 AuditDisplay(
                     R.drawable.ic_ph_lightbulb,
@@ -116,7 +127,7 @@ object AuditLabels {
                 )
             }
             else -> {
-                val tools = block(details, "Tools declared")
+                val tools = block(details, AuditTrailService.KEY_TOOLS_DECLARED)
                     ?.trim('[', ']')?.split(',')?.map { toolKorean(it, context) }?.filter { it.isNotBlank() }.orEmpty()
                 AuditDisplay(
                     R.drawable.ic_ph_chat_text,
@@ -141,11 +152,11 @@ object AuditLabels {
     }
 
     private fun toolCall(details: String, context: Context, lang: AppLanguage): AuditDisplay {
-        val tool = field(details, "Tool")
-        val result = resultKorean(block(details, "Result").orEmpty(), context, lang)
+        val tool = field(details, AuditTrailService.KEY_TOOL)
+        val result = resultKorean(block(details, AuditTrailService.KEY_RESULT).orEmpty(), context, lang)
         val fields = listOfNotNull(
             result.takeIf { it.isNotEmpty() }?.let { AuditField(context.getString(R.string.audit_field_result), it) },
-            field(details, "Note")?.let { AuditField(context.getString(R.string.audit_field_note), it) }
+            field(details, AuditTrailService.KEY_NOTE)?.let { AuditField(context.getString(R.string.audit_field_note), it) }
         )
         val toolLabel = tool?.let { toolKorean(it, context) } ?: context.getString(R.string.audit_tool_default)
         val title = context.getString(R.string.audit_type_tool_run, toolLabel)
@@ -217,11 +228,11 @@ object AuditLabels {
     @DrawableRes
     private fun toolIcon(tool: String?): Int = when (tool) {
         ToolNames.ADD_SCHEDULE, ToolNames.GET_SCHEDULE -> R.drawable.ic_ph_calendar_blank
-        ToolNames.ADD_REMINDER, ToolNames.LIST_REMINDERS, "ReminderEdit(화면)" -> R.drawable.ic_ph_bell
-        ToolNames.ADD_MEMORY, "MemoryMerge" -> R.drawable.ic_ph_note
+        ToolNames.ADD_REMINDER, ToolNames.LIST_REMINDERS, AuditTrailService.ACTION_REMINDER_EDIT_UI -> R.drawable.ic_ph_bell
+        ToolNames.ADD_MEMORY, AuditTrailService.ACTION_MEMORY_MERGE -> R.drawable.ic_ph_note
         ToolNames.SEARCH_MEMORY -> R.drawable.ic_ph_magnifying_glass
         ToolNames.SEARCH_WIKIPEDIA -> R.drawable.ic_ph_globe
-        "EpisodeMerge" -> R.drawable.ic_ph_chat_text
+        AuditTrailService.ACTION_EPISODE_MERGE -> R.drawable.ic_ph_chat_text
         else -> R.drawable.ic_ph_lightbulb
     }
 

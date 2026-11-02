@@ -12,8 +12,25 @@ import com.kosmos.app.core.common.AppResult
 class AuditTrailService @Inject constructor(
     private val auditRepository: AuditRepository
 ) {
-    private companion object {
-        const val TAG = "AuditTrailService"
+    companion object {
+        private const val TAG = "AuditTrailService"
+
+        const val KEY_PROMPT = "Prompt"
+        const val KEY_OUTPUT = "Output"
+        const val KEY_TOOLS_DECLARED = "Tools declared"
+        const val KEY_TOOL = "Tool"
+        const val KEY_RESULT = "Result"
+        const val KEY_NOTE = "Note"
+        const val KEY_QUERY = "Query"
+        const val KEY_STATUS = "Status"
+        const val KEY_TEMPERATURE = "Temperature"
+
+        const val ACTION_REMINDER_EDIT_UI = "ReminderEdit(화면)"
+        const val ACTION_MEMORY_MERGE = "MemoryMerge"
+        const val ACTION_EPISODE_MERGE = "EpisodeMerge"
+
+        const val PROMPT_MORNING_BRIEFING = "morning briefing"
+        const val PROMPT_FACT_EXTRACTION = "fact extraction"
     }
 
     /**
@@ -30,9 +47,9 @@ class AuditTrailService @Inject constructor(
         declaredTools: List<String> = emptyList()
     ) {
         val details = buildString {
-            append("Prompt: ${redact(prompt)}")
-            append("\nOutput: ${redact(output)}")
-            if (declaredTools.isNotEmpty()) append("\nTools declared: $declaredTools")
+            append("$KEY_PROMPT: ${redact(prompt)}")
+            append("\n$KEY_OUTPUT: ${redact(output)}")
+            if (declaredTools.isNotEmpty()) append("\n$KEY_TOOLS_DECLARED: $declaredTools")
         }
         saveEvent(sessionId, AuditEventType.MODEL_RUN, details)
     }
@@ -54,9 +71,9 @@ class AuditTrailService @Inject constructor(
         note: String? = null
     ) {
         val details = buildString {
-            append("Tool: $toolName")
-            append("\nResult: ${redact(resultJson)}")
-            if (note != null) append("\nNote: $note")
+            append("$KEY_TOOL: $toolName")
+            append("\n$KEY_RESULT: ${redact(resultJson)}")
+            if (note != null) append("\n$KEY_NOTE: $note")
         }
         saveEvent(sessionId, AuditEventType.TOOL_CALL, details)
     }
@@ -74,17 +91,17 @@ class AuditTrailService @Inject constructor(
     }
 
     suspend fun logSearchEvent(sessionId: String, query: String) {
-        saveEvent(sessionId, AuditEventType.SEARCH_USED, "Query: ${redact(query)}")
+        saveEvent(sessionId, AuditEventType.SEARCH_USED, "$KEY_QUERY: ${redact(query)}")
     }
 
     suspend fun logBackupEvent(sessionId: String, action: String, status: String) {
         val type = if (action.equals("export", ignoreCase = true)) AuditEventType.EXPORT else AuditEventType.IMPORT
-        saveEvent(sessionId, type, "Status: $status")
+        saveEvent(sessionId, type, "$KEY_STATUS: $status")
     }
 
     suspend fun logThermalEvent(sessionId: String, type: String, temperature: Float) {
         val eventType = if (type.equals("warning", ignoreCase = true)) AuditEventType.THERMAL_WARNING else AuditEventType.THERMAL_SHUTDOWN
-        saveEvent(sessionId, eventType, "Temperature: $temperature°C")
+        saveEvent(sessionId, eventType, "$KEY_TEMPERATURE: $temperature°C")
     }
 
     private suspend fun saveEvent(sessionId: String, type: AuditEventType, details: String) {

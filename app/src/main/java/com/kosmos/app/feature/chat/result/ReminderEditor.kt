@@ -111,7 +111,7 @@ class ReminderEditor @Inject constructor(
     private suspend fun finish(task: TaskItem, line: String, now: Long): AppResult<ChatMessage> {
         widgetRefresher.refresh()
         val sessionId = sessionStore.activeSessionIdFlow.first() ?: task.id
-        auditTrailService.logToolCall(sessionId, toolName = "ReminderEdit(화면)", resultJson = line)
+        auditTrailService.logToolCall(sessionId, toolName = AuditTrailService.ACTION_REMINDER_EDIT_UI, resultJson = line)
         val message = ChatMessage(
             id = UUID.randomUUID().toString(), sessionId = sessionId, role = ChatMessage.Role.ASSISTANT, content = line,
             inputType = InputType.TEXT, createdAt = now, result = MessageResult(MessageResult.Kind.REMINDER, task.id)

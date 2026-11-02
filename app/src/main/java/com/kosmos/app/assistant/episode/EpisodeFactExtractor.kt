@@ -16,7 +16,7 @@ import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.model.ProfileSuggestion
 import com.kosmos.app.domain.model.ProfileSuggestionStatus
-import com.kosmos.app.domain.tool.ToolNames
+import com.kosmos.app.assistant.tool.AddMemoryToolExecutor
 import com.kosmos.app.domain.usecase.ExtractFactsUseCase
 import com.kosmos.app.domain.usecase.SaveKnowledgeUseCase
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
@@ -139,7 +139,7 @@ class EpisodeFactExtractor @Inject constructor(
         // [WHY] 원문은 기록하지 않는다(브리핑 전례) — 개수만. 감사 화면에서 "언제 무엇을 몇 개"가 보이면 충분하다.
         auditTrailService.logModelRun(
             sessionId = ExtractFactsUseCase.SESSION_ID,
-            prompt = "fact extraction (episode=${episode.id}, messages=${messages.size})",
+            prompt = "${AuditTrailService.PROMPT_FACT_EXTRACTION} (episode=${episode.id}, messages=${messages.size})",
             output = "profile=${facts.profile.size} knowledge=${facts.knowledge.size} " +
                 "savedKnowledge=$savedKnowledge filtered=$filtered suggested=$suggested"
         )
@@ -153,16 +153,9 @@ class EpisodeFactExtractor @Inject constructor(
      * 감사를 읽는다. 조회 실패는 "거절 없음"으로 강등한다(추출을 막지 않는다).
      */
     private suspend fun rejectedMemories(episode: Episode, now: Long): List<String> {
-        val prefix = "${ToolNames.ADD_MEMORY}:"
         val events = auditRepository.getEventsBetween(AuditEventType.APPROVAL_REJECTED, episode.startAt, episode.endAt ?: now)
         return (events as? AppResult.Success)?.data.orEmpty()
-            .filter { it.details.startsWith(prefix) }
-            .map {
-                it.details.removePrefix(prefix).trim()
-                    .removePrefix("저장할 내용:")
-                    .removePrefix("Content to save:")
-                    .trim()
-            }
+            .mapNotNull { AddMemoryToolExecutor.extractRejectedContent(it.details) }
     }
 
     private companion object {

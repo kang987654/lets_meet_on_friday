@@ -265,9 +265,9 @@ class SearchMemoryToolExecutor internal constructor(
             contradicting.takeIf { it.isNotEmpty() }?.let {
                 val otherVals = RecallConflict.otherValues(it.map(Hit::text), notes).joinToString(", ")
                 if (en) {
-                    "- (Past conversation) ${it.size} item(s) have different values: $otherVals)"
+                    "- ${RecallConflict.EPISODE_MARKER_EN} ${it.size} item(s) have different values: $otherVals)"
                 } else {
-                    "- (과거 대화) ${it.size}건에는 다른 값이 적혀 있습니다: $otherVals)"
+                    "- ${RecallConflict.EPISODE_MARKER_KO} ${it.size}건에는 다른 값이 적혀 있습니다: $otherVals)"
                 }
             }
         )
@@ -295,14 +295,14 @@ class SearchMemoryToolExecutor internal constructor(
     private fun recallOf(hits: List<Hit>, kept: List<Hit>, contradicting: List<Hit>, notes: List<String>): JSONObject {
         val topNote = hits.firstOrNull { it.episodeId == null }
         val meta = JSONObject()
-        if (topNote != null) meta.put("noteAt", topNote.createdAt)
+        if (topNote != null) meta.put(RecallConflict.META_NOTE_AT, topNote.createdAt)
         // 화면 전용 — 지난 대화만 근거인 카드를 누르면 여는 대화(0.38.6 M3). 메모가 근거면 메모 화면으로 간다.
-        if (topNote == null) kept.firstNotNullOfOrNull(Hit::episodeId)?.let { meta.put("episodeId", it) }
+        if (topNote == null) kept.firstNotNullOfOrNull(Hit::episodeId)?.let { meta.put(RecallConflict.META_EPISODE_ID, it) }
         if (contradicting.isNotEmpty()) {
-            meta.put("conflictCount", contradicting.size)
-            meta.put("otherValues", org.json.JSONArray(RecallConflict.otherValues(contradicting.map(Hit::text), notes)))
+            meta.put(RecallConflict.META_CONFLICT_COUNT, contradicting.size)
+            meta.put(RecallConflict.META_OTHER_VALUES, org.json.JSONArray(RecallConflict.otherValues(contradicting.map(Hit::text), notes)))
             // 화면 전용(모델 입력에서는 meta 를 뗀다) — 상황 칩 [과거 기록 정리]가 여는 대화(0.38.2 M6).
-            meta.put("conflictEpisodeIds", org.json.JSONArray(contradicting.mapNotNull(Hit::episodeId)))
+            meta.put(RecallConflict.META_CONFLICT_EPISODE_IDS, org.json.JSONArray(contradicting.mapNotNull(Hit::episodeId)))
         }
         return JSONObject().put("ref", topNote?.key.orEmpty()).put("meta", meta)
     }
@@ -317,7 +317,7 @@ class SearchMemoryToolExecutor internal constructor(
     private fun Episode.toHit(en: Boolean = false) = Hit(
         // [WHY] "ep:" 프리픽스 — 메모와 에피소드의 id 가 우연히 같아도 랭킹 키가 충돌하지 않는다.
         key = "ep:$id",
-        text = if (en) "(Past conversation) ${title.orEmpty()}: ${summary.orEmpty()}" else "(과거 대화) ${title.orEmpty()}: ${summary.orEmpty()}",
+        text = if (en) "${RecallConflict.EPISODE_MARKER_EN} ${title.orEmpty()}: ${summary.orEmpty()}" else "${RecallConflict.EPISODE_MARKER_KO} ${title.orEmpty()}: ${summary.orEmpty()}",
         scoreText = searchText(),
         tags = tags,
         createdAt = createdAt,

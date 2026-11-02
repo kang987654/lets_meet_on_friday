@@ -13,6 +13,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.Constants
+import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.core.mapper.ErrorCode
 import com.kosmos.app.core.mapper.ErrorCodeMapper
 import com.kosmos.app.core.mapper.ErrorMessages
@@ -47,7 +48,8 @@ class ModelDownloadWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val downloader: ModelDownloader,
     private val modelLoadManager: ModelLoadManager,
-    private val notifier: DownloadNotifier
+    private val notifier: DownloadNotifier,
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun getForegroundInfo(): ForegroundInfo =
@@ -89,7 +91,7 @@ class ModelDownloadWorker @AssistedInject constructor(
             Result.success()
         } catch (e: ModelDownloadException.InsufficientStorage) {
             val error = AppError.InsufficientStorage(e.requiredBytes)
-            notifier.notifyFailure(ErrorMessages.userMessage(error))
+            notifier.notifyFailure(ErrorMessages.userMessage(error, currentLanguage.current))
             Result.failure(
                 workDataOf(
                     KEY_ERROR_CODE to ErrorCode.INSUFFICIENT_STORAGE.name,
@@ -111,7 +113,7 @@ class ModelDownloadWorker @AssistedInject constructor(
     }
 
     private fun failWith(error: AppError): Result {
-        notifier.notifyFailure(ErrorMessages.userMessage(error))
+        notifier.notifyFailure(ErrorMessages.userMessage(error, currentLanguage.current))
         return Result.failure(
             workDataOf(KEY_ERROR_CODE to ErrorCodeMapper.toErrorCode(error).name)
         )

@@ -166,7 +166,7 @@ class MorningBriefingGenerator @Inject constructor(
 
         auditTrailService.logModelRun(
             sessionId = GenerateBriefingUseCase.SESSION_ID,
-            prompt = "morning briefing (events=${materials.events.size}, " +
+            prompt = "${AuditTrailService.PROMPT_MORNING_BRIEFING} (events=${materials.events.size}, " +
                 "tasks=${materials.pendingTasks.size}, episodes=${materials.recentEpisodes.size})",
             output = briefing
         )

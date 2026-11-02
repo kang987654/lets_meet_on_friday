@@ -49,7 +49,7 @@ class ApplyMemoryMergeUseCase @Inject constructor(
             applied++
             auditTrailService.logToolCall(
                 sessionId = PlanMemoryMergeUseCase.SESSION_ID,
-                toolName = "MemoryMerge",
+                toolName = AuditTrailService.ACTION_MEMORY_MERGE,
                 resultJson = proposal.sources.joinToString(" + ") { it.content } + " → " + proposal.mergedContent
             )
         }
