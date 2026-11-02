@@ -292,7 +292,7 @@ fun isRestorableVersion(version: Int): Boolean =
  *
  * [WHY] `File.copyTo(target, overwrite = true)` 는 대상을 **먼저 삭제한 뒤** 복사하므로, 복사 도중 디스크 공간 부족 등으로
  * 실패하면 기존 `kosmos_db` 가 사라진 채 끝난다. 같은 폴더의 `.restore-tmp` 임시 파일로 먼저 복사를 마치고 크기까지 확인한 뒤
- * `renameTo` 로 교체해야 실패 시에도 원래 DB 가 온전히 남는다.
+ * 원자적 이동([moveReplacing])으로 교체해야 실패 시에도 원래 DB 가 온전히 남는다.
  */
 fun replaceDatabaseFiles(
     extractedDir: File,
@@ -332,20 +332,14 @@ fun replaceDatabaseFiles(
     val walTarget = File(dbFile.absolutePath + "-wal")
     val shmTarget = File(dbFile.absolutePath + "-shm")
 
-    if (dbFile.exists() && !dbFile.delete()) {
-        tmpDb.delete()
-        tmpWal.delete()
-        return false
-    }
-    if (!tmpDb.renameTo(dbFile)) {
+    if (!moveReplacing(tmpDb, dbFile)) {
         tmpDb.delete()
         tmpWal.delete()
         return false
     }
 
     if (hasWal) {
-        if (walTarget.exists()) walTarget.delete()
-        if (!tmpWal.renameTo(walTarget)) {
+        if (!moveReplacing(tmpWal, walTarget)) {
             tmpWal.delete()
             return false
         }
@@ -359,3 +353,18 @@ fun replaceDatabaseFiles(
     }
     return true
 }
+
+/**
+ * [source] 를 [target] 자리로 한 번에 옮긴다 — 기존 [target] 은 이동과 함께 대체된다.
+ *
+ * [WHY] 대상을 먼저 지우고 `renameTo` 하면 그 사이 실패 시 DB 가 없는 채로 끝난다. 원자적 이동은 POSIX `rename`·
+ * Windows `MoveFileEx(REPLACE_EXISTING)` 으로 기존 파일을 지우지 않고 바로 대체한다(`File.renameTo` 는 Windows 에서 덮어쓰지 못한다).
+ */
+private fun moveReplacing(source: File, target: File): Boolean = runCatching {
+    java.nio.file.Files.move(
+        source.toPath(),
+        target.toPath(),
+        java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+        java.nio.file.StandardCopyOption.ATOMIC_MOVE
+    )
+}.isSuccess
