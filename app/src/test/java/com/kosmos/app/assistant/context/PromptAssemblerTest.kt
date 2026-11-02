@@ -37,12 +37,14 @@ class PromptAssemblerTest {
         responseStyle: String = "DEFAULT",
         conversations: List<ChatMessage> = emptyList(),
         maxTokens: Int = Constants.MAX_CONTEXT_TOKENS,
-        userInput: String = "내일 3시에 치과 예약 잡아줘"
+        userInput: String = "내일 3시에 치과 예약 잡아줘",
+        today: java.time.LocalDate = java.time.LocalDate.now(java.time.ZoneId.systemDefault())
     ): ChatPrompt = promptAssembler.assembleWithTools(
         context = context(responseStyle, conversations, maxTokens),
         userInput = userInput,
         availableTools = listOf("AddSchedule", "GetSchedule", "AddMemory"),
-        systemRole = "personal assistant named Kosmos"
+        systemRole = "personal assistant named Kosmos",
+        today = today
     )
 
     private fun promptWith(availableTools: List<String>): ChatPrompt =
@@ -118,10 +120,11 @@ class PromptAssemblerTest {
     fun `시스템 지시가 오늘 기준 파생 날짜를 계산해 제공한다`() {
         // [WHY] PC 실험에서 시각만 주면 모델이 "다음주 월요일"을 한 주 틀리게(8/10 → 8/17)
         // 계산했다. 파생 날짜를 우리가 계산해 주는 것이 일정 등록의 전제다.
-        val now = java.time.LocalDate.now()
+        // 2026-10-19 는 월요일 — "다음주 월요일"이 오늘이 아닌 7일 뒤여야 하는 경계를 함께 고정한다.
+        val now = java.time.LocalDate.of(2026, 10, 19)
         val fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
         val nextMonday = now.with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY))
-        val instruction = prompt().systemInstruction
+        val instruction = prompt(today = now).systemInstruction
 
         assertTrue(instruction.contains("오늘=${now.format(fmt)}"))
         assertTrue(instruction.contains("내일=${now.plusDays(1).format(fmt)}"))

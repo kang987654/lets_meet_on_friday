@@ -13,12 +13,11 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * [TaskDaoTest]
- * 인메모리 Room 에서 [com.kosmos.app.data.local.db.dao.TaskDao] 쿼리 계약을 검증합니다 (0.40.4 M3).
+ * 인메모리 Room 에서 [com.kosmos.app.data.local.db.dao.TaskDao] 쿼리 계약을 검증합니다.
  */
 @RunWith(RobolectricTestRunner::class)
 class TaskDaoTest {
 
-    // [WHY] DB 수명(열기·닫기)은 공용 Rule 이 맡는다 — 설정만 옮겼고 단언은 그대로다.
     @get:Rule
     val dbRule = InMemoryKosmosDbRule()
 
