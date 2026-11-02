@@ -64,8 +64,11 @@ def nodes():
     return out
 
 
-def tap_text(key, index=0):
-    hits = [n for n in nodes() if key in n[0] or key in n[1]]
+def tap_text(key, index=0, exact=False):
+    if exact:
+        hits = [n for n in nodes() if key == n[0] or key == n[1]]
+    else:
+        hits = [n for n in nodes() if key in n[0] or key in n[1]]
     if not hits:
         return False
     _, _, x, y = hits[min(index, len(hits) - 1)]

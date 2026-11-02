@@ -11,13 +11,13 @@ import time
 
 import adbtool as A
 
-IDLE_MARK = "음성 입력"      # 입력바의 마이크 — 답을 만드는 동안에는 "답 멈추기"로 바뀐다
-BUSY_MARK = "답 멈추기"
-SHEET_MARKS = ("등록하기", "추가하기", "저장하기", "프로필에 저장", "개 저장")
+IDLE_MARKS = ("음성 입력", "Voice input")      # 입력바의 마이크 — 답을 만드는 동안에는 "답 멈추기"/"Stop reply"로 바뀐다
+BUSY_MARKS = ("답 멈추기", "Stop reply")
+SHEET_MARKS = ("등록하기", "추가하기", "저장하기", "프로필에 저장", "개 저장", "Add Event", "Set Reminder", "Save Note", "Save Profile")
 
 
 def idle(lines):
-    return any(IDLE_MARK in l for l in lines) and not any(BUSY_MARK in l for l in lines)
+    return any(m in l for l in lines for m in IDLE_MARKS) and not any(m in l for l in lines for m in BUSY_MARKS)
 
 
 def main():
@@ -40,11 +40,13 @@ def main():
             if not handled and any(m in l for l in lines for m in SHEET_MARKS):
                 print("[승인 시트]", lines[-8:], flush=True)
                 if action == "approve":
-                    for k in ("등록하기", "추가하기", "저장하기"):
+                    for k in ("등록하기", "추가하기", "저장하기", "Add", "Set", "Save"):
                         if A.tap_text(k):
                             break
                 elif action == "reject":
-                    A.tap_text("취소")
+                    for k in ("취소", "Cancel"):
+                        if A.tap_text(k):
+                            break
                 handled = True
                 continue
             if idle(lines) and time.time() - t0 > 5:
