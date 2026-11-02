@@ -112,7 +112,7 @@
 - **예외 — 모델 회귀 세트**(`scratch/lab/regression/run.py`, 2026-10-29 사용자 결정): 저장소에 고정한 세트로, 모델 입력(툴 선언·지시·리마인더·
   툴 결과 문구)이나 모델 행동 가드(`RepeatRequest`·`MemoSaveIntent`·`RefusalTurns` 등)를 바꾸는 회차마다 다시 돌리고 `baseline.json` 과의
   차이를 CHANGELOG 에 적는다. 앱 가드의 판정식을 바꾸면 세트의 흉내도 같이 고친다. 기준값 갱신(`--save-baseline`)은 결과를 확인한 뒤에만.
-- **툴을 추가할 때 고칠 곳** (0.27.0): `ToolNames` 상수 → 실행기 `name` → `AgentModule` 의 `@IntoSet`
+- **툴을 추가할 때 고칠 곳** (0.27.0 / 0.40.3): `ToolNames` 상수 → 실행기 `name`(언어는 `CurrentLanguage = CurrentLanguage.KO` 로 주입) → `AgentModule` 의 `@IntoSet`
   한 줄 → `KosmosToolDeclarations`(선언·snake 이름) → `KosmosAgent` 활성 목록 → 트리거 규칙. 툴 결과
   JSON 은 `ToolResultJson` 으로 조립한다 — 결과 문구도 모델 입력이라 바꾸면 위 실측 수칙을 따른다.
 
