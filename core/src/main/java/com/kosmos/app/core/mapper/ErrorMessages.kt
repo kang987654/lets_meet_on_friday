@@ -33,8 +33,6 @@ object ErrorMessages {
 
         ErrorCode.IMAGE_TOO_LARGE -> "이미지가 너무 커요. 10MB 이하 파일을 첨부해 주세요."
         ErrorCode.UNSUPPORTED_IMAGE_FORMAT -> "지원하지 않는 파일 형식이에요."
-        ErrorCode.IN_FLIGHT_CONFLICT -> "이전 요청을 처리하는 중이에요. 잠시 후 다시 시도해 주세요."
-        ErrorCode.DUPLICATE_EVENT -> "같은 일정이 이미 등록되어 있어요."
 
         ErrorCode.PERMISSION_DENIED_CALENDAR -> "캘린더 권한이 없어 기기 캘린더에는 저장하지 못했어요. 설정에서 권한을 허용해 주세요."
         ErrorCode.PERMISSION_DENIED_MICROPHONE -> "마이크 권한이 필요해요. 설정에서 권한을 허용해 주세요."
@@ -54,7 +52,6 @@ object ErrorMessages {
 
         ErrorCode.DB_WRITE_ERROR -> "저장에 실패했어요. 다시 시도해 주세요."
         ErrorCode.DB_READ_ERROR -> "데이터를 불러오지 못했어요. 다시 시도해 주세요."
-        ErrorCode.DB_MIGRATION_ERROR -> "데이터 업데이트 중 문제가 발생했어요. 앱을 다시 시작해 주세요."
 
         ErrorCode.EXPORT_FAILED -> "백업 파일을 만들지 못했어요."
         ErrorCode.IMPORT_FAILED -> "복원에 실패했어요. 백업 파일을 확인해 주세요."
@@ -74,8 +71,6 @@ object ErrorMessages {
 
         ErrorCode.IMAGE_TOO_LARGE -> "The image is too large. Please attach a file under 10 MB."
         ErrorCode.UNSUPPORTED_IMAGE_FORMAT -> "Unsupported file format."
-        ErrorCode.IN_FLIGHT_CONFLICT -> "Still processing the previous request. Please try again in a moment."
-        ErrorCode.DUPLICATE_EVENT -> "A matching event is already scheduled."
 
         ErrorCode.PERMISSION_DENIED_CALENDAR -> "Calendar permission is off, so the event couldn't be saved to your device calendar. Please allow access in Settings."
         ErrorCode.PERMISSION_DENIED_MICROPHONE -> "Microphone permission is required. Please allow access in Settings."
@@ -95,7 +90,6 @@ object ErrorMessages {
 
         ErrorCode.DB_WRITE_ERROR -> "Failed to save. Please try again."
         ErrorCode.DB_READ_ERROR -> "Failed to load data. Please try again."
-        ErrorCode.DB_MIGRATION_ERROR -> "An error occurred while updating data. Please restart the app."
 
         ErrorCode.EXPORT_FAILED -> "Couldn't create the backup file."
         ErrorCode.IMPORT_FAILED -> "Restore failed. Please check the backup file."

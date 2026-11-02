@@ -26,7 +26,6 @@ sealed class AppError {
 
     data class DbWriteError(val table: String) : AppError()
     data class DbReadError(val table: String) : AppError()
-    data class DbMigrationError(val from: Int, val to: Int) : AppError()
 
     data class PermissionDenied(val permission: String) : AppError()
 
@@ -46,9 +45,6 @@ sealed class AppError {
     data class ImportManifestMismatch(val expected: String, val actual: String) : AppError()
     data class ImportSchemaMismatch(val reason: String) : AppError()
     data class InsufficientStorage(val requiredBytes: Long) : AppError()
-
-    data class InFlightConflict(val reason: String) : AppError()
-    data class DuplicateEvent(val reason: String) : AppError()
 
     data class TemperatureWarning(val temperature: Float) : AppError()
     data class TemperatureCritical(val temperature: Float) : AppError()

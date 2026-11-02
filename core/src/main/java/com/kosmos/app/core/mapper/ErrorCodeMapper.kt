@@ -28,8 +28,6 @@ object ErrorCodeMapper {
 
         is AppError.ImageTooLarge -> ErrorCode.IMAGE_TOO_LARGE
         is AppError.UnsupportedImageFormat -> ErrorCode.UNSUPPORTED_IMAGE_FORMAT
-        is AppError.InFlightConflict -> ErrorCode.IN_FLIGHT_CONFLICT
-        is AppError.DuplicateEvent -> ErrorCode.DUPLICATE_EVENT
 
         is AppError.PermissionDenied -> when (error.permission) {
             PermissionPolicy.CALENDAR_READ,
@@ -56,7 +54,6 @@ object ErrorCodeMapper {
 
         is AppError.DbWriteError -> ErrorCode.DB_WRITE_ERROR
         is AppError.DbReadError -> ErrorCode.DB_READ_ERROR
-        is AppError.DbMigrationError -> ErrorCode.DB_MIGRATION_ERROR
 
         is AppError.ExportFailed -> ErrorCode.EXPORT_FAILED
         is AppError.ImportFailed -> ErrorCode.IMPORT_FAILED

@@ -14,9 +14,6 @@ interface ConversationDao {
     @Query("SELECT * FROM conversation WHERE sessionId = :sessionId ORDER BY createdAt DESC LIMIT :limit")
     suspend fun getRecentBySession(sessionId: String, limit: Int): List<ConversationEntity>
 
-    @Query("SELECT * FROM conversation WHERE sessionId = :sessionId ORDER BY createdAt DESC LIMIT :limit OFFSET :offset")
-    suspend fun getPagedBySession(sessionId: String, offset: Int, limit: Int): List<ConversationEntity>
-
     @Query("SELECT * FROM conversation WHERE episodeId = :episodeId ORDER BY createdAt ASC")
     suspend fun getByEpisode(episodeId: String): List<ConversationEntity>
 

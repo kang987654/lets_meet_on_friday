@@ -20,7 +20,6 @@ interface ConversationRepository {
         sessionId: String,
         limit: Int
     ): AppResult<List<ChatMessage>>
-    suspend fun getPagedBySession(sessionId: String, offset: Int, limit: Int): AppResult<List<ChatMessage>>
 
     /** 에피소드에 귀속된 메시지 전부 — 시간순 (요약 입력·원문 열람용, ADR-022). */
     suspend fun getByEpisode(episodeId: String): AppResult<List<ChatMessage>>

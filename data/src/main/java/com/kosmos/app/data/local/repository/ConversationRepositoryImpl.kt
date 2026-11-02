@@ -42,9 +42,6 @@ class ConversationRepositoryImpl @Inject constructor(
         conversationDao.getRecentBySession(sessionId, limit).map { it.toDomain() }.reversed()
     }
 
-    override suspend fun getPagedBySession(sessionId: String, offset: Int, limit: Int): AppResult<List<ChatMessage>> =
-        read("페이징 메시지 조회") { conversationDao.getPagedBySession(sessionId, offset, limit).map { it.toDomain() } }
-
     override suspend fun getByEpisode(episodeId: String): AppResult<List<ChatMessage>> =
         read("에피소드 메시지 조회") { conversationDao.getByEpisode(episodeId).map { it.toDomain() } }
 

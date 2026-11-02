@@ -1,33 +1,26 @@
 package com.kosmos.app.assistant.context
 
 import com.kosmos.app.assistant.tool.ToolArguments
-import org.json.JSONObject
 
 /**
  * [ToolParser]
- * 스트리밍되는 LLM 응답 텍스트 내에서 특정 태그(`<|think|>`, `<tool_call>`)를 실시간으로 추출하고 파싱하는 유틸리티입니다.
+ * 스트리밍되는 LLM 응답 텍스트 내에서 특정 태그(`<|think|>`, `<tool_call>`)를 실시간으로 추출하고 걷어내는 유틸리티입니다.
  *
  * ### Architecture Context
  * - **Layer**: Assistant (Context/Parsing)
- * - **Dependencies**: org.json, [ToolArguments]
+ * - **Dependencies**: [ToolArguments]
  *
  * ### Key Flow
  * 1. 전체 응답 텍스트에서 `<|think|>` 블록을 정규식으로 탐색하여 에이전트의 사고 과정(thinking) 추출 및 본문에서 제거
- * 2. `<tool_call>` 블록을 정규식으로 탐색 후 내부 JSON을 파싱해 [ToolCallData] 리스트 생성
- *    — 단, 툴 호출의 **정식 경로는 런타임의 구조화된 toolCalls** 다(ADR-008). 이 텍스트 파싱은
- *    모델이 프로토콜 문법을 본문으로 흘렸을 때 화면에 새지 않게 걷어내는 위생 처리에 가깝다
- * 3. JSON 이 깨진 블록도 본문에서 걷어낸다(툴 콜로는 세지 않는다) — 본문 오염 방지
- *    [WHY] 예전에는 깨진 블록 원문을 `malformedToolCalls` 로 따로 모았지만 소비자가 끝내 없었다
- *    (모델 회신 경로 미배선, 2026-08-15 감사 → 0.27.x 에서 필드 삭제). 정식 툴 경로는 런타임의
- *    구조화된 toolCalls 라, 텍스트 경로의 깨진 호출을 모델에 되돌릴 일이 없다(ADR-008).
- * 4. 최종적으로 UI 렌더링을 위한 본문 텍스트, 사고 과정, 툴 콜 정보를 캡슐화한 [ParsedStream] 반환
+ * 2. `<tool_call>` 블록은 본문에서 걷어내기만 한다(툴 호출은 런타임의 구조화된 toolCalls 가 담당, ADR-008)
+ *    — 모델이 옛 프로토콜 문법을 본문으로 흘렸을 때 화면에 새지 않게 하는 표시 위생 처리다.
+ * 3. 최종적으로 UI 렌더링을 위한 본문 텍스트와 사고 과정을 캡슐화한 [ParsedStream] 반환
  */
 object ToolParser {
 
     data class ParsedStream(
         val content: String,
-        val thinking: String?,
-        val toolCalls: List<ToolCallData>
+        val thinking: String?
     )
 
     data class ToolCallData(
@@ -38,7 +31,6 @@ object ToolParser {
     fun parseStream(rawString: String): ParsedStream {
         var text = rawString
         var thinkingProcess: String? = null
-        val toolCalls = mutableListOf<ToolCallData>()
 
         // 1. Extract <|think|> blocks
         // [WHY] findAll 이다 — 예전에는 find(단수)여서 두 번째 이후 생각 블록이 본문에 남아
@@ -67,34 +59,15 @@ object ToolParser {
             thinkMatches.forEach { text = text.replace(it.value, "") }
         }
 
-        // 2. Extract <tool_call> blocks
+        // 2. Strip <tool_call> blocks from content (ADR-008)
         val toolRegex = Regex("<tool_call>(.*?)</tool_call>", RegexOption.DOT_MATCHES_ALL)
-        val toolMatches = toolRegex.findAll(text)
-        
-        for (match in toolMatches) {
-            val jsonString = match.groupValues[1].trim()
-            try {
-                val jsonObject = JSONObject(jsonString)
-                val name = jsonObject.optString("name", "")
-                // [WHY] args 객체를 평탄화하지 않고 그대로 감싸 넘긴다 — 인자 해석은 스키마를
-                // 아는 executor 의 책임이고, 파서가 원시 org.json 값을 Map 으로 흘리면
-                // JSONArray·JSONObject.NULL 같은 함정이 호출부마다 복제된다.
-                val args = jsonObject.optJSONObject("args")
-                    ?.let { ToolArguments(it) }
-                    ?: ToolArguments.empty()
-
-                if (name.isNotEmpty()) toolCalls.add(ToolCallData(name, args))
-            } catch (e: Exception) {
-                // 깨진 JSON 블록 — 본문에서만 걷어낸다(아래 replace). 툴 콜로 세지 않는다.
-            }
-            // Remove the parsed tool call from the text
+        for (match in toolRegex.findAll(text).toList()) {
             text = text.replace(match.value, "")
         }
 
         return ParsedStream(
             content = stripIncompleteTag(text).trimStart(),
-            thinking = thinkingProcess,
-            toolCalls = toolCalls
+            thinking = thinkingProcess
         )
     }
 

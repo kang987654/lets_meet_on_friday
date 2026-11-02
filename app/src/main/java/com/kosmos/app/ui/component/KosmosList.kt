@@ -158,17 +158,7 @@ fun DeleteIconButton(
  */
 suspend fun SnackbarHostState.showUndo(
     message: String,
-    context: android.content.Context,
-    onUndo: () -> Unit
-) = showUndo(
-    message = message,
-    actionLabel = context.getString(R.string.common_undo),
-    onUndo = onUndo
-)
-
-suspend fun SnackbarHostState.showUndo(
-    message: String,
-    actionLabel: String = "되돌리기",
+    actionLabel: String,
     onUndo: () -> Unit
 ) {
     // [WHY] 약 10초(Long) — 4초(Short)는 누르기 전에 사라졌다(0.38.3 에뮬레이터 확인, 0.38.4 결정 4).

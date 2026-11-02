@@ -17,10 +17,10 @@ import androidx.core.view.WindowCompat
  * [ThemeMode]
  * 사용자가 설정 화면에서 선택하는 테마 모드입니다. DataStore에는 [key] 문자열로 영속됩니다.
  */
-enum class ThemeMode(val key: String, val label: String) {
-    SYSTEM("SYSTEM", "시스템 설정"),
-    LIGHT("LIGHT", "라이트"),
-    DARK("DARK", "다크");
+enum class ThemeMode(val key: String) {
+    SYSTEM("SYSTEM"),
+    LIGHT("LIGHT"),
+    DARK("DARK");
 
     companion object {
         fun fromKey(key: String?): ThemeMode = entries.firstOrNull { it.key == key } ?: SYSTEM
@@ -32,11 +32,11 @@ enum class ThemeMode(val key: String, val label: String) {
  * 설정에서 고르는 **채팅 메시지** 글자 크기 — 본문 단계(기본 16)를 기준으로 채팅 목록 안의 글자 단계를 같은 비율로 키운다(0.38.2, 사용자 결정: 채팅만·4단계).
  * 상단 바·요약 타일·입력바·다른 화면은 그대로다(시스템 글자 크기는 그 위에 곱해진다).
  */
-enum class ChatTextSize(val key: String, val label: String, val bodySp: Int) {
-    SMALL("SMALL", "작게", 14),
-    DEFAULT("DEFAULT", "기본", 16),
-    LARGE("LARGE", "크게", 18),
-    XLARGE("XLARGE", "아주 크게", 20);
+enum class ChatTextSize(val key: String, val bodySp: Int) {
+    SMALL("SMALL", 14),
+    DEFAULT("DEFAULT", 16),
+    LARGE("LARGE", 18),
+    XLARGE("XLARGE", 20);
 
     /** 본문 단계(16) 대비 배율. */
     val scale: Float get() = bodySp / 16f
@@ -53,9 +53,9 @@ val LocalChatTextScale = androidx.compose.runtime.staticCompositionLocalOf { 1f 
  * [FontMode]
  * 설정에서 고르는 글꼴 — 앱 글꼴(하다 라운드)이나 기기에서 고른 글꼴. 크기·굵기 단계는 같다(DESIGN.md v3 Typography).
  */
-enum class FontMode(val key: String, val label: String) {
-    APP("APP", "앱 글꼴"),
-    SYSTEM("SYSTEM", "시스템 글꼴");
+enum class FontMode(val key: String) {
+    APP("APP"),
+    SYSTEM("SYSTEM");
 
     companion object {
         fun fromKey(key: String?): FontMode = entries.firstOrNull { it.key == key } ?: APP
@@ -66,9 +66,9 @@ enum class FontMode(val key: String, val label: String) {
  * [SplashStyle]
  * 설정에서 고르는 시작 화면 장면(0.38.4 M6, 사용자 결정 — 두 안 모두 확정, 기본 행성).
  */
-enum class SplashStyle(val key: String, val label: String) {
-    PLANET("PLANET", "행성"),
-    GALAXY("GALAXY", "은하");
+enum class SplashStyle(val key: String) {
+    PLANET("PLANET"),
+    GALAXY("GALAXY");
 
     companion object {
         fun fromKey(key: String?): SplashStyle = entries.firstOrNull { it.key == key } ?: PLANET

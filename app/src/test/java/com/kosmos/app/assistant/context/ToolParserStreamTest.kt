@@ -11,7 +11,7 @@ import org.robolectric.RobolectricTestRunner
  * [ToolParserStreamTest]
  * **점진적으로 도착하는** 응답에서 프로토콜 문법이 본문에 새지 않는지 검증합니다.
  *
- * [WHY] 기존 `ToolParserTest` 6건은 전부 **완결된 태그**만 먹인다. 그래서 스트리밍 중에만
+ * [WHY] 기존 `ToolParserTest` 는 전부 **완결된 태그**만 먹인다. 그래서 스트리밍 중에만
  * 나타나는 결함 세 가지가 하나도 검증되지 않았다 — 열린 `<tool_call>` 노출, 열린
  * `<|think|>` 로 인한 빈 본문, 두 번째 생각 블록 누락.
  */
@@ -84,11 +84,10 @@ class ToolParserStreamTest {
     }
 
     @Test
-    fun `완결된 tool_call 뒤에 열린 tool_call 이 와도 앞의 것은 유지된다`() {
+    fun `완결된 tool_call 과 뒤따르는 열린 tool_call 이 모두 본문에서 걷힌다`() {
         val raw = "처리합니다.<tool_call>{\"name\":\"GetSchedule\", \"args\":{}}</tool_call>추가로<tool_call>{\"na"
         val parsed = ToolParser.parseStream(raw)
 
-        assertEquals(1, parsed.toolCalls.size)
         assertEquals("처리합니다.추가로", parsed.content)
     }
 }
