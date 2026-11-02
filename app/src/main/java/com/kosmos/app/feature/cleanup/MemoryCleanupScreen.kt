@@ -37,6 +37,7 @@ import com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
 import com.kosmos.app.domain.cleanup.EpisodeMergeProposal
 import com.kosmos.app.domain.cleanup.MergeProposal
 import com.kosmos.app.domain.model.KnowledgeNote
+import com.kosmos.app.domain.util.IsoDateTimeParser
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.currentAppLanguage
 import com.kosmos.app.ui.component.KosmosIcon
@@ -233,7 +234,7 @@ private fun ReviewContent(
         KosmosListGroup {
             episodeProposals.forEachIndexed { index, proposal ->
                 ProposalRow(
-                    lines = proposal.episodes.map { ep -> "${com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(ep.startAt, lang = lang)} ${ep.title.orEmpty()}" },
+                    lines = proposal.episodes.map { ep -> "${IsoDateTimeParser.monthDayKorean(ep.startAt, lang = lang)} ${ep.title.orEmpty()}" },
                     result = mergeResultLabel,
                     resultEmphasis = false,
                     isChecked = proposal.key in checkedEpisodes,

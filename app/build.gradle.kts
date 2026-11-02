@@ -72,8 +72,8 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
-            // [WHY] `-Pfast` 빠른 반복용 — 전체(약 2분 40초)의 약 60%가 Compose/Hilt E2E 와 Robolectric 스트림
-            // 스위트 5개(약 97초)에서 나온다. 나머지 600여 건은 약 63초다. 회차 게이트(§1)는 항상 전체다.
+            // [WHY] `-Pfast` 빠른 반복용 — 테스트 시간의 절반 이상이 Compose/Hilt E2E 와 Robolectric 스트림·스크린샷
+            // 스위트 5개에서 나온다(측정값은 CHANGELOG 0.40.3 M4). 회차 게이트(§1)는 항상 전체다.
             if (project.hasProperty("fast")) {
                 all { test ->
                     test.filter {
@@ -86,7 +86,7 @@ android {
                 }
             }
             // [WHY] 대화상자 창까지 합성해 찍는 captureScreenRoboImage 의 정확도 권장값(Roborazzi README).
-            // maxParallelForks=4 는 클래스 단위로 테스트 JVM 을 갈라 Robolectric/Roborazzi 스위트를 병렬 실행한다(CHANGELOG 0.40.3).
+            // [WHY] 테스트 JVM 을 클래스 단위로 갈라 Robolectric/Roborazzi 스위트를 병렬 실행한다 — 2·4 를 재서 4 를 골랐다(CHANGELOG 0.40.3 M4).
             all { test ->
                 test.systemProperty("robolectric.pixelCopyRenderMode", "hardware")
                 test.maxParallelForks = 4

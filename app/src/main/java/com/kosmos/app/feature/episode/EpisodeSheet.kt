@@ -204,7 +204,7 @@ private fun EditForm(
 @Composable
 private fun formatRange(episode: Episode): String {
     val lang = currentAppLanguage()
-    val start = "${com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt, lang = lang)} ${com.kosmos.app.domain.util.IsoDateTimeParser.timeKorean(episode.startAt, lang = lang)}"
+    val start = "${IsoDateTimeParser.monthDayKorean(episode.startAt, lang = lang)} ${IsoDateTimeParser.timeKorean(episode.startAt, lang = lang)}"
     val end = episode.endAt?.let { IsoDateTimeParser.timeKorean(it, lang = lang) }
     return if (end != null) {
         stringResource(R.string.episode_sheet_range_with_count, start, end, episode.messageCount)
