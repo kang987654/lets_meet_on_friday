@@ -194,3 +194,18 @@ object KosmosTheme {
         @ReadOnlyComposable
         get() = LocalAppLanguage.current
 }
+
+/**
+ * 현재 화면 `Configuration` 의 첫 번째 로케일에서 [com.kosmos.app.core.common.AppLanguage] 를 읽는다.
+ *
+ * [WHY] `:domain`(`IsoDateTimeParser`)·`:core`(`ErrorMessages`)처럼 Android `Context` 를 받지 않는 순수 모듈 유틸에
+ * 현재 화면 언어를 넘길 때 사용한다. `stringResource()` 와 같은 `LocalConfiguration` 을 읽으므로
+ * `LocaleManager` 전환이나 테스트의 `@Config(qualifiers = "en")` 과 항상 일치한다.
+ */
+@Composable
+@ReadOnlyComposable
+fun currentAppLanguage(): com.kosmos.app.core.common.AppLanguage {
+    val locales = androidx.compose.ui.platform.LocalConfiguration.current.locales
+    val locale = if (locales.isEmpty) java.util.Locale.KOREAN else locales[0]
+    return com.kosmos.app.core.common.AppLanguage.fromLocale(locale)
+}

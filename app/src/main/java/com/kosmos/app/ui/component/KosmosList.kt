@@ -145,7 +145,7 @@ fun EmptyState(@DrawableRes icon: Int, message: String, modifier: Modifier = Mod
 @Composable
 fun DeleteIconButton(
     onClick: () -> Unit,
-    contentDescription: String = if (KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN) "Clear" else "지우기"
+    contentDescription: String = androidx.compose.ui.res.stringResource(R.string.common_clear)
 ) {
     IconButton(onClick = onClick) {
         KosmosIcon(R.drawable.ic_ph_trash, contentDescription = contentDescription, size = IconSize.inline, tint = KosmosTheme.colors.textMuted)
@@ -156,6 +156,16 @@ fun DeleteIconButton(
  * 지운 뒤 "○○을 지웠어요 · 되돌리기" 스낵바 — 되돌리기를 누르면 [onUndo](같은 객체를 다시 저장).
  * 확인 창 대신 쓴다(사용자 결정 2026-10-20, ui-ux-pro-max `undo-support`). 일괄 삭제·초기화는 확인 창을 유지한다.
  */
+suspend fun SnackbarHostState.showUndo(
+    message: String,
+    context: android.content.Context,
+    onUndo: () -> Unit
+) = showUndo(
+    message = message,
+    actionLabel = context.getString(R.string.common_undo),
+    onUndo = onUndo
+)
+
 suspend fun SnackbarHostState.showUndo(
     message: String,
     lang: com.kosmos.app.core.common.AppLanguage,

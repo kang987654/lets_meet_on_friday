@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import com.kosmos.app.R
 import com.kosmos.app.ui.theme.KosmosTheme
@@ -28,7 +29,7 @@ import com.kosmos.app.ui.theme.KosmosTheme
 fun KosmosTopBar(
     title: String,
     onBack: (() -> Unit)?,
-    backDescription: String = if (KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN) "Back" else "뒤로",
+    backDescription: String = stringResource(R.string.common_back),
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val colors = KosmosTheme.colors

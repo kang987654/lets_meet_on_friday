@@ -34,7 +34,7 @@
     <string name="common_all_day">종일</string>
 
     <!-- Theme & Display Options -->
-    <string name="lang_option_system">시스템 설정</string>
+    <string name="lang_option_system">시스템</string>
     <string name="lang_option_ko" translatable="false">한국어</string>
     <string name="lang_option_en" translatable="false">English</string>
     <string name="theme_mode_system">시스템 설정</string>
@@ -53,11 +53,12 @@
     <string name="response_style_detailed">자세히</string>
 
     <!-- Splash -->
-    <string name="splash_checking_model">모델 파일을 확인하고 있어요…</string>
-    <string name="splash_preparing_engine">AI 엔진을 준비하고 있어요…</string>
+    <string name="splash_checking_model">모델 상태를 확인하고 있어요…</string>
+    <string name="splash_file_found">모델 파일을 찾았어요. 엔진을 준비하고 있어요…</string>
+    <string name="splash_preparing_engine">AI 엔진을 깨우는 중이에요 (10초 정도)…</string>
     <string name="splash_ready">준비 완료</string>
     <string name="splash_model_needed_title">AI 모델이 필요해요</string>
-    <string name="splash_model_needed_body">대화를 시작하려면 로컬 AI 모델을 내려받아야 해요.\n파일 크기는 약 3.6GB예요. Wi‑Fi 연결을 권장합니다.</string>
+    <string name="splash_model_needed_body">AI 모델 파일이 없어요. 모델 관리에서 내려받아 주세요.</string>
     <string name="splash_download_model">모델 내려받기</string>
     <string name="splash_engine_error_title">AI 엔진을 올리지 못했어요</string>
     <string name="splash_manage_model">모델 관리</string>
@@ -128,35 +129,40 @@
 
     <!-- Drawer -->
     <string name="drawer_new_chat">새 대화</string>
-    <string name="drawer_search_hint">과거 대화 검색…</string>
+    <string name="drawer_search_hint">지난 대화 검색</string>
     <string name="drawer_search_clear_cd">검색어 지우기</string>
     <string name="drawer_section_search_results">검색 결과</string>
-    <string name="drawer_section_recent_chats">최근 대화</string>
-    <string name="drawer_empty_search">일치하는 대화가 없어요</string>
-    <string name="drawer_empty_episodes">아직 요약된 대화가 없어요</string>
-    <string name="drawer_untitled_episode">(제목 없음)</string>
+    <string name="drawer_section_recent_chats">지난 대화</string>
+    <string name="drawer_empty_search">일치하는 대화가 없어요.</string>
+    <string name="drawer_empty_episodes">대화가 쌓이면 주제별로 자동 정리돼 여기 보여요.</string>
+    <string name="drawer_untitled_episode">제목 없음</string>
     <string name="drawer_summarizing">정리 중…</string>
     <string name="drawer_profile_title">내 프로필</string>
+    <string name="drawer_profile_cd">프로필</string>
+    <string name="drawer_profile_suggestions_cd">프로필, 새 제안 있음</string>
     <string name="drawer_profile_empty">이름·호칭 등을 알려 주세요</string>
     <string name="drawer_profile_Format_one">%1$s: %2$s</string>
     <string name="drawer_profile_Format_more">%1$s: %2$s 외 %3$d개</string>
     <string name="drawer_nav_section">화면 이동</string>
     <string name="drawer_nav_calendar">일정</string>
-    <string name="drawer_nav_memory">메모 · 할 일</string>
+    <string name="drawer_nav_memory">메모·할 일</string>
     <string name="drawer_nav_documents">문서</string>
     <string name="drawer_nav_audit">활동 기록</string>
     <string name="drawer_nav_settings">설정</string>
 
     <!-- Episode Sheet -->
     <string name="episode_sheet_title">지난 대화</string>
-    <string name="episode_sheet_loading">불러오는 중…</string>
-    <string name="episode_sheet_missing">이 대화를 찾을 수 없어요.</string>
+    <string name="episode_sheet_loading">대화를 불러오는 중이에요…</string>
+    <string name="episode_sheet_missing">이 대화 요약은 지웠어요. 채팅 기록은 그대로 있어요.</string>
     <string name="episode_sheet_title_label">제목</string>
-    <string name="episode_sheet_tags_label">태그 (쉼표로 구분)</string>
+    <string name="episode_sheet_tags_label">태그 (쉼표 구분)</string>
     <string name="episode_sheet_summary_label">요약</string>
     <string name="episode_sheet_view_in_chat">채팅에서 보기</string>
+    <string name="episode_sheet_delete_action">지우기</string>
+    <string name="episode_sheet_delete_footnote">요약만 지워져요. 채팅 기록은 그대로 있어요.</string>
     <string name="episode_sheet_delete_confirm_title">이 대화 요약을 지울까요?</string>
-    <string name="episode_sheet_delete_confirm_body">요약 카드만 지워지고, 원래 채팅 메시지는 남아 있어요.</string>
+    <string name="episode_sheet_delete_confirm_body">요약만 지워져요. 채팅 기록은 그대로 남아요.</string>
+    <string name="episode_sheet_range_with_count">%1$s – %2$s, 대화 %3$d개</string>
 
     <!-- Profile Sheet -->
     <string name="profile_sheet_title">내 프로필</string>
@@ -301,7 +307,7 @@
     <string name="settings_memory_cleanup_sub">이번 주 회고, 겹친 기억 합치기</string>
     <string name="settings_section_voice">음성</string>
     <string name="settings_voice_footnote">켜면 답이 끝날 때마다 읽어 드려요. 꺼 두어도 말풍선의 재생 버튼으로 들을 수 있고, 녹음을 시작하면 바로 멈춰요.</string>
-    <string name="settings_voice_no_offline_warning">이 엔진에는 기기 안에서 쓸 수 있는 음성 데이터가 없어요. 음성 데이터를 내려받거나 다른 엔진을 골라 주세요.</string>
+    <string name="settings_voice_no_offline_warning">이 엔진에는 기기 안에서 쓸 수 있는 한국어 음성이 없어요. 음성 데이터를 내려받거나 다른 엔진을 골라 주세요.</string>
     <string name="settings_voice_init_failed_warning">이 음성 엔진을 시작하지 못했어요. 다른 엔진을 골라 주세요.</string>
     <string name="settings_voice_auto_read">답을 소리로 읽어 주기</string>
     <string name="settings_voice_engine_default">시스템 기본</string>
@@ -332,36 +338,71 @@
 
     <!-- Model Management Screen -->
     <string name="model_mgmt_title">모델 관리</string>
-    <string name="model_mgmt_section_current">현재 상태</string>
-    <string name="model_mgmt_status_ready">사용 가능</string>
-    <string name="model_mgmt_status_not_found">모델 파일 없음</string>
-    <string name="model_mgmt_status_loading">확인 중…</string>
-    <string name="model_mgmt_status_error">불러오기 실패</string>
-    <string name="model_mgmt_size_gb">크기: %1$.2f GB</string>
-    <string name="model_mgmt_section_download">모델 내려받기</string>
-    <string name="model_mgmt_url_label">다운로드 URL</string>
-    <string name="model_mgmt_start_download">내려받기 시작</string>
-    <string name="model_mgmt_resume_download">이어받기 (%1$d MB 받음)</string>
-    <string name="model_mgmt_cancel_download">내려받기 취소</string>
-    <string name="model_mgmt_discard_partial">받던 파일 지우기</string>
-    <string name="model_mgmt_queued">네트워크 연결을 기다리고 있어요…</string>
-    <string name="model_mgmt_queued_retry">다시 시도 대기 중 (%1$d회째)…</string>
-    <string name="model_mgmt_running_percent">%1$d%% (%2$d / %3$d MB)</string>
-    <string name="model_mgmt_running_unknown">%1$d MB 받는 중…</string>
-    <string name="model_mgmt_succeeded">내려받기가 끝났어요. 엔진을 준비하고 있어요.</string>
-    <string name="model_mgmt_cancelled">내려받기를 취소했어요.</string>
+    <string name="model_mgmt_default_section">기본 모델</string>
+    <string name="model_mgmt_default_spec">LiteRT-LM 최적화, 크기 약 3.6GB</string>
+    <string name="model_mgmt_custom_url_section">직접 URL로 내려받기</string>
+    <string name="model_mgmt_custom_url_label">URL (.litertlm 파일)</string>
+    <string name="model_mgmt_download_custom_url">이 URL로 내려받기</string>
+    <string name="model_mgmt_done_title">내려받기 완료</string>
+    <string name="model_mgmt_done_body">모델을 받아서 적용했어요. 이제 대화를 시작할 수 있어요.</string>
+    <string name="model_mgmt_failed_title">내려받기 실패</string>
+    <string name="model_mgmt_resume_note">\n\n%1$.1fGB까지 받아 두어서 다시 시도하면 이어서 받아요.</string>
+    <string name="model_mgmt_retrying">모델을 다시 내려받는 중</string>
+    <string name="model_mgmt_downloading">모델을 내려받는 중</string>
+    <string name="model_mgmt_downloaded_gb">%1$.1fGB 받았어요</string>
+    <string name="model_mgmt_free_space">%1$s · 남은 저장 공간 %2$.1fGB</string>
+    <string name="model_mgmt_bg_note">앱을 닫아도 계속 내려받아요.</string>
+    <string name="model_mgmt_pause">일시 중지</string>
+    <string name="model_mgmt_cancel_delete">취소하고 지우기</string>
+    <string name="model_mgmt_waiting_wifi">Wi-Fi 연결을 기다리는 중</string>
+    <string name="model_mgmt_waiting_wifi_body">데이터 요금을 아끼려고 Wi-Fi에 연결되면 시작해요.</string>
+    <string name="model_mgmt_cancel_queue">대기 취소</string>
 
-    <!-- Audit Screen -->
+    <!-- Audit Screen & Labels -->
     <string name="audit_title">활동 기록</string>
-    <string name="audit_clear_cd">기록 비우기</string>
-    <string name="audit_empty">아직 기록된 활동이 없어요.\n도구 실행, 승인, 모델 응답이 이곳에 남아요.</string>
+    <string name="audit_empty">아직 기록된 활동이 없어요.\n모델 답, 도구 실행, 승인이 여기에 남아요.</string>
+    <string name="audit_available_tools">쓸 수 있던 도구</string>
     <string name="audit_raw_toggle_hide">원문 접기</string>
     <string name="audit_raw_toggle_show">원문 보기</string>
-    <string name="audit_clear_dialog_title">활동 기록을 모두 지울까요?</string>
-    <string name="audit_clear_dialog_body">지운 기록은 되돌릴 수 없어요.</string>
-    <string name="audit_filter_all">전체</string>
-    <string name="audit_filter_tool">도구</string>
-    <string name="audit_filter_approval">승인</string>
-    <string name="audit_filter_model">모델</string>
-    <string name="audit_filter_error">오류</string>
+    <string name="audit_tool_add_schedule">일정 추가</string>
+    <string name="audit_tool_get_schedule">일정 조회</string>
+    <string name="audit_tool_add_memory">메모 저장</string>
+    <string name="audit_tool_search_memory">기억 검색</string>
+    <string name="audit_tool_search_wikipedia">위키백과 검색</string>
+    <string name="audit_tool_add_reminder">알림 추가</string>
+    <string name="audit_tool_list_reminders">알림 목록 조회</string>
+    <string name="audit_tool_reminder_edit">알림 수정</string>
+    <string name="audit_tool_memory_merge">기억 합치기</string>
+    <string name="audit_tool_episode_merge">대화 합치기</string>
+    <string name="audit_tool_default">도구</string>
+    <string name="audit_type_approved">승인함</string>
+    <string name="audit_type_cancelled">취소함</string>
+    <string name="audit_type_error">오류</string>
+    <string name="audit_type_export">백업 내보내기</string>
+    <string name="audit_type_import">백업 가져오기</string>
+    <string name="audit_type_search">웹 검색</string>
+    <string name="audit_type_thermal_warning">발열 경고</string>
+    <string name="audit_type_thermal_shutdown">발열로 멈춤</string>
+    <string name="audit_type_briefing">아침 브리핑 작성</string>
+    <string name="audit_type_fact_extraction">기억 추출</string>
+    <string name="audit_type_model_reply">모델 답</string>
+    <string name="audit_type_tool_run">%1$s 실행</string>
+    <string name="audit_field_reason">사유</string>
+    <string name="audit_field_status">상태</string>
+    <string name="audit_field_query">찾은 말</string>
+    <string name="audit_field_temp">온도</string>
+    <string name="audit_field_briefing">브리핑</string>
+    <string name="audit_field_result">결과</string>
+    <string name="audit_field_prompt">물은 말</string>
+    <string name="audit_field_reply">답</string>
+    <string name="audit_field_note">참고</string>
+    <string name="audit_field_tool">도구</string>
+    <string name="audit_field_details">내용</string>
+    <string name="audit_fact_summary">메모 %1$s개 저장, 프로필 제안 %2$s개</string>
+    <string name="audit_status_success">성공</string>
+    <string name="audit_status_failed">실패</string>
+    <string name="audit_err_disallowed_tool">허용하지 않은 도구를 부르려 했어요: %1$s</string>
+    <string name="audit_err_invalid_arg">도구에 넘긴 값이 잘못됐어요: %1$s</string>
+    <string name="audit_err_inference_failed">답을 만들지 못했어요</string>
+    <string name="audit_err_internal">앱 내부 오류</string>
 </resources>

@@ -1,8 +1,5 @@
 package com.kosmos.app.feature.settings
 
-import com.kosmos.app.core.common.AppLanguage
-
-import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,15 +7,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
+import com.kosmos.app.R
 import com.kosmos.app.domain.model.AuditEvent
 import com.kosmos.app.domain.util.IsoDateTimeParser
 import com.kosmos.app.ui.component.GroupPosition
 import com.kosmos.app.ui.component.groupItem
+import com.kosmos.app.ui.theme.KosmosTheme
+import com.kosmos.app.ui.theme.currentAppLanguage
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -30,12 +32,11 @@ fun AuditScreen(
     onNavigateBack: () -> Unit
 ) {
     val auditLogItems = viewModel.auditLogPagingData.collectAsLazyPagingItems()
-    val lang = KosmosTheme.language
-    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+    val lang = currentAppLanguage()
 
     Scaffold(
         topBar = {
-            com.kosmos.app.ui.component.KosmosTopBar(title = if (en) "Activity Log" else "활동 기록", onBack = onNavigateBack)
+            com.kosmos.app.ui.component.KosmosTopBar(title = stringResource(R.string.audit_title), onBack = onNavigateBack)
         }
     ) { innerPadding ->
         Column(
@@ -46,9 +47,8 @@ fun AuditScreen(
         ) {
             if (auditLogItems.itemCount == 0) {
                 com.kosmos.app.ui.component.EmptyState(
-                    com.kosmos.app.R.drawable.ic_ph_shield_check,
-                    if (en) "No activity recorded yet.\nModel replies, tool runs, and approvals appear here."
-                    else "아직 기록된 활동이 없어요.\n모델 답, 도구 실행, 승인이 여기에 남아요."
+                    R.drawable.ic_ph_shield_check,
+                    stringResource(R.string.audit_empty)
                 )
             } else {
                 val today = com.kosmos.app.ui.component.rememberToday()
@@ -97,9 +97,9 @@ fun AuditScreen(
 @Composable
 fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modifier) {
     val colors = KosmosTheme.colors
-    val lang = KosmosTheme.language
-    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
-    val display = remember(event.id, lang) { AuditLabels.of(event, lang) }
+    val lang = currentAppLanguage()
+    val context = LocalContext.current
+    val display = remember(event.id, lang) { AuditLabels.of(event, context) }
     var expanded by rememberSaveable(event.id) { mutableStateOf(false) }
     Column(modifier) {
         com.kosmos.app.ui.component.KosmosListRow(
@@ -129,7 +129,7 @@ fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modi
                 }
                 if (display.tags.isNotEmpty()) {
                     Column {
-                        Text(if (en) "Available tools" else "쓸 수 있던 도구", style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
+                        Text(stringResource(R.string.audit_available_tools), style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
                         androidx.compose.foundation.layout.FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -148,11 +148,7 @@ fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modi
             }
             TextButton(onClick = { showRaw = !showRaw }, modifier = Modifier.padding(start = 36.dp)) {
                 Text(
-                    if (en) {
-                        if (showRaw) "Hide raw" else "View raw"
-                    } else {
-                        if (showRaw) "원문 접기" else "원문 보기"
-                    },
+                    if (showRaw) stringResource(R.string.audit_raw_toggle_hide) else stringResource(R.string.audit_raw_toggle_show),
                     style = MaterialTheme.typography.labelLarge,
                     color = colors.brandText
                 )

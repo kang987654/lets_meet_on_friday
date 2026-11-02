@@ -1,23 +1,30 @@
 package com.kosmos.app.feature.settings
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import com.kosmos.app.R
 import com.kosmos.app.domain.model.AuditEvent
 import com.kosmos.app.domain.model.AuditEventType
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * [AuditLabelsTest]
  * 활동 기록 표기(0.38.3 M3) — enum·툴 클래스 이름이 화면에 새지 않고, 기록 원문 형식(`Key: 값`)에서 내용 한 줄을 뽑는다.
  * 펼침 항목·영어 오류·기억 추출·기억 합치기(0.38.4 M2).
  */
+@RunWith(RobolectricTestRunner::class)
 class AuditLabelsTest {
 
+    private val context: Context get() = ApplicationProvider.getApplicationContext()
     private fun event(type: AuditEventType, details: String) = AuditEvent("e", type, "s1", details, 0L)
 
     @Test
     fun `툴 실행은 한국어 툴 이름, 결과 JSON 은 내용 줄에 두지 않는다`() {
-        val display = AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: AddReminder\nResult: {\"ok\":true}"))
+        val display = AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: AddReminder\nResult: {\"ok\":true}"), context)
         assertEquals("알림 추가 실행", display.title)
         assertEquals("", display.summary)
         assertEquals(R.drawable.ic_ph_bell, display.icon)
@@ -25,7 +32,7 @@ class AuditLabelsTest {
 
     @Test
     fun `승인 기록 앞의 툴 이름도 한국어로 바꾼다`() {
-        val display = AuditLabels.of(event(AuditEventType.APPROVAL_GRANTED, "AddSchedule: 팀 회의"))
+        val display = AuditLabels.of(event(AuditEventType.APPROVAL_GRANTED, "AddSchedule: 팀 회의"), context)
         assertEquals("승인함", display.title)
         assertEquals("일정 추가: 팀 회의", display.summary)
     }
@@ -33,22 +40,23 @@ class AuditLabelsTest {
     @Test
     fun `모델 답은 출력 줄만, 길면 자른다`() {
         val long = "가".repeat(120)
-        val display = AuditLabels.of(event(AuditEventType.MODEL_RUN, "Prompt: 안녕\nOutput: $long\nTools declared: [AddMemory]"))
+        val display = AuditLabels.of(event(AuditEventType.MODEL_RUN, "Prompt: 안녕\nOutput: $long\nTools declared: [AddMemory]"), context)
         assertEquals("모델 답", display.title)
         assertEquals("가".repeat(80) + "…", display.summary)
     }
 
     @Test
     fun `모르는 툴과 형식 없는 내용은 원문 첫 줄`() {
-        assertEquals("NewTool 실행", AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: NewTool\nResult: x")).title)
-        assertEquals("음성 전사 실패: 시간 초과", AuditLabels.of(event(AuditEventType.ERROR, "음성 전사 실패: 시간 초과\n둘째 줄")).summary)
-        assertEquals("자전거 비밀번호", AuditLabels.of(event(AuditEventType.SEARCH_USED, "Query: 자전거 비밀번호")).summary)
+        assertEquals("NewTool 실행", AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: NewTool\nResult: x"), context).title)
+        assertEquals("음성 전사 실패: 시간 초과", AuditLabels.of(event(AuditEventType.ERROR, "음성 전사 실패: 시간 초과\n둘째 줄"), context).summary)
+        assertEquals("자전거 비밀번호", AuditLabels.of(event(AuditEventType.SEARCH_USED, "Query: 자전거 비밀번호"), context).summary)
     }
 
     @Test
     fun `펼침 — 채팅 답은 물은 말·답(마크다운 기호 뺌)·쓸 수 있던 도구`() {
         val display = AuditLabels.of(
-            event(AuditEventType.MODEL_RUN, "Prompt: 출시 언제야?\nOutput: 출시는 **10-05**에 시작해요.\n둘째 줄\nTools declared: [AddSchedule, GetSchedule]")
+            event(AuditEventType.MODEL_RUN, "Prompt: 출시 언제야?\nOutput: 출시는 **10-05**에 시작해요.\n둘째 줄\nTools declared: [AddSchedule, GetSchedule]"),
+            context
         )
         assertEquals(listOf(AuditField("물은 말", "출시 언제야?"), AuditField("답", "출시는 10-05에 시작해요.\n둘째 줄")), display.fields)
         assertEquals(listOf("일정 추가", "일정 조회"), display.tags)
@@ -57,10 +65,11 @@ class AuditLabelsTest {
 
     @Test
     fun `아침 브리핑·기억 추출은 각자의 이름으로`() {
-        val briefing = AuditLabels.of(event(AuditEventType.MODEL_RUN, "Prompt: morning briefing (events=0, tasks=2, episodes=1)\nOutput: 좋은 아침이에요."))
+        val briefing = AuditLabels.of(event(AuditEventType.MODEL_RUN, "Prompt: morning briefing (events=0, tasks=2, episodes=1)\nOutput: 좋은 아침이에요."), context)
         assertEquals("아침 브리핑 작성", briefing.title)
         val facts = AuditLabels.of(
-            event(AuditEventType.MODEL_RUN, "Prompt: fact extraction (episode=e1, messages=4)\nOutput: profile=0 knowledge=1 savedKnowledge=1 filtered=0 suggested=2")
+            event(AuditEventType.MODEL_RUN, "Prompt: fact extraction (episode=e1, messages=4)\nOutput: profile=0 knowledge=1 savedKnowledge=1 filtered=0 suggested=2"),
+            context
         )
         assertEquals("기억 추출", facts.title)
         assertEquals("메모 1개 저장, 프로필 제안 2개", facts.summary)
@@ -70,20 +79,20 @@ class AuditLabelsTest {
     fun `툴 결과는 상태와 메시지만, 기억 합치기는 한국어 이름`() {
         assertEquals(
             "성공, 기억에 저장했어요.",
-            AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: AddMemory\nResult: {\"status\":\"success\",\"message\":\"기억에 저장했어요.\"}")).summary
+            AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: AddMemory\nResult: {\"status\":\"success\",\"message\":\"기억에 저장했어요.\"}"), context).summary
         )
         assertEquals(
             "실패, 시각 형식이 달라요",
-            AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: AddReminder\nResult: {\"status\":\"error\",\"message\":\"시각 형식이 달라요\"}")).summary
+            AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: AddReminder\nResult: {\"status\":\"error\",\"message\":\"시각 형식이 달라요\"}"), context).summary
         )
-        val merge = AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: MemoryMerge\nResult: a + b → c"))
+        val merge = AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: MemoryMerge\nResult: a + b → c"), context)
         assertEquals("기억 합치기 실행", merge.title)
         assertEquals("a + b → c", merge.summary)
     }
 
     @Test
     fun `툴 결과 문구는 표시에서만 해요체와 알림으로 — 모델 지시 문장은 빠진다(0·38·7 M4)`() {
-        fun summary(tool: String, json: String) = AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: $tool\nResult: $json")).summary
+        fun summary(tool: String, json: String) = AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: $tool\nResult: $json"), context).summary
         assertEquals("성공, 일정을 추가했어요.", summary("AddSchedule", """{"status":"success","message":"일정이 성공적으로 추가되었습니다."}"""))
         assertEquals("성공, 알림 등록: 오후 9:00에 '약 먹기' 알림", summary("AddReminder", """{"status":"success","message":"리마인더 등록: 오후 9:00에 '약 먹기' 알림"}"""))
         assertEquals("실패, 이미 지난 시각이에요.", summary("AddReminder", """{"status":"error","message":"이미 지난 시각입니다. 미래의 시각으로 다시 호출하세요."}"""))
@@ -94,29 +103,30 @@ class AuditLabelsTest {
     @Test
     fun `사실 저장 가드의 막힘 결과는 먼저 물어보게 했다고 보인다(0·38·9 M1)`() {
         val summary = AuditLabels.of(
-            event(AuditEventType.TOOL_CALL, "Tool: AddMemory\nResult: {\"status\":\"error\",\"message\":\"아직 저장하지 않았습니다. 저장하기 전에 \\\"메모해 둘까요?\\\"라고 물어보세요.\"}")
+            event(AuditEventType.TOOL_CALL, "Tool: AddMemory\nResult: {\"status\":\"error\",\"message\":\"아직 저장하지 않았습니다. 저장하기 전에 \\\"메모해 둘까요?\\\"라고 물어보세요.\"}"),
+            context
         ).summary
         assertEquals("실패, 저장 부탁이 아니라 먼저 물어보게 했어요.", summary)
     }
 
     @Test
     fun `한국어 오류 줄의 오류 객체 원문은 사유만 남긴다`() {
-        assertEquals("음성 전사 실패: 전사 결과가 비었어요", AuditLabels.of(event(AuditEventType.ERROR, "음성 전사 실패: SttError(reason=전사 결과가 비었어요)")).summary)
-        assertEquals("도구에 넘긴 값: 시각 형식", AuditLabels.of(event(AuditEventType.ERROR, "도구에 넘긴 값: ValidationError(field=time, reason=시각 형식)")).summary)
+        assertEquals("음성 전사 실패: 전사 결과가 비었어요", AuditLabels.of(event(AuditEventType.ERROR, "음성 전사 실패: SttError(reason=전사 결과가 비었어요)"), context).summary)
+        assertEquals("도구에 넘긴 값: 시각 형식", AuditLabels.of(event(AuditEventType.ERROR, "도구에 넘긴 값: ValidationError(field=time, reason=시각 형식)"), context).summary)
     }
 
     @Test
     fun `영어 오류 원문은 한국어 사유로`() {
-        assertEquals("답을 만들지 못했어요", AuditLabels.of(event(AuditEventType.ERROR, "Model inference failed: ModelInferenceError(reason=x)")).summary)
+        assertEquals("답을 만들지 못했어요", AuditLabels.of(event(AuditEventType.ERROR, "Model inference failed: ModelInferenceError(reason=x)"), context).summary)
         assertEquals(
             "허용하지 않은 도구를 부르려 했어요: 위키백과 검색",
-            AuditLabels.of(event(AuditEventType.ERROR, "Blocked tool call outside allowlist: SearchWikipedia")).summary
+            AuditLabels.of(event(AuditEventType.ERROR, "Blocked tool call outside allowlist: SearchWikipedia"), context).summary
         )
         assertEquals(
             "도구에 넘긴 값이 잘못됐어요: 일정 추가",
-            AuditLabels.of(event(AuditEventType.ERROR, "Invalid tool argument: AddSchedule.start_time (BAD_FORMAT)")).summary
+            AuditLabels.of(event(AuditEventType.ERROR, "Invalid tool argument: AddSchedule.start_time (BAD_FORMAT)"), context).summary
         )
-        assertEquals("앱 내부 오류", AuditLabels.of(event(AuditEventType.ERROR, "java.lang.IllegalStateException: boom")).summary)
+        assertEquals("앱 내부 오류", AuditLabels.of(event(AuditEventType.ERROR, "java.lang.IllegalStateException: boom"), context).summary)
     }
 
     @Test
@@ -125,7 +135,8 @@ class AuditLabelsTest {
             event(
                 AuditEventType.TOOL_CALL,
                 "Tool: AddReminder\nResult: {\"status\":\"error\",\"message\":\"사용자가 승인하지 않아 실행하지 않았습니다. 알림을 등록하지 않았다고 알리세요.\"}"
-            )
+            ),
+            context
         )
         assertEquals(listOf(AuditField("결과", "실패, 사용자가 승인하지 않아 실행하지 않았습니다.")), display.fields)
     }
@@ -138,22 +149,22 @@ class AuditLabelsTest {
 
     @Test
     fun `승인 내용의 ISO 일시는 한국어로`() {
-        val display = AuditLabels.of(event(AuditEventType.APPROVAL_GRANTED, "AddSchedule: 일정: '치과' (2026-08-07T15:00:00)"))
+        val display = AuditLabels.of(event(AuditEventType.APPROVAL_GRANTED, "AddSchedule: 일정: '치과' (2026-08-07T15:00:00)"), context)
         assertEquals("일정 추가: 일정: '치과' (8월 7일 오후 3:00)", display.summary)
     }
 
     @Test
+    @Config(qualifiers = "en")
     fun `영어 모드에서는 툴 이름·승인·모델 답·오류 표기가 영어로 조립된다`() {
-        val en = com.kosmos.app.core.common.AppLanguage.EN
-        val tool = AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: AddReminder\nResult: {\"status\":\"success\",\"message\":\"Reminder set: 'Take medicine' at 9:00 PM.\"}"), en)
+        val tool = AuditLabels.of(event(AuditEventType.TOOL_CALL, "Tool: AddReminder\nResult: {\"status\":\"success\",\"message\":\"Reminder set: 'Take medicine' at 9:00 PM.\"}"), context)
         assertEquals("Ran Add reminder", tool.title)
         assertEquals("Success, Reminder set: 'Take medicine' at 9:00 PM.", tool.summary)
 
-        val approved = AuditLabels.of(event(AuditEventType.APPROVAL_GRANTED, "AddSchedule: Team meeting (2026-08-07T15:00:00)"), en)
+        val approved = AuditLabels.of(event(AuditEventType.APPROVAL_GRANTED, "AddSchedule: Team meeting (2026-08-07T15:00:00)"), context)
         assertEquals("Approved", approved.title)
         assertEquals("Add event: Team meeting (Aug 7, 3:00 PM)", approved.summary)
 
-        val err = AuditLabels.of(event(AuditEventType.ERROR, "Blocked tool call outside allowlist: SearchWikipedia"), en)
+        val err = AuditLabels.of(event(AuditEventType.ERROR, "Blocked tool call outside allowlist: SearchWikipedia"), context)
         assertEquals("Error", err.title)
         assertEquals("Attempted disallowed tool: Search Wikipedia", err.summary)
     }

@@ -1,30 +1,31 @@
 package com.kosmos.app.feature.settings
 
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import com.kosmos.app.platform.notification.NotificationAccess
-import com.kosmos.app.ui.component.KosmosButton
-import com.kosmos.app.core.common.ResponseStyle
-import com.kosmos.app.ui.theme.KosmosTheme
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.kosmos.app.ui.theme.scaled
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.platform.LocalContext
-import com.kosmos.app.ui.component.kosmosSurface
+import com.kosmos.app.R
+import com.kosmos.app.core.common.ResponseStyle
 import com.kosmos.app.domain.modelrunner.ModelLoadState
+import com.kosmos.app.platform.notification.NotificationAccess
+import com.kosmos.app.ui.component.KosmosButton
+import com.kosmos.app.ui.theme.KosmosTheme
+import com.kosmos.app.ui.theme.currentAppLanguage
+import com.kosmos.app.ui.theme.scaled
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,11 +44,10 @@ fun SettingsScreen(
     val chatTextSize by themeViewModel.chatTextSize.collectAsStateWithLifecycle()
     val splashStyle by themeViewModel.splashStyle.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
-    val lang = KosmosTheme.language
-    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+    val lang = currentAppLanguage()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        com.kosmos.app.ui.component.KosmosTopBar(title = if (en) "Settings" else "설정", onBack = onBack)
+        com.kosmos.app.ui.component.KosmosTopBar(title = stringResource(R.string.settings_title), onBack = onBack)
         // [WHY] 섹션마다 큰 상자 + 톱니 아이콘 + 자간 넓힌 제목(eyebrow)이었다 — 섹션 제목 + 목록 묶음 + 각주로(0.38.3 M3 시안 A, impeccable "설정은 묶음 목록").
         Column(
             modifier = Modifier
@@ -55,77 +55,81 @@ fun SettingsScreen(
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
         ) {
-            Section(if (en) "AI Model" else "AI 모델") { ModelStatus(uiState.modelLoadState, onNavigateToModelManagement, viewModel::refreshModelState) }
+            Section(stringResource(R.string.settings_section_model)) { ModelStatus(uiState.modelLoadState, onNavigateToModelManagement, viewModel::refreshModelState) }
 
             // [WHY] 고르는 값은 세그먼트로 바로 바꾼다(시안 A, 사용자 선택) — 값 행 + 시트는 한 번 더 눌러야 하고 글자 크기 미리보기가 시트로 숨는다.
-            Section(if (en) "Display" else "화면", footnote = if (en) "The splash screen changes the next time you open the app." else "시작 화면은 다음에 앱을 열 때부터 바뀌어요.") {
+            Section(stringResource(R.string.settings_section_display), footnote = stringResource(R.string.settings_display_footnote)) {
                 Column(Modifier.padding(16.dp)) {
-                    ControlLabel(if (en) "Language" else "언어")
-                    com.kosmos.app.ui.component.KosmosSegmentedControl(
-                        options = listOf(
-                            com.kosmos.app.core.common.AppLanguage.Option.SYSTEM to (if (en) "System" else "시스템"),
-                            com.kosmos.app.core.common.AppLanguage.Option.KO to "한국어",
-                            com.kosmos.app.core.common.AppLanguage.Option.EN to "English"
-                        ),
-                        selected = languageOption,
-                        onSelect = themeViewModel::setLanguageOption
-                    )
-                    ControlLabel(if (en) "Theme" else "테마", top = 16.dp)
+                    // [WHY] LocaleManager 는 Android 13(API 33)+ 전용이라 리소스 기반 전환이 동작하지 않는 API 32 이하에서는 숨긴다(0.40.1 결정).
+                    val showLanguageToggle = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                    if (showLanguageToggle) {
+                        ControlLabel(stringResource(R.string.settings_control_language))
+                        com.kosmos.app.ui.component.KosmosSegmentedControl(
+                            options = listOf(
+                                com.kosmos.app.core.common.AppLanguage.Option.SYSTEM to stringResource(R.string.lang_option_system),
+                                com.kosmos.app.core.common.AppLanguage.Option.KO to stringResource(R.string.lang_option_ko),
+                                com.kosmos.app.core.common.AppLanguage.Option.EN to stringResource(R.string.lang_option_en)
+                            ),
+                            selected = languageOption,
+                            onSelect = themeViewModel::setLanguageOption
+                        )
+                    }
+                    ControlLabel(stringResource(R.string.settings_control_theme), top = if (showLanguageToggle) 16.dp else 0.dp)
                     com.kosmos.app.ui.component.KosmosSegmentedControl(
                         options = com.kosmos.app.ui.theme.ThemeMode.entries.map { mode ->
-                            val label = if (en) when (mode) {
-                                com.kosmos.app.ui.theme.ThemeMode.SYSTEM -> "System"
-                                com.kosmos.app.ui.theme.ThemeMode.LIGHT -> "Light"
-                                com.kosmos.app.ui.theme.ThemeMode.DARK -> "Dark"
-                            } else mode.label
+                            val label = when (mode) {
+                                com.kosmos.app.ui.theme.ThemeMode.SYSTEM -> stringResource(R.string.theme_mode_system)
+                                com.kosmos.app.ui.theme.ThemeMode.LIGHT -> stringResource(R.string.theme_mode_light)
+                                com.kosmos.app.ui.theme.ThemeMode.DARK -> stringResource(R.string.theme_mode_dark)
+                            }
                             mode to label
                         },
                         selected = themeMode,
                         onSelect = themeViewModel::setThemeMode
                     )
                     // [WHY] 하다 라운드가 기본이지만 기기 글꼴을 쓰는 사람도 있다 — 크기·굵기 단계는 같고 글꼴만 바뀐다(DESIGN.md v3 Typography).
-                    ControlLabel(if (en) "Font" else "글꼴", top = 16.dp)
+                    ControlLabel(stringResource(R.string.settings_control_font), top = 16.dp)
                     com.kosmos.app.ui.component.KosmosSegmentedControl(
                         options = com.kosmos.app.ui.theme.FontMode.entries.map { mode ->
-                            val label = if (en) when (mode) {
-                                com.kosmos.app.ui.theme.FontMode.APP -> "App Font"
-                                com.kosmos.app.ui.theme.FontMode.SYSTEM -> "System Font"
-                            } else mode.label
+                            val label = when (mode) {
+                                com.kosmos.app.ui.theme.FontMode.APP -> stringResource(R.string.font_mode_app)
+                                com.kosmos.app.ui.theme.FontMode.SYSTEM -> stringResource(R.string.font_mode_system)
+                            }
                             mode to label
                         },
                         selected = fontMode,
                         onSelect = themeViewModel::setFontMode
                     )
                     // [WHY] 채팅 메시지만 키운다(0.38.2 사용자 결정) — 화면 틀은 시스템 글자 크기를 따른다.
-                    ControlLabel(if (en) "Chat Text Size" else "채팅 글자 크기", top = 16.dp)
+                    ControlLabel(stringResource(R.string.settings_control_chat_text_size), top = 16.dp)
                     com.kosmos.app.ui.component.KosmosSegmentedControl(
                         options = com.kosmos.app.ui.theme.ChatTextSize.entries.map { size ->
-                            val label = if (en) when (size) {
-                                com.kosmos.app.ui.theme.ChatTextSize.SMALL -> "Small"
-                                com.kosmos.app.ui.theme.ChatTextSize.DEFAULT -> "Default"
-                                com.kosmos.app.ui.theme.ChatTextSize.LARGE -> "Large"
-                                com.kosmos.app.ui.theme.ChatTextSize.XLARGE -> "Extra Large"
-                            } else size.label
+                            val label = when (size) {
+                                com.kosmos.app.ui.theme.ChatTextSize.SMALL -> stringResource(R.string.chat_text_size_small)
+                                com.kosmos.app.ui.theme.ChatTextSize.DEFAULT -> stringResource(R.string.chat_text_size_default)
+                                com.kosmos.app.ui.theme.ChatTextSize.LARGE -> stringResource(R.string.chat_text_size_large)
+                                com.kosmos.app.ui.theme.ChatTextSize.XLARGE -> stringResource(R.string.chat_text_size_xlarge)
+                            }
                             size to label
                         },
                         selected = chatTextSize,
                         onSelect = themeViewModel::setChatTextSize
                     )
                     Text(
-                        text = if (en) "I'll remind you at 1:56 PM." else "오후 1시 56분에 알려 드릴게요.",
+                        text = stringResource(R.string.settings_chat_text_preview),
                         // 채팅 목록과 같은 배율 — 고른 크기를 그대로 미리 본다.
                         style = MaterialTheme.typography.scaled(chatTextSize.scale).bodyLarge,
                         color = KosmosTheme.colors.textPrimary,
                         modifier = Modifier.padding(top = 12.dp)
                     )
                     // [WHY] 두 장면을 모두 확정했다(0.38.4 M6 사용자 결정) — 다음에 앱을 열 때부터 바뀐다.
-                    ControlLabel(if (en) "Splash Screen" else "시작 화면", top = 16.dp)
+                    ControlLabel(stringResource(R.string.settings_control_splash), top = 16.dp)
                     com.kosmos.app.ui.component.KosmosSegmentedControl(
                         options = com.kosmos.app.ui.theme.SplashStyle.entries.map { style ->
-                            val label = if (en) when (style) {
-                                com.kosmos.app.ui.theme.SplashStyle.PLANET -> "Planet"
-                                com.kosmos.app.ui.theme.SplashStyle.GALAXY -> "Galaxy"
-                            } else style.label
+                            val label = when (style) {
+                                com.kosmos.app.ui.theme.SplashStyle.PLANET -> stringResource(R.string.splash_style_planet)
+                                com.kosmos.app.ui.theme.SplashStyle.GALAXY -> stringResource(R.string.splash_style_galaxy)
+                            }
                             style to label
                         },
                         selected = splashStyle ?: com.kosmos.app.ui.theme.SplashStyle.PLANET,
@@ -135,16 +139,16 @@ fun SettingsScreen(
             }
 
             Section(
-                if (en) "Conversation" else "대화",
-                footnote = if (en) "Increasing memory range includes more past conversation, but slows down replies and uses more memory. This is separate from the model's total context limit." else "기억 범위를 올리면 이전 대화를 더 많이 참고하지만 답이 느려지고 메모리를 더 써요. 모델이 한 번에 읽을 수 있는 전체 한도와는 달라요."
+                stringResource(R.string.settings_section_conversation),
+                footnote = stringResource(R.string.settings_conversation_footnote)
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    ControlLabel(if (en) "Response Length" else "답 길이")
+                    ControlLabel(stringResource(R.string.settings_control_response_style))
                     // 저장값(영문 키)은 그대로 두고 표시만 한글화한다 — 키를 바꾸면 기존 설정이 깨진다.
                     val styles = listOf(
-                        ResponseStyle.CONCISE to (if (en) "Concise" else "간결"),
-                        ResponseStyle.DEFAULT to (if (en) "Default" else "기본"),
-                        ResponseStyle.DETAILED to (if (en) "Detailed" else "자세히")
+                        ResponseStyle.CONCISE to stringResource(R.string.response_style_concise),
+                        ResponseStyle.DEFAULT to stringResource(R.string.response_style_default),
+                        ResponseStyle.DETAILED to stringResource(R.string.response_style_detailed)
                     )
                     com.kosmos.app.ui.component.KosmosSegmentedControl(
                         options = styles,
@@ -162,7 +166,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(if (en) "Conversation Memory Range" else "대화 기억 범위", style = MaterialTheme.typography.bodyLarge, color = KosmosTheme.colors.textPrimary)
+                        Text(stringResource(R.string.settings_control_context_budget), style = MaterialTheme.typography.bodyLarge, color = KosmosTheme.colors.textPrimary)
                         Text("%,d".format(sliderValue.toInt()), style = MaterialTheme.typography.bodyMedium, color = KosmosTheme.colors.textSecondary)
                     }
                     val sliderColors = SliderDefaults.colors(
@@ -195,14 +199,11 @@ fun SettingsScreen(
             ) { granted -> notificationDenied = !granted }
             val briefingWarning = if (uiState.briefingEnabled && (notificationDenied || !NotificationAccess.canPost(briefingContext))) NotificationAccess.deniedMessage(lang) else null
             Section(
-                if (en) "Morning Briefing" else "아침 브리핑",
-                footnote = if (uiState.briefingEnabled) {
-                    if (en) "Notifies you of today's event and task counts at the scheduled time, and delivers the briefing in chat when you open the app."
-                    else "정시에 일정·할 일 개수를 알려 드리고, 앱을 열면 브리핑이 대화로 도착해요."
-                } else null,
+                stringResource(R.string.settings_section_briefing),
+                footnote = if (uiState.briefingEnabled) stringResource(R.string.settings_briefing_footnote) else null,
                 warning = briefingWarning
             ) {
-                SettingSwitchRow(if (en) "Receive Daily Morning Briefing" else "매일 아침 브리핑 받기", uiState.briefingEnabled, divider = uiState.briefingEnabled) { enabled ->
+                SettingSwitchRow(stringResource(R.string.settings_briefing_switch), uiState.briefingEnabled, divider = uiState.briefingEnabled) { enabled ->
                     viewModel.onBriefingEnabledChanged(enabled)
                     val permission = NotificationAccess.runtimePermission
                     if (enabled && permission != null && !NotificationAccess.canPost(briefingContext)) {
@@ -211,7 +212,7 @@ fun SettingsScreen(
                 }
                 if (uiState.briefingEnabled) {
                     com.kosmos.app.ui.component.KosmosListRow(
-                        title = if (en) "Notification Time" else "알림 시각",
+                        title = stringResource(R.string.settings_briefing_time_row),
                         onClick = { showTimePicker = true },
                         trailing = { ValueTrailing(com.kosmos.app.domain.util.IsoDateTimeParser.clockKorean(uiState.briefingTimeMinutes, lang)) }
                     )
@@ -226,17 +227,17 @@ fun SettingsScreen(
                 )
                 AlertDialog(
                     onDismissRequest = { showTimePicker = false },
-                    title = { Text(if (en) "Briefing Time" else "브리핑 시각") },
+                    title = { Text(stringResource(R.string.settings_briefing_time_dialog_title)) },
                     text = { TimePicker(state = timeState) },
                     confirmButton = {
                         TextButton(onClick = {
                             viewModel.onBriefingTimeChanged(timeState.hour * 60 + timeState.minute)
                             showTimePicker = false
-                        }) { Text(if (en) "OK" else "확인", color = KosmosTheme.colors.brandText) }
+                        }) { Text(stringResource(R.string.common_confirm), color = KosmosTheme.colors.brandText) }
                     },
                     dismissButton = {
                         TextButton(onClick = { showTimePicker = false }) {
-                            Text(if (en) "Cancel" else "취소", color = KosmosTheme.colors.textMuted)
+                            Text(stringResource(R.string.common_cancel), color = KosmosTheme.colors.textMuted)
                         }
                     },
                     containerColor = KosmosTheme.colors.surface,
@@ -246,15 +247,14 @@ fun SettingsScreen(
 
             // 자동 기억 (C′2) — 대화가 정리될 때 기억할 사실을 골라 저장
             Section(
-                if (en) "Memory" else "기억",
-                footnote = if (en) "Automatically picks and saves facts to remember when conversations are summarized. Items like names or titles ask for confirmation first, and can be deleted anytime in Notes."
-                else "대화가 정리될 때 기억할 사실을 골라 저장해요. 이름·호칭 같은 항목은 먼저 물어보고 저장하고, 메모 화면에서 언제든 지울 수 있어요."
+                stringResource(R.string.settings_section_memory),
+                footnote = stringResource(R.string.settings_memory_footnote)
             ) {
-                SettingSwitchRow(if (en) "Auto-save Memories from Chat" else "대화에서 자동으로 기억하기", uiState.autoExtractEnabled, divider = true) { viewModel.onAutoExtractEnabledChanged(it) }
+                SettingSwitchRow(stringResource(R.string.settings_memory_auto_extract), uiState.autoExtractEnabled, divider = true) { viewModel.onAutoExtractEnabledChanged(it) }
                 // [WHY] 수동 정리(0.30.0) — 야간 배치 대신 사용자가 누를 때만 돈다(백그라운드 모델 로드 금지, §2-⑥).
                 com.kosmos.app.ui.component.KosmosListRow(
-                    title = if (en) "Memory Cleanup" else "기억 정리",
-                    supporting = if (en) "Weekly review, merge duplicate memories" else "이번 주 회고, 겹친 기억 합치기",
+                    title = stringResource(R.string.settings_memory_cleanup_title),
+                    supporting = stringResource(R.string.settings_memory_cleanup_sub),
                     onClick = onNavigateToMemoryCleanup,
                     trailing = { Chevron() }
                 )
@@ -266,22 +266,19 @@ fun SettingsScreen(
             val ttsContext = LocalContext.current
             val voiceNotice = when (uiState.voiceStatus) {
                 com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE ->
-                    if (en) "This engine does not have an offline voice available on this device. Please download voice data or choose another engine."
-                    else "이 엔진에는 기기 안에서 쓸 수 있는 한국어 음성이 없어요. 음성 데이터를 내려받거나 다른 엔진을 골라 주세요."
+                    stringResource(R.string.settings_voice_no_offline_warning)
                 com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.INIT_FAILED ->
-                    if (en) "Couldn't start this voice engine. Please choose another engine."
-                    else "이 음성 엔진을 시작하지 못했어요. 다른 엔진을 골라 주세요."
+                    stringResource(R.string.settings_voice_init_failed_warning)
                 else -> null
             }
             Section(
-                if (en) "Voice" else "음성",
-                footnote = if (en) "Reads replies aloud when finished. Even when off, you can use the play button on message bubbles, and playback stops immediately when recording starts."
-                else "켜면 답이 끝날 때마다 읽어 드려요. 꺼 두어도 말풍선의 재생 버튼으로 들을 수 있고, 녹음을 시작하면 바로 멈춰요.",
+                stringResource(R.string.settings_section_voice),
+                footnote = stringResource(R.string.settings_voice_footnote),
                 warning = voiceNotice
             ) {
-                SettingSwitchRow(if (en) "Read Replies Aloud" else "답을 소리로 읽어 주기", uiState.ttsAutoRead, divider = true) { viewModel.onTtsAutoReadChanged(it) }
+                SettingSwitchRow(stringResource(R.string.settings_voice_auto_read), uiState.ttsAutoRead, divider = true) { viewModel.onTtsAutoReadChanged(it) }
                 // [WHY] "시스템 기본" + 설치된 엔진(삼성·구글 등) — 목록이 비면 매니페스트 TTS_SERVICE queries 누락을 의심한다.
-                val engines = listOf(com.kosmos.app.platform.speech.SpeechOutput.Engine("", if (en) "System Default" else "시스템 기본")) + ttsEngines
+                val engines = listOf(com.kosmos.app.platform.speech.SpeechOutput.Engine("", stringResource(R.string.settings_voice_engine_default))) + ttsEngines
                 engines.forEachIndexed { index, engine ->
                     com.kosmos.app.ui.component.KosmosListRow(
                         title = engine.label,
@@ -310,7 +307,7 @@ fun SettingsScreen(
                         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                     // [WHY] 엔진이 설치 화면을 제공하지 않을 수 있다 — 실패는 조용히 무시(안내 문구는 이미 보이고 있다).
                     runCatching { ttsContext.startActivity(intent) }
-                }) { Text(if (en) "Install Voice Data" else "음성 데이터 설치", color = KosmosTheme.colors.brandText) }
+                }) { Text(stringResource(R.string.settings_voice_install_data), color = KosmosTheme.colors.brandText) }
             }
 
             // 6. 리마인더 정확 알람 안내 (B1) — 권한이 없을 때만 노출
@@ -335,12 +332,11 @@ fun SettingsScreen(
             }
             if (!exactAlarmAllowed) {
                 Section(
-                    if (en) "Notifications" else "알림",
-                    warning = if (en) "Alarms & reminders permission is off, so notifications may be delayed by up to 10 minutes."
-                    else "알람 및 리마인더 권한이 꺼져 있어 알림이 정한 시각보다 최대 10분 늦게 울릴 수 있어요."
+                    stringResource(R.string.settings_section_exact_alarm),
+                    warning = stringResource(R.string.settings_exact_alarm_warning)
                 ) {
                     com.kosmos.app.ui.component.KosmosListRow(
-                        title = if (en) "Allow Alarms & Reminders" else "알람 및 리마인더 허용하기",
+                        title = stringResource(R.string.settings_exact_alarm_allow),
                         onClick = {
                             context.startActivity(
                                 android.content.Intent(
@@ -399,7 +395,7 @@ private fun ControlLabel(text: String, top: androidx.compose.ui.unit.Dp = 0.dp) 
 
 @Composable
 private fun Chevron() = com.kosmos.app.ui.component.KosmosIcon(
-    com.kosmos.app.R.drawable.ic_ph_caret_right, contentDescription = null,
+    R.drawable.ic_ph_caret_right, contentDescription = null,
     size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textMuted, modifier = Modifier.padding(end = 12.dp)
 )
 
@@ -442,34 +438,33 @@ private fun SettingSwitchRow(label: String, checked: Boolean, divider: Boolean =
  */
 @Composable
 private fun ModelStatus(state: ModelLoadState, onManage: () -> Unit, onRefresh: () -> Unit) {
-    val lang = KosmosTheme.language
-    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+    val lang = currentAppLanguage()
     when (state) {
         is ModelLoadState.Loading, is ModelLoadState.FileFound, is ModelLoadState.InitializingEngine -> com.kosmos.app.ui.component.KosmosListRow(
-            title = if (en) "Local AI Model" else "로컬 AI 모델",
+            title = stringResource(R.string.settings_model_local_title),
             supporting = when (state) {
-                is ModelLoadState.Loading -> if (en) "Checking status" else "상태를 확인하고 있어요"
-                is ModelLoadState.FileFound -> if (en) "Model file found, preparing engine" else "모델 파일을 찾았어요, 엔진을 준비하고 있어요"
-                else -> if (en) "Preparing AI engine" else "AI 엔진을 준비하고 있어요"
+                is ModelLoadState.Loading -> stringResource(R.string.settings_model_checking)
+                is ModelLoadState.FileFound -> stringResource(R.string.settings_model_file_found)
+                else -> stringResource(R.string.settings_model_preparing)
             },
-            tags = listOf(if (en) "Preparing" else "준비 중")
+            tags = listOf(stringResource(R.string.settings_model_tag_preparing))
         )
         is ModelLoadState.Ready -> {
             var detailsOpen by rememberSaveable { mutableStateOf(false) }
             com.kosmos.app.ui.component.KosmosListRow(
                 title = com.kosmos.app.ui.modelDisplayName(state.modelInfo.modelId),
-                tags = listOf(if (en) "Ready" else "준비됨"),
+                tags = listOf(stringResource(R.string.settings_model_tag_ready)),
                 onClick = onManage,
                 divider = true,
                 trailing = { Chevron() }
             )
             com.kosmos.app.ui.component.KosmosListRow(
-                title = if (en) "Model Info" else "모델 정보",
+                title = stringResource(R.string.settings_model_info_title),
                 onClick = { detailsOpen = !detailsOpen },
                 trailing = {
                     com.kosmos.app.ui.component.KosmosIcon(
-                        if (detailsOpen) com.kosmos.app.R.drawable.ic_ph_caret_up else com.kosmos.app.R.drawable.ic_ph_caret_down,
-                        contentDescription = if (detailsOpen) (if (en) "Collapse" else "접기") else (if (en) "Expand" else "펼치기"),
+                        if (detailsOpen) R.drawable.ic_ph_caret_up else R.drawable.ic_ph_caret_down,
+                        contentDescription = if (detailsOpen) stringResource(R.string.common_collapse) else stringResource(R.string.common_expand),
                         size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textMuted, modifier = Modifier.padding(end = 12.dp)
                     )
                 }
@@ -477,8 +472,8 @@ private fun ModelStatus(state: ModelLoadState, onManage: () -> Unit, onRefresh: 
             if (detailsOpen) {
                 Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     listOf(
-                        if (en) "Version ${state.modelInfo.modelVersion}" else "버전 ${state.modelInfo.modelVersion}",
-                        if (en) "Quantization ${state.modelInfo.quantization}" else "양자화 ${state.modelInfo.quantization}",
+                        stringResource(R.string.settings_model_version, state.modelInfo.modelVersion),
+                        stringResource(R.string.settings_model_quantization, state.modelInfo.quantization),
                         state.modelInfo.modelPath
                     ).forEach {
                         Text(it, style = MaterialTheme.typography.bodySmall, color = KosmosTheme.colors.textSecondary)
@@ -488,16 +483,16 @@ private fun ModelStatus(state: ModelLoadState, onManage: () -> Unit, onRefresh: 
         }
         is ModelLoadState.NotFound -> {
             com.kosmos.app.ui.component.KosmosListRow(
-                title = if (en) "No model found" else "모델이 없어요",
-                supporting = if (en) "Download the model to start right away." else "내려받으면 바로 사용할 수 있어요."
+                title = stringResource(R.string.settings_model_not_found_title),
+                supporting = stringResource(R.string.settings_model_not_found_body)
             )
             Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                KosmosButton(if (en) "Refresh" else "새로 고침", onRefresh, Modifier.weight(1f))
-                KosmosButton(if (en) "Download" else "내려받기", onManage, Modifier.weight(1f), accent = true)
+                KosmosButton(stringResource(R.string.common_refresh), onRefresh, Modifier.weight(1f))
+                KosmosButton(stringResource(R.string.common_download), onManage, Modifier.weight(1f), accent = true)
             }
         }
         is ModelLoadState.Error -> com.kosmos.app.ui.component.KosmosListRow(
-            title = if (en) "Couldn't load the model" else "모델을 불러오지 못했어요",
+            title = stringResource(R.string.settings_model_load_failed_title),
             supporting = com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error, lang),
             onClick = onManage,
             trailing = { Chevron() }
@@ -506,20 +501,17 @@ private fun ModelStatus(state: ModelLoadState, onManage: () -> Unit, onRefresh: 
 }
 
 /** 초기화 대상 한 줄 — 화면 문구가 곧 [com.kosmos.app.domain.memory.ResetTarget] 의 범위 설명이다. */
-private data class ResetOption(val target: com.kosmos.app.domain.memory.ResetTarget, val title: String, val detail: String)
-
-private val RESET_OPTIONS = listOf(
-    ResetOption(com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS, "대화 기록", "채팅, 브리핑 카드, 기억 요약, 활동 기록, 호칭 제안"),
-    ResetOption(com.kosmos.app.domain.memory.ResetTarget.TASKS, "할 일", "완료한 것 포함, 예약된 알림도 취소"),
-    ResetOption(com.kosmos.app.domain.memory.ResetTarget.KNOWLEDGE, "메모", "직접·자동으로 저장한 메모"),
-    ResetOption(com.kosmos.app.domain.memory.ResetTarget.PROFILE, "프로필", "호칭 등 나에 대한 정보")
+private data class ResetOption(
+    val target: com.kosmos.app.domain.memory.ResetTarget,
+    @androidx.annotation.StringRes val titleRes: Int,
+    @androidx.annotation.StringRes val detailRes: Int
 )
 
-private val RESET_OPTIONS_EN = listOf(
-    ResetOption(com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS, "Conversation History", "Chat, briefing cards, memory summaries, activity log, title suggestions"),
-    ResetOption(com.kosmos.app.domain.memory.ResetTarget.TASKS, "To-dos", "Includes completed items and cancels scheduled reminders"),
-    ResetOption(com.kosmos.app.domain.memory.ResetTarget.KNOWLEDGE, "Notes", "Manually and automatically saved notes"),
-    ResetOption(com.kosmos.app.domain.memory.ResetTarget.PROFILE, "Profile", "Personal info such as preferred name")
+private val RESET_OPTIONS = listOf(
+    ResetOption(com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS, R.string.settings_reset_opt_conversations_title, R.string.settings_reset_opt_conversations_detail),
+    ResetOption(com.kosmos.app.domain.memory.ResetTarget.TASKS, R.string.settings_reset_opt_tasks_title, R.string.settings_reset_opt_tasks_detail),
+    ResetOption(com.kosmos.app.domain.memory.ResetTarget.KNOWLEDGE, R.string.settings_reset_opt_knowledge_title, R.string.settings_reset_opt_knowledge_detail),
+    ResetOption(com.kosmos.app.domain.memory.ResetTarget.PROFILE, R.string.settings_reset_opt_profile_title, R.string.settings_reset_opt_profile_detail)
 )
 
 /**
@@ -534,12 +526,11 @@ private fun DataResetSection(
     onDismiss: () -> Unit,
     onRestart: () -> Unit
 ) {
-    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     var showPicker by remember { mutableStateOf(false) }
-    Section(if (en) "Data" else "데이터") {
+    Section(stringResource(R.string.settings_section_data)) {
         com.kosmos.app.ui.component.KosmosListRow(
-            title = if (en) "Reset Data" else "데이터 초기화",
-            supporting = if (en) "Choose from conversation history, to-dos, notes, and profile to delete" else "대화 기록, 할 일, 메모, 프로필 중 골라서 지워요",
+            title = stringResource(R.string.settings_data_reset_title),
+            supporting = stringResource(R.string.settings_data_reset_sub),
             onClick = { showPicker = true },
             trailing = { Chevron() }
         )
@@ -548,13 +539,12 @@ private fun DataResetSection(
     if (showPicker && state !is DataResetState.Done) {
         var selected by remember { mutableStateOf(emptySet<com.kosmos.app.domain.memory.ResetTarget>()) }
         val running = state == DataResetState.Running
-        val options = if (en) RESET_OPTIONS_EN else RESET_OPTIONS
         AlertDialog(
             onDismissRequest = { if (!running) showPicker = false },
-            title = { Text(if (en) "What would you like to delete?" else "무엇을 지울까요?", color = KosmosTheme.colors.textPrimary) },
+            title = { Text(stringResource(R.string.settings_reset_dialog_title), color = KosmosTheme.colors.textPrimary) },
             text = {
                 Column {
-                    options.forEach { option ->
+                    RESET_OPTIONS.forEach { option ->
                         val checked = option.target in selected
                         Row(
                             modifier = Modifier
@@ -576,20 +566,15 @@ private fun DataResetSection(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
-                                Text(option.title, color = KosmosTheme.colors.textPrimary)
-                                Text(option.detail, style = MaterialTheme.typography.bodySmall, color = KosmosTheme.colors.textMuted)
+                                Text(stringResource(option.titleRes), color = KosmosTheme.colors.textPrimary)
+                                Text(stringResource(option.detailRes), style = MaterialTheme.typography.bodySmall, color = KosmosTheme.colors.textMuted)
                             }
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = if (en) {
-                            "Deleted data cannot be recovered. Back up in Notes first if needed." +
-                                if (com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS in selected) " Deleting conversation history will restart the app." else ""
-                        } else {
-                            "지운 것은 되돌릴 수 없어요. 필요하면 먼저 메모 화면에서 백업하세요." +
-                                if (com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS in selected) " 대화 기록을 지우면 앱이 다시 시작돼요." else ""
-                        },
+                        text = stringResource(R.string.settings_reset_dialog_warning) +
+                            if (com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS in selected) stringResource(R.string.settings_reset_dialog_restart_note) else "",
                         style = MaterialTheme.typography.bodySmall,
                         color = KosmosTheme.colors.textSecondary
                     )
@@ -602,14 +587,14 @@ private fun DataResetSection(
             confirmButton = {
                 TextButton(onClick = { onReset(selected) }, enabled = selected.isNotEmpty() && !running) {
                     Text(
-                        if (running) (if (en) "Deleting…" else "지우는 중…") else (if (en) "Delete" else "지우기"),
+                        if (running) stringResource(R.string.settings_reset_deleting) else stringResource(R.string.settings_reset_delete_action),
                         color = if (selected.isNotEmpty() && !running) KosmosTheme.colors.dangerText else KosmosTheme.colors.textMuted
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showPicker = false; onDismiss() }, enabled = !running) {
-                    Text(if (en) "Cancel" else "취소", color = KosmosTheme.colors.textMuted)
+                    Text(stringResource(R.string.common_cancel), color = KosmosTheme.colors.textMuted)
                 }
             },
             containerColor = KosmosTheme.colors.surface
@@ -620,14 +605,10 @@ private fun DataResetSection(
         AlertDialog(
             // [WHY] 재시작이 필요한 완료는 닫을 수 없다 — 낡은 메모리 상태로 계속 쓰면 지운 대화가 엔진 KV 에 남아 답에 섞인다.
             onDismissRequest = { if (!state.needsRestart) { showPicker = false; onDismiss() } },
-            title = { Text(if (en) "Deleted" else "지웠어요", color = KosmosTheme.colors.textPrimary) },
+            title = { Text(stringResource(R.string.settings_reset_done_title), color = KosmosTheme.colors.textPrimary) },
             text = {
                 Text(
-                    if (state.needsRestart) {
-                        if (en) "The app needs to restart to clear conversation history." else "대화 기록을 정리하려면 앱을 다시 시작해야 해요."
-                    } else {
-                        if (en) "Deleted the selected items." else "고른 항목을 지웠어요."
-                    },
+                    if (state.needsRestart) stringResource(R.string.settings_reset_done_restart_body) else stringResource(R.string.settings_reset_done_body),
                     color = KosmosTheme.colors.textSecondary
                 )
             },
@@ -635,7 +616,7 @@ private fun DataResetSection(
                 TextButton(onClick = {
                     if (state.needsRestart) onRestart() else { showPicker = false; onDismiss() }
                 }) {
-                    Text(if (state.needsRestart) (if (en) "Restart" else "다시 시작") else (if (en) "OK" else "확인"), color = KosmosTheme.colors.brandText)
+                    Text(if (state.needsRestart) stringResource(R.string.settings_reset_restart_action) else stringResource(R.string.common_confirm), color = KosmosTheme.colors.brandText)
                 }
             },
             containerColor = KosmosTheme.colors.surface

@@ -24,7 +24,7 @@ import org.robolectric.annotation.GraphicsMode
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(qualifiers = "w393dp-h852dp-xxhdpi")
+@Config(qualifiers = "ko-rKR-w393dp-h852dp-xxhdpi")
 class SheetColumnWidthTest {
 
     @get:Rule

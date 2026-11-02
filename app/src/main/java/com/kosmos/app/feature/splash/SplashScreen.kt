@@ -1,32 +1,33 @@
 package com.kosmos.app.feature.splash
 
-import com.kosmos.app.core.common.AppLanguage
-
-import androidx.compose.foundation.layout.fillMaxWidth
-import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kosmos.app.R
 import com.kosmos.app.domain.modelrunner.ModelLoadState
+import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.SplashStyle
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.withFrameMillis
+import com.kosmos.app.ui.theme.currentAppLanguage
 
 @Composable
 fun SplashScreen(
@@ -76,16 +77,13 @@ fun SplashScreen(
         }
     }
 
-    val lang = KosmosTheme.language
-    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+    val lang = currentAppLanguage()
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         
         if (loadState is ModelLoadState.Error || loadState is ModelLoadState.NotFound) {
             val errorMessage = when (val state = loadState) {
                 is ModelLoadState.Error -> com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error, lang)
-                is ModelLoadState.NotFound ->
-                    if (en) "AI model file not found. Please download it in Model Management."
-                    else "AI 모델 파일이 없어요. 모델 관리에서 내려받아 주세요."
+                is ModelLoadState.NotFound -> stringResource(R.string.splash_model_needed_body)
                 else -> ""
             }
             
@@ -103,18 +101,18 @@ fun SplashScreen(
                 val canRedownload = loadState is ModelLoadState.NotFound ||
                     (loadState as? ModelLoadState.Error)?.error is com.kosmos.app.core.common.AppError.ModelLoadFailed
                 if (canRedownload) {
-                    com.kosmos.app.ui.component.KosmosButton(if (en) "Download model" else "모델 내려받기", onNavigateToModelManagement, Modifier.fillMaxWidth(), accent = true)
+                    com.kosmos.app.ui.component.KosmosButton(stringResource(R.string.splash_download_model), onNavigateToModelManagement, Modifier.fillMaxWidth(), accent = true)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
-                com.kosmos.app.ui.component.KosmosButton(if (en) "Retry" else "다시 시도", { viewModel.retry() }, Modifier.fillMaxWidth())
+                com.kosmos.app.ui.component.KosmosButton(stringResource(R.string.common_retry), { viewModel.retry() }, Modifier.fillMaxWidth())
             }
         } else {
             // [WHY] 장면만 있으면 "빈 화면"으로 오인된다(2026-08-15 실기기 문의) — 워드마크와 지금 무엇을 하는 중인지를 함께 보여
             // 살아 있음을 드러낸다. 엔진 재초기화는 실측 9~12초라(0.16.2) 그 시간 동안의 침묵이 가장 큰 불안 요소다.
             val statusText = when (loadState) {
-                is ModelLoadState.Loading -> if (en) "Checking model status…" else "모델 상태를 확인하고 있어요…"
-                is ModelLoadState.FileFound -> if (en) "Model file found. Preparing engine…" else "모델 파일을 찾았어요. 엔진을 준비하고 있어요…"
-                is ModelLoadState.InitializingEngine -> if (en) "Waking up AI engine (~10 sec)…" else "AI 엔진을 깨우는 중이에요 (10초 정도)…"
+                is ModelLoadState.Loading -> stringResource(R.string.splash_checking_model)
+                is ModelLoadState.FileFound -> stringResource(R.string.splash_file_found)
+                is ModelLoadState.InitializingEngine -> stringResource(R.string.splash_preparing_engine)
                 else -> ""
             }
             if (statusText.isNotEmpty()) last.text = statusText

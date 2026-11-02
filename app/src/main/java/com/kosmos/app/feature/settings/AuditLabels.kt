@@ -1,9 +1,9 @@
 package com.kosmos.app.feature.settings
 
-import com.kosmos.app.core.common.AppLanguage
-
+import android.content.Context
 import androidx.annotation.DrawableRes
 import com.kosmos.app.R
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.domain.model.AuditEvent
 import com.kosmos.app.domain.model.AuditEventType
 import com.kosmos.app.domain.tool.ToolNames
@@ -32,65 +32,58 @@ object AuditLabels {
 
     private const val SUMMARY_MAX = 80
 
-    private val TOOL_KOREAN = mapOf(
-        ToolNames.ADD_SCHEDULE to "일정 추가",
-        ToolNames.GET_SCHEDULE to "일정 조회",
-        ToolNames.ADD_MEMORY to "메모 저장",
-        ToolNames.SEARCH_MEMORY to "기억 검색",
-        ToolNames.SEARCH_WIKIPEDIA to "위키백과 검색",
-        ToolNames.ADD_REMINDER to "알림 추가",
-        ToolNames.LIST_REMINDERS to "알림 목록 조회",
-        "ReminderEdit(화면)" to "알림 수정",
+    private val TOOL_RES = mapOf(
+        ToolNames.ADD_SCHEDULE to R.string.audit_tool_add_schedule,
+        ToolNames.GET_SCHEDULE to R.string.audit_tool_get_schedule,
+        ToolNames.ADD_MEMORY to R.string.audit_tool_add_memory,
+        ToolNames.SEARCH_MEMORY to R.string.audit_tool_search_memory,
+        ToolNames.SEARCH_WIKIPEDIA to R.string.audit_tool_search_wikipedia,
+        ToolNames.ADD_REMINDER to R.string.audit_tool_add_reminder,
+        ToolNames.LIST_REMINDERS to R.string.audit_tool_list_reminders,
+        "ReminderEdit(화면)" to R.string.audit_tool_reminder_edit,
         // 기억 정리 실행기(0.30.0) — 모델 툴이 아니라 정리 화면이 남긴다.
-        "MemoryMerge" to "기억 합치기",
-        "EpisodeMerge" to "대화 합치기"
-    )
-
-    private val TOOL_ENGLISH = mapOf(
-        ToolNames.ADD_SCHEDULE to "Add event",
-        ToolNames.GET_SCHEDULE to "View events",
-        ToolNames.ADD_MEMORY to "Save note",
-        ToolNames.SEARCH_MEMORY to "Search memory",
-        ToolNames.SEARCH_WIKIPEDIA to "Search Wikipedia",
-        ToolNames.ADD_REMINDER to "Add reminder",
-        ToolNames.LIST_REMINDERS to "List reminders",
-        "ReminderEdit(화면)" to "Edit reminder",
-        "MemoryMerge" to "Merge memories",
-        "EpisodeMerge" to "Merge conversations"
+        "MemoryMerge" to R.string.audit_tool_memory_merge,
+        "EpisodeMerge" to R.string.audit_tool_episode_merge
     )
 
     /** 기록 원문의 "키:" 줄 이름 — 여러 줄 값을 다음 키 전까지 읽는 데 쓴다. */
     private val KEYS = listOf("Prompt", "Output", "Tools declared", "Tool", "Result", "Note", "Query", "Status", "Temperature")
 
     /** 툴 이름의 한국어/영어 — 모르는 이름은 원문 그대로. */
-    fun toolKorean(
-        name: String,
-        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
-    ): String {
-        val map = if (lang == com.kosmos.app.core.common.AppLanguage.EN) TOOL_ENGLISH else TOOL_KOREAN
-        return map[name.trim()] ?: name.trim()
+    fun toolKorean(name: String, context: Context): String {
+        val trimmed = name.trim()
+        val resId = TOOL_RES[trimmed]
+        return if (resId != null) context.getString(resId) else trimmed
     }
 
-    fun of(
-        event: AuditEvent,
-        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
-    ): AuditDisplay {
-        val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+    private fun appLanguageOf(context: Context): AppLanguage {
+        val locales = context.resources.configuration.locales
+        val locale = if (locales.isEmpty) java.util.Locale.getDefault() else locales[0]
+        return AppLanguage.fromLocale(locale)
+    }
+
+    fun of(event: AuditEvent, context: Context): AuditDisplay {
+        val lang = appLanguageOf(context)
         val details = event.details
         return when (event.type) {
-            AuditEventType.MODEL_RUN -> modelRun(details, lang)
-            AuditEventType.TOOL_CALL -> toolCall(details, lang)
-            AuditEventType.APPROVAL_GRANTED -> approval(details, R.drawable.ic_ph_check_circle, if (en) "Approved" else "승인함", lang)
-            AuditEventType.APPROVAL_REJECTED -> approval(details, R.drawable.ic_ph_x, if (en) "Cancelled" else "취소함", lang)
+            AuditEventType.MODEL_RUN -> modelRun(details, context, lang)
+            AuditEventType.TOOL_CALL -> toolCall(details, context, lang)
+            AuditEventType.APPROVAL_GRANTED -> approval(details, R.drawable.ic_ph_check_circle, context.getString(R.string.audit_type_approved), context, lang)
+            AuditEventType.APPROVAL_REJECTED -> approval(details, R.drawable.ic_ph_x, context.getString(R.string.audit_type_cancelled), context, lang)
             AuditEventType.ERROR -> {
-                val reason = errorKorean(details, lang)
-                AuditDisplay(R.drawable.ic_ph_warning_circle, if (en) "Error" else "오류", summarize(reason), listOf(AuditField(if (en) "Reason" else "사유", reason)))
+                val reason = errorKorean(details, context)
+                AuditDisplay(
+                    R.drawable.ic_ph_warning_circle,
+                    context.getString(R.string.audit_type_error),
+                    summarize(reason),
+                    listOf(AuditField(context.getString(R.string.audit_field_reason), reason))
+                )
             }
-            AuditEventType.EXPORT -> simple(R.drawable.ic_ph_download_simple, if (en) "Export backup" else "백업 내보내기", if (en) "Status" else "상태", field(details, "Status") ?: details)
-            AuditEventType.IMPORT -> simple(R.drawable.ic_ph_folder_open, if (en) "Import backup" else "백업 가져오기", if (en) "Status" else "상태", field(details, "Status") ?: details)
-            AuditEventType.SEARCH_USED -> simple(R.drawable.ic_ph_globe, if (en) "Web search" else "웹 검색", if (en) "Query" else "찾은 말", field(details, "Query") ?: details)
-            AuditEventType.THERMAL_WARNING -> simple(R.drawable.ic_ph_thermometer, if (en) "Heat warning" else "발열 경고", if (en) "Temp" else "온도", field(details, "Temperature") ?: details)
-            AuditEventType.THERMAL_SHUTDOWN -> simple(R.drawable.ic_ph_thermometer, if (en) "Paused due to heat" else "발열로 멈춤", if (en) "Temp" else "온도", field(details, "Temperature") ?: details)
+            AuditEventType.EXPORT -> simple(R.drawable.ic_ph_download_simple, context.getString(R.string.audit_type_export), context.getString(R.string.audit_field_status), field(details, "Status") ?: details)
+            AuditEventType.IMPORT -> simple(R.drawable.ic_ph_folder_open, context.getString(R.string.audit_type_import), context.getString(R.string.audit_field_status), field(details, "Status") ?: details)
+            AuditEventType.SEARCH_USED -> simple(R.drawable.ic_ph_globe, context.getString(R.string.audit_type_search), context.getString(R.string.audit_field_query), field(details, "Query") ?: details)
+            AuditEventType.THERMAL_WARNING -> simple(R.drawable.ic_ph_thermometer, context.getString(R.string.audit_type_thermal_warning), context.getString(R.string.audit_field_temp), field(details, "Temperature") ?: details)
+            AuditEventType.THERMAL_SHUTDOWN -> simple(R.drawable.ic_ph_thermometer, context.getString(R.string.audit_type_thermal_shutdown), context.getString(R.string.audit_field_temp), field(details, "Temperature") ?: details)
         }
     }
 
@@ -101,37 +94,36 @@ object AuditLabels {
      * 모델 실행 — 채팅 답("물은 말·답·쓸 수 있던 도구"), 아침 브리핑 작성, 기억 추출(대화 정리 뒤 사실 골라내기)을 나눈다.
      * 기록하는 쪽의 프롬프트 머리(`morning briefing (`·`fact extraction (`)로 가른다.
      */
-    private fun modelRun(details: String, lang: com.kosmos.app.core.common.AppLanguage): AuditDisplay {
-        val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+    private fun modelRun(details: String, context: Context, lang: AppLanguage): AuditDisplay {
         val prompt = block(details, "Prompt").orEmpty()
         val output = plain(block(details, "Output") ?: details)
         return when {
             prompt.startsWith("morning briefing") ->
                 AuditDisplay(
                     R.drawable.ic_ph_sun,
-                    if (en) "Morning briefing" else "아침 브리핑 작성",
+                    context.getString(R.string.audit_type_briefing),
                     summarize(output),
-                    listOf(AuditField(if (en) "Briefing" else "브리핑", output))
+                    listOf(AuditField(context.getString(R.string.audit_field_briefing), output))
                 )
             prompt.startsWith("fact extraction") -> {
-                val summary = factSummary(output, lang)
+                val summary = factSummary(output, context)
                 AuditDisplay(
                     R.drawable.ic_ph_lightbulb,
-                    if (en) "Memory extraction" else "기억 추출",
+                    context.getString(R.string.audit_type_fact_extraction),
                     summary,
-                    listOf(AuditField(if (en) "Result" else "결과", summary))
+                    listOf(AuditField(context.getString(R.string.audit_field_result), summary))
                 )
             }
             else -> {
                 val tools = block(details, "Tools declared")
-                    ?.trim('[', ']')?.split(',')?.map { toolKorean(it, lang) }?.filter { it.isNotBlank() }.orEmpty()
+                    ?.trim('[', ']')?.split(',')?.map { toolKorean(it, context) }?.filter { it.isNotBlank() }.orEmpty()
                 AuditDisplay(
                     R.drawable.ic_ph_chat_text,
-                    if (en) "Model reply" else "모델 답",
+                    context.getString(R.string.audit_type_model_reply),
                     summarize(output),
                     listOfNotNull(
-                        prompt.takeIf { it.isNotBlank() }?.let { AuditField(if (en) "Prompt" else "물은 말", it) },
-                        AuditField(if (en) "Reply" else "답", output)
+                        prompt.takeIf { it.isNotBlank() }?.let { AuditField(context.getString(R.string.audit_field_prompt), it) },
+                        AuditField(context.getString(R.string.audit_field_reply), output)
                     ),
                     tools
                 )
@@ -140,30 +132,22 @@ object AuditLabels {
     }
 
     /** `profile=0 knowledge=1 savedKnowledge=1 filtered=0 suggested=0` → "메모 1개 저장, 프로필 제안 0개". 모르는 형식은 그대로. */
-    private fun factSummary(output: String, lang: com.kosmos.app.core.common.AppLanguage): String {
+    private fun factSummary(output: String, context: Context): String {
         val values = Regex("(\\w+)=(\\d+)").findAll(output).associate { it.groupValues[1] to it.groupValues[2] }
         val saved = values["savedKnowledge"] ?: return output
         val suggested = values["suggested"] ?: "0"
-        return if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
-            "Saved $saved notes, $suggested profile suggestions"
-        } else {
-            "메모 ${saved}개 저장, 프로필 제안 ${suggested}개"
-        }
+        return context.getString(R.string.audit_fact_summary, saved, suggested)
     }
 
-    private fun toolCall(details: String, lang: com.kosmos.app.core.common.AppLanguage): AuditDisplay {
-        val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+    private fun toolCall(details: String, context: Context, lang: AppLanguage): AuditDisplay {
         val tool = field(details, "Tool")
-        val result = resultKorean(block(details, "Result").orEmpty(), lang)
+        val result = resultKorean(block(details, "Result").orEmpty(), context, lang)
         val fields = listOfNotNull(
-            result.takeIf { it.isNotEmpty() }?.let { AuditField(if (en) "Result" else "결과", it) },
-            field(details, "Note")?.let { AuditField(if (en) "Note" else "참고", it) }
+            result.takeIf { it.isNotEmpty() }?.let { AuditField(context.getString(R.string.audit_field_result), it) },
+            field(details, "Note")?.let { AuditField(context.getString(R.string.audit_field_note), it) }
         )
-        val title = if (en) {
-            "Ran ${tool?.let { toolKorean(it, lang) } ?: "tool"}"
-        } else {
-            "${tool?.let { toolKorean(it, lang) } ?: "도구"} 실행"
-        }
+        val toolLabel = tool?.let { toolKorean(it, context) } ?: context.getString(R.string.audit_tool_default)
+        val title = context.getString(R.string.audit_type_tool_run, toolLabel)
         return AuditDisplay(toolIcon(tool), title, summarize(result), fields)
     }
 
@@ -171,17 +155,17 @@ object AuditLabels {
      * 툴 결과 → 한 줄. `{"status":"success","message":…}` 는 "성공, 메시지", 오류는 "실패, 메시지", 상태·메시지가 없는 JSON 은 빈칸, JSON 이 아니면(기억 합치기 "a + b → c") 그대로.
      * [WHY] 결과 JSON 은 기계 형식이다 — 상태와 메시지만 사람 말로(0.38.4 M2 결정 5). 나머지는 "원문 보기".
      */
-    private fun resultKorean(raw: String, lang: com.kosmos.app.core.common.AppLanguage): String {
+    private fun resultKorean(raw: String, context: Context, lang: AppLanguage): String {
         if (!raw.startsWith("{")) return raw
-        val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+        val en = lang == AppLanguage.EN
         // [WHY] 정규식으로 두 값만 — org.json 은 안드로이드 런타임이 필요해 JVM 테스트에서 돌지 않는다. 결과 형식은 ToolResultJson 이 정한다.
         val status = when (STATUS.find(raw)?.groupValues?.get(1)) {
-            "success" -> if (en) "Success" else "성공"
-            "error" -> if (en) "Failed" else "실패"
+            "success" -> context.getString(R.string.audit_status_success)
+            "error" -> context.getString(R.string.audit_status_failed)
             else -> null
         }
         val message = MESSAGE.find(raw)?.groupValues?.get(1)?.replace("\\\"", "\"")?.replace("\\n", "\n")
-            ?.let { readable(it, lang = lang) }?.let { if (en) it else toolMessageKorean(it) }?.takeIf { it.isNotBlank() }
+            ?.let { readable(it, lang = lang) }?.let { if (en) it else toolMessageKorean(it, context) }?.takeIf { it.isNotBlank() }
         return listOfNotNull(status, message).joinToString(", ")
     }
 
@@ -190,13 +174,12 @@ object AuditLabels {
      *
      * [WHY] 결과 문구 자체는 모델 입력이라 바꾸면 실측이 필요하다 — 활동 기록 표시에서만 바꾼다(0.38.7 결정 4). "원문 보기"는 원문 그대로.
      */
-    private fun toolMessageKorean(message: String): String =
-        TOOL_MESSAGES.fold(message) { text, (pattern, replace) -> pattern.replace(text) { replace(it) } }
+    private fun toolMessageKorean(message: String, context: Context): String =
+        TOOL_MESSAGES.fold(message) { text, (pattern, replace) -> pattern.replace(text) { replace(it, context) } }
 
-    private fun approval(details: String, @DrawableRes icon: Int, title: String, lang: com.kosmos.app.core.common.AppLanguage): AuditDisplay {
-        val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+    private fun approval(details: String, @DrawableRes icon: Int, title: String, context: Context, lang: AppLanguage): AuditDisplay {
         val head = details.substringBefore(':', missingDelimiterValue = "")
-        val (tool, rawBody) = if (head.isNotEmpty() && head in TOOL_KOREAN) toolKorean(head, lang) to details.substringAfter(':').trim() else null to details
+        val (tool, rawBody) = if (head.isNotEmpty() && head in TOOL_RES) toolKorean(head, context) to details.substringAfter(':').trim() else null to details
         // [WHY] 승인 내용에는 사용자가 한 말(메모 내용 등)이 들어 있다 — "…하세요"로 끝나도 지우지 않고 시각만 바꾼다.
         val body = readable(rawBody, dropInstructions = false, lang = lang)
         val summary = if (tool != null) "$tool: $body" else body
@@ -205,8 +188,8 @@ object AuditLabels {
             title,
             summarize(summary),
             listOfNotNull(
-                tool?.let { AuditField(if (en) "Tool" else "도구", it) },
-                AuditField(if (en) "Details" else "내용", body)
+                tool?.let { AuditField(context.getString(R.string.audit_field_tool), it) },
+                AuditField(context.getString(R.string.audit_field_details), body)
             )
         )
     }
@@ -214,21 +197,19 @@ object AuditLabels {
     /**
      * 오류 원문 → 한국어/영어 사유. 앱이 남기는 영어 진단 문구를 알아보고, 한국어로 시작하는 것은 그대로, 모르는 영어는 "앱 내부 오류".
      */
-    private fun errorKorean(details: String, lang: com.kosmos.app.core.common.AppLanguage): String {
-        val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+    private fun errorKorean(details: String, context: Context): String {
+        val en = appLanguageOf(context) == AppLanguage.EN
         val line = details.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }.orEmpty()
         return when {
             line.startsWith("Blocked tool call outside allowlist:") ->
-                if (en) "Attempted disallowed tool: ${toolKorean(line.substringAfter(':'), lang)}"
-                else "허용하지 않은 도구를 부르려 했어요: ${toolKorean(line.substringAfter(':'), lang)}"
+                context.getString(R.string.audit_err_disallowed_tool, toolKorean(line.substringAfter(':'), context))
             line.startsWith("Invalid tool argument:") ->
-                if (en) "Invalid tool argument: ${toolKorean(line.substringAfter(':').trim().substringBefore('.'), lang)}"
-                else "도구에 넘긴 값이 잘못됐어요: ${toolKorean(line.substringAfter(':').trim().substringBefore('.'), lang)}"
+                context.getString(R.string.audit_err_invalid_arg, toolKorean(line.substringAfter(':').trim().substringBefore('.'), context))
             line.contains("Model inference failed") || line.contains("ModelInferenceError") ->
-                if (en) "Couldn't generate a reply" else "답을 만들지 못했어요"
+                context.getString(R.string.audit_err_inference_failed)
             // [WHY] "음성 전사 실패: SttError(reason=…)"처럼 오류 객체 원문이 붙은 줄은 사유만 남긴다 — 원문은 "원문 보기"에 그대로 있다.
             HANGUL.containsMatchIn(line) -> line.replace(ERROR_OBJECT) { it.groupValues[1] }
-            else -> if (en) line.ifEmpty { "Internal app error" } else "앱 내부 오류"
+            else -> if (en) line.ifEmpty { context.getString(R.string.audit_err_internal) } else context.getString(R.string.audit_err_internal)
         }
     }
 
@@ -263,7 +244,7 @@ object AuditLabels {
         text: String,
         dropInstructions: Boolean = true,
         zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault(),
-        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+        lang: AppLanguage = AppLanguage.KO
     ): String =
         text.lines().mapNotNull { line ->
             SENTENCE_END.split(line.trim()).filter {
@@ -284,22 +265,22 @@ object AuditLabels {
     }
 
     // 툴 결과 문구 → 화면 말투(문구 원문은 BaseAgent·각 실행기). 맞지 않는 문구는 그대로 둔다.
-    private val TOOL_MESSAGES: List<Pair<Regex, (MatchResult) -> String>> = listOf(
-        Regex("일정이 성공적으로 추가되었습니다\\.") to { _ -> "일정을 추가했어요." },
-        Regex("웹 검색이 비활성화되어 있습니다\\.") to { _ -> "웹 검색이 꺼져 있어요." },
-        Regex("이 에이전트에서 사용할 수 없는 도구입니다: (\\S+)") to { m -> "쓸 수 없는 도구예요: ${toolKorean(m.groupValues[1])}" },
-        Regex("알 수 없는 Tool입니다: (\\S+)") to { m -> "알 수 없는 도구예요: ${m.groupValues[1]}" },
-        Regex("'\\w+' 인자가 없습니다\\.") to { _ -> "필요한 값이 빠졌어요." },
-        Regex("'\\w+' 인자의 형식이 올바르지 않습니다\\.") to { _ -> "값의 형식이 맞지 않아요." },
-        Regex("'\\w+' 인자가 ISO 8601 일시 형식이 아닙니다\\.") to { _ -> "일시 형식이 맞지 않아요." },
-        Regex("이미 지난 시각입니다\\.") to { _ -> "이미 지난 시각이에요." },
-        Regex("저장에 실패했습니다\\.") to { _ -> "저장하지 못했어요." },
-        Regex("저장하지 않았습니다\\. 사용자는 앞에서 말한 내용을 다시 듣고 싶어 합니다\\.") to { _ -> "되묻는 말이라 메모하지 않았어요." },
+    private val TOOL_MESSAGES: List<Pair<Regex, (MatchResult, Context) -> String>> = listOf(
+        Regex("일정이 성공적으로 추가되었습니다\\.") to { _, _ -> "일정을 추가했어요." },
+        Regex("웹 검색이 비활성화되어 있습니다\\.") to { _, _ -> "웹 검색이 꺼져 있어요." },
+        Regex("이 에이전트에서 사용할 수 없는 도구입니다: (\\S+)") to { m, ctx -> "쓸 수 없는 도구예요: ${toolKorean(m.groupValues[1], ctx)}" },
+        Regex("알 수 없는 Tool입니다: (\\S+)") to { m, _ -> "알 수 없는 도구예요: ${m.groupValues[1]}" },
+        Regex("'\\w+' 인자가 없습니다\\.") to { _, _ -> "필요한 값이 빠졌어요." },
+        Regex("'\\w+' 인자의 형식이 올바르지 않습니다\\.") to { _, _ -> "값의 형식이 맞지 않아요." },
+        Regex("'\\w+' 인자가 ISO 8601 일시 형식이 아닙니다\\.") to { _, _ -> "일시 형식이 맞지 않아요." },
+        Regex("이미 지난 시각입니다\\.") to { _, _ -> "이미 지난 시각이에요." },
+        Regex("저장에 실패했습니다\\.") to { _, _ -> "저장하지 못했어요." },
+        Regex("저장하지 않았습니다\\. 사용자는 앞에서 말한 내용을 다시 듣고 싶어 합니다\\.") to { _, _ -> "되묻는 말이라 메모하지 않았어요." },
         // 뒤 문장("…물어보세요")은 모델 지시라 표시 전에 빠지고 이 문장만 남는다.
-        Regex("아직 저장하지 않았습니다\\.") to { _ -> "저장 부탁이 아니라 먼저 물어보게 했어요." },
-        Regex("기억 검색 중 오류가 발생했습니다:") to { _ -> "기억 검색 중 오류가 났어요:" },
-        Regex("리마인더 등록 실패") to { _ -> "알림 등록 실패" },
-        Regex("리마인더 등록:") to { _ -> "알림 등록:" }
+        Regex("아직 저장하지 않았습니다\\.") to { _, _ -> "저장 부탁이 아니라 먼저 물어보게 했어요." },
+        Regex("기억 검색 중 오류가 발생했습니다:") to { _, _ -> "기억 검색 중 오류가 났어요:" },
+        Regex("리마인더 등록 실패") to { _, _ -> "알림 등록 실패" },
+        Regex("리마인더 등록:") to { _, _ -> "알림 등록:" }
     )
 
     private val ERROR_OBJECT = Regex("""\b[A-Z]\w*\((?:\w+=[^,()]*, )*reason=([^()]*)\)""")

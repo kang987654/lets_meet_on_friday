@@ -75,7 +75,7 @@ import javax.inject.Inject
 @UninstallModules(com.kosmos.app.di.ModelModule::class)
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(application = HiltTestApplication::class, qualifiers = "w393dp-h852dp-xxhdpi")
+@Config(application = HiltTestApplication::class, qualifiers = "ko-rKR-w393dp-h852dp-xxhdpi")
 class ScreenCatalogTest {
 
     @get:Rule(order = 0)
