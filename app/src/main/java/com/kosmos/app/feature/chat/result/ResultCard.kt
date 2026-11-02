@@ -35,6 +35,7 @@ import com.kosmos.app.ui.theme.KosmosTheme
 import org.json.JSONObject
 import java.time.LocalDate
 import java.time.ZoneId
+import com.kosmos.app.core.common.AppLanguage
 
 /**
  * 채팅 결과 행 한 줄의 표시 상태(0.38.2) — [MessageResult] 의 대상을 **지금** 조회한 결과로 만든다(D6 ④).
@@ -79,7 +80,7 @@ object ResultCardMapper {
         task: TaskItem?,
         today: LocalDate,
         zone: ZoneId = ZoneId.systemDefault(),
-        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+        lang: AppLanguage = AppLanguage.KO
     ): ResultCardState {
         val label = context.getString(R.string.result_reminder_label)
         if (task == null) {
@@ -111,7 +112,7 @@ object ResultCardMapper {
         task: TaskItem?,
         today: LocalDate,
         zone: ZoneId = ZoneId.systemDefault(),
-        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+        lang: AppLanguage = AppLanguage.KO
     ): ResultCardState {
         val label = context.getString(R.string.result_schedule_label)
         if (task == null) {
@@ -152,7 +153,7 @@ object ResultCardMapper {
         note: KnowledgeNote?,
         meta: String?,
         zone: ZoneId = ZoneId.systemDefault(),
-        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+        lang: AppLanguage = AppLanguage.KO
     ): ResultCardState {
         val json = meta?.let { runCatching { JSONObject(it) }.getOrNull() }
         val evidence = buildList {
@@ -186,7 +187,7 @@ object ResultCardMapper {
         )
     }
 
-    private fun dayOf(context: Context, iso: String, today: LocalDate, zone: ZoneId, lang: com.kosmos.app.core.common.AppLanguage): String? {
+    private fun dayOf(context: Context, iso: String, today: LocalDate, zone: ZoneId, lang: AppLanguage): String? {
         val date = IsoDateTimeParser.toLocalDate(iso, zone) ?: return null
         return if (date == today) {
             context.getString(R.string.common_today)

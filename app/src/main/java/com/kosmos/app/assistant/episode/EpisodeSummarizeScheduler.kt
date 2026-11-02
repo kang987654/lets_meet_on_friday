@@ -23,6 +23,8 @@ import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kosmos.app.assistant.cleanup.BackgroundInferenceGate
+import com.kosmos.app.core.common.AppError
 
 /**
  * [EpisodeSummarizeScheduler]
@@ -58,7 +60,7 @@ class EpisodeSummarizeScheduler @Inject constructor(
     private val boundaryManager: EpisodeBoundaryManager,
     private val modelRunner: ModelRunner,
     private val factExtractor: EpisodeFactExtractor,
-    private val inferenceGate: com.kosmos.app.assistant.cleanup.BackgroundInferenceGate,
+    private val inferenceGate: BackgroundInferenceGate,
     private val quiet: SummaryQuietDelay
 ) {
 
@@ -226,7 +228,7 @@ class EpisodeSummarizeScheduler @Inject constructor(
             }
             // [WHY] 조용해지기를 기다리는 사이 앱이 백그라운드로 가면 엔진이 내려간다 — 그건 요약 실패가 아니다. 재시도로 세지 않고
             // CLOSED 로 남겨 다음 Ready 의 catch-up 이 다시 큐에 넣게 한다.
-            is AppResult.Failure if result.error is com.kosmos.app.core.common.AppError.ModelNotReady ->
+            is AppResult.Failure if result.error is AppError.ModelNotReady ->
                 AppLogger.d(TAG, "엔진이 내려가 요약을 다음 실행으로(${episode.id})")
             is AppResult.Failure -> {
                 val retried = episode.copy(

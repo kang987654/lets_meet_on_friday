@@ -7,6 +7,8 @@ import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
 import javax.inject.Inject
+import com.kosmos.app.domain.usecase.SummarizeScheduleUseCase
+import com.kosmos.app.domain.util.IsoDateTimeParser
 
 /**
  * [GetScheduleToolExecutor]
@@ -22,7 +24,7 @@ import javax.inject.Inject
  */
 class GetScheduleToolExecutor @Inject constructor(
     private val getTodayScheduleUseCase: GetTodayScheduleUseCase,
-    private val summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase,
+    private val summarizeScheduleUseCase: SummarizeScheduleUseCase,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ToolExecutor {
 
@@ -61,7 +63,7 @@ class GetScheduleToolExecutor @Inject constructor(
                     // 결과를 그대로 인용하므로, 원문을 주면 답변에 "2026-08-20T16:00:00" 이
                     // 노출됐다 (2026-08-15 사용자 피드백). 예전의 "관측값 동결" 유보(2026-08-12
                     // 툴 호출 실패 조사)는 이후 실기기에서 툴 호출이 안정 확인되어 해제한다.
-                    val display = com.kosmos.app.domain.util.IsoDateTimeParser
+                    val display = IsoDateTimeParser
                         .toDisplayKorean(event.startIso, lang = lang) ?: event.startIso
                     append("- ${event.title} ($display)\n")
                 }

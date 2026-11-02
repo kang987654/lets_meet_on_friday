@@ -51,6 +51,16 @@ import com.kosmos.app.ui.component.kosmosSurface
 
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
+import com.kosmos.app.domain.model.InputType
+import com.kosmos.app.domain.model.MessageResult
+import com.kosmos.app.feature.chat.result.ChatChip
+import com.kosmos.app.feature.chat.result.Evidence
+import com.kosmos.app.feature.chat.result.ResultCardState
+import com.kosmos.app.feature.chat.result.ResultRow
+import com.kosmos.app.feature.splash.SplashAnchor
+import com.kosmos.app.ui.component.IconSize
+import com.kosmos.app.ui.component.KosmosIcon
+import com.kosmos.app.ui.component.TwinkleStars
 // [WHY] ChatScreen.kt(1,200여 줄, 12개 컴포저블 동거)를 응집 단위로 분리했다
 // (2026-08-15, MVP 감사 refactor-ui) — 순수 이동이며 동작 변경이 없다. 이 파일: 말풍선·구분선·타이핑 표시·첨부 썸네일.
 
@@ -85,7 +95,7 @@ internal fun DateSeparator(label: String) {
 @Composable
 fun ChatBubbleUser(
     text: String,
-    inputType: com.kosmos.app.domain.model.InputType = com.kosmos.app.domain.model.InputType.TEXT,
+    inputType: InputType = InputType.TEXT,
     onLongPress: () -> Unit = {}
 ) {
     // [WHY] 첨부 문서는 모델 입력용 구분자째 저장된다 — 원문 대신 접힌 칩으로 그리고 눌러서 펼친다(0.36.0 D6).
@@ -98,7 +108,7 @@ fun ChatBubbleUser(
         Box(
             modifier = Modifier
                 .widthIn(max = 280.dp)
-                .splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.BUBBLE)
+                .splashAnchor(SplashAnchor.BUBBLE)
                 .combinedClickable(onClick = { if (attachedBody != null) expanded = !expanded }, onLongClick = onLongPress)
                 .background(
                     brush = androidx.compose.ui.graphics.Brush.linearGradient(
@@ -111,29 +121,29 @@ fun ChatBubbleUser(
         ) {
             Column {
                 val inputLabel = when (inputType) {
-                    com.kosmos.app.domain.model.InputType.IMAGE -> com.kosmos.app.R.drawable.ic_ph_image to stringResource(R.string.chat_bubble_attached_image)
-                    com.kosmos.app.domain.model.InputType.VOICE -> com.kosmos.app.R.drawable.ic_ph_microphone to stringResource(R.string.chat_bubble_voice_message)
+                    InputType.IMAGE -> R.drawable.ic_ph_image to stringResource(R.string.chat_bubble_attached_image)
+                    InputType.VOICE -> R.drawable.ic_ph_microphone to stringResource(R.string.chat_bubble_voice_message)
                     else -> null
                 }
                 inputLabel?.let { (icon, label) ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        com.kosmos.app.ui.component.KosmosIcon(icon, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textMuted, modifier = Modifier.padding(end = 4.dp))
+                        KosmosIcon(icon, contentDescription = null, size = IconSize.inline, tint = KosmosTheme.colors.textMuted, modifier = Modifier.padding(end = 4.dp))
                         Text(text = label, color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodySmall)
                     }
                     Spacer(modifier = Modifier.size(4.dp))
                 }
                 if (attachedBody != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_paperclip, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textSecondary)
+                        KosmosIcon(R.drawable.ic_ph_paperclip, contentDescription = null, size = IconSize.inline, tint = KosmosTheme.colors.textSecondary)
                         Text(
                             text = stringResource(R.string.chat_bubble_attached_doc_chars, attachedBody.length),
                             color = KosmosTheme.colors.textSecondary,
                             style = MaterialTheme.typography.bodySmall
                         )
-                        com.kosmos.app.ui.component.KosmosIcon(
-                            if (expanded) com.kosmos.app.R.drawable.ic_ph_caret_up else com.kosmos.app.R.drawable.ic_ph_caret_down,
+                        KosmosIcon(
+                            if (expanded) R.drawable.ic_ph_caret_up else R.drawable.ic_ph_caret_down,
                             contentDescription = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand),
-                            size = com.kosmos.app.ui.component.IconSize.inline,
+                            size = IconSize.inline,
                             tint = KosmosTheme.colors.textSecondary
                         )
                     }
@@ -167,24 +177,24 @@ fun ChatBubbleAssistant(
     isSpeaking: Boolean = false,
     onToggleSpeak: (() -> Unit)? = null,
     // [WHY] 결과 행(0.38.2) — 카드 안 문장 아래. null 이면 글만(옛 메시지·스트리밍·E2E 단독 compose).
-    result: com.kosmos.app.feature.chat.result.ResultCardState? = null,
+    result: ResultCardState? = null,
     onResultClick: (() -> Unit)? = null,
     // [WHY] 상황 칩(0.38.2 M6) — 마지막 비서 답에만 화면이 넘긴다. 읽기 버튼 아래.
-    chips: List<com.kosmos.app.feature.chat.result.ChatChip> = emptyList(),
-    onChipClick: (com.kosmos.app.feature.chat.result.ChatChip) -> Unit = {},
+    chips: List<ChatChip> = emptyList(),
+    onChipClick: (ChatChip) -> Unit = {},
     // [WHY] 방금 생긴 답의 결과 행만 아래에서 올라오며 나타난다(0.38.4 M4) — 스크롤로 다시 보일 때는 움직이지 않는다. 기본 false(E2E 단독 compose 그대로).
     animateResult: Boolean = false
 ) {
     var isThinkingExpanded by remember { mutableStateOf(false) }
     // [WHY] 지난 대화만 근거인 기억 카드는 카드 자체가 그 대화를 연다 — 제목을 대화 이름으로 두고 안의 "지난 대화:" 줄은 뺀다.
     // 카드·안쪽 줄·행동 칩이 모두 같은 대화로 가는 길이었다(0.38.6 M3 사용자 지적).
-    val episodeOnly = result?.kind == com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL &&
-        result.evidence.firstOrNull()?.kind == com.kosmos.app.feature.chat.result.Evidence.Kind.CONVERSATION
+    val episodeOnly = result?.kind == MessageResult.Kind.MEMORY_RECALL &&
+        result.evidence.firstOrNull()?.kind == Evidence.Kind.CONVERSATION
     // [WHY] 라벨까지 "지난 대화"로, 제목과 같은 말을 하던 근거 줄 "지난 대화에서 찾았어요"는 뺀다(0.38.6 M6 점검 P1).
     val card = if (episodeOnly && recallChipLabel != null) {
         result.copy(label = stringResource(R.string.chat_bubble_past_chat), title = recallChipLabel, evidence = emptyList())
     } else result
-    val recallInCard = recallChipLabel != null && result?.kind == com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL && !episodeOnly
+    val recallInCard = recallChipLabel != null && result?.kind == MessageResult.Kind.MEMORY_RECALL && !episodeOnly
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -206,7 +216,7 @@ fun ChatBubbleAssistant(
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_lightbulb, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 6.dp))
+                        KosmosIcon(R.drawable.ic_ph_lightbulb, contentDescription = null, size = IconSize.inline, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 6.dp))
                         Text(
                             text = stringResource(if (isThinkingExpanded) R.string.chat_bubble_thinking_hide else R.string.chat_bubble_thinking_show),
                             color = KosmosTheme.colors.textSecondary,
@@ -243,7 +253,7 @@ fun ChatBubbleAssistant(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.BUBBLE)
+                    .splashAnchor(SplashAnchor.BUBBLE)
                     .kosmosSurface(shape = shape)
                     .combinedClickable(onClick = {}, onLongClick = onLongPress)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -261,7 +271,7 @@ fun ChatBubbleAssistant(
                     }
                 }
                 if (card != null) {
-                    Box(Modifier.appearOnce(animateResult)) { com.kosmos.app.feature.chat.result.ResultRow(card, onClick = onResultClick) }
+                    Box(Modifier.appearOnce(animateResult)) { ResultRow(card, onClick = onResultClick) }
                     if (card.evidence.isNotEmpty()) {
                         androidx.compose.material3.HorizontalDivider(color = KosmosTheme.colors.border)
                         card.evidence.forEachIndexed { index, line ->
@@ -279,7 +289,7 @@ fun ChatBubbleAssistant(
                                         )
                                         .padding(vertical = 2.dp)
                                 ) {
-                                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_chat_text, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText, modifier = Modifier.padding(end = 8.dp))
+                                    KosmosIcon(R.drawable.ic_ph_chat_text, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText, modifier = Modifier.padding(end = 8.dp))
                                     Text(
                                         stringResource(R.string.chat_bubble_past_chat_with_label, recallChipLabel),
                                         style = MaterialTheme.typography.labelMedium,
@@ -289,7 +299,7 @@ fun ChatBubbleAssistant(
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f)
                                     )
-                                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_caret_right, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText)
+                                    KosmosIcon(R.drawable.ic_ph_caret_right, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText)
                                 }
                             }
                         }
@@ -302,7 +312,7 @@ fun ChatBubbleAssistant(
             // 표시하지 않으면 토글의 의미가 절반만 남는다.
             if (searchUsed) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 14.dp, top = 4.dp)) {
-                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_globe, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textMuted, modifier = Modifier.padding(end = 4.dp))
+                    KosmosIcon(R.drawable.ic_ph_globe, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textMuted, modifier = Modifier.padding(end = 4.dp))
                     Text(
                         text = stringResource(R.string.chat_bubble_wiki_referenced),
                         color = KosmosTheme.colors.textMuted,
@@ -322,7 +332,7 @@ fun ChatBubbleAssistant(
                         .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onRecallChipClick)
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
-                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_clock_counter_clockwise, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 4.dp))
+                    KosmosIcon(R.drawable.ic_ph_clock_counter_clockwise, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.textSecondary, modifier = Modifier.padding(end = 4.dp))
                     Text(
                         text = stringResource(R.string.chat_bubble_past_chat_with_label, recallChipLabel),
                         color = KosmosTheme.colors.textSecondary,
@@ -335,7 +345,7 @@ fun ChatBubbleAssistant(
                 // [WHY] 보이는 크기는 36 — 답마다 붙어 48 이면 대화가 위아래로 늘어진다(0.38.3 사용자 지적). 누르는 영역은 Compose 가 48 까지 넓힌다(minimumTouchTargetSize).
                 IconButton(onClick = onToggleSpeak, modifier = Modifier.size(36.dp)) {
                     Icon(
-                        painter = painterResource(id = if (isSpeaking) com.kosmos.app.R.drawable.ic_ph_stop_fill else com.kosmos.app.R.drawable.ic_ph_speaker_high),
+                        painter = painterResource(id = if (isSpeaking) R.drawable.ic_ph_stop_fill else R.drawable.ic_ph_speaker_high),
                         contentDescription = stringResource(if (isSpeaking) R.string.chat_bubble_stop_reading_cd else R.string.chat_bubble_read_aloud_cd),
                         // 답마다 반복되는 아이콘이라 한 단계 옅게 — 읽는 중일 때만 진하게(impeccable 점검 P3).
                         tint = if (isSpeaking) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted.copy(alpha = 0.6f),
@@ -354,9 +364,9 @@ fun ChatBubbleAssistant(
  * 기억 카드의 근거 한 줄 — 아이콘으로 출처 종류를 보이고, 메모와 다른 값이 있었다는 줄은 옅은 주의 면으로 따로 띄운다(0.38.2 M7b).
  */
 @Composable
-private fun EvidenceLine(line: com.kosmos.app.feature.chat.result.Evidence) {
+private fun EvidenceLine(line: Evidence) {
     val colors = KosmosTheme.colors
-    val conflict = line.kind == com.kosmos.app.feature.chat.result.Evidence.Kind.CONFLICT
+    val conflict = line.kind == Evidence.Kind.CONFLICT
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = if (conflict) {
@@ -364,11 +374,11 @@ private fun EvidenceLine(line: com.kosmos.app.feature.chat.result.Evidence) {
         } else Modifier
     ) {
         val icon = when (line.kind) {
-            com.kosmos.app.feature.chat.result.Evidence.Kind.NOTE -> com.kosmos.app.R.drawable.ic_ph_note
-            com.kosmos.app.feature.chat.result.Evidence.Kind.CONVERSATION -> com.kosmos.app.R.drawable.ic_ph_chat_text
-            com.kosmos.app.feature.chat.result.Evidence.Kind.CONFLICT -> com.kosmos.app.R.drawable.ic_ph_warning_circle
+            Evidence.Kind.NOTE -> R.drawable.ic_ph_note
+            Evidence.Kind.CONVERSATION -> R.drawable.ic_ph_chat_text
+            Evidence.Kind.CONFLICT -> R.drawable.ic_ph_warning_circle
         }
-        com.kosmos.app.ui.component.KosmosIcon(icon, contentDescription = null, size = 16.dp, tint = if (conflict) colors.warningText else colors.textMuted, modifier = Modifier.padding(end = 8.dp))
+        KosmosIcon(icon, contentDescription = null, size = 16.dp, tint = if (conflict) colors.warningText else colors.textMuted, modifier = Modifier.padding(end = 8.dp))
         Text(line.text, style = MaterialTheme.typography.labelMedium, color = if (conflict) colors.textPrimary else colors.textSecondary)
     }
 }
@@ -379,8 +389,8 @@ private fun EvidenceLine(line: com.kosmos.app.feature.chat.result.Evidence) {
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun ChatChipRow(
-    chips: List<com.kosmos.app.feature.chat.result.ChatChip>,
-    onChipClick: (com.kosmos.app.feature.chat.result.ChatChip) -> Unit,
+    chips: List<ChatChip>,
+    onChipClick: (ChatChip) -> Unit,
     modifier: Modifier = Modifier
 ) {
     androidx.compose.foundation.layout.FlowRow(
@@ -400,7 +410,7 @@ private fun ChatChipRow(
                     .padding(start = if (chip.icon != null) 12.dp else 14.dp, end = 14.dp, top = 8.dp, bottom = 8.dp)
             ) {
                 chip.icon?.let {
-                    com.kosmos.app.ui.component.KosmosIcon(it, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText, modifier = Modifier.padding(end = 6.dp))
+                    KosmosIcon(it, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText, modifier = Modifier.padding(end = 6.dp))
                 }
                 Text(text = chip.label, color = KosmosTheme.colors.brandText, style = MaterialTheme.typography.labelLarge)
             }
@@ -419,7 +429,7 @@ fun TypingIndicator() {
             modifier = Modifier
                 .kosmosSurface(shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp))
         ) {
-            com.kosmos.app.ui.component.TwinkleStars()
+            TwinkleStars()
         }
     }
 }

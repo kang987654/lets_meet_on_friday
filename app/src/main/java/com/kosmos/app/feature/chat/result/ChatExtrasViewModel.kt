@@ -25,6 +25,10 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
+import com.kosmos.app.core.common.AppError
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.common.CurrentLanguage
+import com.kosmos.app.domain.model.ChatMessage
 
 /**
  * [ChatExtrasViewModel]
@@ -47,10 +51,10 @@ class ChatExtrasViewModel @Inject constructor(
     private val knowledgeRepository: KnowledgeRepository,
     private val getTodaySchedule: GetTodayScheduleUseCase,
     private val reminderEditor: ReminderEditor,
-    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ViewModel() {
 
-    private val currentLang: com.kosmos.app.core.common.AppLanguage
+    private val currentLang: AppLanguage
         get() = currentLanguage.current
 
     private val _results = MutableStateFlow<Map<String, ResultCardState>>(emptyMap())
@@ -185,19 +189,19 @@ class ChatExtrasViewModel @Inject constructor(
     }
 
     /** 수정 결과로 저장된 비서 한 줄(D8)을 [onSaved] 로 넘긴다 — 화면이 대화 끝에 붙인다. */
-    fun snooze(context: Context, taskId: String, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) =
+    fun snooze(context: Context, taskId: String, onSaved: (ChatMessage) -> Unit) =
         edit(context, onSaved) { reminderEditor.snooze(taskId) }
 
-    fun reschedule(context: Context, taskId: String, hour: Int, minute: Int, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) =
+    fun reschedule(context: Context, taskId: String, hour: Int, minute: Int, onSaved: (ChatMessage) -> Unit) =
         edit(context, onSaved) { reminderEditor.reschedule(taskId, hour, minute) }
 
-    fun cancelReminder(context: Context, taskId: String, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) =
+    fun cancelReminder(context: Context, taskId: String, onSaved: (ChatMessage) -> Unit) =
         edit(context, onSaved) { reminderEditor.cancel(taskId) }
 
     private fun edit(
         context: Context,
-        onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit,
-        action: suspend () -> AppResult<com.kosmos.app.domain.model.ChatMessage>
+        onSaved: (ChatMessage) -> Unit,
+        action: suspend () -> AppResult<ChatMessage>
     ) {
         val appContext = context.applicationContext
         viewModelScope.launch {
@@ -208,7 +212,7 @@ class ChatExtrasViewModel @Inject constructor(
                     refreshSummary()
                 }
                 is AppResult.Failure -> _editError.value =
-                    (result.error as? com.kosmos.app.core.common.AppError.ValidationError)?.reason
+                    (result.error as? AppError.ValidationError)?.reason
                         ?: appContext.getString(R.string.chat_reminder_update_failed)
             }
         }

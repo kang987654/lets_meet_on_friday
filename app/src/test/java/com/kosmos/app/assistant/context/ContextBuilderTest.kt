@@ -14,6 +14,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import com.kosmos.app.core.common.Constants
+import com.kosmos.app.domain.memory.ProfileRepository
+import com.kosmos.app.domain.model.InputType
 
 class ContextBuilderTest {
 
@@ -21,7 +24,7 @@ class ContextBuilderTest {
     private val conversationRepository: ConversationRepository = mockk()
     private val tokenizer: Tokenizer = mockk()
     private val settingsDataStore: SettingsDataStore = mockk()
-    private val profileRepository: com.kosmos.app.domain.memory.ProfileRepository = mockk {
+    private val profileRepository: ProfileRepository = mockk {
         io.mockk.coEvery { getEntries() } returns AppResult.Success(emptyList())
     }
 
@@ -57,7 +60,7 @@ class ContextBuilderTest {
                 sessionId = "s1",
                 role = ChatMessage.Role.USER,
                 content = "msg$index",
-                inputType = com.kosmos.app.domain.model.InputType.TEXT,
+                inputType = InputType.TEXT,
                 createdAt = index.toLong()
             )
         }
@@ -120,7 +123,7 @@ class ContextBuilderTest {
         io.mockk.coVerify {
             conversationRepository.getRecentBySession(
                 "s1",
-                com.kosmos.app.core.common.Constants.MAX_RECENT_CONVERSATIONS
+                Constants.MAX_RECENT_CONVERSATIONS
             )
         }
     }

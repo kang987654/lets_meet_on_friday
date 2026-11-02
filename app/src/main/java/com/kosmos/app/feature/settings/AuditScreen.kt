@@ -24,6 +24,13 @@ import com.kosmos.app.ui.theme.currentAppLanguage
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import com.kosmos.app.ui.component.EmptyState
+import com.kosmos.app.ui.component.KosmosListRow
+import com.kosmos.app.ui.component.KosmosTopBar
+import com.kosmos.app.ui.component.SectionHeader
+import com.kosmos.app.ui.component.Tag
+import com.kosmos.app.ui.component.rememberToday
+import com.kosmos.app.ui.theme.KosmosShapes
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,7 +43,7 @@ fun AuditScreen(
 
     Scaffold(
         topBar = {
-            com.kosmos.app.ui.component.KosmosTopBar(title = stringResource(R.string.audit_title), onBack = onNavigateBack)
+            KosmosTopBar(title = stringResource(R.string.audit_title), onBack = onNavigateBack)
         }
     ) { innerPadding ->
         Column(
@@ -46,12 +53,12 @@ fun AuditScreen(
                 .background(KosmosTheme.colors.bg)
         ) {
             if (auditLogItems.itemCount == 0) {
-                com.kosmos.app.ui.component.EmptyState(
+                EmptyState(
                     R.drawable.ic_ph_shield_check,
                     stringResource(R.string.audit_empty)
                 )
             } else {
-                val today = com.kosmos.app.ui.component.rememberToday()
+                val today = rememberToday()
                 val zone = ZoneId.systemDefault()
                 fun dayOf(event: AuditEvent?): LocalDate? = event?.let { Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() }
                 LazyColumn(
@@ -77,7 +84,7 @@ fun AuditScreen(
                         Column {
                             if (first) {
                                 if (index > 0) Spacer(Modifier.height(16.dp))
-                                day?.let { com.kosmos.app.ui.component.SectionHeader(IsoDateTimeParser.dayLabelKorean(it, today, lang)) }
+                                day?.let { SectionHeader(IsoDateTimeParser.dayLabelKorean(it, today, lang)) }
                             }
                             AuditEventRow(event, divider = !last, modifier = Modifier.groupItem(position))
                         }
@@ -102,7 +109,7 @@ fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modi
     val display = remember(event.id, lang) { AuditLabels.of(event, context) }
     var expanded by rememberSaveable(event.id) { mutableStateOf(false) }
     Column(modifier) {
-        com.kosmos.app.ui.component.KosmosListRow(
+        KosmosListRow(
             title = display.title,
             supporting = display.summary.takeIf { it.isNotEmpty() },
             leadingIcon = display.icon,
@@ -134,7 +141,7 @@ fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modi
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier.padding(top = 4.dp)
-                        ) { display.tags.forEach { com.kosmos.app.ui.component.Tag(it) } }
+                        ) { display.tags.forEach { Tag(it) } }
                     }
                 }
                 if (showRaw) {
@@ -142,7 +149,7 @@ fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modi
                         event.details,
                         style = MaterialTheme.typography.bodySmall,
                         color = colors.textSecondary,
-                        modifier = Modifier.fillMaxWidth().background(colors.surfaceSunk, com.kosmos.app.ui.theme.KosmosShapes.sm).padding(12.dp)
+                        modifier = Modifier.fillMaxWidth().background(colors.surfaceSunk, KosmosShapes.sm).padding(12.dp)
                     )
                 }
             }

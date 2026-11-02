@@ -33,6 +33,9 @@ import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.component.KosmosIcon
 import com.kosmos.app.ui.theme.KosmosShapes
 import com.kosmos.app.ui.theme.KosmosTheme
+import com.kosmos.app.domain.model.ChatMessage
+import com.kosmos.app.domain.model.MessageResult
+import com.kosmos.app.ui.component.SheetHeader
 
 /**
  * 알림 카드를 누르면 열리는 수정 시트(0.38.2 M4, 캔버스 C382Sheet) — 10분 미루기·시간 바꾸기·알림 취소·닫기.
@@ -73,7 +76,7 @@ fun ReminderEditSheet(
                 .padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            com.kosmos.app.ui.component.SheetHeader(
+            SheetHeader(
                 icon = state.icon,
                 label = listOfNotNull(state.label, state.status).joinToString(" · "),
                 title = state.title,
@@ -169,13 +172,13 @@ fun ReminderEditSheet(
  * [ChatExtrasViewModel] 의 수정 대상이 있을 때만 [ReminderEditSheet] 를 띄운다 — 처음 값은 지금 알림 시각.
  */
 @Composable
-fun ReminderEditSheetHost(extras: ChatExtrasViewModel, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) {
+fun ReminderEditSheetHost(extras: ChatExtrasViewModel, onSaved: (ChatMessage) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val taskId by extras.editingReminder.collectAsStateWithLifecycle()
     val id = taskId ?: return
     val states by extras.results.collectAsStateWithLifecycle()
     val error by extras.editError.collectAsStateWithLifecycle()
-    val state = states[ChatExtrasViewModel.keyOf(com.kosmos.app.domain.model.MessageResult(com.kosmos.app.domain.model.MessageResult.Kind.REMINDER, id))] ?: return
+    val state = states[ChatExtrasViewModel.keyOf(MessageResult(MessageResult.Kind.REMINDER, id))] ?: return
     val (hour, minute) = remember(state.value, state.sub) { extras.currentTime(id) }
     ReminderEditSheet(
         state = state,

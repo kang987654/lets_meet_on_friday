@@ -12,6 +12,13 @@ import com.kosmos.app.domain.search.searchText
 import com.kosmos.app.domain.tool.ToolNames
 import org.json.JSONObject
 import javax.inject.Inject
+import com.kosmos.app.domain.memory.ConversationRepository
+import com.kosmos.app.domain.memory.CurrentConversationLines
+import com.kosmos.app.domain.memory.EpisodeRepository
+import com.kosmos.app.domain.model.Episode
+import com.kosmos.app.domain.model.MessageResult
+import com.kosmos.app.domain.tool.Tokenizer
+import com.kosmos.app.domain.util.SentenceTruncator
 
 /**
  * [SearchMemoryToolExecutor]
@@ -38,26 +45,26 @@ import javax.inject.Inject
  */
 class SearchMemoryToolExecutor internal constructor(
     private val repository: KnowledgeRepository,
-    private val episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
-    private val tokenizer: com.kosmos.app.domain.tool.Tokenizer,
+    private val episodeRepository: EpisodeRepository,
+    private val tokenizer: Tokenizer,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO,
     // 지금 대화의 사용자 말(결과 맨 위 "방금 이 대화" 줄) — 없으면 그 줄을 싣지 않는다(단위 테스트 생성부 호환).
-    private val conversations: com.kosmos.app.domain.memory.ConversationRepository? = null
+    private val conversations: ConversationRepository? = null
 ) : ToolExecutor {
 
     @Inject constructor(
         repository: KnowledgeRepository,
-        episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
-        tokenizer: com.kosmos.app.domain.tool.Tokenizer,
-        conversations: com.kosmos.app.domain.memory.ConversationRepository,
+        episodeRepository: EpisodeRepository,
+        tokenizer: Tokenizer,
+        conversations: ConversationRepository,
         currentLanguage: CurrentLanguage
     ) : this(repository, episodeRepository, tokenizer, currentLanguage, conversations)
 
     constructor(
         repository: KnowledgeRepository,
-        episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
-        tokenizer: com.kosmos.app.domain.tool.Tokenizer,
-        conversations: com.kosmos.app.domain.memory.ConversationRepository?
+        episodeRepository: EpisodeRepository,
+        tokenizer: Tokenizer,
+        conversations: ConversationRepository?
     ) : this(repository, episodeRepository, tokenizer, CurrentLanguage.KO, conversations)
 
     override val name: String = ToolNames.SEARCH_MEMORY
@@ -204,7 +211,7 @@ class SearchMemoryToolExecutor internal constructor(
     /** 결과 맨 위 "- (방금 이 대화) …" / "- (Earlier in this chat) …" 줄들 — 없으면 빈 문자열. */
     private suspend fun currentHead(sessionId: String, terms: List<String>, en: Boolean): String {
         val recent = (conversations?.getRecentBySession(sessionId, CURRENT_SCAN_LIMIT) as? AppResult.Success)?.data.orEmpty()
-        val lines = com.kosmos.app.domain.memory.CurrentConversationLines.pick(recent, terms, System.currentTimeMillis())
+        val lines = CurrentConversationLines.pick(recent, terms, System.currentTimeMillis())
         val prefix = if (en) "- (Earlier in this chat)" else "- (방금 이 대화)"
         return lines.joinToString("") { "$prefix $it\n" }
     }
@@ -307,7 +314,7 @@ class SearchMemoryToolExecutor internal constructor(
         tier = if (source == KnowledgeNote.SOURCE_AUTO) TIER_AUTO else TIER_MANUAL
     )
 
-    private fun com.kosmos.app.domain.model.Episode.toHit(en: Boolean = false) = Hit(
+    private fun Episode.toHit(en: Boolean = false) = Hit(
         // [WHY] "ep:" 프리픽스 — 메모와 에피소드의 id 가 우연히 같아도 랭킹 키가 충돌하지 않는다.
         key = "ep:$id",
         text = if (en) "(Past conversation) ${title.orEmpty()}: ${summary.orEmpty()}" else "(과거 대화) ${title.orEmpty()}: ${summary.orEmpty()}",
@@ -327,7 +334,7 @@ class SearchMemoryToolExecutor internal constructor(
     // [WHY] meta.episodeIds 는 회수 칩(🧠)의 출처다. BaseAgent 가 뽑아 쓰고 **모델에게
     // 되돌리기 전에 제거**한다 — 모델이 id 를 답변에 에코하는 것을 막는다.
     private fun successJson(data: String, episodeIds: List<String> = emptyList(), recall: JSONObject? = null): String {
-        val capped = com.kosmos.app.domain.util.SentenceTruncator.truncate(
+        val capped = SentenceTruncator.truncate(
             text = data,
             maxTokens = Constants.TOOL_RESULT_MAX_TOKENS - Constants.TOOL_RESULT_ENVELOPE_RESERVE_TOKENS,
             tokenizer = tokenizer,
@@ -339,7 +346,7 @@ class SearchMemoryToolExecutor internal constructor(
         }
         if (recall != null) {
             ToolResultJson.withResult(
-                json, com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL.name,
+                json, MessageResult.Kind.MEMORY_RECALL.name,
                 ref = recall.getString("ref"), meta = recall.getJSONObject("meta")
             )
         }

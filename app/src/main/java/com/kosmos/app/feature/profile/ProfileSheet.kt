@@ -33,6 +33,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.ui.theme.KosmosTheme
+import com.kosmos.app.domain.model.ProfileEntry
+import com.kosmos.app.ui.component.DeleteIconButton
+import com.kosmos.app.ui.component.KosmosListGroup
+import com.kosmos.app.ui.component.Tag
+import com.kosmos.app.ui.component.kosmosTextFieldColors
 
 /**
  * [ProfileSheet]
@@ -104,7 +109,7 @@ fun ProfileSheet(
                     color = colors.textMuted
                 )
             } else {
-                com.kosmos.app.ui.component.KosmosListGroup {
+                KosmosListGroup {
                     entries.forEachIndexed { index, entry ->
                         EntryRow(
                             entry = entry,
@@ -136,7 +141,7 @@ fun ProfileSheet(
                     label = { Text(stringResource(R.string.profile_sheet_key_label)) },
                     placeholder = { Text(stringResource(R.string.profile_sheet_key_placeholder)) },
                     singleLine = true,
-                    colors = com.kosmos.app.ui.component.kosmosTextFieldColors(),
+                    colors = kosmosTextFieldColors(),
                     modifier = Modifier.weight(2f)
                 )
                 OutlinedTextField(
@@ -144,7 +149,7 @@ fun ProfileSheet(
                     onValueChange = { valueInput = it },
                     label = { Text(stringResource(R.string.profile_sheet_value_label)) },
                     singleLine = true,
-                    colors = com.kosmos.app.ui.component.kosmosTextFieldColors(),
+                    colors = kosmosTextFieldColors(),
                     modifier = Modifier.weight(3f)
                 )
             }
@@ -181,7 +186,7 @@ internal fun remainingPercent(tokenUsage: Int, max: Int = Constants.PROFILE_MAX_
 
 /** 항목 한 줄 — 이름(+ "자동" 태그) · 값 · 옅은 휴지통. 누르면 아래 입력란에 채운다. */
 @Composable
-private fun EntryRow(entry: com.kosmos.app.domain.model.ProfileEntry, divider: Boolean, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun EntryRow(entry: ProfileEntry, divider: Boolean, onEdit: () -> Unit, onDelete: () -> Unit) {
     val colors = KosmosTheme.colors
     Column {
         Row(
@@ -196,11 +201,11 @@ private fun EntryRow(entry: com.kosmos.app.domain.model.ProfileEntry, divider: B
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(entry.key, style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
                     // 출처 표시(관리 장치) — 자동 추출(C′2)로 들어온 항목.
-                    if (entry.source == com.kosmos.app.domain.model.ProfileEntry.SOURCE_AUTO) com.kosmos.app.ui.component.Tag(stringResource(R.string.profile_sheet_auto_tag))
+                    if (entry.source == ProfileEntry.SOURCE_AUTO) Tag(stringResource(R.string.profile_sheet_auto_tag))
                 }
                 Text(entry.value, style = MaterialTheme.typography.bodyLarge, color = colors.textPrimary)
             }
-            com.kosmos.app.ui.component.DeleteIconButton(onDelete, contentDescription = stringResource(R.string.profile_sheet_delete_cd, entry.key))
+            DeleteIconButton(onDelete, contentDescription = stringResource(R.string.profile_sheet_delete_cd, entry.key))
         }
         if (divider) androidx.compose.material3.HorizontalDivider(Modifier.padding(start = 16.dp), color = colors.border)
     }

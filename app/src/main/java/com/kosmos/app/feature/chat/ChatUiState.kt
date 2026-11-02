@@ -6,6 +6,9 @@ import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import com.kosmos.app.domain.model.ProfileSuggestion
+import com.kosmos.app.platform.share.SharedInput
+import com.kosmos.app.runtime.metrics.DeviceStatus
 
 data class ChatUiState(
     val sessionId: String = "",
@@ -14,7 +17,7 @@ data class ChatUiState(
     val pendingApproval: ApprovalRequest? = null,
     /** 승인 제한 시간을 처음부터 센 횟수 — 바뀌면 시트의 남은 시간 표시가 다시 시작한다(0.38.2). */
     val approvalTimeoutEpoch: Int = 0,
-    val sharedInput: com.kosmos.app.platform.share.SharedInput? = null,
+    val sharedInput: SharedInput? = null,
     val error: AppError? = null,
     val streamingText: String? = null,
     val streamingThinking: String? = null,
@@ -25,10 +28,10 @@ data class ChatUiState(
     val pendingVoiceStart: Boolean = false,
     /** 웹 검색이 허용됐으나 실패한 턴이면 true — 화면이 한 번 안내한 뒤 소비한다. */
     val searchFailedNotice: Boolean = false,
-    val deviceStatus: com.kosmos.app.runtime.metrics.DeviceStatus =
-        com.kosmos.app.runtime.metrics.DeviceStatus(),
+    val deviceStatus: DeviceStatus =
+        DeviceStatus(),
     /** 자동 추출(C′2)의 프로필 제안 대기 목록 — 첫 항목이 입력바 위 카드로 뜬다. */
-    val pendingSuggestions: ImmutableList<com.kosmos.app.domain.model.ProfileSuggestion> = persistentListOf(),
+    val pendingSuggestions: ImmutableList<ProfileSuggestion> = persistentListOf(),
     // 지금 프로필(항목 → 내용) — 제안 시트가 기존 값을 바꾸는지 보인다.
     val profileValues: Map<String, String> = emptyMap(),
     /** 제안 승인/거절 결과 한 줄 안내(스낵바) — 화면이 한 번 보인 뒤 소비한다. */

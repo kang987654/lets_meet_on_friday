@@ -11,6 +11,8 @@ import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
 import javax.inject.Inject
+import com.kosmos.app.domain.tool.CalendarTool
+import com.kosmos.app.domain.util.IsoDateTimeParser
 
 /**
  * [GetTodayScheduleUseCase]
@@ -32,7 +34,7 @@ import javax.inject.Inject
  */
 class GetTodayScheduleUseCase @Inject constructor(
     private val taskRepository: TaskRepository,
-    private val calendarTool: com.kosmos.app.domain.tool.CalendarTool
+    private val calendarTool: CalendarTool
 ) {
     // [WHY] withContext(Dispatchers.IO) 를 뺐다 — Room DAO 는 suspend(메인 안전)이고 기기 캘린더
     // 조회(AndroidCalendarTool)는 스스로 IO 로 옮긴다. domain 이 디스패처를 알 이유가 없다.
@@ -154,5 +156,5 @@ class GetTodayScheduleUseCase @Inject constructor(
      * 공유해야 하므로 [IsoDateTimeParser]에 위임한다 — 규칙이 갈라지면 목록과 필터가 어긋난다.
      */
     private fun parseIsoToMs(iso: String, zoneId: ZoneId): Long? =
-        com.kosmos.app.domain.util.IsoDateTimeParser.toEpochMillis(iso, zoneId)
+        IsoDateTimeParser.toEpochMillis(iso, zoneId)
 }

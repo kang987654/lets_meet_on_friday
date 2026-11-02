@@ -11,6 +11,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.testing.InMemoryKosmosDbRule
 
 /**
  * [KnowledgeTagRoundTripTest]
@@ -25,7 +26,7 @@ class KnowledgeTagRoundTripTest {
 
     // [WHY] DB 수명(열기·닫기)은 공용 Rule 이 맡는다 — 설정만 옮겼고 단언은 그대로다.
     @get:org.junit.Rule
-    val dbRule = com.kosmos.app.testing.InMemoryKosmosDbRule()
+    val dbRule = InMemoryKosmosDbRule()
 
     private lateinit var db: KosmosDatabase
     private lateinit var repository: KnowledgeRepositoryImpl

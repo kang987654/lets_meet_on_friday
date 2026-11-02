@@ -39,6 +39,10 @@ import com.kosmos.app.domain.cleanup.MergeProposal
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.currentAppLanguage
+import com.kosmos.app.ui.component.KosmosIcon
+import com.kosmos.app.ui.component.KosmosListGroup
+import com.kosmos.app.ui.component.KosmosTopBar
+import com.kosmos.app.ui.component.SectionHeader
 
 /**
  * 기억 정리 화면 (0.30.0) — 시작 → 진행률(취소) → 회고 + 병합 제안(체크 기본 해제) → 적용 결과.
@@ -58,7 +62,7 @@ fun MemoryCleanupScreen(
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            com.kosmos.app.ui.component.KosmosTopBar(title = stringResource(R.string.cleanup_title), onBack = onBack)
+            KosmosTopBar(title = stringResource(R.string.cleanup_title), onBack = onBack)
         }
     ) { padding ->
         Column(
@@ -185,7 +189,7 @@ private fun ReviewContent(
 ) {
     val lang = currentAppLanguage()
     // [WHY] 섹션 제목은 subtitle 단계 문장체, 제안은 한 묶음 안의 행(0.38.3 M2) — 제안마다 카드였고 제목은 작은 회색 글씨였다.
-    com.kosmos.app.ui.component.SectionHeader(stringResource(R.string.cleanup_section_weekly_review))
+    SectionHeader(stringResource(R.string.cleanup_section_weekly_review))
     Card {
         Text(
             review?.content ?: stringResource(R.string.cleanup_empty_weekly_review),
@@ -194,7 +198,7 @@ private fun ReviewContent(
         )
     }
 
-    com.kosmos.app.ui.component.SectionHeader(stringResource(R.string.cleanup_section_note_merges))
+    SectionHeader(stringResource(R.string.cleanup_section_note_merges))
     if (proposals.isEmpty()) {
         Text(stringResource(R.string.cleanup_empty_note_merges), color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
     } else {
@@ -203,7 +207,7 @@ private fun ReviewContent(
             color = KosmosTheme.colors.textMuted,
             style = MaterialTheme.typography.bodySmall
         )
-        com.kosmos.app.ui.component.KosmosListGroup {
+        KosmosListGroup {
             proposals.forEachIndexed { index, proposal ->
                 ProposalRow(
                     lines = proposal.sources.map { it.content },
@@ -216,7 +220,7 @@ private fun ReviewContent(
             }
         }
     }
-    com.kosmos.app.ui.component.SectionHeader(stringResource(R.string.cleanup_section_episode_merges))
+    SectionHeader(stringResource(R.string.cleanup_section_episode_merges))
     if (episodeProposals.isEmpty()) {
         Text(stringResource(R.string.cleanup_empty_episode_merges), color = KosmosTheme.colors.textMuted, style = MaterialTheme.typography.bodyMedium)
     } else {
@@ -226,7 +230,7 @@ private fun ReviewContent(
             style = MaterialTheme.typography.bodySmall
         )
         val mergeResultLabel = stringResource(R.string.cleanup_episode_merge_result)
-        com.kosmos.app.ui.component.KosmosListGroup {
+        KosmosListGroup {
             episodeProposals.forEachIndexed { index, proposal ->
                 ProposalRow(
                     lines = proposal.episodes.map { ep -> "${com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(ep.startAt, lang = lang)} ${ep.title.orEmpty()}" },
@@ -263,7 +267,7 @@ private fun ProposalRow(lines: List<String>, result: String, resultEmphasis: Boo
             Column(modifier = Modifier.weight(1f).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 lines.forEach { Text(it, color = colors.textSecondary, style = MaterialTheme.typography.bodySmall) }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                    com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_arrow_right, contentDescription = null, size = 16.dp, tint = colors.brandText, modifier = Modifier.padding(end = 6.dp))
+                    KosmosIcon(R.drawable.ic_ph_arrow_right, contentDescription = null, size = 16.dp, tint = colors.brandText, modifier = Modifier.padding(end = 6.dp))
                     Text(
                         result,
                         color = if (resultEmphasis) colors.textPrimary else colors.textMuted,
@@ -280,7 +284,7 @@ private fun ProposalRow(lines: List<String>, result: String, resultEmphasis: Boo
 /** 안내·진행·회고 한 덩어리 — 공통 묶음 상자 하나에 여백(M3 `Card` 와 이름이 겹치지 않게 private). */
 @Composable
 private fun Card(content: @Composable () -> Unit) {
-    com.kosmos.app.ui.component.KosmosListGroup(Modifier) {
+    KosmosListGroup(Modifier) {
         Column(Modifier.padding(16.dp)) { content() }
     }
 }

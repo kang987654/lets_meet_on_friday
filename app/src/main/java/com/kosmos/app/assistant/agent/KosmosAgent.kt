@@ -10,6 +10,8 @@ import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import javax.inject.Inject
+import com.kosmos.app.assistant.approval.ApprovalCoordinator
+import com.kosmos.app.domain.agent.RefusalTurns
 
 /**
  * [KosmosAgent]
@@ -35,7 +37,7 @@ class KosmosAgent @Inject constructor(
     toolRegistry: ToolRegistry,
     auditTrailService: AuditTrailService,
     conversationRepository: ConversationRepository,
-    approvalCoordinator: com.kosmos.app.assistant.approval.ApprovalCoordinator,
+    approvalCoordinator: ApprovalCoordinator,
     private val promptAssembler: PromptAssembler,
     pendingMemos: PendingMemos = PendingMemos()
 ) : BaseAgent(
@@ -70,7 +72,7 @@ class KosmosAgent @Inject constructor(
     suspend fun prepareNextTurn(context: ContextBuilder.Context) {
         val tools = availableTools(context)
         val prompt = promptAssembler.assembleWithTools(
-            context = context.copy(recentConversations = com.kosmos.app.domain.agent.RefusalTurns.dropFrom(context.recentConversations)),
+            context = context.copy(recentConversations = RefusalTurns.dropFrom(context.recentConversations)),
             userInput = "",
             availableTools = tools,
             systemRole = SYSTEM_ROLE

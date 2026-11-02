@@ -5,6 +5,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.ZoneId
+import com.kosmos.app.core.common.AppLanguage
 
 /**
  * [IsoDateTimeParser] 의 4단 폴백 계약을 고정합니다.
@@ -113,7 +114,7 @@ class IsoDateTimeParserTest {
 
     @Test
     fun `영어(EN) 모드일 때 일시와 날짜를 영어 형식으로 표기한다`() {
-        val en = com.kosmos.app.core.common.AppLanguage.EN
+        val en = AppLanguage.EN
         assertEquals("Aug 20, 4:00 PM", IsoDateTimeParser.toDisplayKorean("2026-08-20T16:00:00", seoul, en))
         assertEquals("Aug 15, All day", IsoDateTimeParser.toDisplayKorean("2026-08-15", seoul, en))
         assertEquals("9:05 AM", IsoDateTimeParser.toDisplayTimeKorean("2026-08-28T09:05:00", seoul, en))

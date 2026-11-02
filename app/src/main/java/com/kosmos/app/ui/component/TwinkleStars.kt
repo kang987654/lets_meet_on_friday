@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.kosmos.app.ui.theme.KosmosTheme
 import kotlin.math.PI
 import kotlin.math.cos
+import com.kosmos.app.R
 
 /**
  * 응답 대기 표시 — 네 갈래 별 셋이 차례로 반짝인다(0.38.2 M7, 사용자 선택 "우주 컨셉" B).
@@ -42,7 +43,7 @@ fun TwinkleStars(modifier: Modifier = Modifier) {
             label = "phase"
         )
     }
-    val preparingCd = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.chat_preparing_answer_cd)
+    val preparingCd = androidx.compose.ui.res.stringResource(R.string.chat_preparing_answer_cd)
     Canvas(
         modifier
             .padding(horizontal = 14.dp, vertical = 8.dp)

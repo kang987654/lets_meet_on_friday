@@ -1,6 +1,7 @@
 package com.kosmos.app.domain.agent
 
 import com.kosmos.app.core.common.AppError
+import com.kosmos.app.domain.model.MessageResult
 
 sealed class AgentResult {
     /**
@@ -38,7 +39,7 @@ sealed class AgentResult {
         val persistFailed: Boolean = false,
         val recallEpisodeIds: List<String> = emptyList(),
         /** 결과 카드의 대상(0.38.2) — 저장된 메시지와 같은 값을 낙관적 메시지에도 싣는다. */
-        val result: com.kosmos.app.domain.model.MessageResult? = null
+        val result: MessageResult? = null
     ) : AgentResult()
 
     data class Error(val error: AppError) : AgentResult()

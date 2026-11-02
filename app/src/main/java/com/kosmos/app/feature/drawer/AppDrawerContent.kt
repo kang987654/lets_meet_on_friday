@@ -38,6 +38,13 @@ import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.feature.episode.EpisodeSheet
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.currentAppLanguage
+import com.kosmos.app.domain.util.IsoDateTimeParser
+import com.kosmos.app.feature.profile.ProfileSheet
+import com.kosmos.app.ui.component.IconSize
+import com.kosmos.app.ui.component.KosmosIcon
+import com.kosmos.app.ui.component.KosmosListRow
+import com.kosmos.app.ui.component.SectionHeader
+import com.kosmos.app.ui.theme.KosmosShapes
 
 /**
  * 드로어 내용물: 제목 + 프로필 버튼, 기억 검색, 기억(에피소드) 목록, 메뉴 다섯 줄(0.38.3 M1 — 상자 없는 드로어).
@@ -92,11 +99,11 @@ fun AppDrawerContent(
                 .fillMaxWidth()
                 .height(44.dp)
                 // [WHY] 알약 모양은 채팅 입력바만(DESIGN Shape) — 검색칸은 다른 입력처럼 md(0.38.6 점검 P3).
-                .background(KosmosTheme.colors.surfaceSunk, com.kosmos.app.ui.theme.KosmosShapes.md)
+                .background(KosmosTheme.colors.surfaceSunk, KosmosShapes.md)
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            com.kosmos.app.ui.component.KosmosIcon(R.drawable.ic_ph_magnifying_glass, contentDescription = null, size = 18.dp, tint = KosmosTheme.colors.textMuted)
+            KosmosIcon(R.drawable.ic_ph_magnifying_glass, contentDescription = null, size = 18.dp, tint = KosmosTheme.colors.textMuted)
             Spacer(modifier = Modifier.padding(start = 8.dp))
             BasicTextField(
                 value = query,
@@ -119,7 +126,7 @@ fun AppDrawerContent(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-        com.kosmos.app.ui.component.SectionHeader(
+        SectionHeader(
             title = if (searchResults != null) {
                 stringResource(R.string.drawer_section_search_results)
             } else {
@@ -173,7 +180,7 @@ fun AppDrawerContent(
     }
 
     if (showProfileSheet) {
-        com.kosmos.app.feature.profile.ProfileSheet(onDismiss = { showProfileSheet = false })
+        ProfileSheet(onDismiss = { showProfileSheet = false })
     }
 }
 
@@ -182,7 +189,7 @@ fun AppDrawerContent(
 private fun ProfileButton(hasSuggestions: Boolean, onClick: () -> Unit) {
     androidx.compose.material3.IconButton(onClick = onClick) {
         androidx.compose.foundation.layout.Box {
-            com.kosmos.app.ui.component.KosmosIcon(
+            KosmosIcon(
                 R.drawable.ic_ph_user_circle,
                 contentDescription = if (hasSuggestions) {
                     stringResource(R.string.drawer_profile_suggestions_cd)
@@ -206,9 +213,9 @@ private fun ProfileButton(hasSuggestions: Boolean, onClick: () -> Unit) {
 @Composable
 private fun EpisodeRow(episode: Episode, divider: Boolean, onClick: () -> Unit) {
     val lang = currentAppLanguage()
-    com.kosmos.app.ui.component.KosmosListRow(
+    KosmosListRow(
         title = episode.title ?: stringResource(R.string.drawer_untitled_episode),
-        supporting = com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt, lang = lang),
+        supporting = IsoDateTimeParser.monthDayKorean(episode.startAt, lang = lang),
         tags = episode.tags.take(2),
         titleMaxLines = 1,
         onClick = onClick,
@@ -238,7 +245,7 @@ private fun DrawerNavItem(@androidx.annotation.DrawableRes icon: Int, label: Str
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        com.kosmos.app.ui.component.KosmosIcon(icon, contentDescription = null, size = com.kosmos.app.ui.component.IconSize.inline, tint = KosmosTheme.colors.textSecondary)
+        KosmosIcon(icon, contentDescription = null, size = IconSize.inline, tint = KosmosTheme.colors.textSecondary)
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,

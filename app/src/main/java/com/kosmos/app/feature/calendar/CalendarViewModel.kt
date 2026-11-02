@@ -14,6 +14,12 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import javax.inject.Inject
+import com.kosmos.app.core.common.AppError
+import com.kosmos.app.domain.memory.TaskRepository
+import com.kosmos.app.domain.model.ChatMessage
+import com.kosmos.app.domain.model.TaskItem
+import com.kosmos.app.feature.chat.result.ReminderEditor
+import com.kosmos.app.widget.WidgetRefresher
 
 /**
  * [CalendarViewModel]
@@ -31,9 +37,9 @@ import javax.inject.Inject
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
     private val getTodayScheduleUseCase: GetTodayScheduleUseCase,
-    private val taskRepository: com.kosmos.app.domain.memory.TaskRepository,
-    private val reminderEditor: com.kosmos.app.feature.chat.result.ReminderEditor,
-    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher
+    private val taskRepository: TaskRepository,
+    private val reminderEditor: ReminderEditor,
+    private val widgetRefresher: WidgetRefresher
 ) : ViewModel() {
 
     private val _loadedState = MutableStateFlow<CalendarUiState>(CalendarUiState.Idle)
@@ -56,12 +62,12 @@ class CalendarViewModel @Inject constructor(
     /** "오늘" 탭의 일정 조회 결과(오늘 포함 7일 — 오늘 묶음과 다가오는 일정이 나눠 쓴다). */
     val uiState: StateFlow<CalendarUiState> = _loadedState.asStateFlow()
 
-    private val _reminders = MutableStateFlow<List<com.kosmos.app.domain.model.TaskItem>>(emptyList())
+    private val _reminders = MutableStateFlow<List<TaskItem>>(emptyList())
     /** 아직 울리지 않은 알림 — 오늘 것만 화면이 고른다([TodayComposer]). */
-    val reminders: StateFlow<List<com.kosmos.app.domain.model.TaskItem>> = _reminders.asStateFlow()
+    val reminders: StateFlow<List<TaskItem>> = _reminders.asStateFlow()
 
-    private val _pendingTasks = MutableStateFlow<List<com.kosmos.app.domain.model.TaskItem>>(emptyList())
-    val pendingTasks: StateFlow<List<com.kosmos.app.domain.model.TaskItem>> = _pendingTasks.asStateFlow()
+    private val _pendingTasks = MutableStateFlow<List<TaskItem>>(emptyList())
+    val pendingTasks: StateFlow<List<TaskItem>> = _pendingTasks.asStateFlow()
 
     /**
      * "오늘" 탭을 채운다 — 일정(오늘 포함 7일)과 할 일·알림을 함께 읽는다.
@@ -138,12 +144,12 @@ class CalendarViewModel @Inject constructor(
     fun reschedule(taskId: String, hour: Int, minute: Int) = editReminder { reminderEditor.reschedule(taskId, hour, minute) }
     fun cancelReminder(taskId: String) = editReminder { reminderEditor.cancel(taskId) }
 
-    private fun editReminder(action: suspend () -> AppResult<com.kosmos.app.domain.model.ChatMessage>) {
+    private fun editReminder(action: suspend () -> AppResult<ChatMessage>) {
         viewModelScope.launch {
             when (val result = action()) {
                 is AppResult.Success -> { closeReminder(); loadTasks() }
                 is AppResult.Failure -> {
-                    val reason = (result.error as? com.kosmos.app.core.common.AppError.ValidationError)?.reason
+                    val reason = (result.error as? AppError.ValidationError)?.reason
                     _editError.value = if (!reason.isNullOrBlank()) ReminderEditError.Message(reason) else ReminderEditError.Generic
                 }
             }

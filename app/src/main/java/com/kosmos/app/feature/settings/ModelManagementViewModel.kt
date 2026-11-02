@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
+import com.kosmos.app.core.common.AppLanguage
 
 /**
  * [DownloadState]
@@ -60,7 +61,7 @@ class ModelManagementViewModel @Inject constructor(
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ViewModel() {
 
-    private val currentLang: com.kosmos.app.core.common.AppLanguage
+    private val currentLang: AppLanguage
         get() = currentLanguage.current
 
     val downloadState: StateFlow<DownloadState> = downloadModelUseCase.status

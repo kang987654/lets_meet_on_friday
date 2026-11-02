@@ -7,6 +7,7 @@ import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.domain.model.AuditEvent
 import com.kosmos.app.domain.model.AuditEventType
 import com.kosmos.app.domain.tool.ToolNames
+import com.kosmos.app.domain.util.IsoDateTimeParser
 
 /** 펼친 활동 기록의 한 항목 — "물은 말"·"답"·"결과" 같은 이름과 값. */
 data class AuditField(val label: String, val value: String)
@@ -251,7 +252,7 @@ object AuditLabels {
                 it.isNotBlank() && !(dropInstructions && (TO_MODEL.containsMatchIn(it) || TO_MODEL_EN.containsMatchIn(it)))
             }.joinToString(" ").takeIf { it.isNotBlank() }
         }.joinToString("\n").replace(ISO) { m ->
-            com.kosmos.app.domain.util.IsoDateTimeParser.toDisplayKorean(m.value, zoneId, lang = lang) ?: m.value
+            IsoDateTimeParser.toDisplayKorean(m.value, zoneId, lang = lang) ?: m.value
         }
 
     /** 모델 출력의 마크다운 기호(`**`·`__`·`` ` ``·줄 앞 `#`)를 뗀다 — 기록 화면은 서식을 그리지 않는다. */

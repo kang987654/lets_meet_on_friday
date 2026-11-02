@@ -23,6 +23,13 @@ import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.modelrunner.ModelTurn
 import com.kosmos.app.domain.modelrunner.ToolResponseInput
 import kotlinx.coroutines.coroutineScope
+import com.kosmos.app.assistant.tool.ToolArgumentException
+import com.kosmos.app.core.common.runCatchingCancellable
+import com.kosmos.app.core.security.ApprovalRules
+import com.kosmos.app.domain.agent.RefusalTurns
+import com.kosmos.app.domain.memory.MemoSaveIntent
+import com.kosmos.app.domain.model.MessageResult
+import com.kosmos.app.domain.util.IsoDateTimeParser
 
 /**
  * [BaseAgent]
@@ -77,15 +84,15 @@ abstract class BaseAgent(
         var searchFailed = false
         // [WHY] SearchMemory 가 참조한 에피소드 출처 — 회수 칩(🧠)의 데이터 (ADR-022).
         val recallEpisodeIds = mutableListOf<String>()
-        var messageResult: com.kosmos.app.domain.model.MessageResult? = null
+        var messageResult: MessageResult? = null
         // 이 턴에서 실행된 툴이 있는가, 가드가 막은 것 말고 메모 저장 호출이 있었는가 — 답 고치기·앱이 여는 저장 시트의 조건.
         var anyExecuted = false
         var memoCalled = false
         val carriedMemo = pendingMemos.take(request.sessionId)
         // [WHY] 거절을 되묻는 턴은 거절이 든 기록(ContextBuilder)으로 대화를 새로 만들어야 한다 — 살아 있는 대화는 거절을 뺀 기록으로 만들어졌다.
-        val refusalAsked = com.kosmos.app.domain.agent.RefusalTurns.asksWhyRefused(request.message)
+        val refusalAsked = RefusalTurns.asksWhyRefused(request.message)
         if (refusalAsked) modelRunner.invalidateConversation()
-        var previous: com.kosmos.app.domain.memory.MemoSaveIntent.PreviousTurn? = null
+        var previous: MemoSaveIntent.PreviousTurn? = null
         suspend fun previousTurn() = previous ?: loadPreviousTurn(request.sessionId).also { previous = it }
         while (true) {
             loopCount++
@@ -121,7 +128,7 @@ abstract class BaseAgent(
                     StreamUpdate(ToolParser.stripIncompleteTag(accumulatedToken).ifEmpty { null }, null)
                 }
                 // [WHY] 답 속 ISO 일시는 화면에 닿기 전에 한국어/영어 표기로(0.38.9 결정 2, 0.40.0) — 저장되는 최종 답도 같은 함수를 거친다.
-                request.onStream?.invoke(update.copy(content = update.content?.let { com.kosmos.app.domain.util.IsoDateTimeParser.humanizeStreaming(it, lang = language).ifEmpty { null } }))
+                request.onStream?.invoke(update.copy(content = update.content?.let { IsoDateTimeParser.humanizeStreaming(it, lang = language).ifEmpty { null } }))
             }
 
             // [WHY] 첫 턴에만 첨부(이미지)를 보낸다. 이후는 툴 응답 회신 턴이다.
@@ -262,7 +269,7 @@ abstract class BaseAgent(
         }
 
         val finalParsed = parsedResult
-        var text = com.kosmos.app.domain.util.IsoDateTimeParser.humanizeInText(finalParsed.content, lang = language)
+        var text = IsoDateTimeParser.humanizeInText(finalParsed.content, lang = language)
 
         val finish = ReplyFinisher.finish(
             text, request.message, { previousTurn() }, carriedMemo, anyExecuted, memoCalled,
@@ -324,11 +331,11 @@ abstract class BaseAgent(
     }
 
     /** 지금 턴 바로 앞의 비서 말·사용자 말. 읽기 실패는 "앞 턴 없음" — 가드가 막는 쪽으로 기울 뿐이다. */
-    private suspend fun loadPreviousTurn(sessionId: String): com.kosmos.app.domain.memory.MemoSaveIntent.PreviousTurn {
-        val recent = com.kosmos.app.core.common.runCatchingCancellable {
+    private suspend fun loadPreviousTurn(sessionId: String): MemoSaveIntent.PreviousTurn {
+        val recent = runCatchingCancellable {
             (conversationRepository.getRecentBySession(sessionId, PREVIOUS_TURN_SCAN) as? AppResult.Success)?.data
         }.getOrNull().orEmpty()
-        return com.kosmos.app.domain.memory.MemoSaveIntent.previousTurn(recent)
+        return MemoSaveIntent.previousTurn(recent)
     }
 
     /**
@@ -340,7 +347,7 @@ abstract class BaseAgent(
         content: String,
         allowedTools: List<String>,
         language: AppLanguage = AppLanguage.KO
-    ): Pair<String, com.kosmos.app.domain.model.MessageResult?>? {
+    ): Pair<String, MessageResult?>? {
         val outcome = executeToolInner(
             ToolParser.ToolCallData(ToolNames.ADD_MEMORY, ToolArguments.of(mapOf("content" to content))),
             sessionId,
@@ -382,7 +389,7 @@ abstract class BaseAgent(
         // 되돌려야 모델이 "안 보냈다"와 "모양이 틀렸다" 중 무엇을 고칠지 알 수 있다.
         return try {
             val actionType = executor.actionType
-            if (actionType != null && com.kosmos.app.core.security.ApprovalRules.requiresApproval(actionType)) {
+            if (actionType != null && ApprovalRules.requiresApproval(actionType)) {
                 val approvalRequest = executor.buildApprovalRequest(call.args, sessionId)
                 val approved = approvalCoordinator.requireApproval(approvalRequest)
                 if (!approved) {
@@ -392,7 +399,7 @@ abstract class BaseAgent(
                 auditTrailService.logApprovalGranted(sessionId, "${call.name}: ${approvalRequest.description}")
             }
             ToolOutcome.of(executor.execute(call.args, sessionId), executed = true)
-        } catch (e: com.kosmos.app.assistant.tool.ToolArgumentException) {
+        } catch (e: ToolArgumentException) {
             auditTrailService.logError(sessionId, "Invalid tool argument: ${call.name}.${e.field} (${e.reason})")
             ToolOutcome(toolArgumentErrorJson(call.name, e, language), executed = false)
         }
@@ -429,11 +436,11 @@ abstract class BaseAgent(
     }.getOrDefault(emptyList())
 
     /** 실행기가 `meta.result` 에 실은 결과 카드 대상(0.38.2). 없거나 모르는 종류면 null. */
-    private fun extractResult(resultJson: String): com.kosmos.app.domain.model.MessageResult? = runCatching {
+    private fun extractResult(resultJson: String): MessageResult? = runCatching {
         val result = org.json.JSONObject(resultJson).optJSONObject("meta")?.optJSONObject("result") ?: return null
-        val kind = com.kosmos.app.domain.model.MessageResult.Kind.entries.firstOrNull { it.name == result.optString("kind") }
+        val kind = MessageResult.Kind.entries.firstOrNull { it.name == result.optString("kind") }
             ?: return null
-        com.kosmos.app.domain.model.MessageResult(kind, result.optString("ref"), result.optString("meta").ifEmpty { null })
+        MessageResult(kind, result.optString("ref"), result.optString("meta").ifEmpty { null })
     }.getOrNull()
 
     /** 모델에 되돌릴 툴 결과에서 meta 필드를 제거합니다. 파싱이 안 되면 원문 그대로. */
@@ -447,26 +454,26 @@ abstract class BaseAgent(
     /** 인자 오류를 모델이 스스로 고칠 수 있는 구조화된 형태로 되돌립니다. */
     private fun toolArgumentErrorJson(
         toolName: String,
-        e: com.kosmos.app.assistant.tool.ToolArgumentException,
+        e: ToolArgumentException,
         language: AppLanguage = AppLanguage.KO
     ): String {
         val en = language == AppLanguage.EN
         val guidance = when (e.reason) {
-            com.kosmos.app.assistant.tool.ToolArgumentException.Reason.MISSING ->
+            ToolArgumentException.Reason.MISSING ->
                 if (en) "Argument '${e.field}' is missing. Confirm the value with the user and call the tool again."
                 else "'${e.field}' 인자가 없습니다. 사용자에게 값을 확인한 뒤 다시 호출하세요."
-            com.kosmos.app.assistant.tool.ToolArgumentException.Reason.WRONG_TYPE ->
+            ToolArgumentException.Reason.WRONG_TYPE ->
                 if (en) "Argument '${e.field}' has an invalid type. Send it again as a string."
                 else "'${e.field}' 인자의 형식이 올바르지 않습니다. 문자열로 다시 보내세요."
             // [WHY] 깨진 원문 값은 안내에 에코하지 않는다 — 깨짐이 생성/디코딩 계층에서 온다는
             // 것이 실기기 관측이므로(2026-08-13), 깨진 토큰열을 문맥에 다시 넣으면 모델이 그
             // 형태를 따라 쓸 재료만 는다. 올바른 예시 형식만 제시한다.
-            com.kosmos.app.assistant.tool.ToolArgumentException.Reason.BAD_FORMAT ->
+            ToolArgumentException.Reason.BAD_FORMAT ->
                 if (en) "Argument '${e.field}' is not in ISO 8601 date-time format. Send it again in the format '2026-08-17T15:00:00'."
                 else "'${e.field}' 인자가 ISO 8601 일시 형식이 아닙니다. '2026-08-17T15:00:00' 형식으로 다시 보내세요."
             // [WHY] AddReminderToolExecutor 의 실행 오류 문구와 같은 원문 — 승인 전으로 당겼을 뿐
             // 모델이 받는 지시는 같아야 한다(exp40).
-            com.kosmos.app.assistant.tool.ToolArgumentException.Reason.PAST ->
+            ToolArgumentException.Reason.PAST ->
                 if (en) "That time has already passed. Call the tool again with a future time."
                 else "이미 지난 시각입니다. 미래의 시각으로 다시 호출하세요."
         }

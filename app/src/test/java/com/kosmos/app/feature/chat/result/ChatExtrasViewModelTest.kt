@@ -8,6 +8,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
+import com.kosmos.app.domain.memory.TaskRepository
+import com.kosmos.app.domain.model.MessageResult
 
 @RunWith(RobolectricTestRunner::class)
 class ChatExtrasViewModelTest {
@@ -18,7 +20,7 @@ class ChatExtrasViewModelTest {
 
     @Test
     fun `ChatExtrasViewModel — setToday 로 날짜가 바뀌면 같은 키의 카드가 새 날짜 기준으로 다시 매핑된다`() {
-        val taskRepo: com.kosmos.app.domain.memory.TaskRepository = io.mockk.mockk(relaxed = true)
+        val taskRepo: TaskRepository = io.mockk.mockk(relaxed = true)
         io.mockk.every { taskRepo.observeById("t1") } returns kotlinx.coroutines.flow.flowOf(reminder)
         val vm = ChatExtrasViewModel(
             taskRepository = taskRepo,
@@ -26,7 +28,7 @@ class ChatExtrasViewModelTest {
             getTodaySchedule = io.mockk.mockk(relaxed = true),
             reminderEditor = io.mockk.mockk(relaxed = true)
         )
-        val msgResult = com.kosmos.app.domain.model.MessageResult(com.kosmos.app.domain.model.MessageResult.Kind.REMINDER, "t1")
+        val msgResult = MessageResult(MessageResult.Kind.REMINDER, "t1")
         val key = ChatExtrasViewModel.keyOf(msgResult)
 
         vm.ensure(context, msgResult, today)

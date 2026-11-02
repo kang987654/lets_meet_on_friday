@@ -12,6 +12,20 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import com.kosmos.app.data.embedder.DisabledTextEmbedder
+import com.kosmos.app.data.local.repository.AuditRepositoryImpl
+import com.kosmos.app.data.local.repository.ConversationRepositoryImpl
+import com.kosmos.app.data.local.repository.DataResetRepositoryImpl
+import com.kosmos.app.data.local.repository.EpisodeRepositoryImpl
+import com.kosmos.app.data.local.repository.ProfileRepositoryImpl
+import com.kosmos.app.data.local.repository.ProfileSuggestionRepositoryImpl
+import com.kosmos.app.domain.memory.AuditRepository
+import com.kosmos.app.domain.memory.ConversationRepository
+import com.kosmos.app.domain.memory.DataResetRepository
+import com.kosmos.app.domain.memory.EpisodeRepository
+import com.kosmos.app.domain.memory.ProfileRepository
+import com.kosmos.app.domain.memory.ProfileSuggestionRepository
+import com.kosmos.app.domain.memory.TextEmbedder
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -26,8 +40,8 @@ abstract class MemoryModule {
     @Binds
     @Singleton
     abstract fun bindTextEmbedder(
-        impl: com.kosmos.app.data.embedder.DisabledTextEmbedder
-    ): com.kosmos.app.domain.memory.TextEmbedder
+        impl: DisabledTextEmbedder
+    ): TextEmbedder
 
     @Binds
     @Singleton
@@ -38,32 +52,32 @@ abstract class MemoryModule {
     @Binds
     @Singleton
     abstract fun bindDataResetRepository(
-        impl: com.kosmos.app.data.local.repository.DataResetRepositoryImpl
-    ): com.kosmos.app.domain.memory.DataResetRepository
+        impl: DataResetRepositoryImpl
+    ): DataResetRepository
 
     @Binds
     @Singleton
     abstract fun bindProfileRepository(
-        impl: com.kosmos.app.data.local.repository.ProfileRepositoryImpl
-    ): com.kosmos.app.domain.memory.ProfileRepository
+        impl: ProfileRepositoryImpl
+    ): ProfileRepository
 
     @Binds
     @Singleton
     abstract fun bindProfileSuggestionRepository(
-        impl: com.kosmos.app.data.local.repository.ProfileSuggestionRepositoryImpl
-    ): com.kosmos.app.domain.memory.ProfileSuggestionRepository
+        impl: ProfileSuggestionRepositoryImpl
+    ): ProfileSuggestionRepository
 
     @Binds
     @Singleton
     abstract fun bindAuditRepository(
-        impl: com.kosmos.app.data.local.repository.AuditRepositoryImpl
-    ): com.kosmos.app.domain.memory.AuditRepository
+        impl: AuditRepositoryImpl
+    ): AuditRepository
 
     @Binds
     @Singleton
     abstract fun bindConversationRepository(
-        impl: com.kosmos.app.data.local.repository.ConversationRepositoryImpl
-    ): com.kosmos.app.domain.memory.ConversationRepository
+        impl: ConversationRepositoryImpl
+    ): ConversationRepository
 
     @Binds
     @Singleton
@@ -74,6 +88,6 @@ abstract class MemoryModule {
     @Binds
     @Singleton
     abstract fun bindEpisodeRepository(
-        impl: com.kosmos.app.data.local.repository.EpisodeRepositoryImpl
-    ): com.kosmos.app.domain.memory.EpisodeRepository
+        impl: EpisodeRepositoryImpl
+    ): EpisodeRepository
 }

@@ -11,6 +11,10 @@ import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.InputType
 import javax.inject.Inject
+import com.kosmos.app.assistant.agent.KosmosAgent
+import com.kosmos.app.assistant.episode.EpisodeBoundaryManager
+import com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
+import com.kosmos.app.domain.usecase.TranscribeAudioUseCase
 
 /**
  * [AssistantOrchestrator]
@@ -31,10 +35,10 @@ class AssistantOrchestrator @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val contextBuilder: ContextBuilder,
     private val auditTrailService: AuditTrailService,
-    private val agent: com.kosmos.app.assistant.agent.KosmosAgent,
-    private val transcribeAudioUseCase: com.kosmos.app.domain.usecase.TranscribeAudioUseCase,
-    private val episodeBoundaryManager: com.kosmos.app.assistant.episode.EpisodeBoundaryManager,
-    private val episodeSummarizeScheduler: com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler,
+    private val agent: KosmosAgent,
+    private val transcribeAudioUseCase: TranscribeAudioUseCase,
+    private val episodeBoundaryManager: EpisodeBoundaryManager,
+    private val episodeSummarizeScheduler: EpisodeSummarizeScheduler,
     private val conversationPrewarmer: ConversationPrewarmer,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : AssistantGateway {

@@ -12,6 +12,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.data.local.db.entity.TaskEntity
+import com.kosmos.app.testing.InMemoryKosmosDbRule
 
 /**
  * [KnowledgeSearchEscapeTest]
@@ -26,7 +28,7 @@ class KnowledgeSearchEscapeTest {
 
     // [WHY] DB 수명(열기·닫기)은 공용 Rule 이 맡는다 — 설정만 옮겼고 단언은 그대로다.
     @get:org.junit.Rule
-    val dbRule = com.kosmos.app.testing.InMemoryKosmosDbRule()
+    val dbRule = InMemoryKosmosDbRule()
 
     private lateinit var db: KosmosDatabase
     private lateinit var repository: KnowledgeRepositoryImpl
@@ -154,13 +156,13 @@ class KnowledgeSearchEscapeTest {
     @Test
     fun `deleteCompleted 는 완료된 일정이나 취소된 알림을 빼고 완료된 할 일만 지운다`() = runBlocking {
         val dao = db.taskDao()
-        val completedTodo = com.kosmos.app.data.local.db.entity.TaskEntity(
+        val completedTodo = TaskEntity(
             id = "todo1", title = "완료 할 일", isCompleted = true, completedAt = 100L, createdAt = 1L
         )
-        val completedSchedule = com.kosmos.app.data.local.db.entity.TaskEntity(
+        val completedSchedule = TaskEntity(
             id = "sched1", title = "완료 일정", dueDateIso = "2026-11-02T10:00:00", isCompleted = true, completedAt = 100L, createdAt = 2L
         )
-        val cancelledReminder = com.kosmos.app.data.local.db.entity.TaskEntity(
+        val cancelledReminder = TaskEntity(
             id = "rem1", title = "취소된 알림", remindAtIso = "2026-11-02T12:00:00", isCompleted = true, completedAt = 100L, cancelledAt = 50L, createdAt = 3L
         )
         dao.insert(completedTodo)

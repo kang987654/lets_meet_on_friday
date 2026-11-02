@@ -20,6 +20,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.LocalDate
+import com.kosmos.app.core.common.AppError
+import com.kosmos.app.domain.memory.TaskRepository
+import com.kosmos.app.domain.model.MonthSchedule
+import com.kosmos.app.domain.model.TaskItem
+import com.kosmos.app.widget.WidgetRefresher
 
 /**
  * [CalendarViewModelTest]
@@ -40,8 +45,8 @@ import java.time.LocalDate
 class CalendarViewModelTest {
 
     private val useCase: GetTodayScheduleUseCase = mockk()
-    private val tasks: com.kosmos.app.domain.memory.TaskRepository = mockk(relaxed = true)
-    private val widget: com.kosmos.app.widget.WidgetRefresher = mockk(relaxed = true)
+    private val tasks: TaskRepository = mockk(relaxed = true)
+    private val widget: WidgetRefresher = mockk(relaxed = true)
 
     @Before
     fun setUp() {
@@ -76,8 +81,8 @@ class CalendarViewModelTest {
     @Test
     fun `오늘 탭을 열면 일정과 함께 알림·남은 할 일을 읽는다`() = runTest {
         givenSchedule(events = persistentListOf(), deviceCalendarFailed = false)
-        val reminder = com.kosmos.app.domain.model.TaskItem(id = "r1", title = "물 마시기", isCompleted = false, createdAt = 0, remindAtIso = "2026-10-15T13:56:00")
-        val todo = com.kosmos.app.domain.model.TaskItem(id = "t1", title = "장보기", isCompleted = false, createdAt = 0)
+        val reminder = TaskItem(id = "r1", title = "물 마시기", isCompleted = false, createdAt = 0, remindAtIso = "2026-10-15T13:56:00")
+        val todo = TaskItem(id = "t1", title = "장보기", isCompleted = false, createdAt = 0)
         coEvery { tasks.getActiveReminders() } returns AppResult.Success(listOf(reminder))
         coEvery { tasks.getPendingTasksData(any(), any()) } returns AppResult.Success(listOf(reminder, todo))
         val viewModel = CalendarViewModel(useCase, tasks, mockk(relaxed = true), widget)
@@ -148,7 +153,7 @@ class CalendarViewModelTest {
     @Test
     fun `월 조회가 실패하면 Error 가 되고 다시 시도하면 Success 로 바뀐다`() = runTest {
         val october = java.time.YearMonth.of(2026, 10)
-        val err = com.kosmos.app.core.common.AppError.CalendarReadError("db failed")
+        val err = AppError.CalendarReadError("db failed")
         coEvery { useCase.month(october, any()) } returns AppResult.Failure(err)
         val viewModel = CalendarViewModel(useCase, tasks, mockk(relaxed = true), widget)
 
@@ -165,7 +170,7 @@ class CalendarViewModelTest {
 
     private fun givenMonth(month: java.time.YearMonth) {
         coEvery { useCase.month(month, any()) } returns AppResult.Success(
-            com.kosmos.app.domain.model.MonthSchedule(month, persistentListOf())
+            MonthSchedule(month, persistentListOf())
         )
     }
 

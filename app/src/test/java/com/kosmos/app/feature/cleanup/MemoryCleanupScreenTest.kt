@@ -18,6 +18,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.domain.cleanup.EpisodeMergeProposal
+import com.kosmos.app.domain.model.Episode
+import com.kosmos.app.domain.model.EpisodeStatus
 
 /**
  * [MemoryCleanupScreenTest]
@@ -70,12 +73,12 @@ class MemoryCleanupScreenTest {
     @Test
     fun `대화 통합 제안도 체크 해제로 시작하고 체크한 것만 넘긴다`() {
         val ep = { id: String, title: String ->
-            com.kosmos.app.domain.model.Episode(
-                id = id, sessionId = "s", status = com.kosmos.app.domain.model.EpisodeStatus.SUMMARIZED, title = title,
+            Episode(
+                id = id, sessionId = "s", status = EpisodeStatus.SUMMARIZED, title = title,
                 summary = "요약", tags = emptyList(), startAt = 0L, endAt = 1L, messageCount = 2, retryCount = 0, createdAt = 0L, updatedAt = 0L
             )
         }
-        val episodes = com.kosmos.app.domain.cleanup.EpisodeMergeProposal(listOf(ep("a", "치과 예약 일정 추가"), ep("b", "치과 예약 시간 변경")))
+        val episodes = EpisodeMergeProposal(listOf(ep("a", "치과 예약 일정 추가"), ep("b", "치과 예약 시간 변경")))
         state.value = MemoryCleanupRunner.State.Review(null, emptyList(), listOf(episodes))
         show()
 

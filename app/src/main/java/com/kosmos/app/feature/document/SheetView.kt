@@ -43,6 +43,7 @@ import com.kosmos.app.domain.document.Sheet
 import com.kosmos.app.domain.document.SheetCell
 import com.kosmos.app.domain.document.SheetRow
 import com.kosmos.app.ui.theme.KosmosTheme
+import com.kosmos.app.domain.document.CellStyle
 
 /**
  * 표 한 장을 그립니다 (0.34.0) — 열 머리(A, B, …)·행 번호·틀 고정·병합을 지원하는 보기 전용 격자.
@@ -217,7 +218,7 @@ private fun GridCell(
     val line = colors.border
     val numeric = !header && NUMERIC.matches(text)
     // 원본 정렬이 있으면 그것을, 없으면 숫자는 오른쪽(엑셀 기본).
-    val align = paint?.align ?: if (numeric) com.kosmos.app.domain.document.CellStyle.Align.RIGHT else com.kosmos.app.domain.document.CellStyle.Align.LEFT
+    val align = paint?.align ?: if (numeric) CellStyle.Align.RIGHT else CellStyle.Align.LEFT
     Box(
         modifier = Modifier
             .width(width)
@@ -238,8 +239,8 @@ private fun GridCell(
             .padding(horizontal = 6.dp),
         contentAlignment = when {
             header -> Alignment.Center
-            align == com.kosmos.app.domain.document.CellStyle.Align.RIGHT -> Alignment.CenterEnd
-            align == com.kosmos.app.domain.document.CellStyle.Align.CENTER -> Alignment.Center
+            align == CellStyle.Align.RIGHT -> Alignment.CenterEnd
+            align == CellStyle.Align.CENTER -> Alignment.Center
             else -> Alignment.CenterStart
         }
     ) {
@@ -251,8 +252,8 @@ private fun GridCell(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = when (align) {
-                com.kosmos.app.domain.document.CellStyle.Align.RIGHT -> TextAlign.End
-                com.kosmos.app.domain.document.CellStyle.Align.CENTER -> TextAlign.Center
+                CellStyle.Align.RIGHT -> TextAlign.End
+                CellStyle.Align.CENTER -> TextAlign.Center
                 else -> TextAlign.Start
             }
         )

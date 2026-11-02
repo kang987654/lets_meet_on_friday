@@ -8,6 +8,7 @@ import com.kosmos.app.domain.model.TaskItem
 
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
+import com.kosmos.app.domain.memory.TaskCounts
 
 class TaskRepositoryImpl @Inject constructor(
     private val dao: TaskDao
@@ -71,8 +72,8 @@ class TaskRepositoryImpl @Inject constructor(
         dao.deleteCompleted()
     }
 
-    override suspend fun getCounts(): AppResult<com.kosmos.app.domain.memory.TaskCounts> = dbRead(TABLE, "getCounts") {
-        com.kosmos.app.domain.memory.TaskCounts(pending = dao.countPending(), completed = dao.countCompleted())
+    override suspend fun getCounts(): AppResult<TaskCounts> = dbRead(TABLE, "getCounts") {
+        TaskCounts(pending = dao.countPending(), completed = dao.countCompleted())
     }
 
     override suspend fun getActiveReminders(): AppResult<List<TaskItem>> = dbRead(TABLE, "getActiveReminders") {

@@ -19,6 +19,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import com.kosmos.app.domain.memory.TaskCounts
+import com.kosmos.app.domain.model.KnowledgeNote
+import com.kosmos.app.domain.model.TaskItem
+import com.kosmos.app.platform.alarm.ReminderAlarmScheduler
 
 /**
  * [MemoryViewModelTest]
@@ -33,7 +37,7 @@ class MemoryViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val knowledgeRepository: KnowledgeRepository = mockk()
     private val taskRepository: TaskRepository = mockk(relaxed = true)
-    private val scheduler: com.kosmos.app.platform.alarm.ReminderAlarmScheduler = mockk(relaxed = true)
+    private val scheduler: ReminderAlarmScheduler = mockk(relaxed = true)
 
     private fun viewModel() = MemoryViewModel(
         knowledgeRepository = knowledgeRepository,
@@ -83,7 +87,7 @@ class MemoryViewModelTest {
     }
 
     private val now = 1_800_000_000_000L
-    private fun reminderTask(remindAtMs: Long, remindedAtMs: Long? = null) = com.kosmos.app.domain.model.TaskItem(
+    private fun reminderTask(remindAtMs: Long, remindedAtMs: Long? = null) = TaskItem(
         id = "t1", title = "약 먹기", isCompleted = true, createdAt = 1,
         remindAtIso = java.time.Instant.ofEpochMilli(remindAtMs).toString(), remindedAtMs = remindedAtMs
     )
@@ -91,7 +95,7 @@ class MemoryViewModelTest {
     private fun stubRestore() {
         coEvery { taskRepository.updateCompletion("t1", false) } returns AppResult.Success(Unit)
         coEvery { taskRepository.markReminded(any(), any()) } returns AppResult.Success(Unit)
-        coEvery { taskRepository.getCounts() } returns AppResult.Success(com.kosmos.app.domain.memory.TaskCounts(1, 0))
+        coEvery { taskRepository.getCounts() } returns AppResult.Success(TaskCounts(1, 0))
     }
 
     @Test
@@ -132,7 +136,7 @@ class MemoryViewModelTest {
     @Test
     fun `할 일 삭제는 알람을 취소하고 실패는 actionError 로 알린다`() = runTest(dispatcher.scheduler) {
         coEvery { taskRepository.delete("t1") } returns AppResult.Success(Unit)
-        coEvery { taskRepository.getCounts() } returns AppResult.Success(com.kosmos.app.domain.memory.TaskCounts(0, 0))
+        coEvery { taskRepository.getCounts() } returns AppResult.Success(TaskCounts(0, 0))
         val vm = viewModel()
 
         vm.deleteTask("t1")
@@ -152,7 +156,7 @@ class MemoryViewModelTest {
     fun `지운 할 일을 되돌리면 같은 항목을 저장하고 미래 알림은 다시 예약한다`() = runTest(dispatcher.scheduler) {
         val task = reminderTask(now + 60_000).copy(isCompleted = false)
         coEvery { taskRepository.save(task) } returns AppResult.Success(Unit)
-        coEvery { taskRepository.getCounts() } returns AppResult.Success(com.kosmos.app.domain.memory.TaskCounts(1, 0))
+        coEvery { taskRepository.getCounts() } returns AppResult.Success(TaskCounts(1, 0))
         var done = false
 
         viewModel().undeleteTask(task, now) { done = true }
@@ -165,7 +169,7 @@ class MemoryViewModelTest {
 
     @Test
     fun `지운 메모를 되돌리면 같은 메모를 저장하고 실패는 actionError 로 알린다`() = runTest(dispatcher.scheduler) {
-        val note = com.kosmos.app.domain.model.KnowledgeNote(id = "k1", content = "자전거 비밀번호는 134", createdAt = 1, updatedAt = 1)
+        val note = KnowledgeNote(id = "k1", content = "자전거 비밀번호는 134", createdAt = 1, updatedAt = 1)
         coEvery { knowledgeRepository.save(note) } returns AppResult.Success(Unit)
         val vm = viewModel()
         var done = false

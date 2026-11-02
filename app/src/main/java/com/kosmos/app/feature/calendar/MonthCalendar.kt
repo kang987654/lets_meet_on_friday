@@ -52,6 +52,9 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.ui.calendar.spanDays
+import com.kosmos.app.ui.component.KosmosListGroup
 
 // [WHY] 페이저는 "기준 달 ± N" 의 유한 페이지다 — 무한 페이저 API 가 없어 큰 수로 대신한다. 100년이면 충분하다.
 private const val MONTH_PAGE_RADIUS = 1200
@@ -95,7 +98,7 @@ fun MonthCalendarTab(
     val byDate = remember(loaded) { loaded?.let { eventsByDate(it.events, zoneId) } ?: emptyMap() }
 
     val lang = currentAppLanguage()
-    val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
+    val isEn = lang == AppLanguage.EN
     val monthHeaderText = if (isEn) {
         val monthName = visibleMonth.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.US)
         "$monthName ${visibleMonth.year}"
@@ -110,7 +113,7 @@ fun MonthCalendarTab(
         ) {
             IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) } }) {
                 Icon(
-                    painterResource(id = com.kosmos.app.R.drawable.ic_ph_caret_left),
+                    painterResource(id = R.drawable.ic_ph_caret_left),
                     contentDescription = stringResource(R.string.calendar_prev_month_cd),
                     tint = KosmosTheme.colors.textSecondary
                 )
@@ -135,7 +138,7 @@ fun MonthCalendarTab(
             }
             IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } }) {
                 Icon(
-                    painterResource(id = com.kosmos.app.R.drawable.ic_ph_caret_right),
+                    painterResource(id = R.drawable.ic_ph_caret_right),
                     contentDescription = stringResource(R.string.calendar_next_month_cd),
                     tint = KosmosTheme.colors.textSecondary
                 )
@@ -296,9 +299,9 @@ private fun SelectedDayEvents(date: LocalDate, events: List<CalendarEvent>, zone
             // [WHY] "오늘" 탭과 같은 묶음 하나 안의 행(0.38.3 M1) — 카드마다 색 띠를 두던 것은 상자 더미였고, 출처를 색으로만 나눴다.
             val deviceLabel = stringResource(R.string.calendar_source_device)
             val allDayLabel = stringResource(R.string.common_all_day)
-            com.kosmos.app.ui.component.KosmosListGroup {
+            KosmosListGroup {
                 events.forEachIndexed { index, event ->
-                    val days = com.kosmos.app.ui.calendar.spanDays(event, zoneId)
+                    val days = spanDays(event, zoneId)
                     // [WHY] 여러 날 일정은 시각 대신 기간 — "10월 3일 ~ 10월 5일"(D-C1). 하루짜리는 시각.
                     val (time, end) = if (days.size > 1) {
                         val endDayText = IsoDateTimeParser.monthDayKorean(
@@ -317,7 +320,7 @@ private fun SelectedDayEvents(date: LocalDate, events: List<CalendarEvent>, zone
                         timeLabel = time,
                         title = event.title,
                         sub = eventSubLine(end, event.source, deviceLabel),
-                        icon = com.kosmos.app.R.drawable.ic_ph_calendar_blank,
+                        icon = R.drawable.ic_ph_calendar_blank,
                         divider = index < events.lastIndex
                     )
                 }

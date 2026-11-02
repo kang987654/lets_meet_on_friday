@@ -12,6 +12,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import javax.inject.Inject
+import com.kosmos.app.core.common.AppError
 
 /**
  * [WikipediaSearchToolImpl]
@@ -76,14 +77,14 @@ class WikipediaSearchToolImpl @Inject constructor(
                 .build()
             client.newCall(searchRequest).execute().use { searchResponse ->
                 if (!searchResponse.isSuccessful) {
-                    return@withContext AppResult.Failure(com.kosmos.app.core.common.AppError.NetworkUnavailable("Wikipedia API HTTP error: ${searchResponse.code}"))
+                    return@withContext AppResult.Failure(AppError.NetworkUnavailable("Wikipedia API HTTP error: ${searchResponse.code}"))
                 }
 
                 val searchBody = searchResponse.body?.string() ?: ""
                 val searchJson = JSONObject(searchBody)
 
                 if (!searchJson.has("query") || !searchJson.getJSONObject("query").has("pages")) {
-                    return@withContext AppResult.Failure(com.kosmos.app.core.common.AppError.NetworkUnavailable("No Wikipedia articles found matching '$topic' in language '$safeLang'."))
+                    return@withContext AppResult.Failure(AppError.NetworkUnavailable("No Wikipedia articles found matching '$topic' in language '$safeLang'."))
                 }
 
                 val pages = searchJson.getJSONObject("query").getJSONObject("pages")
@@ -102,7 +103,7 @@ class WikipediaSearchToolImpl @Inject constructor(
                 }
 
                 if (finalResult.isBlank()) {
-                    return@withContext AppResult.Failure(com.kosmos.app.core.common.AppError.NetworkUnavailable("Found page '$title' but no text was available."))
+                    return@withContext AppResult.Failure(AppError.NetworkUnavailable("Found page '$title' but no text was available."))
                 }
 
                 // [WHY] 캡을 자수가 아니라 **토큰 예산에서 파생**한다. 예전의 언어별 자수 캡
@@ -124,7 +125,7 @@ class WikipediaSearchToolImpl @Inject constructor(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            AppResult.Failure(com.kosmos.app.core.common.AppError.NetworkUnavailable("Failed to query Wikipedia: ${e.message}"))
+            AppResult.Failure(AppError.NetworkUnavailable("Failed to query Wikipedia: ${e.message}"))
         }
     }
 

@@ -25,6 +25,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.common.CurrentLanguage
 
 /**
  * [MemoryCleanupRunner]
@@ -53,7 +55,7 @@ class MemoryCleanupRunner @Inject constructor(
     private val applyEpisodeMerge: ApplyEpisodeMergeUseCase,
     private val metricsCollector: RuntimeMetricsCollector,
     private val modelRunner: ModelRunner,
-    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) {
     /** 정리 진행 단계. */
     enum class Step { WEEKLY_REVIEW, MERGE, EPISODE_MERGE }
@@ -98,7 +100,7 @@ class MemoryCleanupRunner @Inject constructor(
             gate.mutex.withLock {
                 _state.value = State.Running(Step.WEEKLY_REVIEW, 0, 1)
                 val lang = currentLanguage.current
-                val reviewResult = if (lang == com.kosmos.app.core.common.AppLanguage.EN) {
+                val reviewResult = if (lang == AppLanguage.EN) {
                     generateWeeklyReview(System.currentTimeMillis(), java.time.ZoneId.systemDefault(), lang)
                 } else {
                     generateWeeklyReview()
@@ -167,7 +169,7 @@ class MemoryCleanupRunner @Inject constructor(
     }
 
     private fun blockReason(): String? {
-        val en = currentLanguage.current == com.kosmos.app.core.common.AppLanguage.EN
+        val en = currentLanguage.current == AppLanguage.EN
         return when {
             metricsCollector.shouldDeferBackgroundInference() ->
                 if (en) "Device is warm. Please let it cool down and try again." else "기기가 뜨거워요. 잠시 식힌 뒤 다시 시도해 주세요."

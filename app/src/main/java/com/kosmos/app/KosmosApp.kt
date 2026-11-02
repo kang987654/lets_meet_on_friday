@@ -7,12 +7,20 @@ import androidx.work.Configuration
 import com.kosmos.app.platform.notification.NotificationChannels
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
+import com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+import com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
+import com.kosmos.app.assistant.episode.EpisodeBoundaryManager
+import com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
+import com.kosmos.app.assistant.orchestrator.ConversationPrewarmer
+import com.kosmos.app.core.config.AppLanguageHolder
+import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.platform.speech.SpeechOutput
 
 @HiltAndroidApp
 class KosmosApp : Application(), Configuration.Provider {
 
     @Inject
-    lateinit var modelRunner: com.kosmos.app.domain.modelrunner.ModelRunner
+    lateinit var modelRunner: ModelRunner
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
@@ -24,25 +32,25 @@ class KosmosApp : Application(), Configuration.Provider {
      * HiltTestApplication 에서는 onCreate 가 불리지 않아 테스트는 자동 격리된다.
      */
     @Inject
-    lateinit var briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+    lateinit var briefingGenerator: MorningBriefingGenerator
 
     @Inject
-    lateinit var episodeBoundaryManager: com.kosmos.app.assistant.episode.EpisodeBoundaryManager
+    lateinit var episodeBoundaryManager: EpisodeBoundaryManager
 
     @Inject
-    lateinit var episodeSummarizeScheduler: com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
+    lateinit var episodeSummarizeScheduler: EpisodeSummarizeScheduler
 
     @Inject
-    lateinit var conversationPrewarmer: com.kosmos.app.assistant.orchestrator.ConversationPrewarmer
+    lateinit var conversationPrewarmer: ConversationPrewarmer
 
     @Inject
-    lateinit var speechOutput: com.kosmos.app.platform.speech.SpeechOutput
+    lateinit var speechOutput: SpeechOutput
 
     @Inject
-    lateinit var memoryCleanupRunner: com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
+    lateinit var memoryCleanupRunner: MemoryCleanupRunner
 
     @Inject
-    lateinit var appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder
+    lateinit var appLanguageHolder: AppLanguageHolder
 
     /**
      * [WHY] @HiltWorker 로 만든 Worker 에 의존성을 주입하려면 WorkManager 의 기본 초기화를

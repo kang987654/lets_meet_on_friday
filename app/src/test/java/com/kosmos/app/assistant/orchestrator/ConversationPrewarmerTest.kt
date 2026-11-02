@@ -27,6 +27,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.domain.agent.ChatRequest
 
 /**
  * 답 직후·엔진 Ready 직후 대화 미리 준비(0.39.2 M3·0.39.4 M2) — 다음 턴과 같은 캐시 키로 준비하는가, 새 요청이 오면 엔진에 닿기 전의 준비를 멈추는가.
@@ -73,7 +74,7 @@ class ConversationPrewarmerTest {
         runBlocking {
             agent.prepareNextTurn(context(history))
             val next = history + msg(ChatMessage.Role.USER, "좋은 아침", 5)
-            assertTrue(agent.execute(com.kosmos.app.domain.agent.ChatRequest(sessionId = "s1", message = "좋은 아침"), context(next)) is AgentResult.Text)
+            assertTrue(agent.execute(ChatRequest(sessionId = "s1", message = "좋은 아침"), context(next)) is AgentResult.Text)
         }
 
         assertEquals(generated.first().systemInstruction, prepared.single().systemInstruction)

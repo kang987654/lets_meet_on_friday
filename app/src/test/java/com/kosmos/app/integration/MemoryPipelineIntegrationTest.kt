@@ -19,6 +19,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.util.UUID
+import com.kosmos.app.assistant.tool.ToolArgumentException
+import com.kosmos.app.domain.memory.EpisodeRepository
+import com.kosmos.app.domain.tool.Tokenizer
 
 /**
  * [MemoryPipelineIntegrationTest]
@@ -37,12 +40,12 @@ class MemoryPipelineIntegrationTest {
     // [WHY] 에피소드 저장소·토크나이저가 executor 에 추가됐다(ADR-022 회수 통합).
     // 이 테스트의 관심사는 메모 파이프라인이므로 에피소드 쪽은 빈 결과로 고정한다.
     private fun searchMemoryExecutor(): SearchMemoryToolExecutor {
-        val episodes: com.kosmos.app.domain.memory.EpisodeRepository = io.mockk.mockk {
+        val episodes: EpisodeRepository = io.mockk.mockk {
             coEvery { search(any(), any()) } returns AppResult.Success(emptyList())
             coEvery { searchByTags(any(), any()) } returns AppResult.Success(emptyList())
             coEvery { getEpisodes(any(), any()) } returns AppResult.Success(emptyList())
         }
-        val tokenizer: com.kosmos.app.domain.tool.Tokenizer = io.mockk.mockk {
+        val tokenizer: Tokenizer = io.mockk.mockk {
             io.mockk.every { sizeInTokens(any()) } answers { firstArg<String>().length / 3 }
         }
         return SearchMemoryToolExecutor(repository, episodes, tokenizer)
@@ -140,6 +143,6 @@ class MemoryPipelineIntegrationTest {
         }.exceptionOrNull()
 
         assertNotNull("ToolArgumentException 이어야 한다", error)
-        assertTrue(error is com.kosmos.app.assistant.tool.ToolArgumentException)
+        assertTrue(error is ToolArgumentException)
     }
 }

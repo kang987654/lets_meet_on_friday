@@ -23,6 +23,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.core.common.AppError
 
 /**
  * [BriefingNotificationWorkerTest]
@@ -102,7 +103,7 @@ class BriefingNotificationWorkerTest {
     fun `일정 조회 실패도 알림은 나가되 기기 캘린더 미확인으로 표기한다`() = runBlocking {
         // [WHY] 조회 실패로 알림 자체를 삼키면 "매일 아침 온다"는 계약이 조용히 깨진다 (EC4).
         coEvery { getTodaySchedule(any()) } returns
-            AppResult.Failure(com.kosmos.app.core.common.AppError.CalendarReadError("x"))
+            AppResult.Failure(AppError.CalendarReadError("x"))
 
         buildWorker().doWork()
 

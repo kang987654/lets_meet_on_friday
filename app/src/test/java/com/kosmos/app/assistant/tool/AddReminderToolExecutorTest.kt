@@ -18,6 +18,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.widget.WidgetRefresher
 
 /**
  * [AddReminderToolExecutorTest]
@@ -29,7 +30,7 @@ class AddReminderToolExecutorTest {
 
     private val useCase: AddReminderUseCase = mockk()
     private val scheduler: ReminderAlarmScheduler = mockk(relaxed = true)
-    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher = mockk(relaxed = true)
+    private val widgetRefresher: WidgetRefresher = mockk(relaxed = true)
     // [WHY] 고정 시각 — 픽스처 날짜(2026-08-29)가 벽시계 기준 과거가 되어도 승인 요청이 만들어지게.
     private val fixedNow = requireNotNull(IsoDateTimeParser.toEpochMillis("2026-08-29T09:00:00"))
     private val executor = AddReminderToolExecutor(useCase, scheduler, widgetRefresher) { fixedNow }

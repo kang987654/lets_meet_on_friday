@@ -9,6 +9,9 @@ import com.kosmos.app.core.security.ApprovalRules
 import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.usecase.AddScheduleUseCase
 import javax.inject.Inject
+import com.kosmos.app.domain.model.CalendarDraft
+import com.kosmos.app.domain.model.MessageResult
+import com.kosmos.app.widget.WidgetRefresher
 
 /**
  * [AddScheduleToolExecutor]
@@ -25,7 +28,7 @@ import javax.inject.Inject
  */
 class AddScheduleToolExecutor @Inject constructor(
     private val addScheduleUseCase: AddScheduleUseCase,
-    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
+    private val widgetRefresher: WidgetRefresher,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ToolExecutor {
 
@@ -44,7 +47,7 @@ class AddScheduleToolExecutor @Inject constructor(
                 ApprovalPreview.Kind.SCHEDULE, draft.title, atIso = draft.startTime,
                 endIso = draft.endTime.takeIf { it.isNotBlank() }, note = draft.description
             ),
-            calendarDraft = com.kosmos.app.domain.model.CalendarDraft(
+            calendarDraft = CalendarDraft(
                 title = draft.title,
                 startIso = draft.startTime,
                 endIso = draft.endTime.takeIf { it.isNotBlank() },
@@ -63,7 +66,7 @@ class AddScheduleToolExecutor @Inject constructor(
             widgetRefresher.refresh()
             ToolResultJson.withResult(
                 ToolResultJson.success().put("message", if (en) "Event added successfully." else "일정이 성공적으로 추가되었습니다."),
-                kind = com.kosmos.app.domain.model.MessageResult.Kind.SCHEDULE.name,
+                kind = MessageResult.Kind.SCHEDULE.name,
                 // [WHY] 카드는 앱이 저장한 일정(task)을 조회한다 — 기기 캘린더 이벤트 id 는 쓰기 결과로 오지 않는다.
                 ref = res.data
             ).toString()

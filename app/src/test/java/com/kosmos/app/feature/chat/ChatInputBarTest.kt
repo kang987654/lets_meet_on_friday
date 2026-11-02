@@ -10,6 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.platform.share.SharedInput
 
 @RunWith(RobolectricTestRunner::class)
 class ChatInputBarTest {
@@ -24,7 +25,7 @@ class ChatInputBarTest {
                 ChatInputBar(
                     isLoading = false,
                     isRecording = true,
-                    sharedInput = com.kosmos.app.platform.share.SharedInput.Text("작성 중이던 글"),
+                    sharedInput = SharedInput.Text("작성 중이던 글"),
                     onClearSharedInput = {},
                     onSend = {},
                     onMicClick = {},

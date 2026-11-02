@@ -54,6 +54,10 @@ import com.kosmos.app.R
 import com.kosmos.app.domain.document.DocumentError
 import com.kosmos.app.ui.theme.KosmosTheme
 import kotlinx.coroutines.launch
+import com.kosmos.app.core.common.Constants
+import com.kosmos.app.ui.component.KosmosButton
+import com.kosmos.app.ui.component.KosmosTopBar
+import com.kosmos.app.ui.theme.KosmosShapes
 
 /**
  * 문서 뷰어 화면 (0.34.0) — 상태별로 표([SheetView])·PDF([PdfView])·오류를 그린다. 상태를 받기만 하는 무상태 화면이다.
@@ -84,7 +88,7 @@ fun DocumentViewerScreen(
     Scaffold(
         containerColor = colors.bg,
         topBar = {
-            com.kosmos.app.ui.component.KosmosTopBar(
+            KosmosTopBar(
                 title = title,
                 onBack = onClose,
                 backDescription = stringResource(R.string.common_close),
@@ -193,8 +197,8 @@ private fun SelectionBar(selection: ChatSelection, actions: SelectionActions) {
             modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite })
         // [WHY] 이 막대의 주 동작은 보내기 — 시트·승인과 같은 [보조][주] 버튼(0.38.3 점검 P2 버튼 어휘).
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            com.kosmos.app.ui.component.KosmosButton(stringResource(R.string.common_cancel), actions.cancel, Modifier.weight(1f))
-            com.kosmos.app.ui.component.KosmosButton(stringResource(R.string.doc_viewer_send_action), actions.send, Modifier.weight(1f), accent = true, enabled = preview != null)
+            KosmosButton(stringResource(R.string.common_cancel), actions.cancel, Modifier.weight(1f))
+            KosmosButton(stringResource(R.string.doc_viewer_send_action), actions.send, Modifier.weight(1f), accent = true, enabled = preview != null)
         }
     }
 }
@@ -218,7 +222,7 @@ private fun SheetTabs(names: List<String>, selected: Int, onSelect: (Int) -> Uni
     ) {
         Row(
             modifier = Modifier
-                .background(colors.surfaceSunk, com.kosmos.app.ui.theme.KosmosShapes.md)
+                .background(colors.surfaceSunk, KosmosShapes.md)
                 .horizontalScroll(rememberScrollState())
                 .padding(4.dp)
                 .selectableGroup(),
@@ -228,8 +232,8 @@ private fun SheetTabs(names: List<String>, selected: Int, onSelect: (Int) -> Uni
                 val isSelected = index == selected
                 val cell = if (isSelected) {
                     Modifier
-                        .background(colors.surface, com.kosmos.app.ui.theme.KosmosShapes.sm)
-                        .border(1.dp, colors.border, com.kosmos.app.ui.theme.KosmosShapes.sm)
+                        .background(colors.surface, KosmosShapes.sm)
+                        .border(1.dp, colors.border, KosmosShapes.sm)
                 } else {
                     Modifier
                 }
@@ -315,4 +319,4 @@ internal fun nextZoom(zoom: Float): Float = when {
     else -> MIN_ZOOM
 }
 
-private val CHAT_CAP = com.kosmos.app.core.common.Constants.MAX_ATTACHED_DOC_CHARS
+private val CHAT_CAP = Constants.MAX_ATTACHED_DOC_CHARS

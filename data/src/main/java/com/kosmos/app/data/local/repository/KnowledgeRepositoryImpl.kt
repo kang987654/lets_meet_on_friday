@@ -6,6 +6,9 @@ import com.kosmos.app.data.local.db.entity.KnowledgeEntity
 import com.kosmos.app.domain.memory.KnowledgeRepository
 import com.kosmos.app.domain.model.KnowledgeNote
 import javax.inject.Inject
+import com.kosmos.app.core.common.FloatBytes
+import com.kosmos.app.core.common.SqlLike
+import com.kosmos.app.core.common.Tags
 
 class KnowledgeRepositoryImpl @Inject constructor(
     private val dao: KnowledgeDao
@@ -19,8 +22,8 @@ class KnowledgeRepositoryImpl @Inject constructor(
                 sourceSessionId = null, // 임시: 현재 KnowledgeNote에는 sourceSessionId가 없으므로 필요시 추가 확장
                 // [WHY] 태그에 콤마가 들어오면 이 칼럼 형식이 표현할 수 없다. CSV 인코딩을
                 // 소유한 계층이 그 불변식도 지킨다 (Tags KDoc 참조).
-                tags = com.kosmos.app.core.common.Tags.encode(note.tags),
-                embedding = note.embedding?.let { com.kosmos.app.core.common.FloatBytes.encode(it) },
+                tags = Tags.encode(note.tags),
+                embedding = note.embedding?.let { FloatBytes.encode(it) },
                 createdAt = note.createdAt,
                 updatedAt = note.updatedAt,
                 source = note.source
@@ -42,7 +45,7 @@ class KnowledgeRepositoryImpl @Inject constructor(
         if (query.isBlank()) {
             emptyList()
         } else {
-            dao.search(com.kosmos.app.core.common.SqlLike.escape(query), limit).map { it.toDomain() }
+            dao.search(SqlLike.escape(query), limit).map { it.toDomain() }
         }
     }
 
@@ -59,10 +62,10 @@ class KnowledgeRepositoryImpl @Inject constructor(
         for (tag in tags) {
             // [WHY] 저장 시와 같은 정규화를 적용해야 저장된 값과 형태가 맞는다. 콤마가 든
             // 검색어는 정규화 없이는 어떤 태그에도 매칭될 수 없다.
-            val normalized = com.kosmos.app.core.common.Tags.normalize(tag)
+            val normalized = Tags.normalize(tag)
             // 공백만인 태그는 구분자 사이의 빈 토큰에 매칭되므로 건너뛴다.
             if (normalized.isEmpty()) continue
-            results.addAll(dao.searchByTags(com.kosmos.app.core.common.SqlLike.escape(normalized), limit))
+            results.addAll(dao.searchByTags(SqlLike.escape(normalized), limit))
         }
         results.distinctBy { it.id }.map { it.toDomain() }.take(limit)
     }
@@ -77,7 +80,7 @@ class KnowledgeRepositoryImpl @Inject constructor(
 
         val scoredList = allEntities.mapNotNull { entity ->
             val blob = entity.embedding ?: return@mapNotNull null
-            val entityEmbedding = com.kosmos.app.core.common.FloatBytes.decode(blob)
+            val entityEmbedding = FloatBytes.decode(blob)
 
             if (entityEmbedding.size == queryEmbedding.size && entityEmbedding.isNotEmpty()) {
                 val score = cosineSimilarity(queryEmbedding, entityEmbedding)
@@ -112,11 +115,11 @@ class KnowledgeRepositoryImpl @Inject constructor(
     }
 
     private fun KnowledgeEntity.toDomain(): KnowledgeNote {
-        val floatArr = embedding?.let { com.kosmos.app.core.common.FloatBytes.decode(it) } ?: FloatArray(0)
+        val floatArr = embedding?.let { FloatBytes.decode(it) } ?: FloatArray(0)
         return KnowledgeNote(
             id = id,
             content = content,
-            tags = com.kosmos.app.core.common.Tags.decode(tags),
+            tags = Tags.decode(tags),
             embedding = if (floatArr.isNotEmpty()) floatArr else null,
             createdAt = createdAt,
             updatedAt = updatedAt,

@@ -26,6 +26,7 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
+import com.kosmos.app.data.local.prefs.SessionStore
 
 /**
  * [AppLanguageHolder]
@@ -49,7 +50,7 @@ class AppLanguageHolder @Inject constructor(
     private val modelRunner: Provider<ModelRunner>,
     private val conversationPrewarmer: Provider<ConversationPrewarmer>,
     private val widgetRefresher: Provider<WidgetRefresher>,
-    private val sessionStore: com.kosmos.app.data.local.prefs.SessionStore
+    private val sessionStore: SessionStore
 ) : CurrentLanguage {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 

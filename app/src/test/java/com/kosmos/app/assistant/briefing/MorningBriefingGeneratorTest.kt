@@ -31,6 +31,8 @@ import org.junit.Before
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
+import com.kosmos.app.core.common.AppError
+import com.kosmos.app.work.BriefingNotificationScheduler
 
 /**
  * [MorningBriefingGeneratorTest]
@@ -61,7 +63,7 @@ class MorningBriefingGeneratorTest {
     private val modelRunner: ModelRunner = mockk(relaxed = true) {
         io.mockk.every { this@mockk.loadState } returns this@MorningBriefingGeneratorTest.loadState
     }
-    private val notificationScheduler: com.kosmos.app.work.BriefingNotificationScheduler =
+    private val notificationScheduler: BriefingNotificationScheduler =
         mockk(relaxed = true)
 
     @Before
@@ -136,7 +138,7 @@ class MorningBriefingGeneratorTest {
     @Test
     fun `판정 조회가 실패하면 중복 위험이므로 생성하지 않는다`() = runBlocking {
         coEvery { conversationRepository.countByInputTypeSince(InputType.BRIEFING, any()) } returns
-            AppResult.Failure(com.kosmos.app.core.common.AppError.DbReadError("conversation"))
+            AppResult.Failure(AppError.DbReadError("conversation"))
 
         generator().maybeGenerate(now)
 
@@ -156,7 +158,7 @@ class MorningBriefingGeneratorTest {
     fun `일정 조회 실패는 기기 캘린더 미확인으로 브리핑에 전달된다`() = runBlocking {
         // [WHY] 조회 실패를 조용히 삼키면 "오늘 일정 없음"이 거짓이 된다 (EC4).
         coEvery { getTodaySchedule(any()) } returns
-            AppResult.Failure(com.kosmos.app.core.common.AppError.CalendarReadError("x"))
+            AppResult.Failure(AppError.CalendarReadError("x"))
         val materials = slot<GenerateBriefingUseCase.BriefingMaterials>()
         coEvery { generateBriefing(capture(materials)) } returns AppResult.Success("브리핑")
 
@@ -168,7 +170,7 @@ class MorningBriefingGeneratorTest {
     @Test
     fun `추론 실패면 저장하지 않는다 - 다음 Ready 가 자연 재시도한다`() = runBlocking {
         coEvery { generateBriefing(any()) } returns
-            AppResult.Failure(com.kosmos.app.core.common.AppError.ModelInferenceError("x"))
+            AppResult.Failure(AppError.ModelInferenceError("x"))
 
         generator().maybeGenerate(now)
 

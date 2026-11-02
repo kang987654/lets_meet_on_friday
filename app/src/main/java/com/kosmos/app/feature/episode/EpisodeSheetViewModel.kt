@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.common.CurrentLanguage
 
 /**
  * 에피소드 시트의 로드 상태입니다.
@@ -43,10 +45,10 @@ sealed interface EpisodeSheetState {
 @HiltViewModel
 class EpisodeSheetViewModel @Inject constructor(
     private val episodeRepository: EpisodeRepository,
-    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ViewModel() {
 
-    private val currentLang: com.kosmos.app.core.common.AppLanguage
+    private val currentLang: AppLanguage
         get() = currentLanguage.current
 
     private val _state = MutableStateFlow<EpisodeSheetState>(EpisodeSheetState.Loading)

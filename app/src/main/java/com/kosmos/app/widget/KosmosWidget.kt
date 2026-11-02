@@ -39,6 +39,8 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import com.kosmos.app.core.config.AppLanguageHolder
+import com.kosmos.app.platform.tile.voiceLaunchIntent
 
 /**
  * [KosmosWidget]
@@ -64,7 +66,7 @@ class KosmosWidget : GlanceAppWidget() {
     interface WidgetEntryPoint {
         fun getTodayScheduleUseCase(): GetTodayScheduleUseCase
         fun taskRepository(): TaskRepository
-        fun appLanguageHolder(): com.kosmos.app.core.config.AppLanguageHolder
+        fun appLanguageHolder(): AppLanguageHolder
     }
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -172,7 +174,7 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
                 // [WHY] Intent 오버로드는 core 가 아니라 appwidget 패키지에 있다 — core 의
                 // actionStartActivity 와 이름이 같아 FQN 으로 구분한다.
                 action = androidx.glance.appwidget.action.actionStartActivity(
-                    com.kosmos.app.platform.tile.voiceLaunchIntent(context)
+                    voiceLaunchIntent(context)
                 )
             )
         }

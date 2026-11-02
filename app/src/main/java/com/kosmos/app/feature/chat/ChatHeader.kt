@@ -42,6 +42,15 @@ import com.kosmos.app.ui.component.kosmosSurface
 import com.kosmos.app.feature.splash.splashAnchor
 
 import com.kosmos.app.domain.modelrunner.ModelLoadState
+import com.kosmos.app.core.common.AppError
+import com.kosmos.app.core.mapper.ErrorMessages
+import com.kosmos.app.feature.splash.SplashAnchor
+import com.kosmos.app.runtime.metrics.DeviceStatus
+import com.kosmos.app.ui.component.IconSize
+import com.kosmos.app.ui.component.KosmosButton
+import com.kosmos.app.ui.component.KosmosIcon
+import com.kosmos.app.ui.component.StarGlyph
+import com.kosmos.app.ui.modelDisplayName
 // [WHY] ChatScreen.kt(1,200여 줄, 12개 컴포저블 동거)를 응집 단위로 분리했다
 // (2026-08-15, MVP 감사 refactor-ui) — 순수 이동이며 동작 변경이 없다. 이 파일: 상단 헤더와 기기 상태 표시.
 
@@ -56,8 +65,8 @@ import com.kosmos.app.domain.modelrunner.ModelLoadState
 fun CustomChatHeader(
     onMenuClick: () -> Unit = {},
     engineState: ModelLoadState = ModelLoadState.Loading,
-    deviceStatus: com.kosmos.app.runtime.metrics.DeviceStatus =
-        com.kosmos.app.runtime.metrics.DeviceStatus(),
+    deviceStatus: DeviceStatus =
+        DeviceStatus(),
     warningMessage: String? = null,
     onStatusClick: () -> Unit = {}
 ) {
@@ -75,10 +84,10 @@ fun CustomChatHeader(
     ) {
         IconButton(onClick = onMenuClick) {
             androidx.compose.material3.Icon(
-                painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_list),
+                painter = painterResource(id = R.drawable.ic_ph_list),
                 contentDescription = stringResource(R.string.chat_menu_cd),
                 tint = KosmosTheme.colors.textSecondary,
-                modifier = Modifier.size(com.kosmos.app.ui.component.IconSize.inline)
+                modifier = Modifier.size(IconSize.inline)
             )
         }
 
@@ -90,7 +99,7 @@ fun CustomChatHeader(
             letterSpacing = 1.sp,
             color = KosmosTheme.colors.textPrimary,
             modifier = Modifier.padding(start = 4.dp, end = 8.dp)
-                .splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.TITLE)
+                .splashAnchor(SplashAnchor.TITLE)
         )
 
         // 엔진 상태 별 — Ready=brand / 로딩 계열=muted / 오류·발열 경고=danger·warning. 응답 대기의 반짝이는 별과 같은 모양(0.38.2 M7b).
@@ -109,9 +118,9 @@ fun CustomChatHeader(
             is ModelLoadState.NotFound -> stringResource(R.string.chat_engine_state_missing_cd)
             else -> stringResource(R.string.chat_engine_state_preparing_cd)
         }
-        com.kosmos.app.ui.component.StarGlyph(
+        StarGlyph(
             dotColor,
-            Modifier.size(12.dp).splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.HEADER_STAR)
+            Modifier.size(12.dp).splashAnchor(SplashAnchor.HEADER_STAR)
                 .semantics { contentDescription = engineStateDesc }
         )
 
@@ -139,7 +148,7 @@ fun CustomChatHeader(
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             ) {
                 capsule.icon?.let {
-                    com.kosmos.app.ui.component.KosmosIcon(
+                    KosmosIcon(
                         it,
                         contentDescription = null,
                         size = 14.dp,
@@ -164,7 +173,7 @@ fun CustomChatHeader(
 @Composable
 fun StatusDetailSheet(
     engineState: ModelLoadState,
-    status: com.kosmos.app.runtime.metrics.DeviceStatus,
+    status: DeviceStatus,
     warningMessage: String?,
     onDismiss: () -> Unit,
     onRetry: () -> Unit = {}
@@ -182,7 +191,7 @@ fun StatusDetailSheet(
 @Composable
 internal fun StatusDetailContent(
     engineState: ModelLoadState,
-    status: com.kosmos.app.runtime.metrics.DeviceStatus,
+    status: DeviceStatus,
     warningMessage: String?,
     onRetry: () -> Unit
 ) {
@@ -205,7 +214,7 @@ internal fun StatusDetailContent(
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = reason, color = KosmosTheme.colors.textSecondary, style = MaterialTheme.typography.bodySmall)
             Spacer(modifier = Modifier.height(12.dp))
-            com.kosmos.app.ui.component.KosmosButton(stringResource(R.string.common_retry), onRetry, Modifier.fillMaxWidth())
+            KosmosButton(stringResource(R.string.common_retry), onRetry, Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(16.dp))
         }
         Text(
@@ -216,7 +225,7 @@ internal fun StatusDetailContent(
         val engineLabel = when (engineState) {
             is ModelLoadState.Ready -> stringResource(
                 R.string.chat_engine_ready_with_model,
-                com.kosmos.app.ui.modelDisplayName(engineState.modelInfo.modelId)
+                modelDisplayName(engineState.modelInfo.modelId)
             )
             is ModelLoadState.Error, is ModelLoadState.NotFound -> null
             else -> stringResource(R.string.chat_engine_preparing)
@@ -245,12 +254,12 @@ internal fun StatusDetailContent(
 internal fun engineProblem(
     context: android.content.Context,
     state: ModelLoadState,
-    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    lang: AppLanguage = AppLanguage.KO
 ): Pair<String, String>? = when (state) {
     is ModelLoadState.Error -> context.getString(R.string.splash_engine_error_title) to
-        com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error, lang)
+        ErrorMessages.userMessage(state.error, lang)
     is ModelLoadState.NotFound -> context.getString(R.string.chat_engine_no_model_title) to
-        com.kosmos.app.core.mapper.ErrorMessages.userMessage(com.kosmos.app.core.common.AppError.ModelNotFound(state.expectedPath), lang)
+        ErrorMessages.userMessage(AppError.ModelNotFound(state.expectedPath), lang)
     else -> null
 }
 
@@ -267,10 +276,10 @@ internal data class CapsuleContent(val text: String, val tone: CapsuleTone, @and
 internal fun capsuleContent(
     context: android.content.Context,
     engineState: ModelLoadState,
-    status: com.kosmos.app.runtime.metrics.DeviceStatus,
+    status: DeviceStatus,
     heatWarning: Boolean
 ): CapsuleContent? {
-    val stop = com.kosmos.app.R.drawable.ic_ph_warning_circle
+    val stop = R.drawable.ic_ph_warning_circle
     return when {
         engineState is ModelLoadState.Error -> CapsuleContent(
             context.getString(R.string.chat_engine_error_short),
@@ -287,16 +296,16 @@ internal fun capsuleContent(
                 context.getString(R.string.chat_heat_warning_short)
             },
             CapsuleTone.WARNING,
-            com.kosmos.app.R.drawable.ic_ph_warning
+            R.drawable.ic_ph_warning
         )
         else -> formatStatusCapsule(status).takeIf { it.isNotEmpty() }?.let {
-            CapsuleContent(it, CapsuleTone.NORMAL, if (status.temperatureCelsius > 0f) com.kosmos.app.R.drawable.ic_ph_thermometer else null)
+            CapsuleContent(it, CapsuleTone.NORMAL, if (status.temperatureCelsius > 0f) R.drawable.ic_ph_thermometer else null)
         }
     }
 }
 
 /** 캡슐용 축약 포맷 — `36° · 4.1GB`(온도 아이콘은 화면이 앞에 붙인다). 생성 속도는 기술 수치라 시트에만(0.38.4 M0). */
-internal fun formatStatusCapsule(status: com.kosmos.app.runtime.metrics.DeviceStatus): String {
+internal fun formatStatusCapsule(status: DeviceStatus): String {
     val parts = mutableListOf<String>()
     if (status.temperatureCelsius > 0f) parts += "%.0f°".format(status.temperatureCelsius)
     // 앱 PSS — 3.6GB 모델이 차지하는 몫. 시스템 전체 사용량은 시트에서 (사용자 요청 2026-08-15).
@@ -307,7 +316,7 @@ internal fun formatStatusCapsule(status: com.kosmos.app.runtime.metrics.DeviceSt
 /** 한 줄에 하나 — `온도 41.2°C` / `메모리 3.4/8.0GB(앱 4.1GB)` / `생성 속도 12.4 tok/s`. 세 항목 이상을 가운뎃점으로 잇지 않는다(DESIGN). */
 internal fun formatDeviceStatus(
     context: android.content.Context,
-    status: com.kosmos.app.runtime.metrics.DeviceStatus
+    status: DeviceStatus
 ): String {
     val parts = mutableListOf<String>()
     if (status.temperatureCelsius > 0f) {

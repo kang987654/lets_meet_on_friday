@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kosmos.app.core.common.Constants
 
 /**
  * [GemmaRuntimeManager]
@@ -34,7 +35,7 @@ class GemmaRuntimeManager @Inject constructor(
     override val loadState: StateFlow<ModelLoadState> = _loadState.asStateFlow()
 
     // TODO(v0): 실제 사용 시 설정(SettingsDataStore)에서 모델 경로를 읽어오는 구조로 개선 가능
-    private val defaultModelFileName = com.kosmos.app.core.common.Constants.DEFAULT_MODEL_FILENAME
+    private val defaultModelFileName = Constants.DEFAULT_MODEL_FILENAME
 
     // [WHY] 모델 로드는 네이티브 엔진이 mmap 으로 처리하므로 Kotlin 쪽 MappedByteBuffer 가
     // 필요 없다. (예전 노트의 "GPU Delegate 자동 활성화" 주장은 삭제 — 실제로는

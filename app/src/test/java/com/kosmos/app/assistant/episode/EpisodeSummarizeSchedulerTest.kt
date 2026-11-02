@@ -25,6 +25,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.kosmos.app.assistant.cleanup.BackgroundInferenceGate
 
 /**
  * [EpisodeSummarizeSchedulerTest]
@@ -78,7 +79,7 @@ class EpisodeSummarizeSchedulerTest {
     private fun scheduler(quietMs: Long = 0): EpisodeSummarizeScheduler = EpisodeSummarizeScheduler(
         episodeRepository, conversationRepository, summarize,
         metricsCollector, boundaryManager, modelRunner, factExtractor,
-        com.kosmos.app.assistant.cleanup.BackgroundInferenceGate(),
+        BackgroundInferenceGate(),
         quiet(quietMs)
     ).also { it.start() }
 

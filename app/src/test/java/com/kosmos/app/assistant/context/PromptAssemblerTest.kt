@@ -11,6 +11,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import com.kosmos.app.core.common.AppLanguage
 
 class PromptAssemblerTest {
 
@@ -270,7 +271,7 @@ class PromptAssemblerTest {
             recentConversations = emptyList(),
             sessionId = "s1",
             responseStyle = "DEFAULT",
-            language = com.kosmos.app.core.common.AppLanguage.EN
+            language = AppLanguage.EN
         )
         val enPrompt = promptAssembler.assembleWithTools(
             context = enContext,

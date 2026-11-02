@@ -33,6 +33,7 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.util.zip.ZipFile
 import javax.inject.Inject
+import com.kosmos.app.R
 
 /** 뷰어가 연 문서 — 닫으면 캐시 복사본과 렌더러를 놓는다. */
 sealed interface OpenedDocument : Closeable {
@@ -116,7 +117,7 @@ class AndroidDocumentOpener @Inject constructor(
             // 있어 마지막 조각만 남긴다 — 상단 바에 전체 경로가 보이지 않게. 기본 제목은 현재 로케일 리소스를 쓴다(0.40.2 M2-7).
             val name = (context.contentResolver.displayName(uri) ?: uri.lastPathSegment)
                 ?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }
-                ?: context.getString(com.kosmos.app.R.string.doc_viewer_default_title)
+                ?: context.getString(R.string.doc_viewer_default_title)
             val mime = runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: mimeTypeHint
             when (DocumentType.detect(mime, name)) {
                 DocumentType.XLSX -> openXlsx(uri, name)

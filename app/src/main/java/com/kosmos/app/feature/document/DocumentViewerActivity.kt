@@ -14,6 +14,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import com.kosmos.app.MainActivity
+import com.kosmos.app.ui.theme.syncApplicationNightMode
 
 /**
  * [DocumentViewerActivity]
@@ -42,7 +44,7 @@ class DocumentViewerActivity : ComponentActivity() {
     // 창 바탕은 다음 실행에만 쓰이므로 여기서 알려도 충분하다.
     override fun onStop() {
         super.onStop()
-        themeViewModel.persistedThemeMode.value?.let { com.kosmos.app.ui.theme.syncApplicationNightMode(this, it) }
+        themeViewModel.persistedThemeMode.value?.let { syncApplicationNightMode(this, it) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,7 +91,7 @@ class DocumentViewerActivity : ComponentActivity() {
      * (`taskAffinity=""`) 채팅 화면이 뷰어 태스크 안에 하나 더 생기지 않는다. 뷰어는 닫지 않는다 — 다른 범위를 또 보낼 수 있다.
      */
     private fun openChat() {
-        startActivity(Intent(this, com.kosmos.app.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     companion object {

@@ -10,6 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.core.mapper.ErrorMessages
 
 /** 헤더 캡슐이 별 색의 원인을 말하는가(0.39.3 M3) — 엔진 정지가 발열보다, 원인이 수치보다 먼저. */
 @RunWith(RobolectricTestRunner::class)
@@ -47,7 +48,7 @@ class HeaderCapsuleTest {
     fun `시트의 원인 문장은 시작 화면과 같은 문구이고 엔진이 돌면 없다`() {
         val (title, reason) = engineProblem(context, ModelLoadState.Error(AppError.ModelLoadFailed("x")))!!
         assertEquals("AI 엔진을 올리지 못했어요", title)
-        assertEquals(com.kosmos.app.core.mapper.ErrorMessages.userMessage(AppError.ModelLoadFailed("x")), reason)
+        assertEquals(ErrorMessages.userMessage(AppError.ModelLoadFailed("x")), reason)
         assertNull(engineProblem(context, ready))
     }
 }

@@ -12,6 +12,9 @@ import com.kosmos.app.domain.tool.Tokenizer
 import com.kosmos.app.data.local.prefs.SettingsDataStore
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
+import com.kosmos.app.domain.agent.RefusalTurns
+import com.kosmos.app.domain.agent.RepeatedQuestions
+import com.kosmos.app.domain.memory.ProfileRepository
 
 /**
  * [ContextBuilder]
@@ -35,7 +38,7 @@ class ContextBuilder @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val tokenizer: Tokenizer,
     private val settingsDataStore: SettingsDataStore,
-    private val profileRepository: com.kosmos.app.domain.memory.ProfileRepository,
+    private val profileRepository: ProfileRepository,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) {
     data class Context(
@@ -102,9 +105,9 @@ class ContextBuilder @Inject constructor(
                 // top-1 정확도 1/7 = 무작위 1/8 수준). 그래서 실제로 하던 일은 "무관한 메모
                 // 3건을 매 턴 질문 앞에 붙이는 것"이었다 — 프리필을 축내고 환각의 재료가 됐다.
                 // 기억 조회는 이제 모델이 필요할 때 부르는 `SearchMemory` 툴이 맡는다.
-                val refusalKept = com.kosmos.app.domain.agent.RefusalTurns.forModel(conversationsResult.data)
+                val refusalKept = RefusalTurns.forModel(conversationsResult.data)
                 // [WHY] 같은 질문의 앞 답을 뺀다 — 모델이 자기 앞 답을 되풀이했다(0.39.3 M4d, RepeatedQuestions [WHY]).
-                val forModel = com.kosmos.app.domain.agent.RepeatedQuestions.forModel(refusalKept)
+                val forModel = RepeatedQuestions.forModel(refusalKept)
                 val slidingWindow = applyTokenSlidingWindow(forModel, maxTokens)
                 AppResult.Success(
                     Context(

@@ -13,6 +13,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.testing.InMemoryKosmosDbRule
 
 /**
  * [ResultCardRepositoryTest]
@@ -22,7 +23,7 @@ import org.robolectric.RobolectricTestRunner
 class ResultCardRepositoryTest {
 
     @get:org.junit.Rule
-    val dbRule = com.kosmos.app.testing.InMemoryKosmosDbRule()
+    val dbRule = InMemoryKosmosDbRule()
 
     private fun <T> AppResult<T>.value(): T = (this as AppResult.Success).data
 

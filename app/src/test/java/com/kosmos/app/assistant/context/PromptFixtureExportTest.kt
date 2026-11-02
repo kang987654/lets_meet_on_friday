@@ -7,6 +7,28 @@ import io.mockk.slot
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.domain.cleanup.GenerateWeeklyReviewUseCase
+import com.kosmos.app.domain.cleanup.PlanMemoryMergeUseCase
+import com.kosmos.app.domain.memory.EpisodeRepository
+import com.kosmos.app.domain.memory.KnowledgeRepository
+import com.kosmos.app.domain.model.CalendarEvent
+import com.kosmos.app.domain.model.ChatMessage
+import com.kosmos.app.domain.model.Episode
+import com.kosmos.app.domain.model.EpisodeStatus
+import com.kosmos.app.domain.model.InputType
+import com.kosmos.app.domain.model.ScheduleData
+import com.kosmos.app.domain.modelrunner.ChatPrompt
+import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.domain.modelrunner.ModelTurn
+import com.kosmos.app.domain.tool.Tokenizer
+import com.kosmos.app.domain.usecase.ExtractFactsUseCase
+import com.kosmos.app.domain.usecase.GenerateBriefingUseCase
+import com.kosmos.app.domain.usecase.SummarizeEpisodeUseCase
+import com.kosmos.app.domain.usecase.SummarizeScheduleUseCase
+import com.kosmos.app.domain.usecase.TranscribeAudioUseCase
+import com.kosmos.app.runtime.gemma.GemmaTokenizer
 
 /**
  * [PromptFixtureExportTest]
@@ -69,7 +91,7 @@ class PromptFixtureExportTest {
                 sessionId = "lab-fixture",
                 responseStyle = "DEFAULT",
                 webSearchEnabled = true,
-                language = com.kosmos.app.core.common.AppLanguage.EN
+                language = AppLanguage.EN
             ),
             userInput = USER_INPUT,
             availableTools = ALL_TOOLS,
@@ -125,15 +147,15 @@ class PromptFixtureExportTest {
         // [WHY] 상수를 읽지 않고 **실제로 나가는 `ChatPrompt` 를 붙잡는다.** 상수는 `private`
         // 이고, 테스트 편의로 가시성을 넓히는 것보다 이 방법이 정확하다 — 조립 과정에서 무엇이
         // 덧붙든 실험실이 받는 것은 언제나 앱이 보내는 것과 같다.
-        val runner: com.kosmos.app.domain.modelrunner.ModelRunner = mockk()
-        val captured = slot<com.kosmos.app.domain.modelrunner.ChatPrompt>()
+        val runner: ModelRunner = mockk()
+        val captured = slot<ChatPrompt>()
         coEvery {
             runner.generateWithAudio(capture(captured), any(), any())
-        } returns com.kosmos.app.core.common.AppResult.Success(
-            com.kosmos.app.domain.modelrunner.ModelTurn("받아쓴 문장")
+        } returns AppResult.Success(
+            ModelTurn("받아쓴 문장")
         )
 
-        com.kosmos.app.domain.usecase.TranscribeAudioUseCase(runner)("/dev/null.wav")
+        TranscribeAudioUseCase(runner)("/dev/null.wav")
 
         val prompt = captured.captured
         assertTrue("전사 전용 지시여야 한다", prompt.systemInstruction.contains("transcrib", ignoreCase = true))
@@ -155,20 +177,20 @@ class PromptFixtureExportTest {
     fun `자동 추출 지시문도 실험실 픽스처로 내보낸다`() = kotlinx.coroutines.runBlocking {
         // [WHY] exp36 이 이 픽스처를 읽어 실험 프롬프트와 같은지 먼저 검사한다(`fixture` 모드) —
         // 실측 문구와 앱 상수가 갈리면 실험이 앱과 다른 것을 측정한다 (AGENTS §2-⑤).
-        val runner: com.kosmos.app.domain.modelrunner.ModelRunner = mockk()
-        val tokenizer: com.kosmos.app.domain.tool.Tokenizer = mockk<com.kosmos.app.domain.tool.Tokenizer>().also {
+        val runner: ModelRunner = mockk()
+        val tokenizer: Tokenizer = mockk<Tokenizer>().also {
             io.mockk.every { it.sizeInTokens(any()) } answers { firstArg<String>().length / 2 }
         }
-        val captured = slot<com.kosmos.app.domain.modelrunner.ChatPrompt>()
-        coEvery { runner.generate(capture(captured), any()) } returns com.kosmos.app.core.common.AppResult.Success(
-            com.kosmos.app.domain.modelrunner.ModelTurn("프로필: 없음\n지식: 없음")
+        val captured = slot<ChatPrompt>()
+        coEvery { runner.generate(capture(captured), any()) } returns AppResult.Success(
+            ModelTurn("프로필: 없음\n지식: 없음")
         )
-        val message = com.kosmos.app.domain.model.ChatMessage(
-            id = "m1", sessionId = "s1", role = com.kosmos.app.domain.model.ChatMessage.Role.USER,
-            content = USER_INPUT, inputType = com.kosmos.app.domain.model.InputType.TEXT, createdAt = 1
+        val message = ChatMessage(
+            id = "m1", sessionId = "s1", role = ChatMessage.Role.USER,
+            content = USER_INPUT, inputType = InputType.TEXT, createdAt = 1
         )
 
-        com.kosmos.app.domain.usecase.ExtractFactsUseCase(runner, tokenizer)(listOf(message))
+        ExtractFactsUseCase(runner, tokenizer)(listOf(message))
 
         val prompt = captured.captured
         assertTrue("두 라벨 형식을 지시해야 한다", prompt.systemInstruction.contains("프로필:") && prompt.systemInstruction.contains("지식:"))
@@ -187,18 +209,18 @@ class PromptFixtureExportTest {
     @Test
     fun `아침 브리핑 지시와 재료 형식도 실험실 픽스처로 내보낸다`() = kotlinx.coroutines.runBlocking {
         // [WHY] 말투 실측(0.38.5 M2·M3)이 브리핑 지시를 소스에서 정규식으로 긁으면 조립 단계의 차이를 놓친다 — 실제로 나가는 프롬프트를 붙잡는다.
-        val runner: com.kosmos.app.domain.modelrunner.ModelRunner = mockk()
-        val tokenizer: com.kosmos.app.domain.tool.Tokenizer = mockk<com.kosmos.app.domain.tool.Tokenizer>().also {
+        val runner: ModelRunner = mockk()
+        val tokenizer: Tokenizer = mockk<Tokenizer>().also {
             io.mockk.every { it.sizeInTokens(any()) } answers { firstArg<String>().length / 2 }
         }
-        val captured = slot<com.kosmos.app.domain.modelrunner.ChatPrompt>()
-        coEvery { runner.generate(capture(captured), any()) } returns com.kosmos.app.core.common.AppResult.Success(
-            com.kosmos.app.domain.modelrunner.ModelTurn("좋은 아침이에요.")
+        val captured = slot<ChatPrompt>()
+        coEvery { runner.generate(capture(captured), any()) } returns AppResult.Success(
+            ModelTurn("좋은 아침이에요.")
         )
         val zone = java.time.ZoneId.of("Asia/Seoul")
         val episode = episode(java.time.LocalDate.of(2026, 10, 20).atStartOfDay(zone).toInstant().toEpochMilli())
-        com.kosmos.app.domain.usecase.GenerateBriefingUseCase(runner, tokenizer)(
-            com.kosmos.app.domain.usecase.GenerateBriefingUseCase.BriefingMaterials(
+        GenerateBriefingUseCase(runner, tokenizer)(
+            GenerateBriefingUseCase.BriefingMaterials(
                 dateLabel = "10월 21일 수요일", events = emptyList(), deviceCalendarFailed = false,
                 pendingTasks = emptyList(), recentEpisodes = listOf(episode), zoneId = zone
             )
@@ -219,22 +241,22 @@ class PromptFixtureExportTest {
 
     @Test
     fun `주간 회고 지시와 재료 형식도 실험실 픽스처로 내보낸다`() = kotlinx.coroutines.runBlocking {
-        val runner: com.kosmos.app.domain.modelrunner.ModelRunner = mockk()
-        val tokenizer: com.kosmos.app.domain.tool.Tokenizer = mockk<com.kosmos.app.domain.tool.Tokenizer>().also {
+        val runner: ModelRunner = mockk()
+        val tokenizer: Tokenizer = mockk<Tokenizer>().also {
             io.mockk.every { it.sizeInTokens(any()) } answers { firstArg<String>().length / 2 }
         }
-        val episodes: com.kosmos.app.domain.memory.EpisodeRepository = mockk()
-        val knowledge: com.kosmos.app.domain.memory.KnowledgeRepository = mockk(relaxed = true)
+        val episodes: EpisodeRepository = mockk()
+        val knowledge: KnowledgeRepository = mockk(relaxed = true)
         val zone = java.time.ZoneId.of("Asia/Seoul")
         val now = java.time.LocalDate.of(2026, 10, 21).atStartOfDay(zone).toInstant().toEpochMilli()
-        coEvery { episodes.getByStatus(any()) } returns com.kosmos.app.core.common.AppResult.Success(
+        coEvery { episodes.getByStatus(any()) } returns AppResult.Success(
             listOf(episode(now - 86_400_000L))
         )
-        val captured = slot<com.kosmos.app.domain.modelrunner.ChatPrompt>()
-        coEvery { runner.generate(capture(captured), any()) } returns com.kosmos.app.core.common.AppResult.Success(
-            com.kosmos.app.domain.modelrunner.ModelTurn("이번 주는 치과 상담이 있었어요.")
+        val captured = slot<ChatPrompt>()
+        coEvery { runner.generate(capture(captured), any()) } returns AppResult.Success(
+            ModelTurn("이번 주는 치과 상담이 있었어요.")
         )
-        com.kosmos.app.domain.cleanup.GenerateWeeklyReviewUseCase(episodes, knowledge, runner, tokenizer)(now, zone)
+        GenerateWeeklyReviewUseCase(episodes, knowledge, runner, tokenizer)(now, zone)
 
         val prompt = captured.captured
         assertTrue("지어내지 않는 규칙이 있어야 한다 (exp42)", prompt.systemInstruction.contains("지어내지"))
@@ -250,14 +272,14 @@ class PromptFixtureExportTest {
 
     @Test
     fun `일정 요약 지시와 재료 형식도 실험실 픽스처로 내보낸다`() = kotlinx.coroutines.runBlocking {
-        val runner: com.kosmos.app.domain.modelrunner.ModelRunner = mockk()
-        val captured = slot<com.kosmos.app.domain.modelrunner.ChatPrompt>()
-        coEvery { runner.generate(capture(captured), any()) } returns com.kosmos.app.core.common.AppResult.Success(
-            com.kosmos.app.domain.modelrunner.ModelTurn("오늘은 팀 회의가 있어요.")
+        val runner: ModelRunner = mockk()
+        val captured = slot<ChatPrompt>()
+        coEvery { runner.generate(capture(captured), any()) } returns AppResult.Success(
+            ModelTurn("오늘은 팀 회의가 있어요.")
         )
-        com.kosmos.app.domain.usecase.SummarizeScheduleUseCase(runner)(
-            listOf(com.kosmos.app.domain.model.CalendarEvent(id = "c1", title = "팀 회의", startIso = "2026-10-22T10:00:00", endIso = "2026-10-22T11:00:00")),
-            com.kosmos.app.domain.model.ScheduleData.RangeType.TODAY
+        SummarizeScheduleUseCase(runner)(
+            listOf(CalendarEvent(id = "c1", title = "팀 회의", startIso = "2026-10-22T10:00:00", endIso = "2026-10-22T11:00:00")),
+            ScheduleData.RangeType.TODAY
         )
 
         val prompt = captured.captured
@@ -273,15 +295,15 @@ class PromptFixtureExportTest {
 
     @Test
     fun `에피소드 요약·기억 합치기 지시도 실험실 픽스처로 내보낸다`() = kotlinx.coroutines.runBlocking {
-        val runner: com.kosmos.app.domain.modelrunner.ModelRunner = mockk()
-        val captured = slot<com.kosmos.app.domain.modelrunner.ChatPrompt>()
-        coEvery { runner.generate(capture(captured), any()) } returns com.kosmos.app.core.common.AppResult.Success(
-            com.kosmos.app.domain.modelrunner.ModelTurn("제목: 치과 예약\n태그: 치과, 예약\n요약: 내일 치과에 가요.")
+        val runner: ModelRunner = mockk()
+        val captured = slot<ChatPrompt>()
+        coEvery { runner.generate(capture(captured), any()) } returns AppResult.Success(
+            ModelTurn("제목: 치과 예약\n태그: 치과, 예약\n요약: 내일 치과에 가요.")
         )
-        com.kosmos.app.domain.usecase.SummarizeEpisodeUseCase(runner, com.kosmos.app.runtime.gemma.GemmaTokenizer())(
-            listOf(com.kosmos.app.domain.model.ChatMessage(
-                id = "m1", sessionId = "s1", role = com.kosmos.app.domain.model.ChatMessage.Role.USER, content = "내일 치과 가",
-                inputType = com.kosmos.app.domain.model.InputType.TEXT, createdAt = 0
+        SummarizeEpisodeUseCase(runner, GemmaTokenizer())(
+            listOf(ChatMessage(
+                id = "m1", sessionId = "s1", role = ChatMessage.Role.USER, content = "내일 치과 가",
+                inputType = InputType.TEXT, createdAt = 0
             ))
         )
 
@@ -291,12 +313,12 @@ class PromptFixtureExportTest {
         val dir = File(FIXTURE_DIR)
         if (dir.isDirectory) {
             File(dir, "episode_summary_system.txt").writeText(prompt.systemInstruction)
-            File(dir, "memory_judge_system.txt").writeText(com.kosmos.app.domain.cleanup.PlanMemoryMergeUseCase.JUDGE_SYSTEM)
+            File(dir, "memory_judge_system.txt").writeText(PlanMemoryMergeUseCase.JUDGE_SYSTEM)
         }
     }
 
-    private fun episode(startAt: Long) = com.kosmos.app.domain.model.Episode(
-        id = "e1", sessionId = "s1", status = com.kosmos.app.domain.model.EpisodeStatus.SUMMARIZED,
+    private fun episode(startAt: Long) = Episode(
+        id = "e1", sessionId = "s1", status = EpisodeStatus.SUMMARIZED,
         title = "치과 상담", summary = "사용자는 치과에서 충치 치료를 권유받았습니다.", tags = emptyList(),
         startAt = startAt, endAt = startAt + 60_000L, messageCount = 4, retryCount = 0, createdAt = startAt, updatedAt = startAt
     )

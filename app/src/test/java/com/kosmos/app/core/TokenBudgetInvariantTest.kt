@@ -4,6 +4,7 @@ import com.kosmos.app.core.common.Constants
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.kosmos.app.runtime.gemma.GemmaTokenizer
 
 /**
  * [TokenBudgetInvariantTest]
@@ -162,7 +163,7 @@ class TokenBudgetInvariantTest {
         // 히스토리 예산(300)을 넘으면 슬라이딩 윈도우에서 **통째로 탈락**해, 문서에 대해 이어
         // 물으면 모델이 문서를 본 적 없는 상태가 된다(MVP 감사 A3). 캡 상수만 보지 않고 실제
         // 저장 형태(래퍼 포함)를 추정기에 넣어 확인한다 — 래퍼가 자라면 여기서 걸린다.
-        val tokenizer = com.kosmos.app.runtime.gemma.GemmaTokenizer()
+        val tokenizer = GemmaTokenizer()
         val storedForm = "[Attached Document]\n\"\"\"\n" +
             "첨부된 문서 내용(document.txt):\n" +
             "가".repeat(Constants.MAX_ATTACHED_DOC_CHARS) +

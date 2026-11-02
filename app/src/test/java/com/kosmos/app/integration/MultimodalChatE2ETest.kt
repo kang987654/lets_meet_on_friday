@@ -56,13 +56,21 @@ import com.kosmos.app.platform.share.ShareIntentHandler
 import com.kosmos.app.platform.speech.AudioRecorder
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 import androidx.lifecycle.SavedStateHandle
+import com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+import com.kosmos.app.di.ModelModule
+import com.kosmos.app.domain.memory.EpisodeRepository
+import com.kosmos.app.domain.modelrunner.ModelLoadManager
+import com.kosmos.app.domain.tool.ImageProcessor
+import com.kosmos.app.domain.tool.Tokenizer
+import com.kosmos.app.platform.launch.VoiceLaunchHandler
+import com.kosmos.app.testing.ScriptedModelRunner
 
 
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(application = HiltTestApplication::class, instrumentedPackages = ["androidx.loader.content"])
-@UninstallModules(com.kosmos.app.di.ModelModule::class)
+@UninstallModules(ModelModule::class)
 class MultimodalChatE2ETest {
 
     @get:Rule(order = 0)
@@ -72,40 +80,40 @@ class MultimodalChatE2ETest {
     val composeTestRule = createComposeRule()
 
     @BindValue
-    val fakeModelRunner: ModelRunner = com.kosmos.app.testing.ScriptedModelRunner(
-        listOf(com.kosmos.app.domain.modelrunner.ModelTurn("This is a response summary of the document."))
+    val fakeModelRunner: ModelRunner = ScriptedModelRunner(
+        listOf(ModelTurn("This is a response summary of the document."))
     )
 
     @BindValue
-    val tokenizer: com.kosmos.app.domain.tool.Tokenizer = object : com.kosmos.app.domain.tool.Tokenizer {
+    val tokenizer: Tokenizer = object : Tokenizer {
         override fun sizeInTokens(text: String): Int = text.length / 4
     }
 
     @BindValue
-    val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor = object : com.kosmos.app.domain.tool.ImageProcessor {
+    val imageProcessor: ImageProcessor = object : ImageProcessor {
         override suspend fun processImage(rawBytes: ByteArray): AppResult<ByteArray> {
             return AppResult.Success(rawBytes)
         }
     }
 
     @BindValue
-    val modelLoadManager: com.kosmos.app.domain.modelrunner.ModelLoadManager = object : com.kosmos.app.domain.modelrunner.ModelLoadManager {
+    val modelLoadManager: ModelLoadManager = object : ModelLoadManager {
         override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(ModelLoadState.Ready(ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
         override fun checkModelFile() {}
         override fun setInitializing() {}
-        override fun setReady(modelInfo: com.kosmos.app.domain.modelrunner.ModelInfo) {}
+        override fun setReady(modelInfo: ModelInfo) {}
     }
 
     @BindValue
-    val audioRecorder: AudioRecorder = object : com.kosmos.app.platform.speech.AudioRecorder(ApplicationProvider.getApplicationContext()) {
-        override fun startRecording(): com.kosmos.app.core.common.AppResult<Unit> = com.kosmos.app.core.common.AppResult.Success(Unit)
-        override suspend fun stopRecording(): com.kosmos.app.core.common.AppResult<java.io.File> = com.kosmos.app.core.common.AppResult.Success(java.io.File.createTempFile("t", "a"))
+    val audioRecorder: AudioRecorder = object : AudioRecorder(ApplicationProvider.getApplicationContext()) {
+        override fun startRecording(): AppResult<Unit> = AppResult.Success(Unit)
+        override suspend fun stopRecording(): AppResult<java.io.File> = AppResult.Success(java.io.File.createTempFile("t", "a"))
     }
 
     @Inject lateinit var sessionStore: SessionStore
     @Inject lateinit var conversationRepository: ConversationRepository
-    @Inject lateinit var episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository
-    @Inject lateinit var briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+    @Inject lateinit var episodeRepository: EpisodeRepository
+    @Inject lateinit var briefingGenerator: MorningBriefingGenerator
     @Inject lateinit var sendChatMessageUseCase: SendChatMessageUseCase
     @Inject lateinit var approvalCoordinator: ApprovalCoordinator
     @Inject lateinit var shareIntentHandler: ShareIntentHandler
@@ -130,7 +138,7 @@ class MultimodalChatE2ETest {
             modelRunner = fakeModelRunner,
             audioRecorder = audioRecorder,
             briefingGenerator = briefingGenerator,
-            voiceLaunchHandler = com.kosmos.app.platform.launch.VoiceLaunchHandler(),
+            voiceLaunchHandler = VoiceLaunchHandler(),
             // C′2 생성부 — 제안 흐름은 이 E2E 의 관심사가 아니다(빈 대기 목록).
             suggestionRepository = io.mockk.mockk {
                 io.mockk.every { observePending() } returns kotlinx.coroutines.flow.flowOf(emptyList())
@@ -205,7 +213,7 @@ class MultimodalChatE2ETest {
         composeTestRule.onNodeWithContentDescription("Send").performClick()
 
         // 5. Wait for the model runner to receive the prompt with the document content injected
-        val runner = fakeModelRunner as com.kosmos.app.testing.ScriptedModelRunner
+        val runner = fakeModelRunner as ScriptedModelRunner
         val startTime = System.currentTimeMillis()
         while (runner.receivedPrompts.isEmpty() && System.currentTimeMillis() - startTime < 5000) {
             org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()

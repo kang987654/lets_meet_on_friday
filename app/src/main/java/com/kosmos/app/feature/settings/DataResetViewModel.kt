@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.common.CurrentLanguage
 
 /** 데이터 초기화 진행 상태. */
 sealed interface DataResetState {
@@ -50,10 +52,10 @@ class DataResetViewModel @Inject constructor(
     private val reminderAlarmScheduler: ReminderAlarmScheduler,
     private val widgetRefresher: WidgetRefresher,
     private val sessionStore: SessionStore,
-    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ViewModel() {
 
-    private val currentLang: com.kosmos.app.core.common.AppLanguage
+    private val currentLang: AppLanguage
         get() = currentLanguage.current
 
     private val _state = MutableStateFlow<DataResetState>(DataResetState.Idle)

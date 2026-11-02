@@ -12,6 +12,8 @@ import com.kosmos.app.domain.usecase.AddReminderUseCase
 import com.kosmos.app.domain.util.IsoDateTimeParser
 import com.kosmos.app.platform.alarm.ReminderAlarmScheduler
 import javax.inject.Inject
+import com.kosmos.app.domain.model.MessageResult
+import com.kosmos.app.widget.WidgetRefresher
 
 /**
  * [AddReminderToolExecutor]
@@ -29,7 +31,7 @@ import javax.inject.Inject
 class AddReminderToolExecutor internal constructor(
     private val addReminderUseCase: AddReminderUseCase,
     private val reminderAlarmScheduler: ReminderAlarmScheduler,
-    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
+    private val widgetRefresher: WidgetRefresher,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO,
     private val now: () -> Long
 ) : ToolExecutor {
@@ -38,7 +40,7 @@ class AddReminderToolExecutor internal constructor(
     @Inject constructor(
         addReminderUseCase: AddReminderUseCase,
         reminderAlarmScheduler: ReminderAlarmScheduler,
-        widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
+        widgetRefresher: WidgetRefresher,
         currentLanguage: CurrentLanguage
     ) : this(addReminderUseCase, reminderAlarmScheduler, widgetRefresher, currentLanguage, System::currentTimeMillis)
 
@@ -85,7 +87,7 @@ class AddReminderToolExecutor internal constructor(
                 }
                 ToolResultJson.withResult(
                     ToolResultJson.success().put("message", msg),
-                    kind = com.kosmos.app.domain.model.MessageResult.Kind.REMINDER.name,
+                    kind = MessageResult.Kind.REMINDER.name,
                     ref = res.data.id
                 ).toString()
             }

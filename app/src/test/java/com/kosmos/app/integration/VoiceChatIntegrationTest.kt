@@ -24,9 +24,23 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import javax.inject.Inject
+import com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.di.ModelModule
+import com.kosmos.app.domain.memory.EpisodeRepository
+import com.kosmos.app.domain.model.ChatMessage
+import com.kosmos.app.domain.model.InputType
+import com.kosmos.app.domain.modelrunner.ChatPrompt
+import com.kosmos.app.domain.modelrunner.ModelInfo
+import com.kosmos.app.domain.modelrunner.ModelLoadManager
+import com.kosmos.app.domain.modelrunner.ModelLoadState
+import com.kosmos.app.domain.modelrunner.ModelTurn
+import com.kosmos.app.domain.tool.ImageProcessor
+import com.kosmos.app.domain.tool.Tokenizer
+import com.kosmos.app.platform.launch.VoiceLaunchHandler
 
 @HiltAndroidTest
-@dagger.hilt.android.testing.UninstallModules(com.kosmos.app.di.ModelModule::class)
+@dagger.hilt.android.testing.UninstallModules(ModelModule::class)
 @Config(application = HiltTestApplication::class)
 @RunWith(RobolectricTestRunner::class)
 class VoiceChatIntegrationTest {
@@ -36,28 +50,28 @@ class VoiceChatIntegrationTest {
 
     @Inject lateinit var sessionStore: SessionStore
     @Inject lateinit var conversationRepository: ConversationRepository
-    @Inject lateinit var episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository
-    @Inject lateinit var briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+    @Inject lateinit var episodeRepository: EpisodeRepository
+    @Inject lateinit var briefingGenerator: MorningBriefingGenerator
     @Inject lateinit var sendChatMessageUseCase: SendChatMessageUseCase
     @Inject lateinit var approvalCoordinator: ApprovalCoordinator
     @Inject lateinit var shareIntentHandler: ShareIntentHandler
     @Inject lateinit var runtimeMetricsCollector: RuntimeMetricsCollector
     @dagger.hilt.android.testing.BindValue
     @JvmField
-    val modelRunner: ModelRunner = object : com.kosmos.app.domain.modelrunner.ModelRunner {
-        override val loadState = kotlinx.coroutines.flow.MutableStateFlow<com.kosmos.app.domain.modelrunner.ModelLoadState>(com.kosmos.app.domain.modelrunner.ModelLoadState.Ready(com.kosmos.app.domain.modelrunner.ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
+    val modelRunner: ModelRunner = object : ModelRunner {
+        override val loadState = kotlinx.coroutines.flow.MutableStateFlow<ModelLoadState>(ModelLoadState.Ready(ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
         override suspend fun warmUp() {}
-        override suspend fun generate(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
+        override suspend fun generate(prompt: ChatPrompt, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
             onToken?.invoke("Audio processed.")
-            return com.kosmos.app.core.common.AppResult.Success(com.kosmos.app.domain.modelrunner.ModelTurn("Audio processed."))
+            return AppResult.Success(ModelTurn("Audio processed."))
         }
-        override suspend fun generateWithImage(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, imageBytes: ByteArray, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
-            return com.kosmos.app.core.common.AppResult.Success(com.kosmos.app.domain.modelrunner.ModelTurn("Audio processed."))
+        override suspend fun generateWithImage(prompt: ChatPrompt, imageBytes: ByteArray, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
+            return AppResult.Success(ModelTurn("Audio processed."))
         }
         // [WHY] 오디오 경로는 이제 **전사 전용**이다. 답변은 전사문을 텍스트 턴으로 다시 보내
         // `generate` 가 만든다 (ADR-014). 그래서 여기서는 전사문만 돌려준다.
-        override suspend fun generateWithAudio(prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
-            return com.kosmos.app.core.common.AppResult.Success(com.kosmos.app.domain.modelrunner.ModelTurn(TRANSCRIPT))
+        override suspend fun generateWithAudio(prompt: ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?): AppResult<ModelTurn> {
+            return AppResult.Success(ModelTurn(TRANSCRIPT))
         }
         override suspend fun cancel() {}
         override fun close() {}
@@ -65,32 +79,32 @@ class VoiceChatIntegrationTest {
 
     @dagger.hilt.android.testing.BindValue
     @JvmField
-    val tokenizer: com.kosmos.app.domain.tool.Tokenizer = object : com.kosmos.app.domain.tool.Tokenizer {
+    val tokenizer: Tokenizer = object : Tokenizer {
         override fun sizeInTokens(text: String): Int = text.length / 4
     }
 
     @dagger.hilt.android.testing.BindValue
     @JvmField
-    val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor = object : com.kosmos.app.domain.tool.ImageProcessor {
-        override suspend fun processImage(rawBytes: ByteArray): com.kosmos.app.core.common.AppResult<ByteArray> {
-            return com.kosmos.app.core.common.AppResult.Success(rawBytes)
+    val imageProcessor: ImageProcessor = object : ImageProcessor {
+        override suspend fun processImage(rawBytes: ByteArray): AppResult<ByteArray> {
+            return AppResult.Success(rawBytes)
         }
     }
 
     @dagger.hilt.android.testing.BindValue
     @JvmField
-    val modelLoadManager: com.kosmos.app.domain.modelrunner.ModelLoadManager = object : com.kosmos.app.domain.modelrunner.ModelLoadManager {
-        override val loadState = kotlinx.coroutines.flow.MutableStateFlow<com.kosmos.app.domain.modelrunner.ModelLoadState>(com.kosmos.app.domain.modelrunner.ModelLoadState.Ready(com.kosmos.app.domain.modelrunner.ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
+    val modelLoadManager: ModelLoadManager = object : ModelLoadManager {
+        override val loadState = kotlinx.coroutines.flow.MutableStateFlow<ModelLoadState>(ModelLoadState.Ready(ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
         override fun checkModelFile() {}
         override fun setInitializing() {}
-        override fun setReady(modelInfo: com.kosmos.app.domain.modelrunner.ModelInfo) {}
+        override fun setReady(modelInfo: ModelInfo) {}
     }
 
     @dagger.hilt.android.testing.BindValue
     @JvmField
-    val audioRecorder: AudioRecorder = object : com.kosmos.app.platform.speech.AudioRecorder(ApplicationProvider.getApplicationContext()) {
-        override fun startRecording(): com.kosmos.app.core.common.AppResult<Unit> = com.kosmos.app.core.common.AppResult.Success(Unit)
-        override suspend fun stopRecording(): com.kosmos.app.core.common.AppResult<java.io.File> = com.kosmos.app.core.common.AppResult.Success(java.io.File.createTempFile("test", ".m4a", ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir))
+    val audioRecorder: AudioRecorder = object : AudioRecorder(ApplicationProvider.getApplicationContext()) {
+        override fun startRecording(): AppResult<Unit> = AppResult.Success(Unit)
+        override suspend fun stopRecording(): AppResult<java.io.File> = AppResult.Success(java.io.File.createTempFile("test", ".m4a", ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir))
     }
 
 
@@ -113,7 +127,7 @@ class VoiceChatIntegrationTest {
             modelRunner = modelRunner,
             audioRecorder = audioRecorder,
             briefingGenerator = briefingGenerator,
-            voiceLaunchHandler = com.kosmos.app.platform.launch.VoiceLaunchHandler(),
+            voiceLaunchHandler = VoiceLaunchHandler(),
             // C′2 생성부 — 제안 흐름은 이 E2E 의 관심사가 아니다(빈 대기 목록).
             suggestionRepository = io.mockk.mockk {
                 io.mockk.every { observePending() } returns kotlinx.coroutines.flow.flowOf(emptyList())
@@ -158,17 +172,17 @@ class VoiceChatIntegrationTest {
         val finalState = viewModel.uiState.value
         
         // Wait for DB to flush user message
-        var dbMessages: List<com.kosmos.app.domain.model.ChatMessage> = emptyList()
+        var dbMessages: List<ChatMessage> = emptyList()
         val dbStartTime = System.currentTimeMillis()
         while (System.currentTimeMillis() - dbStartTime < 3000) {
             val res = conversationRepository.getRecentBySession(finalState.sessionId, limit = 50)
-            dbMessages = if (res is com.kosmos.app.core.common.AppResult.Success) res.data else emptyList()
-            if (dbMessages.any { it.role == com.kosmos.app.domain.model.ChatMessage.Role.USER }) break
+            dbMessages = if (res is AppResult.Success) res.data else emptyList()
+            if (dbMessages.any { it.role == ChatMessage.Role.USER }) break
             Thread.sleep(100)
         }
 
-        val assistantMessages = finalState.messages.filter { it.role == com.kosmos.app.domain.model.ChatMessage.Role.ASSISTANT }
-        val userMessages = dbMessages.filter { it.role == com.kosmos.app.domain.model.ChatMessage.Role.USER }
+        val assistantMessages = finalState.messages.filter { it.role == ChatMessage.Role.ASSISTANT }
+        val userMessages = dbMessages.filter { it.role == ChatMessage.Role.USER }
 
         // [WHY] 예전 기대값은 `"(음성 메시지)"` 였다. 그러면 대화를 다시 열었을 때 사용자가
         // 무슨 말을 했는지 기록에 남지 않는다. 이제 전사문이 그대로 사용자 메시지가 된다.
@@ -178,7 +192,7 @@ class VoiceChatIntegrationTest {
         )
         assertTrue(
             "음성 입력 타입이 유지돼야 한다",
-            userMessages.any { it.inputType == com.kosmos.app.domain.model.InputType.VOICE }
+            userMessages.any { it.inputType == InputType.VOICE }
         )
         assertTrue("Assistant response should be saved. Error: ${finalState.error}", assistantMessages.any { it.content.contains("Audio processed") })
 
@@ -187,7 +201,7 @@ class VoiceChatIntegrationTest {
         // 수 없다(2026-08-14 실기기 관측: 자리표시자가 세션 내내 남았다).
         val uiStartTime = System.currentTimeMillis()
         while (viewModel.uiState.value.messages.none {
-                it.role == com.kosmos.app.domain.model.ChatMessage.Role.USER && it.content == TRANSCRIPT
+                it.role == ChatMessage.Role.USER && it.content == TRANSCRIPT
             } && System.currentTimeMillis() - uiStartTime < 3000
         ) {
             org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
@@ -196,7 +210,7 @@ class VoiceChatIntegrationTest {
         assertTrue(
             "화면 말풍선이 자리표시자 대신 전사문이어야 한다. 현재: ${viewModel.uiState.value.messages.map { "${it.role}:${it.content}" }}",
             viewModel.uiState.value.messages.any {
-                it.role == com.kosmos.app.domain.model.ChatMessage.Role.USER && it.content == TRANSCRIPT
+                it.role == ChatMessage.Role.USER && it.content == TRANSCRIPT
             }
         )
     }

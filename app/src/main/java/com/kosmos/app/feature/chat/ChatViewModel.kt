@@ -38,6 +38,16 @@ import javax.inject.Inject
 import com.kosmos.app.platform.share.ShareIntentHandler
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+import com.kosmos.app.core.common.CurrentLanguage
+import com.kosmos.app.domain.memory.EpisodeRepository
+import com.kosmos.app.domain.memory.ProfileSuggestionRepository
+import com.kosmos.app.domain.util.IsoDateTimeParser
+import com.kosmos.app.feature.profile.ProfileSuggestionResolver
+import com.kosmos.app.platform.launch.VoiceLaunchHandler
+import com.kosmos.app.platform.speech.AudioRecorder
+import com.kosmos.app.platform.speech.SpeechOutput
+import com.kosmos.app.ui.paging.CountedPagingSource
 
 /**
  * [ChatViewModel]
@@ -59,18 +69,18 @@ class ChatViewModel @Inject constructor(
     private val sessionStore: SessionStore,
     private val conversationRepository: ConversationRepository,
     private val sendChatMessageUseCase: SendChatMessageUseCase,
-    private val episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
+    private val episodeRepository: EpisodeRepository,
     private val approvalCoordinator: ApprovalCoordinator,
     private val shareIntentHandler: ShareIntentHandler,
     private val runtimeMetricsCollector: RuntimeMetricsCollector,
     private val modelRunner: ModelRunner,
-    private val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder,
-    private val briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator,
-    private val voiceLaunchHandler: com.kosmos.app.platform.launch.VoiceLaunchHandler,
-    private val suggestionRepository: com.kosmos.app.domain.memory.ProfileSuggestionRepository,
-    private val suggestionResolver: com.kosmos.app.feature.profile.ProfileSuggestionResolver,
-    private val speechOutput: com.kosmos.app.platform.speech.SpeechOutput,
-    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
+    private val audioRecorder: AudioRecorder,
+    private val briefingGenerator: MorningBriefingGenerator,
+    private val voiceLaunchHandler: VoiceLaunchHandler,
+    private val suggestionRepository: ProfileSuggestionRepository,
+    private val suggestionResolver: ProfileSuggestionResolver,
+    private val speechOutput: SpeechOutput,
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ViewModel() {
 
     /** 녹음 중 소리 크기(0..1) — 입력바 파형(0.38.4 M5). */
@@ -110,7 +120,7 @@ class ChatViewModel @Inject constructor(
                 enablePlaceholders = true
             )
         ) {
-            com.kosmos.app.ui.paging.CountedPagingSource(
+            CountedPagingSource(
                 count = {
                     conversationRepository.countOlderThan(timelineAnchor).unwrapForPaging()
                 },
@@ -129,7 +139,7 @@ class ChatViewModel @Inject constructor(
     private val _episodeChipLabels = MutableStateFlow<Map<String, String?>>(emptyMap())
     val episodeChipLabels: StateFlow<Map<String, String?>> = _episodeChipLabels.asStateFlow()
 
-    private val currentLang: com.kosmos.app.core.common.AppLanguage
+    private val currentLang: AppLanguage
         get() = currentLanguage.current
 
     /** [episodeId] 라벨을 캐시에 채웁니다 — 이미 조회했으면(실패 포함) 재조회하지 않습니다. */
@@ -141,7 +151,7 @@ class ChatViewModel @Inject constructor(
             val episode = (episodeRepository.getById(episodeId) as? AppResult.Success)?.data
                 ?: return@launch
             val lang = currentLang
-            val date = com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt, lang = lang)
+            val date = IsoDateTimeParser.monthDayKorean(episode.startAt, lang = lang)
             val defaultTitle = context.getString(R.string.chat_bubble_past_chat)
             val label = "${episode.title ?: defaultTitle} ($date)"
             _episodeChipLabels.update { it + (episodeId to label) }
@@ -412,7 +422,7 @@ class ChatViewModel @Inject constructor(
         // [WHY] 지난 요청 끝에 늦게 도착한 중지가 이 요청의 첫 채팅 턴을 막지 않게 한다.
         modelRunner.clearPendingCancel()
 
-        val en = currentLang == com.kosmos.app.core.common.AppLanguage.EN
+        val en = currentLang == AppLanguage.EN
         val currentSharedInput = _uiState.value.sharedInput
         val isImageAttached = currentSharedInput is SharedInput.Image
         val documentText = (currentSharedInput as? SharedInput.Document)?.let {
@@ -662,9 +672,9 @@ class ChatViewModel @Inject constructor(
                 // 사용자가 직접 누른 경우만 알린다 — 자동 낭독은 답변마다 같은 안내를 반복하게 되므로 조용히 넘긴다.
                 // 일시 안내 스낵바 채널(suggestionNotice)을 같이 쓴다.
                 val notice = when (speechOutput.voiceStatus.value) {
-                    com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE ->
+                    SpeechOutput.VoiceStatus.NO_KOREAN_OFFLINE_VOICE ->
                         context.getString(R.string.chat_tts_no_voice_notice)
-                    com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.INIT_FAILED ->
+                    SpeechOutput.VoiceStatus.INIT_FAILED ->
                         context.getString(R.string.chat_tts_failed_notice)
                     else -> null
                 }

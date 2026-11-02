@@ -23,6 +23,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import com.kosmos.app.data.local.prefs.SettingsDataStore
+import com.kosmos.app.domain.modelrunner.ModelLoadState
+import com.kosmos.app.platform.speech.SpeechOutput
+import com.kosmos.app.runtime.gemma.GemmaRuntimeManager
 
 /**
  * [EnglishModeUiTest]
@@ -56,7 +60,7 @@ class EnglishModeUiTest {
     @Test
     @Config(qualifiers = "en")
     fun `영어 모드에서 빈 채팅 화면과 설정 화면의 언어 세그먼트가 영어로 표시되고 한영 전환이 동작한다`() {
-        val settingsDataStore = mockk<com.kosmos.app.data.local.prefs.SettingsDataStore>(relaxed = true) {
+        val settingsDataStore = mockk<SettingsDataStore>(relaxed = true) {
             every { themeModeFlow } returns flowOf("SYSTEM")
             every { fontModeFlow } returns flowOf("APP")
             every { chatTextSizeFlow } returns flowOf("DEFAULT")
@@ -70,14 +74,14 @@ class EnglishModeUiTest {
             every { ttsEngineFlow } returns flowOf("")
             every { appLanguageOptionFlow } returns flowOf("EN")
         }
-        val runtimeManager = mockk<com.kosmos.app.runtime.gemma.GemmaRuntimeManager>(relaxed = true) {
+        val runtimeManager = mockk<GemmaRuntimeManager>(relaxed = true) {
             every { loadState } returns kotlinx.coroutines.flow.MutableStateFlow(
-                com.kosmos.app.domain.modelrunner.ModelLoadState.NotFound("/m")
+                ModelLoadState.NotFound("/m")
             )
         }
-        val speechOutput = mockk<com.kosmos.app.platform.speech.SpeechOutput>(relaxed = true) {
+        val speechOutput = mockk<SpeechOutput>(relaxed = true) {
             every { voiceStatus } returns kotlinx.coroutines.flow.MutableStateFlow(
-                com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.READY
+                SpeechOutput.VoiceStatus.READY
             )
         }
         val settingsVm = SettingsViewModel(

@@ -21,6 +21,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.shadows.ShadowTextToSpeech
 import java.util.Locale
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.common.CurrentLanguage
 
 /**
  * [SpeechOutputTest]
@@ -85,7 +87,7 @@ class SpeechOutputTest {
         val enOutput = SpeechOutput(
             ApplicationProvider.getApplicationContext(),
             settings,
-            com.kosmos.app.core.common.CurrentLanguage.fixed(com.kosmos.app.core.common.AppLanguage.EN)
+            CurrentLanguage.fixed(AppLanguage.EN)
         )
         val enVoice = Voice("en-test", Locale.US, Voice.QUALITY_HIGH, Voice.LATENCY_NORMAL, false, emptySet())
         ShadowTextToSpeech.addVoice(enVoice)

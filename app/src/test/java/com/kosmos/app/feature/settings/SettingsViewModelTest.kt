@@ -13,6 +13,8 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import com.kosmos.app.platform.speech.SpeechOutput
+import com.kosmos.app.work.BriefingNotificationScheduler
 
 /**
  * [SettingsViewModelTest]
@@ -32,12 +34,12 @@ class SettingsViewModelTest {
     }
     private val runtimeManager: GemmaRuntimeManager = mockk(relaxed = true)
     private val modelRunner: ModelRunner = mockk(relaxed = true)
-    private val briefingScheduler: com.kosmos.app.work.BriefingNotificationScheduler =
+    private val briefingScheduler: BriefingNotificationScheduler =
         mockk(relaxed = true)
 
-    private val speechOutput: com.kosmos.app.platform.speech.SpeechOutput = mockk(relaxed = true) {
+    private val speechOutput: SpeechOutput = mockk(relaxed = true) {
         io.mockk.every { voiceStatus } returns kotlinx.coroutines.flow.MutableStateFlow(
-            com.kosmos.app.platform.speech.SpeechOutput.VoiceStatus.UNKNOWN
+            SpeechOutput.VoiceStatus.UNKNOWN
         )
     }
 
@@ -134,7 +136,7 @@ class SettingsViewModelTest {
     @Test
     fun `엔진 목록을 읽어 노출한다`() = runTest {
         io.mockk.every { speechOutput.availableEngines() } returns listOf(
-            com.kosmos.app.platform.speech.SpeechOutput.Engine("com.google.android.tts", "Google 음성 인식 및 합성")
+            SpeechOutput.Engine("com.google.android.tts", "Google 음성 인식 및 합성")
         )
         val viewModel = viewModel()
 

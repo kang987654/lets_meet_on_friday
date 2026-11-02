@@ -5,6 +5,7 @@ import com.google.ai.edge.litertlm.Conversation
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelToolCall
+import com.kosmos.app.BuildConfig
 
 /**
  * [RuntimeDiagnostics]
@@ -30,7 +31,7 @@ internal object RuntimeDiagnostics {
      * [WHY] send 경계에서만 읽는다 — 스트리밍 중 네이티브 getTokenCount 호출은 생성과 경합한다.
      */
     fun logKvUsage(stage: String, conversation: Conversation) {
-        if (!com.kosmos.app.BuildConfig.DEBUG) return
+        if (!BuildConfig.DEBUG) return
         val tokens = runCatching { conversation.getTokenCount() }.getOrNull() ?: return
         if (tokens > Constants.ENGINE_MAX_TOKENS) {
             Log.w(TAG, "KV 용량 초과 상태로 계속 진행: $stage tokens=$tokens > engine=${Constants.ENGINE_MAX_TOKENS}")
@@ -45,7 +46,7 @@ internal object RuntimeDiagnostics {
      * 재설정 판정 시점에 눈에 보이게 남긴다.
      */
     fun warnIfOverCeiling(tokens: Int) {
-        if (com.kosmos.app.BuildConfig.DEBUG && tokens > Constants.PREFILL_CEILING_TOKENS) {
+        if (BuildConfig.DEBUG && tokens > Constants.PREFILL_CEILING_TOKENS) {
             Log.w(
                 TAG,
                 "KV 천장 초과: tokens=$tokens > ceiling=${Constants.PREFILL_CEILING_TOKENS} " +
@@ -77,7 +78,7 @@ internal object RuntimeDiagnostics {
      */
     @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
     fun logConversationCreated(prompt: ChatPrompt, created: Conversation) {
-        if (!com.kosmos.app.BuildConfig.DEBUG) return
+        if (!BuildConfig.DEBUG) return
         Log.d(
             TAG,
             "conversation created: tools=${prompt.enabledTools}, " +

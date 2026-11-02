@@ -9,6 +9,8 @@ import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.InputType
 import java.util.UUID
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.domain.model.MessageResult
 
 /**
  * [AssistantMessageWriter]
@@ -41,7 +43,7 @@ class AssistantMessageWriter(
         thinkingProcess: String? = null,
         episodeId: String? = null,
         recallEpisodeIds: List<String> = emptyList(),
-        result: com.kosmos.app.domain.model.MessageResult? = null,
+        result: MessageResult? = null,
         now: Long = System.currentTimeMillis()
     ): AppResult<Unit> = conversationRepository.save(
         ChatMessage(
@@ -68,7 +70,7 @@ class AssistantMessageWriter(
         sessionId: String,
         auditDetail: String,
         error: AppError? = null,
-        language: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+        language: AppLanguage = AppLanguage.KO
     ): AgentResult.Error {
         auditTrailService.logError(sessionId, auditDetail)
         val shown = error ?: AppError.ModelInferenceError(auditDetail)

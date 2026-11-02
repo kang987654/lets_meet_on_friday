@@ -17,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.kosmos.app.core.common.AppError
 
 /**
  * [GenerateBriefingUseCaseTest]
@@ -133,7 +134,7 @@ class GenerateBriefingUseCaseTest {
     @Test
     fun `생성 실패는 그대로 전파된다`() = runBlocking {
         coEvery { modelRunner.generate(any(), any()) } returns
-            AppResult.Failure(com.kosmos.app.core.common.AppError.ModelInferenceError("x"))
+            AppResult.Failure(AppError.ModelInferenceError("x"))
 
         val result = useCase()(materials())
 

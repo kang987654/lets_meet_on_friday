@@ -1,6 +1,7 @@
 package com.kosmos.app.feature.memory
 
 import java.io.File
+import com.kosmos.app.domain.memory.TaskCounts
 
 enum class MemoryFilterType {
     TASK,
@@ -48,7 +49,7 @@ data class MemoryUiState(
     // 첫 진입 시 탭이 모두 비활성처럼 보였다. 기본 탭을 KNOWLEDGE로 고정한다.
     val selectedFilter: MemoryFilterType = MemoryFilterType.KNOWLEDGE,
     /** 할 일 통계(전체 기준). 로드 전·실패 시 null — 화면은 통계 줄을 숨긴다. */
-    val taskCounts: com.kosmos.app.domain.memory.TaskCounts? = null,
+    val taskCounts: TaskCounts? = null,
     val backup: BackupState = BackupState.Idle,
     // [WHY] prd.md F8 정책 — 백업 파일에 개인정보가 포함됨을 UI에서 명시해야 한다.
     // v1은 암호화를 의도적으로 넣지 않았으므로 이 경고가 유일한 보호막이다.

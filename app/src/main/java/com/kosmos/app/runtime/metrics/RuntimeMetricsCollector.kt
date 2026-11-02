@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.kosmos.app.platform.device.DeviceResourceProvider
 
 /**
  * 채팅 상단에 상시 표시되는 기기 상태입니다.
@@ -32,7 +33,7 @@ data class DeviceStatus(
 @Singleton
 class RuntimeMetricsCollector @Inject constructor(
     private val temperatureProvider: TemperatureProvider,
-    private val deviceResourceProvider: com.kosmos.app.platform.device.DeviceResourceProvider,
+    private val deviceResourceProvider: DeviceResourceProvider,
     private val auditTrailService: AuditTrailService
 ) {
     // [WHY] LLM 디스패처와 UI 스레드에서 함께 증감되므로 원자적 카운터를 사용한다.

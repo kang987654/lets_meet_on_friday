@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.config.AppLanguageHolder
 
 /**
  * [ThemeViewModel]
@@ -27,29 +29,29 @@ import javax.inject.Inject
 @HiltViewModel
 class ThemeViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    private val appLanguageHolder: AppLanguageHolder? = null
 ) : ViewModel() {
 
     constructor(settingsDataStore: SettingsDataStore) : this(settingsDataStore, null)
 
-    private val fallbackLanguageOption = kotlinx.coroutines.flow.MutableStateFlow(com.kosmos.app.core.common.AppLanguage.Option.SYSTEM)
-    private val fallbackLanguage = kotlinx.coroutines.flow.MutableStateFlow(com.kosmos.app.core.common.AppLanguage.KO)
+    private val fallbackLanguageOption = kotlinx.coroutines.flow.MutableStateFlow(AppLanguage.Option.SYSTEM)
+    private val fallbackLanguage = kotlinx.coroutines.flow.MutableStateFlow(AppLanguage.KO)
 
-    val languageOption: StateFlow<com.kosmos.app.core.common.AppLanguage.Option> =
+    val languageOption: StateFlow<AppLanguage.Option> =
         appLanguageHolder?.optionFlow ?: fallbackLanguageOption
 
-    val appLanguage: StateFlow<com.kosmos.app.core.common.AppLanguage> =
+    val appLanguage: StateFlow<AppLanguage> =
         appLanguageHolder?.languageFlow ?: fallbackLanguage
 
-    fun setLanguageOption(option: com.kosmos.app.core.common.AppLanguage.Option) {
+    fun setLanguageOption(option: AppLanguage.Option) {
         if (appLanguageHolder != null) {
             appLanguageHolder.setOption(option)
         } else {
             fallbackLanguageOption.value = option
             fallbackLanguage.value = when (option) {
-                com.kosmos.app.core.common.AppLanguage.Option.KO -> com.kosmos.app.core.common.AppLanguage.KO
-                com.kosmos.app.core.common.AppLanguage.Option.EN -> com.kosmos.app.core.common.AppLanguage.EN
-                com.kosmos.app.core.common.AppLanguage.Option.SYSTEM -> com.kosmos.app.core.common.AppLanguage.fromLocale(java.util.Locale.getDefault())
+                AppLanguage.Option.KO -> AppLanguage.KO
+                AppLanguage.Option.EN -> AppLanguage.EN
+                AppLanguage.Option.SYSTEM -> AppLanguage.fromLocale(java.util.Locale.getDefault())
             }
             viewModelScope.launch { settingsDataStore.saveAppLanguageOption(option.key) }
         }

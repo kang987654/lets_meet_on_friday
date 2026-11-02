@@ -28,6 +28,10 @@ import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.SplashStyle
 import com.kosmos.app.ui.theme.currentAppLanguage
+import com.kosmos.app.core.common.AppError
+import com.kosmos.app.core.mapper.ErrorMessages
+import com.kosmos.app.ui.component.KosmosButton
+import com.kosmos.app.ui.component.rememberReducedMotion
 
 @Composable
 fun SplashScreen(
@@ -44,7 +48,7 @@ fun SplashScreen(
 ) {
     val loadState by viewModel.loadState.collectAsStateWithLifecycle()
     val handoff = LocalSplashHandoff.current
-    val reduced = com.kosmos.app.ui.component.rememberReducedMotion()
+    val reduced = rememberReducedMotion()
     // [WHY] 앱을 열 때 이미 Ready(잠깐 나갔다 온 경우)면 장면 없이 바로 채팅(사용자 결정) — 매번 2초 넘게 기다리지 않게.
     val readyAtStart = remember { viewModel.loadState.value is ModelLoadState.Ready }
     val loading = loadState !is ModelLoadState.Error && loadState !is ModelLoadState.NotFound
@@ -82,7 +86,7 @@ fun SplashScreen(
         
         if (loadState is ModelLoadState.Error || loadState is ModelLoadState.NotFound) {
             val errorMessage = when (val state = loadState) {
-                is ModelLoadState.Error -> com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error, lang)
+                is ModelLoadState.Error -> ErrorMessages.userMessage(state.error, lang)
                 is ModelLoadState.NotFound -> stringResource(R.string.splash_model_needed_body)
                 else -> ""
             }
@@ -99,12 +103,12 @@ fun SplashScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 // [WHY] 로드 실패(파일 손상 추정)도 해법이 "다시 내려받기"라 같은 버튼을 준다.
                 val canRedownload = loadState is ModelLoadState.NotFound ||
-                    (loadState as? ModelLoadState.Error)?.error is com.kosmos.app.core.common.AppError.ModelLoadFailed
+                    (loadState as? ModelLoadState.Error)?.error is AppError.ModelLoadFailed
                 if (canRedownload) {
-                    com.kosmos.app.ui.component.KosmosButton(stringResource(R.string.splash_download_model), onNavigateToModelManagement, Modifier.fillMaxWidth(), accent = true)
+                    KosmosButton(stringResource(R.string.splash_download_model), onNavigateToModelManagement, Modifier.fillMaxWidth(), accent = true)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
-                com.kosmos.app.ui.component.KosmosButton(stringResource(R.string.common_retry), { viewModel.retry() }, Modifier.fillMaxWidth())
+                KosmosButton(stringResource(R.string.common_retry), { viewModel.retry() }, Modifier.fillMaxWidth())
             }
         } else {
             // [WHY] 장면만 있으면 "빈 화면"으로 오인된다(2026-08-15 실기기 문의) — 워드마크와 지금 무엇을 하는 중인지를 함께 보여

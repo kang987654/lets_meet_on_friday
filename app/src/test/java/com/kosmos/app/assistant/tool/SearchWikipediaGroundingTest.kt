@@ -11,6 +11,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.core.common.AppError
+import com.kosmos.app.domain.usecase.QueryWikipediaUseCase
 
 /**
  * [SearchWikipediaGroundingTest]
@@ -24,7 +26,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class SearchWikipediaGroundingTest {
 
-    private val useCase = mockk<com.kosmos.app.domain.usecase.QueryWikipediaUseCase>()
+    private val useCase = mockk<QueryWikipediaUseCase>()
     private val executor = SearchWikipediaToolExecutor(useCase)
 
     private fun args(json: String) = ToolArguments(JSONObject(json))
@@ -48,7 +50,7 @@ class SearchWikipediaGroundingTest {
     @Test
     fun `실패 결과에는 지침을 붙이지 않는다`() = runBlocking {
         coEvery { useCase(any(), any()) } returns AppResult.Failure(
-            com.kosmos.app.core.common.AppError.NetworkUnavailable("offline")
+            AppError.NetworkUnavailable("offline")
         )
 
         val result = executor.execute(args("""{"topic":"에스파","lang":"ko"}"""), "s1")

@@ -14,6 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.ZoneOffset
+import com.kosmos.app.core.common.AppLanguage
 
 /**
  * [WidgetSnapshotTest]
@@ -126,12 +127,12 @@ class WidgetSnapshotTest {
             pendingTasks = emptyList(),
             nowMs = 1_787_875_200_000L, // 2026-08-28T00:00:00Z
             zone = utc,
-            lang = com.kosmos.app.core.common.AppLanguage.EN
+            lang = AppLanguage.EN
         )
 
         assertEquals("Friday, Aug 28", snapshot.dateLabel)
         assertEquals(WidgetEventLine("All day", "All-day event"), snapshot.eventLines[0])
         assertEquals(WidgetEventLine("9:00 AM", "Morning sync"), snapshot.eventLines[1])
-        assertEquals(com.kosmos.app.core.common.AppLanguage.EN, snapshot.lang)
+        assertEquals(AppLanguage.EN, snapshot.lang)
     }
 }

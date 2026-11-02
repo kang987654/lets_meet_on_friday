@@ -12,19 +12,22 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.platform.speech.SpeechOutput
+import com.kosmos.app.work.BriefingNotificationScheduler
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val runtimeManager: GemmaRuntimeManager,
-    private val modelRunner: com.kosmos.app.domain.modelrunner.ModelRunner,
-    private val briefingScheduler: com.kosmos.app.work.BriefingNotificationScheduler,
-    private val speechOutput: com.kosmos.app.platform.speech.SpeechOutput
+    private val modelRunner: ModelRunner,
+    private val briefingScheduler: BriefingNotificationScheduler,
+    private val speechOutput: SpeechOutput
 ) : ViewModel() {
 
-    private val _ttsEngines = kotlinx.coroutines.flow.MutableStateFlow<List<com.kosmos.app.platform.speech.SpeechOutput.Engine>>(emptyList())
+    private val _ttsEngines = kotlinx.coroutines.flow.MutableStateFlow<List<SpeechOutput.Engine>>(emptyList())
     /** 설치된 TTS 엔진 — 화면 진입 시 [loadTtsEngines] 가 채운다. */
-    val ttsEngines: StateFlow<List<com.kosmos.app.platform.speech.SpeechOutput.Engine>> = _ttsEngines
+    val ttsEngines: StateFlow<List<SpeechOutput.Engine>> = _ttsEngines
 
     // [WHY] combine 은 vararg 없는 오버로드가 5개까지다 — 0.20.0 에서 상한에 닿았고, 여섯째
     // 설정(자동 추출, C′2)부터는 **모델·응답 묶음 / 비서 동작 묶음** 두 그룹의 중첩 combine 으로

@@ -28,6 +28,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.testing.InMemoryKosmosDbRule
 
 /**
  * [DataResetRepositoryTest]
@@ -37,7 +38,7 @@ import org.robolectric.RobolectricTestRunner
 class DataResetRepositoryTest {
 
     @get:org.junit.Rule
-    val dbRule = com.kosmos.app.testing.InMemoryKosmosDbRule()
+    val dbRule = InMemoryKosmosDbRule()
 
     private lateinit var db: KosmosDatabase
 

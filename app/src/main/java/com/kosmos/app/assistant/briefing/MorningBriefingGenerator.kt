@@ -33,6 +33,11 @@ import java.time.ZoneId
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kosmos.app.assistant.orchestrator.AssistantMessageWriter
+import com.kosmos.app.core.common.CurrentLanguage
+import com.kosmos.app.domain.util.IsoDateTimeParser
+import com.kosmos.app.work.BriefingNotificationScheduler
+import com.kosmos.app.work.briefingTriggerMs
 
 /**
  * [MorningBriefingGenerator]
@@ -62,8 +67,8 @@ class MorningBriefingGenerator @Inject constructor(
     private val auditTrailService: AuditTrailService,
     private val metricsCollector: RuntimeMetricsCollector,
     private val modelRunner: ModelRunner,
-    private val notificationScheduler: com.kosmos.app.work.BriefingNotificationScheduler,
-    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
+    private val notificationScheduler: BriefingNotificationScheduler,
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) {
 
     /**
@@ -84,7 +89,7 @@ class MorningBriefingGenerator @Inject constructor(
 
     private val started = java.util.concurrent.atomic.AtomicBoolean(false)
     private val messageWriter =
-        com.kosmos.app.assistant.orchestrator.AssistantMessageWriter(conversationRepository, auditTrailService)
+        AssistantMessageWriter(conversationRepository, auditTrailService)
 
     /**
      * Ready 편승 구독을 시작합니다 — KosmosApp.onCreate 가 부른다 (멱등).
@@ -178,7 +183,7 @@ class MorningBriefingGenerator @Inject constructor(
 
         val lang = currentLanguage.current
         // [WHY] 모델 입력("오늘은 9월 30일 수요일입니다.")이라 출력 바이트가 고정돼야 한다 — 표기 단일 출처.
-        val dateLabel = com.kosmos.app.domain.util.IsoDateTimeParser.longDateKorean(now, zone, lang)
+        val dateLabel = IsoDateTimeParser.longDateKorean(now, zone, lang)
 
         return GenerateBriefingUseCase.BriefingMaterials(
             dateLabel = dateLabel,
@@ -217,5 +222,5 @@ internal fun shouldGenerateBriefing(
     if (!enabled) return false
     if (todayCount > 0) return false
     val today = Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
-    return nowMs >= com.kosmos.app.work.briefingTriggerMs(today, briefingMinutes, zone)
+    return nowMs >= briefingTriggerMs(today, briefingMinutes, zone)
 }

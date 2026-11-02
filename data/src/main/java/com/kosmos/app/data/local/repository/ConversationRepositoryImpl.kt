@@ -8,6 +8,7 @@ import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.InputType
 import javax.inject.Inject
+import com.kosmos.app.domain.model.MessageResult
 
 class ConversationRepositoryImpl @Inject constructor(
     private val conversationDao: ConversationDao
@@ -86,8 +87,8 @@ fun ConversationEntity.toDomain(): ChatMessage {
             ?.split(",")?.mapNotNull { it.trim().ifEmpty { null } }?.distinct() ?: emptyList(),
         // [WHY] 모르는 종류 이름(이후 판의 값을 옛 앱이 읽는 경우)은 결과 없음으로 — 글은 그대로 보인다.
         result = this.resultKind
-            ?.let { kind -> com.kosmos.app.domain.model.MessageResult.Kind.entries.firstOrNull { it.name == kind } }
-            ?.let { kind -> this.resultRef?.let { com.kosmos.app.domain.model.MessageResult(kind, it, this.resultMeta) } }
+            ?.let { kind -> MessageResult.Kind.entries.firstOrNull { it.name == kind } }
+            ?.let { kind -> this.resultRef?.let { MessageResult(kind, it, this.resultMeta) } }
     )
 }
 

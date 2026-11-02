@@ -43,6 +43,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.kosmos.app.di.LLMDispatcher
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
+import com.kosmos.app.BuildConfig
 
 /**
  * 엔진 설정을 조립합니다. 챗·비전은 넘겨받은 백엔드를 쓰고 **오디오는 CPU 고정**입니다.
@@ -532,7 +533,7 @@ class GemmaModelRunner @Inject constructor(
         if (engine == null) {
             // [WHY] 네이티브 로그는 기본 억제라 제약 디코딩 문법 실패 같은 결정적 진단이 남지 않는다 — 디버그 빌드만 INFO 로
             // 연다(릴리스는 토큰 단위 INFO 가 필요한 로그를 밀어낸다).
-            val severity = if (com.kosmos.app.BuildConfig.DEBUG) {
+            val severity = if (BuildConfig.DEBUG) {
                 com.google.ai.edge.litertlm.LogSeverity.INFO
             } else {
                 com.google.ai.edge.litertlm.LogSeverity.ERROR

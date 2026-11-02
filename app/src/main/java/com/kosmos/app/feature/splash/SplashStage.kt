@@ -52,6 +52,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 import kotlin.math.min
+import com.kosmos.app.R
 
 /** 장면을 멈춰 그릴 때(애니메이션 제거·카탈로그)의 장면 시각 — 다 모이고 별까지 나온 뒤. */
 internal const val STATIC_SCENE_MS = 3000L
@@ -130,7 +131,7 @@ internal fun SplashStage(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = androidx.compose.ui.res.stringResource(com.kosmos.app.R.string.splash_tagline),
+                text = androidx.compose.ui.res.stringResource(R.string.splash_tagline),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textMuted,
                 modifier = Modifier.graphicsLayer { alpha = clamp01((time() - 900) / 400f) * exitFade() }

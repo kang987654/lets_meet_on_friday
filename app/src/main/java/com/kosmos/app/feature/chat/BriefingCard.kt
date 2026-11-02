@@ -27,6 +27,8 @@ import com.halilibo.richtext.ui.material3.RichText
 import com.kosmos.app.R
 import com.kosmos.app.ui.component.kosmosSurface
 import com.kosmos.app.ui.theme.KosmosTheme
+import com.kosmos.app.ui.component.KosmosIcon
+import com.kosmos.app.ui.theme.KosmosShapes
 
 /**
  * 아침 브리핑 카드 (시안 A′-1: "브리핑이 비서 카드로 대화에 도착").
@@ -50,7 +52,7 @@ fun BriefingCard(
             .kosmosSurface(
                 backgroundColor = KosmosTheme.colors.surface,
                 borderColor = KosmosTheme.colors.border,
-                shape = com.kosmos.app.ui.theme.KosmosShapes.md
+                shape = KosmosShapes.md
             )
             .combinedClickable(onClick = {}, onLongClick = onLongPress)
             .padding(horizontal = 16.dp, vertical = 14.dp)
@@ -59,7 +61,7 @@ fun BriefingCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            com.kosmos.app.ui.component.KosmosIcon(com.kosmos.app.R.drawable.ic_ph_sun, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText)
+            KosmosIcon(R.drawable.ic_ph_sun, contentDescription = null, size = 16.dp, tint = KosmosTheme.colors.brandText)
             // [WHY] 결과 카드와 같은 종류 줄(label, brandText) — 자간 넓힌 굵은 작은 글자(eyebrow)는 DESIGN 금지(0.38.3 점검 P2).
             Text(
                 text = stringResource(R.string.chat_briefing_title),

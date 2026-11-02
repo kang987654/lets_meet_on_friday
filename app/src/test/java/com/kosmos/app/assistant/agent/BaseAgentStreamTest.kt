@@ -32,6 +32,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.assistant.orchestrator.AssistantMessageWriter
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.mapper.ErrorMessages
+import com.kosmos.app.domain.model.MessageResult
+import com.kosmos.app.testing.ScriptedModelRunner
 
 /**
  * [BaseAgentStreamTest]
@@ -46,7 +51,7 @@ import org.robolectric.RobolectricTestRunner
  * 다중 턴 시나리오를 만들 수 있는 가장 좁은 경로다.
  */
 /** 턴마다 다른 [ModelTurn] 을 주고, 텍스트는 3글자씩 쪼개 emit 하는 공용 대역(설정만 옮김). */
-private typealias ChunkedModelRunner = com.kosmos.app.testing.ScriptedModelRunner
+private typealias ChunkedModelRunner = ScriptedModelRunner
 
 @RunWith(RobolectricTestRunner::class)
 class BaseAgentStreamTest {
@@ -443,14 +448,14 @@ class BaseAgentStreamTest {
         val repo: ConversationRepository = mockk {
             coEvery { save(any()) } answers { saved += firstArg<ChatMessage>(); AppResult.Success(Unit) }
         }
-        val writer = com.kosmos.app.assistant.orchestrator.AssistantMessageWriter(repo, mockk(relaxed = true))
+        val writer = AssistantMessageWriter(repo, mockk(relaxed = true))
         val err = AppError.ModelInferenceError("boom")
 
         writer.saveError("s1", "boom", err)
-        writer.saveError("s1", "boom", err, com.kosmos.app.core.common.AppLanguage.EN)
+        writer.saveError("s1", "boom", err, AppLanguage.EN)
 
-        assertEquals(com.kosmos.app.core.mapper.ErrorMessages.userMessage(err, com.kosmos.app.core.common.AppLanguage.KO), saved[0].content)
-        assertEquals(com.kosmos.app.core.mapper.ErrorMessages.userMessage(err, com.kosmos.app.core.common.AppLanguage.EN), saved[1].content)
+        assertEquals(ErrorMessages.userMessage(err, AppLanguage.KO), saved[0].content)
+        assertEquals(ErrorMessages.userMessage(err, AppLanguage.EN), saved[1].content)
     }
 
     // --- 스트리밍 표시 ---
@@ -505,8 +510,8 @@ class BaseAgentStreamTest {
             )
         )
 
-        val expected = com.kosmos.app.domain.model.MessageResult(
-            com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL, "k1", """{"conflictCount":1}"""
+        val expected = MessageResult(
+            MessageResult.Kind.MEMORY_RECALL, "k1", """{"conflictCount":1}"""
         )
         assertEquals(expected, (harness.result as AgentResult.Text).result)
         assertEquals(expected, harness.savedMessages.last { it.role == ChatMessage.Role.ASSISTANT }.result)

@@ -19,6 +19,9 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import com.kosmos.app.domain.memory.ConversationRepository
+import com.kosmos.app.domain.model.ChatMessage
+import com.kosmos.app.domain.model.InputType
 
 /**
  * [SearchMemoryToolExecutorTest]
@@ -266,13 +269,13 @@ class SearchMemoryToolExecutorTest {
     @Test
     fun `지금 대화에서 방금 말한 값이 결과 맨 위에 실린다(0·38·8 M2)`() = runBlocking {
         val now = System.currentTimeMillis()
-        fun msg(role: com.kosmos.app.domain.model.ChatMessage.Role, text: String, ago: Long) = com.kosmos.app.domain.model.ChatMessage(
-            id = text, sessionId = "s1", role = role, content = text, inputType = com.kosmos.app.domain.model.InputType.TEXT, createdAt = now - ago
+        fun msg(role: ChatMessage.Role, text: String, ago: Long) = ChatMessage(
+            id = text, sessionId = "s1", role = role, content = text, inputType = InputType.TEXT, createdAt = now - ago
         )
-        val conversations: com.kosmos.app.domain.memory.ConversationRepository = mockk {
+        val conversations: ConversationRepository = mockk {
             coEvery { getRecentBySession("s1", any()) } returns AppResult.Success(listOf(
-                msg(com.kosmos.app.domain.model.ChatMessage.Role.USER, "회의실 어디라고 했지?", 1_000),
-                msg(com.kosmos.app.domain.model.ChatMessage.Role.USER, "다음 주 금요일 회의실은 5층 C룸이야", 60_000)
+                msg(ChatMessage.Role.USER, "회의실 어디라고 했지?", 1_000),
+                msg(ChatMessage.Role.USER, "다음 주 금요일 회의실은 5층 C룸이야", 60_000)
             ))
         }
         coEvery { episodes.getEpisodes(any(), any()) } returns AppResult.Success(
@@ -289,11 +292,11 @@ class SearchMemoryToolExecutorTest {
     @Test
     fun `방금 말한 값이 있으면 메모를 믿으라는 안내 대신 방금 값을 믿으라는 안내(0·39·3 M4c)`() = runBlocking {
         val now = System.currentTimeMillis()
-        fun msg(text: String, ago: Long) = com.kosmos.app.domain.model.ChatMessage(
-            id = text, sessionId = "s1", role = com.kosmos.app.domain.model.ChatMessage.Role.USER, content = text,
-            inputType = com.kosmos.app.domain.model.InputType.TEXT, createdAt = now - ago
+        fun msg(text: String, ago: Long) = ChatMessage(
+            id = text, sessionId = "s1", role = ChatMessage.Role.USER, content = text,
+            inputType = InputType.TEXT, createdAt = now - ago
         )
-        val conversations: com.kosmos.app.domain.memory.ConversationRepository = mockk {
+        val conversations: ConversationRepository = mockk {
             coEvery { getRecentBySession("s1", any()) } returns AppResult.Success(listOf(
                 msg("자전거 비밀번호 뭐였지?", 1_000), msg("내 자전거 비밀번호 4821이야 기억해줘", 60_000)
             ))

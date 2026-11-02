@@ -30,6 +30,10 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import com.kosmos.app.di.ModelModule
+import com.kosmos.app.domain.modelrunner.ModelLoadManager
+import com.kosmos.app.domain.tool.ImageProcessor
+import com.kosmos.app.domain.tool.Tokenizer
 
 /**
  * [DocumentViewerLaunchE2ETest]
@@ -40,7 +44,7 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(application = HiltTestApplication::class)
-@UninstallModules(com.kosmos.app.di.ModelModule::class)
+@UninstallModules(ModelModule::class)
 class DocumentViewerLaunchE2ETest {
 
     @get:Rule(order = 0)
@@ -56,17 +60,17 @@ class DocumentViewerLaunchE2ETest {
     val modelRunner: ModelRunner = mockk(relaxed = true)
 
     @BindValue
-    val tokenizer: com.kosmos.app.domain.tool.Tokenizer = object : com.kosmos.app.domain.tool.Tokenizer {
+    val tokenizer: Tokenizer = object : Tokenizer {
         override fun sizeInTokens(text: String): Int = text.length / 4
     }
 
     @BindValue
-    val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor = object : com.kosmos.app.domain.tool.ImageProcessor {
+    val imageProcessor: ImageProcessor = object : ImageProcessor {
         override suspend fun processImage(rawBytes: ByteArray): AppResult<ByteArray> = AppResult.Success(rawBytes)
     }
 
     @BindValue
-    val modelLoadManager: com.kosmos.app.domain.modelrunner.ModelLoadManager = object : com.kosmos.app.domain.modelrunner.ModelLoadManager {
+    val modelLoadManager: ModelLoadManager = object : ModelLoadManager {
         override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(ModelLoadState.Ready(ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
         override fun checkModelFile() {}
         override fun setInitializing() {}

@@ -17,6 +17,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import com.kosmos.app.data.local.db.dao.EpisodeDao
+import com.kosmos.app.data.local.db.dao.ProfileSuggestionDao
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -57,10 +59,10 @@ object DatabaseModule {
     fun provideKnowledgeDao(database: KosmosDatabase): KnowledgeDao = database.knowledgeDao()
 
     @Provides
-    fun provideEpisodeDao(database: KosmosDatabase): com.kosmos.app.data.local.db.dao.EpisodeDao =
+    fun provideEpisodeDao(database: KosmosDatabase): EpisodeDao =
         database.episodeDao()
 
     @Provides
-    fun provideProfileSuggestionDao(database: KosmosDatabase): com.kosmos.app.data.local.db.dao.ProfileSuggestionDao =
+    fun provideProfileSuggestionDao(database: KosmosDatabase): ProfileSuggestionDao =
         database.profileSuggestionDao()
 }

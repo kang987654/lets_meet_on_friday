@@ -25,6 +25,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.ZoneId
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.config.AppLanguageHolder
 
 /**
  * 알림 수정 시트(0.38.2 M4)의 동작 — 할 일·알람·대화 한 줄(D8)·다음 턴 대화 재구성이 함께 바뀌는지.
@@ -108,8 +110,8 @@ class ReminderEditorTest {
     @Test
     fun `영어 모드에서는 미루기·시간 바꾸기·취소 결과 한 줄이 영어로 저장된다`() = runTest {
         stub()
-        val langHolder = mockk<com.kosmos.app.core.config.AppLanguageHolder> {
-            io.mockk.every { current } returns com.kosmos.app.core.common.AppLanguage.EN
+        val langHolder = mockk<AppLanguageHolder> {
+            io.mockk.every { current } returns AppLanguage.EN
         }
         val enEditor = ReminderEditor(tasks, alarms, widget, audit, conversations, sessions, runner, langHolder)
 

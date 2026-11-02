@@ -14,6 +14,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.LocalDate
 import java.time.ZoneId
+import com.kosmos.app.core.common.AppLanguage
 
 /**
  * 공통 승인 시트(0.38.2 M5)가 보일 내용 — 종류별 대상·언제·버튼 글자, ISO 원문을 노출하지 않는다(§4-7). 날짜·시간대 고정(§2-④).
@@ -75,7 +76,7 @@ class ApprovalSheetContentTest {
     @Test
     @Config(qualifiers = "en")
     fun `영어 모드 — 일정·알림·메모·프로필 시트 문구가 영어로 조립된다`() {
-        val en = com.kosmos.app.core.common.AppLanguage.EN
+        val en = AppLanguage.EN
         val schedule = ApprovalSheetContent.of(
             context,
             request(ApprovalPreview(ApprovalPreview.Kind.SCHEDULE, "Team Meeting", "2026-10-15T15:00:00", "2026-10-15T16:00:00", "Room 301")),

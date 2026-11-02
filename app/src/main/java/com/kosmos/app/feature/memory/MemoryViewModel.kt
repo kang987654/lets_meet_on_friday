@@ -25,6 +25,11 @@ import com.kosmos.app.core.mapper.ErrorMessages
 import com.kosmos.app.platform.file.BackupFileWriter
 import com.kosmos.app.ui.paging.DefaultPagingSource
 import com.kosmos.app.ui.paging.unwrapForPaging
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.common.CurrentLanguage
+import com.kosmos.app.domain.util.IsoDateTimeParser
+import com.kosmos.app.platform.alarm.ReminderAlarmScheduler
+import com.kosmos.app.widget.WidgetRefresher
 
 /**
  * [MemoryViewModel]
@@ -47,12 +52,12 @@ class MemoryViewModel @Inject constructor(
     private val exportMemoryUseCase: ExportMemoryUseCase,
     private val importMemoryUseCase: ImportMemoryUseCase,
     private val backupFileWriter: BackupFileWriter,
-    private val reminderAlarmScheduler: com.kosmos.app.platform.alarm.ReminderAlarmScheduler,
-    private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
-    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
+    private val reminderAlarmScheduler: ReminderAlarmScheduler,
+    private val widgetRefresher: WidgetRefresher,
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ViewModel() {
 
-    private val currentLang: com.kosmos.app.core.common.AppLanguage
+    private val currentLang: AppLanguage
         get() = currentLanguage.current
 
 
@@ -186,7 +191,7 @@ class MemoryViewModel @Inject constructor(
     private suspend fun rearmReminder(task: TaskItem, now: Long) {
         val triggerAtMs = task.remindAtIso
             ?.takeIf { task.remindedAtMs == null && task.cancelledAt == null }
-            ?.let { com.kosmos.app.domain.util.IsoDateTimeParser.toEpochMillis(it) } ?: return
+            ?.let { IsoDateTimeParser.toEpochMillis(it) } ?: return
         if (triggerAtMs > now) reminderAlarmScheduler.schedule(task.id, triggerAtMs) else taskRepository.markReminded(task.id, now)
     }
 
@@ -250,7 +255,7 @@ class MemoryViewModel @Inject constructor(
     }
 
     /** 지운 메모를 되돌립니다 — 같은 항목을 다시 저장(0.38.3 M2). */
-    fun undeleteKnowledge(note: com.kosmos.app.domain.model.KnowledgeNote, onDone: () -> Unit = {}) {
+    fun undeleteKnowledge(note: KnowledgeNote, onDone: () -> Unit = {}) {
         viewModelScope.launch {
             when (val result = knowledgeRepository.save(note)) {
                 is AppResult.Success -> onDone()

@@ -12,6 +12,11 @@ import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
+import com.kosmos.app.core.common.AppError
+import com.kosmos.app.domain.memory.TaskCounts
+import com.kosmos.app.domain.model.CalendarDraft
+import com.kosmos.app.domain.model.CalendarEvent
+import com.kosmos.app.domain.tool.CalendarTool
 
 /**
  * [GetTodayScheduleUseCaseTest]
@@ -36,14 +41,14 @@ class GetTodayScheduleUseCaseTest {
             AppResult.Success(emptyList())
         override suspend fun markReminded(taskId: String, remindedAtMs: Long): AppResult<Unit> =
             AppResult.Success(Unit)
-        override suspend fun getCounts(): AppResult<com.kosmos.app.domain.memory.TaskCounts> =
-            AppResult.Success(com.kosmos.app.domain.memory.TaskCounts(tasks.count { !it.isCompleted }, tasks.count { it.isCompleted }))
+        override suspend fun getCounts(): AppResult<TaskCounts> =
+            AppResult.Success(TaskCounts(tasks.count { !it.isCompleted }, tasks.count { it.isCompleted }))
     }
 
-    private val fakeCalendarTool = object : com.kosmos.app.domain.tool.CalendarTool {
-        override suspend fun readEvents(startMs: Long, endMs: Long): AppResult<List<com.kosmos.app.domain.model.CalendarEvent>> =
+    private val fakeCalendarTool = object : CalendarTool {
+        override suspend fun readEvents(startMs: Long, endMs: Long): AppResult<List<CalendarEvent>> =
             AppResult.Success(emptyList())
-        override suspend fun insert(draft: com.kosmos.app.domain.model.CalendarDraft): AppResult<Long> =
+        override suspend fun insert(draft: CalendarDraft): AppResult<Long> =
             AppResult.Success(1L)
     }
 
@@ -146,12 +151,12 @@ class GetTodayScheduleUseCaseTest {
     fun `month query asks device calendar for the whole month and marks device events`() = runBlocking {
         val utc = ZoneId.of("UTC")
         var asked: Pair<Long, Long>? = null
-        val device = object : com.kosmos.app.domain.tool.CalendarTool {
-            override suspend fun readEvents(startMs: Long, endMs: Long): AppResult<List<com.kosmos.app.domain.model.CalendarEvent>> {
+        val device = object : CalendarTool {
+            override suspend fun readEvents(startMs: Long, endMs: Long): AppResult<List<CalendarEvent>> {
                 asked = startMs to endMs
-                return AppResult.Success(listOf(com.kosmos.app.domain.model.CalendarEvent("dev", "회식", "2026-10-02T19:00:00", "2026-10-02T21:00:00")))
+                return AppResult.Success(listOf(CalendarEvent("dev", "회식", "2026-10-02T19:00:00", "2026-10-02T21:00:00")))
             }
-            override suspend fun insert(draft: com.kosmos.app.domain.model.CalendarDraft): AppResult<Long> = AppResult.Success(1L)
+            override suspend fun insert(draft: CalendarDraft): AppResult<Long> = AppResult.Success(1L)
         }
         val useCase = GetTodayScheduleUseCase(FakeTaskRepository(listOf(task("app", "2026-10-02T15:00:00"))), device)
 
@@ -160,17 +165,17 @@ class GetTodayScheduleUseCaseTest {
         assertEquals(java.time.Instant.parse("2026-10-01T00:00:00Z").toEpochMilli(), asked?.first)
         assertEquals(java.time.Instant.parse("2026-11-01T00:00:00Z").toEpochMilli() - 1, asked?.second)
         assertEquals(
-            listOf(com.kosmos.app.domain.model.CalendarEvent.Source.APP, com.kosmos.app.domain.model.CalendarEvent.Source.DEVICE),
+            listOf(CalendarEvent.Source.APP, CalendarEvent.Source.DEVICE),
             events.map { it.source }
         )
     }
 
     @Test
     fun `month query keeps device failure flag`() = runBlocking {
-        val failing = object : com.kosmos.app.domain.tool.CalendarTool {
-            override suspend fun readEvents(startMs: Long, endMs: Long): AppResult<List<com.kosmos.app.domain.model.CalendarEvent>> =
-                AppResult.Failure(com.kosmos.app.core.common.AppError.PermissionDenied("android.permission.READ_CALENDAR"))
-            override suspend fun insert(draft: com.kosmos.app.domain.model.CalendarDraft): AppResult<Long> = AppResult.Success(1L)
+        val failing = object : CalendarTool {
+            override suspend fun readEvents(startMs: Long, endMs: Long): AppResult<List<CalendarEvent>> =
+                AppResult.Failure(AppError.PermissionDenied("android.permission.READ_CALENDAR"))
+            override suspend fun insert(draft: CalendarDraft): AppResult<Long> = AppResult.Success(1L)
         }
         val useCase = GetTodayScheduleUseCase(FakeTaskRepository(emptyList()), failing)
 

@@ -26,6 +26,7 @@ import com.kosmos.app.feature.splash.SplashOverlay
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.isSpecified
 import kotlinx.coroutines.launch
+import com.kosmos.app.ui.theme.SplashStyle
 
 /**
  * 앱 셸 — 드로어 + 네비게이션 호스트 (시안 A′, M2-2).
@@ -40,7 +41,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainScreen(
     // 설정의 시작 화면 장면 — 저장값을 읽기 전에는 null.
-    splashStyle: com.kosmos.app.ui.theme.SplashStyle? = com.kosmos.app.ui.theme.SplashStyle.PLANET
+    splashStyle: SplashStyle? = SplashStyle.PLANET
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()

@@ -19,6 +19,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kosmos.app.R
 import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.theme.KosmosTheme
+import com.kosmos.app.core.common.Constants
+import com.kosmos.app.ui.component.KosmosListGroup
+import com.kosmos.app.ui.component.KosmosTopBar
+import com.kosmos.app.ui.component.SectionHeader
+import com.kosmos.app.ui.component.kosmosTextFieldColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,7 +34,7 @@ fun ModelManagementScreen(
     val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
     var customUrl by remember { mutableStateOf("") }
 
-    val defaultModelUrl = com.kosmos.app.core.common.Constants.DEFAULT_MODEL_DOWNLOAD_URL
+    val defaultModelUrl = Constants.DEFAULT_MODEL_DOWNLOAD_URL
     // 실패 후 "재시도"가 같은 대상을 다시 요청할 수 있도록 마지막 요청 URL을 기억한다.
     var lastRequestedUrl by remember { mutableStateOf(defaultModelUrl) }
 
@@ -50,7 +55,7 @@ fun ModelManagementScreen(
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
-            com.kosmos.app.ui.component.KosmosTopBar(title = stringResource(R.string.model_mgmt_title), onBack = onBack)
+            KosmosTopBar(title = stringResource(R.string.model_mgmt_title), onBack = onBack)
         }
     ) { padding ->
         Column(
@@ -82,8 +87,8 @@ fun ModelManagementScreen(
             }
 
             // [WHY] 섹션 제목·묶음·버튼을 공통 부품으로(0.38.3 M3) — URL 버튼만 손으로 만든 상자라 다른 버튼과 모양·비활성 표현이 달랐다.
-            com.kosmos.app.ui.component.SectionHeader(stringResource(R.string.model_mgmt_default_section))
-            com.kosmos.app.ui.component.KosmosListGroup {
+            SectionHeader(stringResource(R.string.model_mgmt_default_section))
+            KosmosListGroup {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Gemma 4 E4B", style = MaterialTheme.typography.titleMedium, color = KosmosTheme.colors.textPrimary)
                     Text(
@@ -96,15 +101,15 @@ fun ModelManagementScreen(
                 }
             }
 
-            com.kosmos.app.ui.component.SectionHeader(stringResource(R.string.model_mgmt_custom_url_section), Modifier.padding(top = 16.dp))
-            com.kosmos.app.ui.component.KosmosListGroup {
+            SectionHeader(stringResource(R.string.model_mgmt_custom_url_section), Modifier.padding(top = 16.dp))
+            KosmosListGroup {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = customUrl,
                         onValueChange = { customUrl = it },
                         label = { Text(stringResource(R.string.model_mgmt_custom_url_label), color = KosmosTheme.colors.textMuted) },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = com.kosmos.app.ui.component.kosmosTextFieldColors(),
+                        colors = kosmosTextFieldColors(),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                     )
                     KosmosButton(stringResource(R.string.model_mgmt_download_custom_url), { startDownload(customUrl) }, Modifier.fillMaxWidth(), enabled = customUrl.isNotBlank())
@@ -171,7 +176,7 @@ private fun Long.toGigabytes(): Double = this / BYTES_PER_GB
 /** 카드의 공통 껍데기 — 진행/대기 카드가 같은 시각 언어를 쓰도록 묶습니다. */
 @Composable
 private fun DownloadCardShell(content: @Composable ColumnScope.() -> Unit) {
-    com.kosmos.app.ui.component.KosmosListGroup(Modifier.padding(top = 16.dp)) {
+    KosmosListGroup(Modifier.padding(top = 16.dp)) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

@@ -7,6 +7,7 @@ import com.kosmos.app.domain.model.AuditEvent
 import com.kosmos.app.domain.model.AuditEventType
 import java.util.UUID
 import javax.inject.Inject
+import com.kosmos.app.core.common.AppResult
 
 class AuditTrailService @Inject constructor(
     private val auditRepository: AuditRepository
@@ -97,7 +98,7 @@ class AuditTrailService @Inject constructor(
             )
             // [WHY] save는 실패를 예외가 아닌 AppResult로 돌려주므로 값 검사 없이는 유실이 무음으로 지나간다.
             val result = auditRepository.save(event)
-            if (result is com.kosmos.app.core.common.AppResult.Failure) {
+            if (result is AppResult.Failure) {
                 AppLogger.w(TAG, "Failed to save audit event ($type): ${result.error}")
             }
         } catch (e: kotlinx.coroutines.CancellationException) {

@@ -11,6 +11,23 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.kosmos.app.feature.calendar.CalendarScreen
 import com.kosmos.app.feature.chat.ChatScreen
+import com.kosmos.app.domain.model.MessageResult
+import com.kosmos.app.feature.chat.ChatViewModel
+import com.kosmos.app.feature.chat.WebSearchViewModel
+import com.kosmos.app.feature.chat.result.ChatExtrasViewModel
+import com.kosmos.app.feature.chat.result.ReminderEditSheetHost
+import com.kosmos.app.feature.cleanup.MemoryCleanupScreen
+import com.kosmos.app.feature.document.DocumentHomeScreen
+import com.kosmos.app.feature.memory.MemoryFilterType
+import com.kosmos.app.feature.memory.MemoryScreen
+import com.kosmos.app.feature.settings.AuditScreen
+import com.kosmos.app.feature.settings.ModelManagementScreen
+import com.kosmos.app.feature.settings.SettingsScreen
+import com.kosmos.app.feature.splash.SplashScreen
+import com.kosmos.app.ui.component.rememberReducedMotion
+import com.kosmos.app.ui.component.rememberToday
+import com.kosmos.app.ui.theme.Motion
+import com.kosmos.app.ui.theme.SplashStyle
 
 @Composable
 fun AppNavHost(
@@ -18,7 +35,7 @@ fun AppNavHost(
     modifier: Modifier = Modifier,
     startDestination: String = AppDestination.Splash.route,
     /** 설정의 시작 화면 장면 — 저장값을 읽기 전에는 null. */
-    splashStyle: com.kosmos.app.ui.theme.SplashStyle? = com.kosmos.app.ui.theme.SplashStyle.PLANET,
+    splashStyle: SplashStyle? = SplashStyle.PLANET,
     /** 셸(MainScreen)의 드로어 열기 — 채팅 헤더 ☰ 이 부른다 (시안 A′). */
     onOpenDrawer: () -> Unit = {},
     /** 드로어 에피소드 시트의 "채팅에서 보기" 요청 시각 — ChatScreen 이 소비한다 (M2-5). */
@@ -37,9 +54,9 @@ fun AppNavHost(
 
     // [WHY] 전환을 정하지 않으면 내비게이션 기본(페이드 700ms)이라 두 화면이 겹쳐 비쳤다 — 공유 축 250ms(0.38.4 M3, 사용자 선택 B).
     // pop 쪽을 따로 주면 시스템 예측 뒤로(끌기)가 같은 움직임을 따라간다.
-    val nav = com.kosmos.app.ui.theme.Motion.NavTransitions(
+    val nav = Motion.NavTransitions(
         androidx.compose.ui.platform.LocalDensity.current,
-        com.kosmos.app.ui.component.rememberReducedMotion()
+        rememberReducedMotion()
     )
     NavHost(
         navController = navController,
@@ -52,7 +69,7 @@ fun AppNavHost(
         popExitTransition = { nav.popExit() }
     ) {
         composable(route = AppDestination.Splash.route) {
-            com.kosmos.app.feature.splash.SplashScreen(
+            SplashScreen(
                 splashStyle = splashStyle,
                 onInitializationComplete = {
                     navController.navigate(AppDestination.Chat.route) {
@@ -71,18 +88,18 @@ fun AppNavHost(
         }
         
         composable(route = AppDestination.Chat.route) {
-            val webSearchViewModel: com.kosmos.app.feature.chat.WebSearchViewModel =
+            val webSearchViewModel: WebSearchViewModel =
                 androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
             val webSearchEnabled by webSearchViewModel.webSearchEnabled.collectAsStateWithLifecycle()
             // [WHY] 결과 카드·요약 타일(0.38.2 M3) — ChatViewModel 과 나눠 E2E 의 단독 compose 계약을 지킨다.
-            val extras: com.kosmos.app.feature.chat.result.ChatExtrasViewModel =
+            val extras: ChatExtrasViewModel =
                 androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
             val resultStates by extras.results.collectAsStateWithLifecycle()
             val summary by extras.summary.collectAsStateWithLifecycle()
             // [WHY] ChatScreen 의 기본 hiltViewModel() 과 같은 인스턴스(같은 내비게이션 항목) — 수정 결과 한 줄을 대화 끝에 붙이려고 꺼낸다.
-            val chatViewModel: com.kosmos.app.feature.chat.ChatViewModel = androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
+            val chatViewModel: ChatViewModel = androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
             val context = androidx.compose.ui.platform.LocalContext.current
-            val today = com.kosmos.app.ui.component.rememberToday()
+            val today = rememberToday()
             androidx.compose.runtime.LaunchedEffect(today) { extras.setToday(today) }
             ChatScreen(
                 viewModel = chatViewModel,
@@ -102,15 +119,15 @@ fun AppNavHost(
                 onResultClick = { message ->
                     val result = message.result ?: return@ChatScreen
                     when (result.kind) {
-                        com.kosmos.app.domain.model.MessageResult.Kind.REMINDER -> extras.openReminder(context, result.ref)
-                        com.kosmos.app.domain.model.MessageResult.Kind.SCHEDULE ->
+                        MessageResult.Kind.REMINDER -> extras.openReminder(context, result.ref)
+                        MessageResult.Kind.SCHEDULE ->
                             navController.navigate(AppDestination.Calendar.route) { launchSingleTop = true }
-                        com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_NOTE,
-                        com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_RECALL ->
+                        MessageResult.Kind.MEMORY_NOTE,
+                        MessageResult.Kind.MEMORY_RECALL ->
                             navController.navigate(AppDestination.Memory.route) { launchSingleTop = true }
                     }
                 },
-                overlay = { com.kosmos.app.feature.chat.result.ReminderEditSheetHost(extras, onSaved = chatViewModel::appendLocalMessage) }
+                overlay = { ReminderEditSheetHost(extras, onSaved = chatViewModel::appendLocalMessage) }
             )
         }
         
@@ -124,22 +141,22 @@ fun AppNavHost(
 
         composable(route = AppDestination.Memory.route) {
             Box(modifier = Modifier.navigationBarsPadding()) {
-                com.kosmos.app.feature.memory.MemoryScreen(onBack = { navigateBack() })
+                MemoryScreen(onBack = { navigateBack() })
             }
         }
 
         composable(route = AppDestination.MemoryTasks.route) {
             Box(modifier = Modifier.navigationBarsPadding()) {
-                com.kosmos.app.feature.memory.MemoryScreen(
+                MemoryScreen(
                     onBack = { navigateBack() },
-                    initialFilter = com.kosmos.app.feature.memory.MemoryFilterType.TASK
+                    initialFilter = MemoryFilterType.TASK
                 )
             }
         }
 
         composable(route = AppDestination.Settings.route) {
             Box(modifier = Modifier.navigationBarsPadding()) {
-                com.kosmos.app.feature.settings.SettingsScreen(
+                SettingsScreen(
                     onNavigateToModelManagement = {
                         navController.navigate(AppDestination.ModelManagement.route)
                     },
@@ -152,25 +169,25 @@ fun AppNavHost(
         }
 
         composable(route = AppDestination.Documents.route) {
-            com.kosmos.app.feature.document.DocumentHomeScreen(
+            DocumentHomeScreen(
                 onBack = { navigateBack() }
             )
         }
 
         composable(route = AppDestination.MemoryCleanup.route) {
-            com.kosmos.app.feature.cleanup.MemoryCleanupScreen(
+            MemoryCleanupScreen(
                 onBack = { navigateBack() }
             )
         }
 
         composable(route = AppDestination.ModelManagement.route) {
-            com.kosmos.app.feature.settings.ModelManagementScreen(
+            ModelManagementScreen(
                 onBack = { navigateBack() }
             )
         }
 
         composable(route = AppDestination.Audit.route) {
-            com.kosmos.app.feature.settings.AuditScreen(
+            AuditScreen(
                 onNavigateBack = { navigateBack() }
             )
         }

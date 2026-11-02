@@ -61,6 +61,107 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.TimeZone
 import javax.inject.Inject
+import com.kosmos.app.R
+import com.kosmos.app.assistant.approval.ApprovalCoordinator
+import com.kosmos.app.assistant.approval.ApprovalPreview
+import com.kosmos.app.assistant.approval.ApprovalRequest
+import com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+import com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
+import com.kosmos.app.core.common.AppError
+import com.kosmos.app.data.local.prefs.RecentDocumentsStore
+import com.kosmos.app.data.local.prefs.SessionStore
+import com.kosmos.app.data.local.prefs.SettingsDataStore
+import com.kosmos.app.di.ModelModule
+import com.kosmos.app.domain.cleanup.MergeProposal
+import com.kosmos.app.domain.document.CellStyle
+import com.kosmos.app.domain.document.RecentDocument
+import com.kosmos.app.domain.document.Sheet
+import com.kosmos.app.domain.document.SheetCell
+import com.kosmos.app.domain.document.SheetRow
+import com.kosmos.app.domain.memory.AuditRepository
+import com.kosmos.app.domain.memory.ConversationRepository
+import com.kosmos.app.domain.memory.DataResetRepository
+import com.kosmos.app.domain.memory.EpisodeRepository
+import com.kosmos.app.domain.memory.KnowledgeRepository
+import com.kosmos.app.domain.memory.ProfileRepository
+import com.kosmos.app.domain.memory.ProfileSuggestionRepository
+import com.kosmos.app.domain.memory.ResetTarget
+import com.kosmos.app.domain.memory.TaskRepository
+import com.kosmos.app.domain.model.ProfileSuggestion
+import com.kosmos.app.domain.model.ProfileSuggestionStatus
+import com.kosmos.app.domain.modelrunner.ChatPrompt
+import com.kosmos.app.domain.modelrunner.ModelLoadManager
+import com.kosmos.app.domain.modelrunner.ModelToolCall
+import com.kosmos.app.domain.modelrunner.ModelTurn
+import com.kosmos.app.domain.tool.ImageProcessor
+import com.kosmos.app.domain.tool.ModelDownloadStatus
+import com.kosmos.app.domain.tool.Tokenizer
+import com.kosmos.app.domain.usecase.DownloadModelUseCase
+import com.kosmos.app.domain.usecase.ExportMemoryUseCase
+import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
+import com.kosmos.app.domain.usecase.ImportMemoryUseCase
+import com.kosmos.app.domain.usecase.SendChatMessageUseCase
+import com.kosmos.app.feature.approval.ApprovalSheet
+import com.kosmos.app.feature.approval.ProfileSuggestionSheet
+import com.kosmos.app.feature.calendar.CalendarScreen
+import com.kosmos.app.feature.calendar.CalendarTab
+import com.kosmos.app.feature.calendar.CalendarViewModel
+import com.kosmos.app.feature.chat.ChatBubbleAssistant
+import com.kosmos.app.feature.chat.ChatInputBar
+import com.kosmos.app.feature.chat.ChatScreen
+import com.kosmos.app.feature.chat.ChatViewModel
+import com.kosmos.app.feature.chat.CustomChatHeader
+import com.kosmos.app.feature.chat.StatusDetailContent
+import com.kosmos.app.feature.chat.TypingIndicator
+import com.kosmos.app.feature.chat.result.ChatExtrasViewModel
+import com.kosmos.app.feature.chat.result.ReminderEditSheet
+import com.kosmos.app.feature.chat.result.ReminderEditor
+import com.kosmos.app.feature.chat.result.ResultCardMapper
+import com.kosmos.app.feature.cleanup.MemoryCleanupScreen
+import com.kosmos.app.feature.cleanup.MemoryCleanupViewModel
+import com.kosmos.app.feature.document.DocumentHomeScreen
+import com.kosmos.app.feature.document.DocumentHomeViewModel
+import com.kosmos.app.feature.document.DocumentViewerScreen
+import com.kosmos.app.feature.document.DocumentViewerState
+import com.kosmos.app.feature.drawer.AppDrawerContent
+import com.kosmos.app.feature.drawer.DrawerViewModel
+import com.kosmos.app.feature.episode.EpisodeSheet
+import com.kosmos.app.feature.episode.EpisodeSheetViewModel
+import com.kosmos.app.feature.memory.MemoryFilterType
+import com.kosmos.app.feature.memory.MemoryScreen
+import com.kosmos.app.feature.memory.MemoryViewModel
+import com.kosmos.app.feature.profile.ProfileSheet
+import com.kosmos.app.feature.profile.ProfileSheetViewModel
+import com.kosmos.app.feature.settings.AuditScreen
+import com.kosmos.app.feature.settings.AuditViewModel
+import com.kosmos.app.feature.settings.DataResetViewModel
+import com.kosmos.app.feature.settings.ModelManagementScreen
+import com.kosmos.app.feature.settings.ModelManagementViewModel
+import com.kosmos.app.feature.settings.SettingsScreen
+import com.kosmos.app.feature.settings.SettingsViewModel
+import com.kosmos.app.feature.splash.SplashScreen
+import com.kosmos.app.feature.splash.SplashViewModel
+import com.kosmos.app.platform.alarm.ReminderAlarmScheduler
+import com.kosmos.app.platform.document.DocumentAccess
+import com.kosmos.app.platform.file.BackupFileWriter
+import com.kosmos.app.platform.launch.VoiceLaunchHandler
+import com.kosmos.app.platform.notification.NotificationAccess
+import com.kosmos.app.platform.share.ShareIntentHandler
+import com.kosmos.app.platform.share.SharedInput
+import com.kosmos.app.platform.speech.AudioRecorder
+import com.kosmos.app.runtime.gemma.GemmaRuntimeManager
+import com.kosmos.app.runtime.metrics.DeviceStatus
+import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
+import com.kosmos.app.ui.component.DeleteIconButton
+import com.kosmos.app.ui.component.EmptyState
+import com.kosmos.app.ui.component.KosmosListGroup
+import com.kosmos.app.ui.component.KosmosListRow
+import com.kosmos.app.ui.component.SectionHeader
+import com.kosmos.app.ui.theme.ChatTextSize
+import com.kosmos.app.ui.theme.SplashStyle
+import com.kosmos.app.ui.theme.ThemeViewModel
+import com.kosmos.app.widget.WidgetRefresher
+import com.kosmos.app.work.BriefingNotificationScheduler
 
 /**
  * [ScreenCatalogTest]
@@ -72,7 +173,7 @@ import javax.inject.Inject
  */
 @OptIn(ExperimentalRoborazziApi::class)
 @HiltAndroidTest
-@UninstallModules(com.kosmos.app.di.ModelModule::class)
+@UninstallModules(ModelModule::class)
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(application = HiltTestApplication::class, qualifiers = "ko-rKR-w393dp-h852dp-xxhdpi")
@@ -84,46 +185,46 @@ class ScreenCatalogTest {
     @get:Rule(order = 1)
     val rule = createComposeRule()
 
-    @Inject lateinit var sessionStore: com.kosmos.app.data.local.prefs.SessionStore
-    @Inject lateinit var conversationRepository: com.kosmos.app.domain.memory.ConversationRepository
-    @Inject lateinit var episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository
-    @Inject lateinit var knowledgeRepository: com.kosmos.app.domain.memory.KnowledgeRepository
-    @Inject lateinit var taskRepository: com.kosmos.app.domain.memory.TaskRepository
-    @Inject lateinit var profileRepository: com.kosmos.app.domain.memory.ProfileRepository
-    @Inject lateinit var suggestionRepository: com.kosmos.app.domain.memory.ProfileSuggestionRepository
-    @Inject lateinit var auditRepository: com.kosmos.app.domain.memory.AuditRepository
-    @Inject lateinit var briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator
-    @Inject lateinit var sendChatMessageUseCase: com.kosmos.app.domain.usecase.SendChatMessageUseCase
-    @Inject lateinit var approvalCoordinator: com.kosmos.app.assistant.approval.ApprovalCoordinator
-    @Inject lateinit var shareIntentHandler: com.kosmos.app.platform.share.ShareIntentHandler
-    @Inject lateinit var runtimeMetricsCollector: com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
-    @Inject lateinit var settingsDataStore: com.kosmos.app.data.local.prefs.SettingsDataStore
-    @Inject lateinit var runtimeManager: com.kosmos.app.runtime.gemma.GemmaRuntimeManager
-    @Inject lateinit var briefingScheduler: com.kosmos.app.work.BriefingNotificationScheduler
-    @Inject lateinit var exportMemoryUseCase: com.kosmos.app.domain.usecase.ExportMemoryUseCase
-    @Inject lateinit var importMemoryUseCase: com.kosmos.app.domain.usecase.ImportMemoryUseCase
-    @Inject lateinit var backupFileWriter: com.kosmos.app.platform.file.BackupFileWriter
-    @Inject lateinit var reminderAlarmScheduler: com.kosmos.app.platform.alarm.ReminderAlarmScheduler
-    @Inject lateinit var widgetRefresher: com.kosmos.app.widget.WidgetRefresher
-    @Inject lateinit var getTodayScheduleUseCase: com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
-    @Inject lateinit var recentDocumentsStore: com.kosmos.app.data.local.prefs.RecentDocumentsStore
-    @Inject lateinit var documentAccess: com.kosmos.app.platform.document.DocumentAccess
-    @Inject lateinit var cleanupRunner: com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
-    @Inject lateinit var dataResetRepository: com.kosmos.app.domain.memory.DataResetRepository
-    @Inject lateinit var reminderEditor: com.kosmos.app.feature.chat.result.ReminderEditor
+    @Inject lateinit var sessionStore: SessionStore
+    @Inject lateinit var conversationRepository: ConversationRepository
+    @Inject lateinit var episodeRepository: EpisodeRepository
+    @Inject lateinit var knowledgeRepository: KnowledgeRepository
+    @Inject lateinit var taskRepository: TaskRepository
+    @Inject lateinit var profileRepository: ProfileRepository
+    @Inject lateinit var suggestionRepository: ProfileSuggestionRepository
+    @Inject lateinit var auditRepository: AuditRepository
+    @Inject lateinit var briefingGenerator: MorningBriefingGenerator
+    @Inject lateinit var sendChatMessageUseCase: SendChatMessageUseCase
+    @Inject lateinit var approvalCoordinator: ApprovalCoordinator
+    @Inject lateinit var shareIntentHandler: ShareIntentHandler
+    @Inject lateinit var runtimeMetricsCollector: RuntimeMetricsCollector
+    @Inject lateinit var settingsDataStore: SettingsDataStore
+    @Inject lateinit var runtimeManager: GemmaRuntimeManager
+    @Inject lateinit var briefingScheduler: BriefingNotificationScheduler
+    @Inject lateinit var exportMemoryUseCase: ExportMemoryUseCase
+    @Inject lateinit var importMemoryUseCase: ImportMemoryUseCase
+    @Inject lateinit var backupFileWriter: BackupFileWriter
+    @Inject lateinit var reminderAlarmScheduler: ReminderAlarmScheduler
+    @Inject lateinit var widgetRefresher: WidgetRefresher
+    @Inject lateinit var getTodayScheduleUseCase: GetTodayScheduleUseCase
+    @Inject lateinit var recentDocumentsStore: RecentDocumentsStore
+    @Inject lateinit var documentAccess: DocumentAccess
+    @Inject lateinit var cleanupRunner: MemoryCleanupRunner
+    @Inject lateinit var dataResetRepository: DataResetRepository
+    @Inject lateinit var reminderEditor: ReminderEditor
 
     @BindValue @JvmField
-    val tokenizer: com.kosmos.app.domain.tool.Tokenizer = object : com.kosmos.app.domain.tool.Tokenizer {
+    val tokenizer: Tokenizer = object : Tokenizer {
         override fun sizeInTokens(text: String): Int = text.length / 2
     }
 
     @BindValue @JvmField
-    val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor = object : com.kosmos.app.domain.tool.ImageProcessor {
+    val imageProcessor: ImageProcessor = object : ImageProcessor {
         override suspend fun processImage(rawBytes: ByteArray): AppResult<ByteArray> = AppResult.Success(rawBytes)
     }
 
     @BindValue @JvmField
-    val modelLoadManager: com.kosmos.app.domain.modelrunner.ModelLoadManager = object : com.kosmos.app.domain.modelrunner.ModelLoadManager {
+    val modelLoadManager: ModelLoadManager = object : ModelLoadManager {
         override val loadState = MutableStateFlow<ModelLoadState>(ModelLoadState.Ready(MODEL))
         override fun checkModelFile() {}
         override fun setInitializing() {}
@@ -131,8 +232,8 @@ class ScreenCatalogTest {
     }
 
     @BindValue @JvmField
-    val audioRecorder: com.kosmos.app.platform.speech.AudioRecorder =
-        object : com.kosmos.app.platform.speech.AudioRecorder(ApplicationProvider.getApplicationContext()) {
+    val audioRecorder: AudioRecorder =
+        object : AudioRecorder(ApplicationProvider.getApplicationContext()) {
             override fun startRecording(): AppResult<Unit> = AppResult.Success(Unit)
             override suspend fun stopRecording(): AppResult<File> = AppResult.Success(File.createTempFile("t", "a"))
         }
@@ -143,14 +244,14 @@ class ScreenCatalogTest {
         override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(ModelLoadState.Ready(MODEL))
         override suspend fun warmUp() {}
         override suspend fun generate(
-            prompt: com.kosmos.app.domain.modelrunner.ChatPrompt,
+            prompt: ChatPrompt,
             onToken: ((String) -> Unit)?
-        ): AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
+        ): AppResult<ModelTurn> {
             val turn = if (prompt.toolResponse == null && prompt.currentInput.contains("회의")) {
-                com.kosmos.app.domain.modelrunner.ModelTurn(
+                ModelTurn(
                     text = "",
                     toolCalls = listOf(
-                        com.kosmos.app.domain.modelrunner.ModelToolCall(
+                        ModelToolCall(
                             name = "AddSchedule",
                             args = mapOf(
                                 "title" to "팀 회의", "startTime" to "2026-10-19T10:00:00",
@@ -160,22 +261,22 @@ class ScreenCatalogTest {
                     )
                 )
             } else {
-                com.kosmos.app.domain.modelrunner.ModelTurn("알겠어요.")
+                ModelTurn("알겠어요.")
             }
             return AppResult.Success(turn)
         }
         override suspend fun generateWithImage(
-            prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, imageBytes: ByteArray, onToken: ((String) -> Unit)?
+            prompt: ChatPrompt, imageBytes: ByteArray, onToken: ((String) -> Unit)?
         ) = generate(prompt, onToken)
         override suspend fun generateWithAudio(
-            prompt: com.kosmos.app.domain.modelrunner.ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?
+            prompt: ChatPrompt, audioPath: String, onToken: ((String) -> Unit)?
         ) = generate(prompt, onToken)
         override suspend fun cancel() {}
         override fun close() {}
     }
 
     private var themeMode by mutableStateOf(ThemeMode.LIGHT)
-    private var chatTextSize = com.kosmos.app.ui.theme.ChatTextSize.DEFAULT
+    private var chatTextSize = ChatTextSize.DEFAULT
     private val defaultZone: TimeZone = TimeZone.getDefault()
 
     @Before
@@ -292,7 +393,7 @@ class ScreenCatalogTest {
         }
     }
 
-    private fun chatViewModel() = com.kosmos.app.feature.chat.ChatViewModel(
+    private fun chatViewModel() = ChatViewModel(
         context = ApplicationProvider.getApplicationContext(),
         savedStateHandle = SavedStateHandle(),
         sessionStore = sessionStore,
@@ -305,7 +406,7 @@ class ScreenCatalogTest {
         modelRunner = modelRunner,
         audioRecorder = audioRecorder,
         briefingGenerator = briefingGenerator,
-        voiceLaunchHandler = com.kosmos.app.platform.launch.VoiceLaunchHandler(),
+        voiceLaunchHandler = VoiceLaunchHandler(),
         suggestionRepository = suggestionRepository,
         suggestionResolver = io.mockk.mockk(relaxed = true),
         speechOutput = io.mockk.mockk(relaxed = true) {
@@ -314,7 +415,7 @@ class ScreenCatalogTest {
         }
     )
 
-    private fun memoryViewModel() = com.kosmos.app.feature.memory.MemoryViewModel(
+    private fun memoryViewModel() = MemoryViewModel(
         knowledgeRepository = knowledgeRepository, taskRepository = taskRepository,
         exportMemoryUseCase = exportMemoryUseCase, importMemoryUseCase = importMemoryUseCase,
         backupFileWriter = backupFileWriter, reminderAlarmScheduler = reminderAlarmScheduler, widgetRefresher = widgetRefresher
@@ -324,11 +425,11 @@ class ScreenCatalogTest {
 
     /** 결과 카드·요약 타일(0.38.2) — 셸(AppNavHost)이 하듯 ChatExtrasViewModel 을 붙인다. 시각은 고정([NOW]). */
     @Composable
-    private fun ChatWithExtras(vm: com.kosmos.app.feature.chat.ChatViewModel, extras: com.kosmos.app.feature.chat.result.ChatExtrasViewModel) {
+    private fun ChatWithExtras(vm: ChatViewModel, extras: ChatExtrasViewModel) {
         val context = androidx.compose.ui.platform.LocalContext.current
         val states by extras.results.collectAsState()
         val summary by extras.summary.collectAsState()
-        com.kosmos.app.feature.chat.ChatScreen(
+        ChatScreen(
             viewModel = vm,
             resultStates = states,
             onEnsureResult = { extras.ensure(context, it, TODAY) },
@@ -337,7 +438,7 @@ class ScreenCatalogTest {
         )
     }
 
-    private fun extras() = com.kosmos.app.feature.chat.result.ChatExtrasViewModel(taskRepository, knowledgeRepository, getTodayScheduleUseCase, reminderEditor)
+    private fun extras() = ChatExtrasViewModel(taskRepository, knowledgeRepository, getTodayScheduleUseCase, reminderEditor)
 
     @Test fun chat() {
         val vm = chatViewModel()
@@ -390,19 +491,19 @@ class ScreenCatalogTest {
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
             ) {
                 androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(horizontal = 16.dp)) {
-                    com.kosmos.app.feature.chat.TypingIndicator()
+                    TypingIndicator()
                 }
                 androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(horizontal = 16.dp)) {
-                    com.kosmos.app.feature.chat.ChatBubbleAssistant(text = "오후 1시 56분에 알려 드릴")
+                    ChatBubbleAssistant(text = "오후 1시 56분에 알려 드릴")
                 }
-                val bar: @Composable (Boolean, Boolean, com.kosmos.app.platform.share.SharedInput?) -> Unit = { loading, recording, shared ->
-                    com.kosmos.app.feature.chat.ChatInputBar(
+                val bar: @Composable (Boolean, Boolean, SharedInput?) -> Unit = { loading, recording, shared ->
+                    ChatInputBar(
                         isLoading = loading, isRecording = recording, sharedInput = shared, onClearSharedInput = {},
                         onSend = {}, onMicClick = {}, onAttachClick = {}
                     )
                 }
                 bar(false, false, null)
-                bar(false, false, com.kosmos.app.platform.share.SharedInput.Text("30분 뒤에 물 마시라고 알려줘"))
+                bar(false, false, SharedInput.Text("30분 뒤에 물 마시라고 알려줘"))
                 bar(true, false, null)
                 bar(false, true, null)
             }
@@ -411,15 +512,15 @@ class ScreenCatalogTest {
 
     /** 헤더 별·캡슐 네 상태와 엔진 오류 때의 상태 시트 본문(0.39.3 M3) — 실기기에서 발열·엔진 오류를 일부러 만들기 어려워 여기서만 본다. */
     @Test fun chatHeaderStates() {
-        val warm = com.kosmos.app.runtime.metrics.DeviceStatus(temperatureCelsius = 43f, appMemoryBytes = 6_500_000_000L)
-        val error = ModelLoadState.Error(com.kosmos.app.core.common.AppError.ModelLoadFailed("x"))
+        val warm = DeviceStatus(temperatureCelsius = 43f, appMemoryBytes = 6_500_000_000L)
+        val error = ModelLoadState.Error(AppError.ModelLoadFailed("x"))
         shoot("37-chat-header-states") {
             androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
-                com.kosmos.app.feature.chat.CustomChatHeader(engineState = ModelLoadState.Ready(MODEL), deviceStatus = warm.copy(temperatureCelsius = 36f))
-                com.kosmos.app.feature.chat.CustomChatHeader(engineState = ModelLoadState.Ready(MODEL), deviceStatus = warm, warningMessage = "기기가 따뜻해져 답이 조금 늦을 수 있어요.")
-                com.kosmos.app.feature.chat.CustomChatHeader(engineState = error, deviceStatus = warm.copy(temperatureCelsius = 36f))
-                com.kosmos.app.feature.chat.CustomChatHeader(engineState = ModelLoadState.NotFound("/m"), deviceStatus = warm.copy(temperatureCelsius = 36f))
-                com.kosmos.app.feature.chat.StatusDetailContent(
+                CustomChatHeader(engineState = ModelLoadState.Ready(MODEL), deviceStatus = warm.copy(temperatureCelsius = 36f))
+                CustomChatHeader(engineState = ModelLoadState.Ready(MODEL), deviceStatus = warm, warningMessage = "기기가 따뜻해져 답이 조금 늦을 수 있어요.")
+                CustomChatHeader(engineState = error, deviceStatus = warm.copy(temperatureCelsius = 36f))
+                CustomChatHeader(engineState = ModelLoadState.NotFound("/m"), deviceStatus = warm.copy(temperatureCelsius = 36f))
+                StatusDetailContent(
                     engineState = error,
                     status = warm.copy(temperatureCelsius = 36.2f, memoryUsedBytes = 9_100_000_000L, memoryTotalBytes = 11_200_000_000L),
                     warningMessage = null,
@@ -431,7 +532,7 @@ class ScreenCatalogTest {
 
     /** 첫 화면(0.38.2 M7b) — 대화 기록이 하나도 없을 때(처음 쓸 때·초기화 후). 타임라인은 세션과 무관하다(ADR-022). */
     @Test fun chatEmpty() {
-        kotlinx.coroutines.runBlocking { dataResetRepository.reset(setOf(com.kosmos.app.domain.memory.ResetTarget.CONVERSATIONS)) }
+        kotlinx.coroutines.runBlocking { dataResetRepository.reset(setOf(ResetTarget.CONVERSATIONS)) }
         val vm = chatViewModel()
         val extras = extras()
         shoot("22-chat-empty") { ChatWithExtras(vm, extras) }
@@ -439,7 +540,7 @@ class ScreenCatalogTest {
 
     /** 채팅 글자 크기 "아주 크게"(0.38.2) — 목록 안만 커지고 상단 바·타일·입력바는 그대로. */
     @Test fun chatLargeText() {
-        chatTextSize = com.kosmos.app.ui.theme.ChatTextSize.XLARGE
+        chatTextSize = ChatTextSize.XLARGE
         val vm = chatViewModel()
         val extras = extras()
         shoot("16-chat-large-text") { ChatWithExtras(vm, extras) }
@@ -448,13 +549,13 @@ class ScreenCatalogTest {
     /** 알림 카드를 누르면 — 수정 시트(0.38.2 M4). 시트만 그린다(시각 고정). */
     @Test fun reminderEditSheet() {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
-        val state = com.kosmos.app.feature.chat.result.ResultCardMapper.reminder(
+        val state = ResultCardMapper.reminder(
             context,
             TaskItem(id = "t1", title = "물 마시기", isCompleted = false, createdAt = 0, remindAtIso = "2026-10-15T13:56:00"),
             TODAY, ZoneId.of(ZONE)
         )
         shoot("17-reminder-edit-sheet") {
-            com.kosmos.app.feature.chat.result.ReminderEditSheet(
+            ReminderEditSheet(
                 state = state, initialHour = 13, initialMinute = 56, error = null,
                 onSnooze = {}, onReschedule = { _, _ -> }, onCancelReminder = {}, onDismiss = {}
             )
@@ -470,36 +571,36 @@ class ScreenCatalogTest {
     }
 
     @Test fun reminderApprovalSheet() {
-        val request = com.kosmos.app.assistant.approval.ApprovalRequest(
+        val request = ApprovalRequest(
             sessionId = SESSION, title = "알림 등록", description = "오늘 오후 1:56에 알림: '물 마시기'", showsNotification = true,
-            preview = com.kosmos.app.assistant.approval.ApprovalPreview(
-                com.kosmos.app.assistant.approval.ApprovalPreview.Kind.REMINDER, "물 마시기", atIso = "2026-10-15T13:56:00"
+            preview = ApprovalPreview(
+                ApprovalPreview.Kind.REMINDER, "물 마시기", atIso = "2026-10-15T13:56:00"
             )
         )
         shoot("03-approval-reminder") {
-            com.kosmos.app.feature.approval.ApprovalSheet(
+            ApprovalSheet(
                 request = request, onApprove = {}, onReject = {},
-                footnote = com.kosmos.app.platform.notification.NotificationAccess.INEXACT_NOTE, onFootnoteAction = {}
+                footnote = NotificationAccess.INEXACT_NOTE, onFootnoteAction = {}
             )
         }
     }
 
     @Test fun memoryApprovalSheet() {
-        val request = com.kosmos.app.assistant.approval.ApprovalRequest(
+        val request = ApprovalRequest(
             sessionId = SESSION, title = "메모 저장", description = "저장할 내용: 자전거 자물쇠 비밀번호는 현관 서랍 수첩에 적어 둠",
-            preview = com.kosmos.app.assistant.approval.ApprovalPreview(
-                com.kosmos.app.assistant.approval.ApprovalPreview.Kind.MEMORY, "자전거 자물쇠 비밀번호는 현관 서랍 수첩에 적어 둠"
+            preview = ApprovalPreview(
+                ApprovalPreview.Kind.MEMORY, "자전거 자물쇠 비밀번호는 현관 서랍 수첩에 적어 둠"
             )
         )
         shoot("18-approval-memory") {
-            com.kosmos.app.feature.approval.ApprovalSheet(request = request, onApprove = {}, onReject = {})
+            ApprovalSheet(request = request, onApprove = {}, onReject = {})
         }
     }
 
     @Test fun profileSuggestionSheet() {
-        fun suggestion(id: String, key: String, value: String) = com.kosmos.app.domain.model.ProfileSuggestion(
+        fun suggestion(id: String, key: String, value: String) = ProfileSuggestion(
             id = id, key = key, value = value, episodeId = null,
-            status = com.kosmos.app.domain.model.ProfileSuggestionStatus.PENDING, createdAt = 0, updatedAt = 0
+            status = ProfileSuggestionStatus.PENDING, createdAt = 0, updatedAt = 0
         )
         val suggestions = listOf(
             suggestion("ps1", "직업", "백엔드 개발자"),
@@ -507,18 +608,18 @@ class ScreenCatalogTest {
             suggestion("ps3", "좋아하는 음료", "녹차")
         )
         shoot("19-profile-suggestion") {
-            com.kosmos.app.feature.approval.ProfileSuggestionSheet(suggestions, onSave = {}, onRejectAll = {}, onLater = {})
+            ProfileSuggestionSheet(suggestions, onSave = {}, onRejectAll = {}, onLater = {})
         }
     }
 
     @Test fun drawer() {
-        val vm = com.kosmos.app.feature.drawer.DrawerViewModel(episodeRepository, profileRepository, suggestionRepository)
-        shoot("04-drawer", onSurface = true) { com.kosmos.app.feature.drawer.AppDrawerContent(viewModel = vm) }
+        val vm = DrawerViewModel(episodeRepository, profileRepository, suggestionRepository)
+        shoot("04-drawer", onSurface = true) { AppDrawerContent(viewModel = vm) }
     }
 
     @Test fun memoryNotes() {
         val vm = memoryViewModel()
-        shoot("05-memory-notes") { com.kosmos.app.feature.memory.MemoryScreen(viewModel = vm, onBack = {}) }
+        shoot("05-memory-notes") { MemoryScreen(viewModel = vm, onBack = {}) }
     }
 
     /** 메모 화면 ⋮ 메뉴 — 백업 내보내기·가져오기(0.38.3 M2 — 목록 아래 버튼에서 상단 바 메뉴로). */
@@ -526,103 +627,103 @@ class ScreenCatalogTest {
         val vm = memoryViewModel()
         shoot("29-memory-backup-menu", before = {
             rule.onNode(androidx.compose.ui.test.hasContentDescription("더보기")).performClick()
-        }) { com.kosmos.app.feature.memory.MemoryScreen(viewModel = vm, onBack = {}) }
+        }) { MemoryScreen(viewModel = vm, onBack = {}) }
     }
 
     @Test fun memoryTasks() {
         val vm = memoryViewModel()
         shoot("06-memory-tasks", before = {
-            vm.onFilterSelected(com.kosmos.app.feature.memory.MemoryFilterType.TASK)
+            vm.onFilterSelected(MemoryFilterType.TASK)
             settle()
             runCatching { rule.onNodeWithText("펼치기").performClick() }
-        }) { com.kosmos.app.feature.memory.MemoryScreen(viewModel = vm, onBack = {}) }
+        }) { MemoryScreen(viewModel = vm, onBack = {}) }
     }
 
     /** 일정 "오늘" 탭(0.38.3 M1 — 기본 탭). */
     @Test fun calendar() {
         val vm = calendarViewModel()
-        shoot("07-calendar") { com.kosmos.app.feature.calendar.CalendarScreen(viewModel = vm, onBack = {}) }
+        shoot("07-calendar") { CalendarScreen(viewModel = vm, onBack = {}) }
     }
 
     /** 일정 월 탭(0.38.3 M1 — 기본 탭이 "오늘"이 되어 따로 찍는다). */
     @Test fun calendarMonth() {
         val vm = calendarViewModel()
         shoot("27-calendar-month", before = {
-            vm.onTabSelected(com.kosmos.app.feature.calendar.CalendarTab.MONTH)
+            vm.onTabSelected(CalendarTab.MONTH)
             vm.selectMonthDate(TODAY)
-        }) { com.kosmos.app.feature.calendar.CalendarScreen(viewModel = vm, onBack = {}) }
+        }) { CalendarScreen(viewModel = vm, onBack = {}) }
     }
 
-    private fun calendarViewModel() = com.kosmos.app.feature.calendar.CalendarViewModel(
+    private fun calendarViewModel() = CalendarViewModel(
         getTodayScheduleUseCase, taskRepository, reminderEditor, io.mockk.mockk(relaxed = true)
     )
 
     @Test fun documentHome() {
-        val vm = com.kosmos.app.feature.document.DocumentHomeViewModel(recentDocumentsStore, documentAccess)
-        shoot("08-documents") { com.kosmos.app.feature.document.DocumentHomeScreen(viewModel = vm, onBack = {}) }
+        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess)
+        shoot("08-documents") { DocumentHomeScreen(viewModel = vm, onBack = {}) }
     }
 
     /** 최근 문서가 있는 문서 홈 — 형식 아이콘·연 날짜·휴지통(0.38.3 M4). */
     @Test fun documentHomeRecent() {
         runBlocking {
             listOf(
-                com.kosmos.app.domain.document.RecentDocument("content://d/4", "주민센터 신청서.hwpx", null, NOW - 6 * 86_400_000L),
-                com.kosmos.app.domain.document.RecentDocument("content://d/3", "회의록 10월 2주차.docx", null, NOW - 86_400_000L - 3_600_000L),
-                com.kosmos.app.domain.document.RecentDocument("content://d/2", "임대차 계약서.pdf", "application/pdf", NOW - 86_400_000L),
-                com.kosmos.app.domain.document.RecentDocument("content://d/1", "가계부.xlsx", null, NOW - 1_200_000L)
+                RecentDocument("content://d/4", "주민센터 신청서.hwpx", null, NOW - 6 * 86_400_000L),
+                RecentDocument("content://d/3", "회의록 10월 2주차.docx", null, NOW - 86_400_000L - 3_600_000L),
+                RecentDocument("content://d/2", "임대차 계약서.pdf", "application/pdf", NOW - 86_400_000L),
+                RecentDocument("content://d/1", "가계부.xlsx", null, NOW - 1_200_000L)
             ).forEach { recentDocumentsStore.add(it) }
         }
-        val vm = com.kosmos.app.feature.document.DocumentHomeViewModel(recentDocumentsStore, documentAccess)
-        shoot("31-documents-recent") { com.kosmos.app.feature.document.DocumentHomeScreen(viewModel = vm, onBack = {}) }
+        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess)
+        shoot("31-documents-recent") { DocumentHomeScreen(viewModel = vm, onBack = {}) }
     }
 
     @Test fun settings() {
-        val vm = com.kosmos.app.feature.settings.SettingsViewModel(
+        val vm = SettingsViewModel(
             settingsDataStore, runtimeManager, modelRunner, briefingScheduler, io.mockk.mockk(relaxed = true)
         )
-        val themeVm = com.kosmos.app.ui.theme.ThemeViewModel(settingsDataStore)
-        val resetVm = com.kosmos.app.feature.settings.DataResetViewModel(
+        val themeVm = ThemeViewModel(settingsDataStore)
+        val resetVm = DataResetViewModel(
             dataResetRepository, taskRepository, reminderAlarmScheduler, widgetRefresher, sessionStore
         )
         shoot("09-settings") {
-            com.kosmos.app.feature.settings.SettingsScreen(viewModel = vm, themeViewModel = themeVm, dataResetViewModel = resetVm, onBack = {})
+            SettingsScreen(viewModel = vm, themeViewModel = themeVm, dataResetViewModel = resetVm, onBack = {})
         }
     }
 
     /** 설정 아래쪽 — 브리핑·기억·음성·데이터 묶음과 각주(0.38.3 M3, 첫 화면에는 위 세 묶음만 보인다). */
     @Test fun settingsLower() {
-        val vm = com.kosmos.app.feature.settings.SettingsViewModel(
+        val vm = SettingsViewModel(
             settingsDataStore, runtimeManager, modelRunner, briefingScheduler, io.mockk.mockk(relaxed = true)
         )
-        val themeVm = com.kosmos.app.ui.theme.ThemeViewModel(settingsDataStore)
-        val resetVm = com.kosmos.app.feature.settings.DataResetViewModel(
+        val themeVm = ThemeViewModel(settingsDataStore)
+        val resetVm = DataResetViewModel(
             dataResetRepository, taskRepository, reminderAlarmScheduler, widgetRefresher, sessionStore
         )
         shoot("30-settings-lower", before = {
             rule.onNode(androidx.compose.ui.test.hasScrollAction()).performTouchInput { swipeUp(); swipeUp(); swipeUp() }
         }) {
-            com.kosmos.app.feature.settings.SettingsScreen(viewModel = vm, themeViewModel = themeVm, dataResetViewModel = resetVm, onBack = {})
+            SettingsScreen(viewModel = vm, themeViewModel = themeVm, dataResetViewModel = resetVm, onBack = {})
         }
     }
 
     @Test fun memoryCleanup() {
-        val vm = com.kosmos.app.feature.cleanup.MemoryCleanupViewModel(cleanupRunner)
-        shoot("10-memory-cleanup") { com.kosmos.app.feature.cleanup.MemoryCleanupScreen(viewModel = vm, onBack = {}) }
+        val vm = MemoryCleanupViewModel(cleanupRunner)
+        shoot("10-memory-cleanup") { MemoryCleanupScreen(viewModel = vm, onBack = {}) }
     }
 
     @Test fun profileSheet() {
-        val vm = com.kosmos.app.feature.profile.ProfileSheetViewModel(profileRepository, tokenizer, androidx.test.core.app.ApplicationProvider.getApplicationContext())
-        shoot("11-profile-sheet") { com.kosmos.app.feature.profile.ProfileSheet(onDismiss = {}, viewModel = vm) }
+        val vm = ProfileSheetViewModel(profileRepository, tokenizer, androidx.test.core.app.ApplicationProvider.getApplicationContext())
+        shoot("11-profile-sheet") { ProfileSheet(onDismiss = {}, viewModel = vm) }
     }
 
     @Test fun episodeSheet() {
-        val vm = com.kosmos.app.feature.episode.EpisodeSheetViewModel(episodeRepository)
-        shoot("12-episode-sheet") { com.kosmos.app.feature.episode.EpisodeSheet(episodeId = "ep-bike", onDismiss = {}, viewModel = vm) }
+        val vm = EpisodeSheetViewModel(episodeRepository)
+        shoot("12-episode-sheet") { EpisodeSheet(episodeId = "ep-bike", onDismiss = {}, viewModel = vm) }
     }
 
     @Test fun audit() {
-        val vm = com.kosmos.app.feature.settings.AuditViewModel(auditRepository)
-        shoot("13-audit") { com.kosmos.app.feature.settings.AuditScreen(viewModel = vm, onNavigateBack = {}) }
+        val vm = AuditViewModel(auditRepository)
+        shoot("13-audit") { AuditScreen(viewModel = vm, onNavigateBack = {}) }
     }
 
     /** 녹음 중 입력바 — 소리 크기가 흐르는 파형(0.38.4 M5, 사용자 선택 B). 크기는 고정 값을 시간에 따라 바꿔 넣는다. */
@@ -630,7 +731,7 @@ class ScreenCatalogTest {
         var t = 0
         shoot("33-chat-recording") {
             Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.BottomCenter) {
-                com.kosmos.app.feature.chat.ChatInputBar(
+                ChatInputBar(
                     isLoading = false, isRecording = true, sharedInput = null, onClearSharedInput = {},
                     onSend = {}, onMicClick = {}, onAttachClick = {},
                     recordingLevel = { t++; listOf(0.1f, 0.5f, 0.8f, 0.6f, 0.3f, 0.9f, 0.4f, 0.05f)[t % 8] }
@@ -641,24 +742,24 @@ class ScreenCatalogTest {
 
     /** 활동 기록 펼침 — 물은 말·답·쓸 수 있던 도구, 그 아래 "원문 보기"(0.38.4 M2). */
     @Test fun auditExpanded() {
-        val vm = com.kosmos.app.feature.settings.AuditViewModel(auditRepository)
+        val vm = AuditViewModel(auditRepository)
         shoot("32-audit-expanded", before = {
             rule.onNodeWithText("모델 답").performClick()
-        }) { com.kosmos.app.feature.settings.AuditScreen(viewModel = vm, onNavigateBack = {}) }
+        }) { AuditScreen(viewModel = vm, onNavigateBack = {}) }
     }
 
     /** 기억 정리 검토 — 회고·합칠 기억·이어지는 대화(0.38.3 M2 — 시작 화면만 있던 장면에 검토 상태를 더한다). */
     @Test fun memoryCleanupReview() {
         fun note(id: String, content: String) = KnowledgeNote(id = id, content = content, createdAt = NOW, updatedAt = NOW)
-        val review = com.kosmos.app.assistant.cleanup.MemoryCleanupRunner.State.Review(
+        val review = MemoryCleanupRunner.State.Review(
             note("weekly", "이번 주는 치과 예약과 자전거 비밀번호 정리에 시간을 썼어요."),
-            listOf(com.kosmos.app.domain.cleanup.MergeProposal(listOf(note("c", "자전거 자물쇠 번호 4821"), note("d", "자전거 자물쇠 비밀번호는 4821")), "자전거 자물쇠 비밀번호는 4821"))
+            listOf(MergeProposal(listOf(note("c", "자전거 자물쇠 번호 4821"), note("d", "자전거 자물쇠 비밀번호는 4821")), "자전거 자물쇠 비밀번호는 4821"))
         )
-        val runner = io.mockk.mockk<com.kosmos.app.assistant.cleanup.MemoryCleanupRunner>(relaxed = true) {
+        val runner = io.mockk.mockk<MemoryCleanupRunner>(relaxed = true) {
             io.mockk.every { state } returns kotlinx.coroutines.flow.MutableStateFlow(review)
         }
         shoot("28-memory-cleanup-review") {
-            com.kosmos.app.feature.cleanup.MemoryCleanupScreen(viewModel = com.kosmos.app.feature.cleanup.MemoryCleanupViewModel(runner), onBack = {})
+            MemoryCleanupScreen(viewModel = MemoryCleanupViewModel(runner), onBack = {})
         }
     }
 
@@ -671,22 +772,22 @@ class ScreenCatalogTest {
                 androidx.compose.ui.Modifier.padding(vertical = 8.dp),
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
             ) {
-                com.kosmos.app.ui.component.SectionHeader("메모 3", androidx.compose.ui.Modifier.padding(horizontal = 16.dp), actionLabel = "모두 보기", onAction = {})
-                com.kosmos.app.ui.component.KosmosListGroup(androidx.compose.ui.Modifier.padding(horizontal = 16.dp)) {
+                SectionHeader("메모 3", androidx.compose.ui.Modifier.padding(horizontal = 16.dp), actionLabel = "모두 보기", onAction = {})
+                KosmosListGroup(androidx.compose.ui.Modifier.padding(horizontal = 16.dp)) {
                     val rows = listOf(Triple("자전거 비밀번호는 134", "10월 12일", listOf("자전거")), Triple("회사 주차는 B2 구역 117번", "오늘", listOf("주차")), Triple("아침엔 커피 대신 녹차", "어제", listOf("자동")))
                     rows.forEachIndexed { i, (t, d, tags) ->
-                        com.kosmos.app.ui.component.KosmosListRow(t, supporting = d, tags = tags, divider = i < rows.lastIndex) {
-                            com.kosmos.app.ui.component.DeleteIconButton(onClick = {})
+                        KosmosListRow(t, supporting = d, tags = tags, divider = i < rows.lastIndex) {
+                            DeleteIconButton(onClick = {})
                         }
                     }
                 }
-                com.kosmos.app.ui.component.SectionHeader("이동", androidx.compose.ui.Modifier.padding(horizontal = 16.dp))
-                com.kosmos.app.ui.component.KosmosListGroup(androidx.compose.ui.Modifier.padding(horizontal = 16.dp)) {
-                    com.kosmos.app.ui.component.KosmosListRow("메모·할 일", leadingIcon = com.kosmos.app.R.drawable.ic_ph_note, onClick = {}, divider = true)
-                    com.kosmos.app.ui.component.KosmosListRow("문서", leadingIcon = com.kosmos.app.R.drawable.ic_ph_file_text, onClick = {})
+                SectionHeader("이동", androidx.compose.ui.Modifier.padding(horizontal = 16.dp))
+                KosmosListGroup(androidx.compose.ui.Modifier.padding(horizontal = 16.dp)) {
+                    KosmosListRow("메모·할 일", leadingIcon = R.drawable.ic_ph_note, onClick = {}, divider = true)
+                    KosmosListRow("문서", leadingIcon = R.drawable.ic_ph_file_text, onClick = {})
                 }
-                com.kosmos.app.ui.component.EmptyState(
-                    com.kosmos.app.R.drawable.ic_ph_note, "아직 저장한 메모가 없어요.\n채팅에서 \"기억해 줘\"라고 말하면 여기 쌓여요.",
+                EmptyState(
+                    R.drawable.ic_ph_note, "아직 저장한 메모가 없어요.\n채팅에서 \"기억해 줘\"라고 말하면 여기 쌓여요.",
                     actionLabel = "채팅으로 가기", onAction = {}
                 )
             }
@@ -712,74 +813,74 @@ class ScreenCatalogTest {
     /** 모델 관리(0.38.3 M0 — 카탈로그에 없던 화면). */
     @Test fun modelManagement() {
         // [WHY] 실제 내려받기 예약기는 WorkManager 를 요구한다(테스트 앱에는 없음) — 대기 상태만 내는 가짜로.
-        val useCase = io.mockk.mockk<com.kosmos.app.domain.usecase.DownloadModelUseCase>(relaxed = true) {
-            io.mockk.every { status } returns kotlinx.coroutines.flow.flowOf(com.kosmos.app.domain.tool.ModelDownloadStatus.Idle)
+        val useCase = io.mockk.mockk<DownloadModelUseCase>(relaxed = true) {
+            io.mockk.every { status } returns kotlinx.coroutines.flow.flowOf(ModelDownloadStatus.Idle)
         }
-        val vm = com.kosmos.app.feature.settings.ModelManagementViewModel(useCase)
-        shoot("24-model-management") { com.kosmos.app.feature.settings.ModelManagementScreen(viewModel = vm, onBack = {}) }
+        val vm = ModelManagementViewModel(useCase)
+        shoot("24-model-management") { ModelManagementScreen(viewModel = vm, onBack = {}) }
     }
 
     /** 문서 뷰어 — 스프레드시트(0.38.3 M0 — 카탈로그에 없던 화면). */
     @Test fun documentViewer() {
-        val sheet = com.kosmos.app.domain.document.Sheet(
+        val sheet = Sheet(
             name = "1월",
-            rows = listOf(com.kosmos.app.domain.document.SheetRow(0, listOf(
-                com.kosmos.app.domain.document.SheetCell(0, "날짜"), com.kosmos.app.domain.document.SheetCell(1, "항목"), com.kosmos.app.domain.document.SheetCell(2, "금액")
+            rows = listOf(SheetRow(0, listOf(
+                SheetCell(0, "날짜"), SheetCell(1, "항목"), SheetCell(2, "금액")
             ))) + (1..30).map { r ->
-                com.kosmos.app.domain.document.SheetRow(r, listOf(
-                    com.kosmos.app.domain.document.SheetCell(0, "10-$r"), com.kosmos.app.domain.document.SheetCell(1, "항목$r"), com.kosmos.app.domain.document.SheetCell(2, "${r * 1000}")
+                SheetRow(r, listOf(
+                    SheetCell(0, "10-$r"), SheetCell(1, "항목$r"), SheetCell(2, "${r * 1000}")
                 ))
             },
             columnCount = 3,
             frozenRows = 1
         )
-        val state = com.kosmos.app.feature.document.DocumentViewerState.Spreadsheet("가계부.xlsx", listOf("1월", "2월", "3월"), selected = 0, sheet = sheet)
-        shoot("25-document-viewer") { com.kosmos.app.feature.document.DocumentViewerScreen(state = state, onSelectSheet = {}, onClose = {}) }
+        val state = DocumentViewerState.Spreadsheet("가계부.xlsx", listOf("1월", "2월", "3월"), selected = 0, sheet = sheet)
+        shoot("25-document-viewer") { DocumentViewerScreen(state = state, onSelectSheet = {}, onClose = {}) }
     }
 
     /** 원본 셀 서식이 있는 표(0.38.7 M1) — 칠한 머리 줄(빈 칸 포함)·굵은 합계·빨간 음수·노란 강조, 다크는 어둡게 바꾼 배경. */
     @Test fun documentViewerStyled() {
         val styles = listOf(
-            com.kosmos.app.domain.document.CellStyle(fill = 0xFF8EA9DB.toInt(), bold = true, align = com.kosmos.app.domain.document.CellStyle.Align.CENTER),
-            com.kosmos.app.domain.document.CellStyle(fontColor = 0xFFC00000.toInt()),
-            com.kosmos.app.domain.document.CellStyle(fill = 0xFFFFFF00.toInt()),
-            com.kosmos.app.domain.document.CellStyle(fill = 0xFFE2EFDA.toInt(), bold = true)
+            CellStyle(fill = 0xFF8EA9DB.toInt(), bold = true, align = CellStyle.Align.CENTER),
+            CellStyle(fontColor = 0xFFC00000.toInt()),
+            CellStyle(fill = 0xFFFFFF00.toInt()),
+            CellStyle(fill = 0xFFE2EFDA.toInt(), bold = true)
         )
-        fun cell(c: Int, text: String, style: Int = com.kosmos.app.domain.document.SheetCell.NO_STYLE) = com.kosmos.app.domain.document.SheetCell(c, text, style)
-        val sheet = com.kosmos.app.domain.document.Sheet(
+        fun cell(c: Int, text: String, style: Int = SheetCell.NO_STYLE) = SheetCell(c, text, style)
+        val sheet = Sheet(
             name = "10월",
             rows = listOf(
-                com.kosmos.app.domain.document.SheetRow(0, listOf(cell(0, "날짜", 0), cell(1, "항목", 0), cell(2, "금액", 0), cell(3, "", 0))),
-                com.kosmos.app.domain.document.SheetRow(1, listOf(cell(0, "10-01"), cell(1, "월급"), cell(2, "3,200,000"))),
-                com.kosmos.app.domain.document.SheetRow(2, listOf(cell(0, "10-03"), cell(1, "월세"), cell(2, "-650,000", 1))),
-                com.kosmos.app.domain.document.SheetRow(3, listOf(cell(0, "10-05"), cell(1, "장보기", 2), cell(2, "-84,300", 1))),
-                com.kosmos.app.domain.document.SheetRow(4, listOf(cell(0, "10-12"), cell(1, "통신비"), cell(2, "-55,000", 1))),
-                com.kosmos.app.domain.document.SheetRow(5, listOf(cell(0, "합계", 3), cell(1, "", 3), cell(2, "2,410,700", 3)))
+                SheetRow(0, listOf(cell(0, "날짜", 0), cell(1, "항목", 0), cell(2, "금액", 0), cell(3, "", 0))),
+                SheetRow(1, listOf(cell(0, "10-01"), cell(1, "월급"), cell(2, "3,200,000"))),
+                SheetRow(2, listOf(cell(0, "10-03"), cell(1, "월세"), cell(2, "-650,000", 1))),
+                SheetRow(3, listOf(cell(0, "10-05"), cell(1, "장보기", 2), cell(2, "-84,300", 1))),
+                SheetRow(4, listOf(cell(0, "10-12"), cell(1, "통신비"), cell(2, "-55,000", 1))),
+                SheetRow(5, listOf(cell(0, "합계", 3), cell(1, "", 3), cell(2, "2,410,700", 3)))
             ),
             columnCount = 3,
             frozenRows = 1,
             styles = styles
         )
-        val state = com.kosmos.app.feature.document.DocumentViewerState.Spreadsheet("가계부.xlsx", listOf("10월"), selected = 0, sheet = sheet)
-        shoot("36-document-styled") { com.kosmos.app.feature.document.DocumentViewerScreen(state = state, onSelectSheet = {}, onClose = {}) }
+        val state = DocumentViewerState.Spreadsheet("가계부.xlsx", listOf("10월"), selected = 0, sheet = sheet)
+        shoot("36-document-styled") { DocumentViewerScreen(state = state, onSelectSheet = {}, onClose = {}) }
     }
 
     /** 큰 글자(시스템 1.3배)에서 일정 승인 — 큰 시각이 제목 아래로(0.38.3 M0, 0.38.2 이월). */
     @Test fun approvalLargeFont() {
-        val request = com.kosmos.app.assistant.approval.ApprovalRequest(
+        val request = ApprovalRequest(
             sessionId = SESSION, title = "일정 추가 승인", description = "",
-            preview = com.kosmos.app.assistant.approval.ApprovalPreview(
-                com.kosmos.app.assistant.approval.ApprovalPreview.Kind.SCHEDULE, "분기 실적 정리 회의", "2026-10-19T10:00:00", "2026-10-19T11:30:00", "3층 대회의실"
+            preview = ApprovalPreview(
+                ApprovalPreview.Kind.SCHEDULE, "분기 실적 정리 회의", "2026-10-19T10:00:00", "2026-10-19T11:30:00", "3층 대회의실"
             )
         )
         shoot("26-approval-large-font") {
             androidx.compose.runtime.CompositionLocalProvider(
                 androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(androidx.compose.ui.platform.LocalDensity.current.density, 1.3f)
-            ) { com.kosmos.app.feature.approval.ApprovalSheet(request = request, onApprove = {}, onReject = {}) }
+            ) { ApprovalSheet(request = request, onApprove = {}, onReject = {}) }
         }
     }
 
-    private fun splashViewModel() = com.kosmos.app.feature.splash.SplashViewModel(
+    private fun splashViewModel() = SplashViewModel(
         object : ModelRunner by modelRunner {
             override val loadState: StateFlow<ModelLoadState> = MutableStateFlow(ModelLoadState.InitializingEngine)
         }
@@ -788,15 +889,15 @@ class ScreenCatalogTest {
     // 장면은 다 모이고 별까지 나온 시각에 멈춰 찍는다.
     @Test fun splash() {
         val vm = splashViewModel()
-        shoot("14-splash") { com.kosmos.app.feature.splash.SplashScreen(viewModel = vm, onInitializationComplete = {}, previewTimeMs = 3000L) }
+        shoot("14-splash") { SplashScreen(viewModel = vm, onInitializationComplete = {}, previewTimeMs = 3000L) }
     }
 
     @Test fun splashGalaxy() {
         val vm = splashViewModel()
         shoot("34-splash-galaxy") {
-            com.kosmos.app.feature.splash.SplashScreen(
+            SplashScreen(
                 viewModel = vm, onInitializationComplete = {},
-                splashStyle = com.kosmos.app.ui.theme.SplashStyle.GALAXY, previewTimeMs = 3000L
+                splashStyle = SplashStyle.GALAXY, previewTimeMs = 3000L
             )
         }
     }

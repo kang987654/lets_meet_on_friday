@@ -13,6 +13,22 @@ import com.kosmos.app.data.network.ModelDownloadService
 import com.kosmos.app.platform.notification.AndroidDownloadNotifier
 import com.kosmos.app.platform.notification.DownloadNotifier
 import com.kosmos.app.work.WorkManagerModelDownloadScheduler
+import com.kosmos.app.core.common.CurrentLanguage
+import com.kosmos.app.core.config.AppLanguageHolder
+import com.kosmos.app.platform.device.AndroidDeviceResourceProvider
+import com.kosmos.app.platform.device.BatteryTemperatureProvider
+import com.kosmos.app.platform.device.DeviceResourceProvider
+import com.kosmos.app.platform.device.TemperatureProvider
+import com.kosmos.app.platform.document.AndroidDocumentAccess
+import com.kosmos.app.platform.document.AndroidDocumentOpener
+import com.kosmos.app.platform.document.DocumentAccess
+import com.kosmos.app.platform.document.DocumentOpener
+import com.kosmos.app.platform.notification.AndroidBriefingNotifier
+import com.kosmos.app.platform.notification.AndroidReminderNotifier
+import com.kosmos.app.platform.notification.BriefingNotifier
+import com.kosmos.app.platform.notification.ReminderNotifier
+import com.kosmos.app.widget.GlanceWidgetRefresher
+import com.kosmos.app.widget.WidgetRefresher
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -30,13 +46,13 @@ abstract class PlatformModule {
 
     @Binds
     abstract fun bindDocumentOpener(
-        impl: com.kosmos.app.platform.document.AndroidDocumentOpener
-    ): com.kosmos.app.platform.document.DocumentOpener
+        impl: AndroidDocumentOpener
+    ): DocumentOpener
 
     @Binds
     abstract fun bindDocumentAccess(
-        impl: com.kosmos.app.platform.document.AndroidDocumentAccess
-    ): com.kosmos.app.platform.document.DocumentAccess
+        impl: AndroidDocumentAccess
+    ): DocumentAccess
 
     @Binds
     abstract fun bindDownloadNotifier(
@@ -45,18 +61,18 @@ abstract class PlatformModule {
 
     @Binds
     abstract fun bindBriefingNotifier(
-        impl: com.kosmos.app.platform.notification.AndroidBriefingNotifier
-    ): com.kosmos.app.platform.notification.BriefingNotifier
+        impl: AndroidBriefingNotifier
+    ): BriefingNotifier
 
     @Binds
     abstract fun bindReminderNotifier(
-        impl: com.kosmos.app.platform.notification.AndroidReminderNotifier
-    ): com.kosmos.app.platform.notification.ReminderNotifier
+        impl: AndroidReminderNotifier
+    ): ReminderNotifier
 
     @Binds
     abstract fun bindWidgetRefresher(
-        impl: com.kosmos.app.widget.GlanceWidgetRefresher
-    ): com.kosmos.app.widget.WidgetRefresher
+        impl: GlanceWidgetRefresher
+    ): WidgetRefresher
     @Binds
     abstract fun bindCalendarTool(
         impl: AndroidCalendarTool
@@ -64,17 +80,17 @@ abstract class PlatformModule {
 
     @Binds
     abstract fun bindTemperatureProvider(
-        impl: com.kosmos.app.platform.device.BatteryTemperatureProvider
-    ): com.kosmos.app.platform.device.TemperatureProvider
+        impl: BatteryTemperatureProvider
+    ): TemperatureProvider
 
     @Binds
     abstract fun bindDeviceResourceProvider(
-        impl: com.kosmos.app.platform.device.AndroidDeviceResourceProvider
-    ): com.kosmos.app.platform.device.DeviceResourceProvider
+        impl: AndroidDeviceResourceProvider
+    ): DeviceResourceProvider
 
     // [WHY] 싱글턴 AppLanguageHolder 하나를 CurrentLanguage 읽기 전용 창구로도 노출한다 (0.40.3 M1).
     @Binds
     abstract fun currentLanguage(
-        holder: com.kosmos.app.core.config.AppLanguageHolder
-    ): com.kosmos.app.core.common.CurrentLanguage
+        holder: AppLanguageHolder
+    ): CurrentLanguage
 }

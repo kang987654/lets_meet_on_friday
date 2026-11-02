@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.common.CurrentLanguage
 
 /**
  * [ProfileSheetViewModel]
@@ -41,10 +43,10 @@ class ProfileSheetViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val tokenizer: Tokenizer,
     @param:ApplicationContext private val context: Context,
-    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ViewModel() {
 
-    private val currentLang: com.kosmos.app.core.common.AppLanguage
+    private val currentLang: AppLanguage
         get() = currentLanguage.current
 
     val entries: StateFlow<List<ProfileEntry>> = profileRepository.observeEntries()
@@ -98,7 +100,7 @@ class ProfileSheetViewModel @Inject constructor(
     }
 
     /** 되돌리기 — 지운 항목을 출처(직접/자동)까지 그대로 다시 저장한다(0.38.3 M5). */
-    fun restore(entry: com.kosmos.app.domain.model.ProfileEntry) {
+    fun restore(entry: ProfileEntry) {
         viewModelScope.launch {
             when (val result = profileRepository.upsert(entry.key, entry.value, entry.source)) {
                 is AppResult.Success -> _error.value = null

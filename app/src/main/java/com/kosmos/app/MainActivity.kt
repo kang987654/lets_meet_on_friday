@@ -17,6 +17,12 @@ import dagger.hilt.android.AndroidEntryPoint
 import android.content.Intent
 import com.kosmos.app.platform.share.ShareIntentHandler
 import javax.inject.Inject
+import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.platform.launch.ModelWarmUpObserver
+import com.kosmos.app.platform.launch.VoiceLaunchHandler
+import com.kosmos.app.ui.theme.KosmosTheme
+import com.kosmos.app.ui.theme.ThemeViewModel
+import com.kosmos.app.ui.theme.syncApplicationNightMode
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -25,19 +31,19 @@ class MainActivity : ComponentActivity() {
     lateinit var shareIntentHandler: ShareIntentHandler
 
     @Inject
-    lateinit var voiceLaunchHandler: com.kosmos.app.platform.launch.VoiceLaunchHandler
+    lateinit var voiceLaunchHandler: VoiceLaunchHandler
 
     @Inject
-    lateinit var modelRunner: com.kosmos.app.domain.modelrunner.ModelRunner
+    lateinit var modelRunner: ModelRunner
 
-    private val themeViewModel: com.kosmos.app.ui.theme.ThemeViewModel by viewModels()
+    private val themeViewModel: ThemeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // [WHY] 시스템 바를 투명하게 두고 앱 바탕이 비치게 한다 — 인셋은 각 화면의 상단 바·입력바가 진다(DESIGN.md "시스템 바").
         enableEdgeToEdge()
         // [WHY] 모델은 채팅 화면이 보일 때만 데운다 — 문서 뷰어는 모델 없이 열린다(0.34.0, ModelWarmUpObserver KDoc).
-        lifecycle.addObserver(com.kosmos.app.platform.launch.ModelWarmUpObserver(modelRunner))
+        lifecycle.addObserver(ModelWarmUpObserver(modelRunner))
 
         // [WHY] 첫 실행 시 일괄 권한 요청(deprecated API, 결과 미처리)은 제거한다.
         // 권한은 각 기능 진입 시점에 컨텍스트와 함께 요청한다 (예: ChatScreen 마이크 요청 플로우).
@@ -55,7 +61,7 @@ class MainActivity : ComponentActivity() {
             val chatTextSize by themeViewModel.chatTextSize.collectAsStateWithLifecycle()
             val splashStyle by themeViewModel.splashStyle.collectAsStateWithLifecycle()
 
-            com.kosmos.app.ui.theme.KosmosTheme(
+            KosmosTheme(
                 themeMode = themeMode,
                 fontMode = fontMode,
                 chatTextSize = chatTextSize
@@ -75,7 +81,7 @@ class MainActivity : ComponentActivity() {
     // 창 바탕은 다음 실행에만 쓰이므로 여기서 알려도 충분하다.
     override fun onStop() {
         super.onStop()
-        themeViewModel.persistedThemeMode.value?.let { com.kosmos.app.ui.theme.syncApplicationNightMode(this, it) }
+        themeViewModel.persistedThemeMode.value?.let { syncApplicationNightMode(this, it) }
     }
 
     override fun onNewIntent(intent: Intent) {

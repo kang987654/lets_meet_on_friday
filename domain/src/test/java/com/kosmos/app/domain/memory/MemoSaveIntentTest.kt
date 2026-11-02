@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.kosmos.app.core.common.AppLanguage
 
 /** 메모 저장 의도 판정(0.38.9 M1) — 사실만 말한 턴의 저장을 막고, 저장 물음에 대한 "응"을 알아본다. */
 class MemoSaveIntentTest {
@@ -124,11 +125,11 @@ class MemoSaveIntentTest {
         }
         assertEquals(
             "Got it, locker 214. Would you like me to save this as a note?",
-            MemoSaveIntent.withoutClaim("Got it, locker 214. I'll remember that.", com.kosmos.app.core.common.AppLanguage.EN)
+            MemoSaveIntent.withoutClaim("Got it, locker 214. I'll remember that.", AppLanguage.EN)
         )
         assertEquals(
             "Would you like me to save this as a note?",
-            MemoSaveIntent.withoutClaim("I've saved that for you!", com.kosmos.app.core.common.AppLanguage.EN)
+            MemoSaveIntent.withoutClaim("I've saved that for you!", AppLanguage.EN)
         )
     }
 }

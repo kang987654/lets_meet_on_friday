@@ -7,6 +7,8 @@ import com.kosmos.app.domain.util.IsoDateTimeParser
 import com.kosmos.app.platform.notification.ReminderNotifier
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.common.CurrentLanguage
 
 /**
  * [ReminderFireHandler]
@@ -27,9 +29,9 @@ import javax.inject.Singleton
 class ReminderFireHandler @Inject constructor(
     private val taskRepository: TaskRepository,
     private val notifier: ReminderNotifier,
-    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) {
-    private val currentLang: com.kosmos.app.core.common.AppLanguage
+    private val currentLang: AppLanguage
         get() = currentLanguage.current
 
     suspend fun fire(taskId: String, now: Long = System.currentTimeMillis()) {

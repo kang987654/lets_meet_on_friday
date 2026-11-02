@@ -29,6 +29,19 @@ import com.kosmos.app.domain.model.CalendarEvent
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.ui.component.kosmosSurface
 import androidx.compose.foundation.clickable
+import com.kosmos.app.core.mapper.ErrorMessages
+import com.kosmos.app.domain.model.TaskItem
+import com.kosmos.app.domain.util.IsoDateTimeParser
+import com.kosmos.app.feature.chat.result.ReminderEditSheet
+import com.kosmos.app.feature.chat.result.ResultCardMapper
+import com.kosmos.app.ui.component.EmptyState
+import com.kosmos.app.ui.component.KosmosIcon
+import com.kosmos.app.ui.component.KosmosListGroup
+import com.kosmos.app.ui.component.KosmosSegmentedControl
+import com.kosmos.app.ui.component.KosmosTopBar
+import com.kosmos.app.ui.component.LocalClock
+import com.kosmos.app.ui.component.SectionHeader
+import com.kosmos.app.ui.component.rememberToday
 
 
 @Composable
@@ -38,13 +51,13 @@ fun CalendarScreen(
 ) {
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     // [WHY] 헤더 월·날짜 띠·"오늘" 판정이 같은 today 를 본다 — 화면 복귀마다 갱신(rememberToday).
-    val today = com.kosmos.app.ui.component.rememberToday()
+    val today = rememberToday()
 
     // [WHY] 기기 캘린더 병합 조회(ADR-004)를 위해 화면 진입 시 READ_CALENDAR를 요청한다.
     // 거부 시 로컬 일정만 표시되며, 권한 승인 직후 재조회한다.
     val context = androidx.compose.ui.platform.LocalContext.current
     // 카탈로그 고정 시계와 같은 기준 시각 — 앱에서는 기기 시계다.
-    val clock = com.kosmos.app.ui.component.LocalClock.current
+    val clock = LocalClock.current
     val readCalendarLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -66,13 +79,13 @@ fun CalendarScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        com.kosmos.app.ui.component.KosmosTopBar(
+        KosmosTopBar(
             title = stringResource(R.string.calendar_title),
             onBack = onBack
         )
 
         // [WHY] 오늘 / 월 탭(0.38.3 M1 사용자 결정) — 옛 목록 탭의 오늘·이번 주 두 겹 분할 버튼을 "오늘" 탭 하나로 흡수했다.
-        com.kosmos.app.ui.component.KosmosSegmentedControl(
+        KosmosSegmentedControl(
             options = listOf(
                 CalendarTab.TODAY to stringResource(R.string.calendar_tab_today),
                 CalendarTab.MONTH to stringResource(R.string.calendar_tab_month)
@@ -142,7 +155,7 @@ private fun TodayTab(viewModel: CalendarViewModel, today: java.time.LocalDate, o
         item {
             // [WHY] 바로 위 탭 이름이 "오늘"이라 머리에서 다시 말하지 않는다 — 날짜만(0.38.6 점검 P3).
             Text(
-                com.kosmos.app.domain.util.IsoDateTimeParser.longDateKorean(today.atStartOfDay(zone).toInstant().toEpochMilli(), zone, lang),
+                IsoDateTimeParser.longDateKorean(today.atStartOfDay(zone).toInstant().toEpochMilli(), zone, lang),
                 style = MaterialTheme.typography.titleLarge,
                 color = KosmosTheme.colors.textPrimary,
                 modifier = Modifier.padding(bottom = 4.dp)
@@ -155,19 +168,19 @@ private fun TodayTab(viewModel: CalendarViewModel, today: java.time.LocalDate, o
                 Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = KosmosTheme.colors.brand) }
             }
             is CalendarUiState.Error -> item {
-                Text(com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error, lang), color = KosmosTheme.colors.dangerText, modifier = Modifier.padding(16.dp))
+                Text(ErrorMessages.userMessage(state.error, lang), color = KosmosTheme.colors.dangerText, modifier = Modifier.padding(16.dp))
             }
             is CalendarUiState.Success -> {
                 if (model.isEmpty) {
                     item {
-                        com.kosmos.app.ui.component.EmptyState(
-                            icon = com.kosmos.app.R.drawable.ic_ph_calendar_blank,
+                        EmptyState(
+                            icon = R.drawable.ic_ph_calendar_blank,
                             message = stringResource(R.string.calendar_today_all_clear)
                         )
                     }
                 } else {
                     item {
-                        com.kosmos.app.ui.component.KosmosListGroup {
+                        KosmosListGroup {
                             val last = model.timeline.size + model.tasks.size - 1
                             model.timeline.forEachIndexed { index, entry ->
                                 TodayTimeRow(entry, divider = index < last, onClick = (entry as? TodayEntry.Reminder)?.let { { viewModel.openReminder(it.task.id) } })
@@ -180,13 +193,13 @@ private fun TodayTab(viewModel: CalendarViewModel, today: java.time.LocalDate, o
                 }
                 if (model.upcoming.isNotEmpty()) {
                     item {
-                        com.kosmos.app.ui.component.SectionHeader(
+                        SectionHeader(
                             stringResource(R.string.calendar_today_section_upcoming),
                             Modifier.padding(top = 8.dp)
                         )
                     }
                     item {
-                        com.kosmos.app.ui.component.KosmosListGroup {
+                        KosmosListGroup {
                             model.upcoming.forEachIndexed { index, entry ->
                                 UpcomingRow(entry, divider = index < model.upcoming.lastIndex)
                             }
@@ -215,7 +228,7 @@ private fun TodayTimeRow(entry: TodayEntry, divider: Boolean, onClick: (() -> Un
                 deviceLabel = stringResource(R.string.calendar_source_device)
             )
         },
-        icon = if (isReminder) com.kosmos.app.R.drawable.ic_ph_bell else com.kosmos.app.R.drawable.ic_ph_calendar_blank,
+        icon = if (isReminder) R.drawable.ic_ph_bell else R.drawable.ic_ph_calendar_blank,
         accentTime = isReminder,
         divider = divider,
         onClick = onClick
@@ -261,7 +274,7 @@ internal fun ScheduleRow(
                 Text(title, style = MaterialTheme.typography.bodyLarge, color = colors.textPrimary)
                 sub?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.textMuted) }
             }
-            icon?.let { com.kosmos.app.ui.component.KosmosIcon(it, contentDescription = null, size = 18.dp, tint = colors.textMuted) }
+            icon?.let { KosmosIcon(it, contentDescription = null, size = 18.dp, tint = colors.textMuted) }
         }
         if (divider) HorizontalDivider(Modifier.padding(start = TIME_COLUMN + 16.dp), color = colors.border)
     }
@@ -306,7 +319,7 @@ private fun UpcomingRow(entry: UpcomingEntry, divider: Boolean) {
 
 /** 오늘 탭에서 연 알림의 수정 시트 — 0.38.2 [com.kosmos.app.feature.chat.result.ReminderEditSheet] 그대로. */
 @Composable
-private fun ReminderEditHost(viewModel: CalendarViewModel, reminders: List<com.kosmos.app.domain.model.TaskItem>, today: java.time.LocalDate) {
+private fun ReminderEditHost(viewModel: CalendarViewModel, reminders: List<TaskItem>, today: java.time.LocalDate) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val editing by viewModel.editingReminder.collectAsStateWithLifecycle()
     val error by viewModel.editError.collectAsStateWithLifecycle()
@@ -318,10 +331,10 @@ private fun ReminderEditHost(viewModel: CalendarViewModel, reminders: List<com.k
         is CalendarViewModel.ReminderEditError.Message -> e.text
         CalendarViewModel.ReminderEditError.Generic -> stringResource(R.string.chat_reminder_update_failed)
     }
-    val at = task.remindAtIso?.let { com.kosmos.app.domain.util.IsoDateTimeParser.toEpochMillis(it) }
+    val at = task.remindAtIso?.let { IsoDateTimeParser.toEpochMillis(it) }
         ?.let { java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()) }
-    com.kosmos.app.feature.chat.result.ReminderEditSheet(
-        state = com.kosmos.app.feature.chat.result.ResultCardMapper.reminder(context, task, today, lang = lang),
+    ReminderEditSheet(
+        state = ResultCardMapper.reminder(context, task, today, lang = lang),
         initialHour = at?.hour ?: 9,
         initialMinute = at?.minute ?: 0,
         error = errorText,

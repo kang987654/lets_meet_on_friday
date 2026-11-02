@@ -33,9 +33,20 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLooper
 import javax.inject.Inject
+import com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.di.ModelModule
+import com.kosmos.app.domain.memory.EpisodeRepository
+import com.kosmos.app.domain.modelrunner.ChatPrompt
+import com.kosmos.app.domain.modelrunner.ModelLoadManager
+import com.kosmos.app.domain.modelrunner.ModelToolCall
+import com.kosmos.app.domain.modelrunner.ModelTurn
+import com.kosmos.app.domain.tool.ImageProcessor
+import com.kosmos.app.domain.tool.Tokenizer
+import com.kosmos.app.platform.launch.VoiceLaunchHandler
 
 @HiltAndroidTest
-@UninstallModules(com.kosmos.app.di.ModelModule::class)
+@UninstallModules(ModelModule::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(application = dagger.hilt.android.testing.HiltTestApplication::class)
 class ToolApprovalE2ETest {
@@ -48,8 +59,8 @@ class ToolApprovalE2ETest {
 
     @Inject lateinit var sessionStore: SessionStore
     @Inject lateinit var conversationRepository: ConversationRepository
-    @Inject lateinit var episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository
-    @Inject lateinit var briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+    @Inject lateinit var episodeRepository: EpisodeRepository
+    @Inject lateinit var briefingGenerator: MorningBriefingGenerator
     @Inject lateinit var sendChatMessageUseCase: SendChatMessageUseCase
     @Inject lateinit var approvalCoordinator: ApprovalCoordinator
     @Inject lateinit var shareIntentHandler: ShareIntentHandler
@@ -57,32 +68,32 @@ class ToolApprovalE2ETest {
     
     @dagger.hilt.android.testing.BindValue
     @JvmField
-    val tokenizer: com.kosmos.app.domain.tool.Tokenizer = object : com.kosmos.app.domain.tool.Tokenizer {
+    val tokenizer: Tokenizer = object : Tokenizer {
         override fun sizeInTokens(text: String): Int = text.length / 4
     }
 
     @dagger.hilt.android.testing.BindValue
     @JvmField
-    val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor = object : com.kosmos.app.domain.tool.ImageProcessor {
-        override suspend fun processImage(rawBytes: ByteArray): com.kosmos.app.core.common.AppResult<ByteArray> {
-            return com.kosmos.app.core.common.AppResult.Success(rawBytes)
+    val imageProcessor: ImageProcessor = object : ImageProcessor {
+        override suspend fun processImage(rawBytes: ByteArray): AppResult<ByteArray> {
+            return AppResult.Success(rawBytes)
         }
     }
 
     @dagger.hilt.android.testing.BindValue
     @JvmField
-    val modelLoadManager: com.kosmos.app.domain.modelrunner.ModelLoadManager = object : com.kosmos.app.domain.modelrunner.ModelLoadManager {
+    val modelLoadManager: ModelLoadManager = object : ModelLoadManager {
         override val loadState = MutableStateFlow<ModelLoadState>(ModelLoadState.Ready(ModelInfo("mock", "mock", "1.0", "Q4", 0L)))
         override fun checkModelFile() {}
         override fun setInitializing() {}
-        override fun setReady(modelInfo: com.kosmos.app.domain.modelrunner.ModelInfo) {}
+        override fun setReady(modelInfo: ModelInfo) {}
     }
 
     @dagger.hilt.android.testing.BindValue
     @JvmField
-    val audioRecorder: AudioRecorder = object : com.kosmos.app.platform.speech.AudioRecorder(ApplicationProvider.getApplicationContext()) {
-        override fun startRecording(): com.kosmos.app.core.common.AppResult<Unit> = com.kosmos.app.core.common.AppResult.Success(Unit)
-        override suspend fun stopRecording(): com.kosmos.app.core.common.AppResult<java.io.File> = com.kosmos.app.core.common.AppResult.Success(java.io.File.createTempFile("t", "a"))
+    val audioRecorder: AudioRecorder = object : AudioRecorder(ApplicationProvider.getApplicationContext()) {
+        override fun startRecording(): AppResult<Unit> = AppResult.Success(Unit)
+        override suspend fun stopRecording(): AppResult<java.io.File> = AppResult.Success(java.io.File.createTempFile("t", "a"))
     }
 
     @dagger.hilt.android.testing.BindValue
@@ -95,19 +106,19 @@ class ToolApprovalE2ETest {
         // 실제 런타임이 그렇게 돌려주기 때문이다 (ADR-008). 턴 구분도 `<tool_response>` 문자열
         // 검사 대신 prompt.toolResponse 존재 여부로 한다.
         override suspend fun generate(
-            prompt: com.kosmos.app.domain.modelrunner.ChatPrompt,
+            prompt: ChatPrompt,
             onToken: ((String) -> Unit)?
-        ): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> {
+        ): AppResult<ModelTurn> {
             val toolResponse = prompt.toolResponse
             val turn = if (toolResponse != null) {
                 // 거절은 모델을 다시 부르지 않는다(0.38.6 M4) — 회신 턴은 승인된 경우뿐이다.
-                com.kosmos.app.domain.modelrunner.ModelTurn("일정 처리가 완료되었습니다.")
+                ModelTurn("일정 처리가 완료되었습니다.")
             } else {
                 val isCancelScenario = prompt.currentInput.contains("취소")
-                com.kosmos.app.domain.modelrunner.ModelTurn(
+                ModelTurn(
                     text = "",
                     toolCalls = listOf(
-                        com.kosmos.app.domain.modelrunner.ModelToolCall(
+                        ModelToolCall(
                             name = "AddSchedule",
                             // [WHY] 시각 값은 유효한 ISO 8601 이어야 한다 — 0.15.0 부터 인자
                             // 형식 검증이 승인 카드 전에 걸러서, 예전 픽스처("15:00")로는
@@ -123,20 +134,20 @@ class ToolApprovalE2ETest {
                 )
             }
             turn.text.takeIf { it.isNotEmpty() }?.let { onToken?.invoke(it) }
-            return com.kosmos.app.core.common.AppResult.Success(turn)
+            return AppResult.Success(turn)
         }
 
         override suspend fun generateWithImage(
-            prompt: com.kosmos.app.domain.modelrunner.ChatPrompt,
+            prompt: ChatPrompt,
             imageBytes: ByteArray,
             onToken: ((String) -> Unit)?
-        ): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> = generate(prompt, onToken)
+        ): AppResult<ModelTurn> = generate(prompt, onToken)
 
         override suspend fun generateWithAudio(
-            prompt: com.kosmos.app.domain.modelrunner.ChatPrompt,
+            prompt: ChatPrompt,
             audioPath: String,
             onToken: ((String) -> Unit)?
-        ): com.kosmos.app.core.common.AppResult<com.kosmos.app.domain.modelrunner.ModelTurn> = generate(prompt, onToken)
+        ): AppResult<ModelTurn> = generate(prompt, onToken)
 
         override suspend fun cancel() {}
         override fun close() {}
@@ -161,7 +172,7 @@ class ToolApprovalE2ETest {
             modelRunner = mockModelRunner,
             audioRecorder = audioRecorder,
             briefingGenerator = briefingGenerator,
-            voiceLaunchHandler = com.kosmos.app.platform.launch.VoiceLaunchHandler(),
+            voiceLaunchHandler = VoiceLaunchHandler(),
             // C′2 생성부 — 제안 흐름은 이 E2E 의 관심사가 아니다(빈 대기 목록).
             suggestionRepository = io.mockk.mockk {
                 io.mockk.every { observePending() } returns kotlinx.coroutines.flow.flowOf(emptyList())

@@ -24,6 +24,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import com.kosmos.app.domain.document.FlowBlock
+import com.kosmos.app.domain.document.FlowDocument
+import com.kosmos.app.domain.document.SheetCell
+import com.kosmos.app.domain.document.SheetRow
+import com.kosmos.app.domain.document.Span
+import com.kosmos.app.platform.document.PdfPages
+import com.kosmos.app.platform.share.ShareIntentHandler
+import com.kosmos.app.platform.share.SharedInput
 
 /**
  * [DocumentViewerViewModelTest]
@@ -57,9 +65,9 @@ class DocumentViewerViewModelTest {
         }
     }
 
-    private val offered = mutableListOf<com.kosmos.app.platform.share.SharedInput>()
-    private val shareHandler: com.kosmos.app.platform.share.ShareIntentHandler = mockk {
-        every { offer(any()) } answers { offered += firstArg<com.kosmos.app.platform.share.SharedInput>() }
+    private val offered = mutableListOf<SharedInput>()
+    private val shareHandler: ShareIntentHandler = mockk {
+        every { offer(any()) } answers { offered += firstArg<SharedInput>() }
     }
 
     private val store = ViewModelStore()
@@ -100,7 +108,7 @@ class DocumentViewerViewModelTest {
 
     @Test
     fun `읽기 모드 문서와 글자 크기 단계`() {
-        val doc = com.kosmos.app.domain.document.FlowDocument(emptyList())
+        val doc = FlowDocument(emptyList())
         result = DocumentResult.Ok(OpenedDocument.Flow("보고서.hwpx", doc))
         viewModel.load(uri)
         val state = viewModel.state.value as DocumentViewerState.Flow
@@ -114,9 +122,9 @@ class DocumentViewerViewModelTest {
 
     @Test
     fun `행 번호 두 번으로 범위를 고르고 채팅으로 넘긴다`() {
-        val sheet = com.kosmos.app.domain.document.Sheet(
+        val sheet = Sheet(
             name = "1월",
-            rows = (0..5).map { r -> com.kosmos.app.domain.document.SheetRow(r, listOf(com.kosmos.app.domain.document.SheetCell(0, if (r == 0) "항목" else "값$r"))) },
+            rows = (0..5).map { r -> SheetRow(r, listOf(SheetCell(0, if (r == 0) "항목" else "값$r"))) },
             columnCount = 1
         )
         result = DocumentResult.Ok(OpenedDocument.Spreadsheet("가계부.xlsx", listOf("1월"), { _, _ -> DocumentResult.Ok(sheet) }))
@@ -135,7 +143,7 @@ class DocumentViewerViewModelTest {
         viewModel.tapRow(3)
 
         assertTrue(viewModel.sendToChat())
-        val doc = offered.single() as com.kosmos.app.platform.share.SharedInput.Document
+        val doc = offered.single() as SharedInput.Document
         assertEquals("가계부.xlsx", doc.fileName)
         assertTrue(doc.textContent.contains("값1") && doc.textContent.contains("값3") && !doc.textContent.contains("값4"))
         assertEquals("보낸 뒤에는 고르기를 끝낸다", null, viewModel.selection.value)
@@ -143,8 +151,8 @@ class DocumentViewerViewModelTest {
 
     @Test
     fun `읽기 모드 블록은 눌러서 넣고 빼고, PDF 글자를 못 꺼내는 기기는 알린다`() {
-        val doc = com.kosmos.app.domain.document.FlowDocument(
-            listOf("첫 문단", "둘째 문단", "셋째 문단").map { com.kosmos.app.domain.document.FlowBlock.Paragraph(listOf(com.kosmos.app.domain.document.Span(it))) }
+        val doc = FlowDocument(
+            listOf("첫 문단", "둘째 문단", "셋째 문단").map { FlowBlock.Paragraph(listOf(Span(it))) }
         )
         result = DocumentResult.Ok(OpenedDocument.Flow("회의록.docx", doc))
         viewModel.load(uri)
@@ -156,7 +164,7 @@ class DocumentViewerViewModelTest {
         assertEquals(setOf(0), blocks.indices)
         assertEquals("첫 문단", blocks.preview?.text)
 
-        val pages = object : com.kosmos.app.platform.document.PdfPages {
+        val pages = object : PdfPages {
             override val pageCount = 3
             override fun aspectRatio(index: Int) = 1.4f
             override suspend fun render(index: Int, widthPx: Int) = null
@@ -171,7 +179,7 @@ class DocumentViewerViewModelTest {
 
     @Test
     fun `글자 층이 없는 PDF 페이지는 찾는 중에 머물지 않고 글자 없음이 된다`() {
-        val pages = object : com.kosmos.app.platform.document.PdfPages {
+        val pages = object : PdfPages {
             override val pageCount = 2
             override fun aspectRatio(index: Int) = 1.4f
             override suspend fun render(index: Int, widthPx: Int) = null

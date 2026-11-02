@@ -22,6 +22,11 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.kosmos.app.domain.cleanup.ApplyEpisodeMergeUseCase
+import com.kosmos.app.domain.cleanup.EpisodeMergeProposal
+import com.kosmos.app.domain.cleanup.PlanEpisodeMergeUseCase
+import com.kosmos.app.domain.model.Episode
+import com.kosmos.app.domain.model.EpisodeStatus
 
 /**
  * [MemoryCleanupRunnerTest]
@@ -47,10 +52,10 @@ class MemoryCleanupRunnerTest {
     )
 
     // 0.31.0 생성부 추가 — 에피소드 통합은 이 테스트의 관심사가 아니다(제안 없음).
-    private val planEpisodes: com.kosmos.app.domain.cleanup.PlanEpisodeMergeUseCase = mockk {
+    private val planEpisodes: PlanEpisodeMergeUseCase = mockk {
         coEvery { this@mockk.invoke(any(), any()) } returns AppResult.Success(emptyList())
     }
-    private val applyEpisodes: com.kosmos.app.domain.cleanup.ApplyEpisodeMergeUseCase = mockk(relaxed = true)
+    private val applyEpisodes: ApplyEpisodeMergeUseCase = mockk(relaxed = true)
 
     private fun runner() = MemoryCleanupRunner(gate, review, plan, apply, planEpisodes, applyEpisodes, metrics, modelRunner)
 
@@ -156,16 +161,16 @@ class MemoryCleanupRunnerTest {
 
     // --- 대화 통합 (0.31.0) ---
 
-    private fun episode(id: String) = com.kosmos.app.domain.model.Episode(
-        id = id, sessionId = "s", status = com.kosmos.app.domain.model.EpisodeStatus.SUMMARIZED, title = "제목$id",
+    private fun episode(id: String) = Episode(
+        id = id, sessionId = "s", status = EpisodeStatus.SUMMARIZED, title = "제목$id",
         summary = "요약", tags = emptyList(), startAt = 0L, endAt = 1L, messageCount = 2, retryCount = 0, createdAt = 0L, updatedAt = 0L
     )
 
     @Test
     fun `대화 통합 제안을 검토 상태에 싣고 적용 결과에 합친 수와 건너뛴 수를 남긴다`() = runBlocking {
         givenHappyPath()
-        val p1 = com.kosmos.app.domain.cleanup.EpisodeMergeProposal(listOf(episode("a"), episode("b")))
-        val p2 = com.kosmos.app.domain.cleanup.EpisodeMergeProposal(listOf(episode("c"), episode("d")))
+        val p1 = EpisodeMergeProposal(listOf(episode("a"), episode("b")))
+        val p2 = EpisodeMergeProposal(listOf(episode("c"), episode("d")))
         coEvery { planEpisodes(any(), any()) } returns AppResult.Success(listOf(p1, p2))
         coEvery { applyEpisodes(listOf(p1, p2), any()) } returns 1
         val r = runner()
@@ -182,7 +187,7 @@ class MemoryCleanupRunnerTest {
     @Test
     fun `대화 통합 적용은 자동 요약과 같은 잠금 안에서 돈다`() = runBlocking {
         givenHappyPath()
-        val p1 = com.kosmos.app.domain.cleanup.EpisodeMergeProposal(listOf(episode("a"), episode("b")))
+        val p1 = EpisodeMergeProposal(listOf(episode("a"), episode("b")))
         coEvery { planEpisodes(any(), any()) } returns AppResult.Success(listOf(p1))
         var lockedDuringApply = false
         coEvery { applyEpisodes(any(), any()) } coAnswers { lockedDuringApply = gate.mutex.isLocked; 1 }

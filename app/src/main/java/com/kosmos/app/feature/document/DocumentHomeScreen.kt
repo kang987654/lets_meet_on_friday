@@ -40,6 +40,12 @@ import com.kosmos.app.ui.component.showUndo
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.currentAppLanguage
 import kotlinx.coroutines.launch
+import com.kosmos.app.ui.component.DeleteIconButton
+import com.kosmos.app.ui.component.EmptyState
+import com.kosmos.app.ui.component.KosmosListRow
+import com.kosmos.app.ui.component.KosmosTopBar
+import com.kosmos.app.ui.component.SectionHeader
+import com.kosmos.app.ui.component.rememberToday
 
 /**
  * 문서 홈 (0.34.0) — 드로어 "문서"의 목적지. 파일 열기 + 최근 문서 목록. 문서는 [DocumentViewerActivity] 가 연다.
@@ -102,7 +108,7 @@ fun DocumentHomeScreen(
         containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            com.kosmos.app.ui.component.KosmosTopBar(title = stringResource(R.string.doc_home_title), onBack = onBack)
+            KosmosTopBar(title = stringResource(R.string.doc_home_title), onBack = onBack)
         }
     ) { padding ->
         LazyColumn(
@@ -121,13 +127,13 @@ fun DocumentHomeScreen(
             }
             if (recent.isEmpty()) {
                 item {
-                    com.kosmos.app.ui.component.EmptyState(
+                    EmptyState(
                         R.drawable.ic_ph_file,
                         stringResource(R.string.doc_home_empty_recent)
                     )
                 }
             } else {
-                item { com.kosmos.app.ui.component.SectionHeader(stringResource(R.string.doc_home_section_recent), Modifier.padding(top = 16.dp)) }
+                item { SectionHeader(stringResource(R.string.doc_home_section_recent), Modifier.padding(top = 16.dp)) }
                 itemsIndexed(recent, key = { _, document -> document.uri }) { index, document ->
                     RecentRow(
                         document = document,
@@ -152,10 +158,10 @@ fun DocumentHomeScreen(
 @Composable
 private fun RecentRow(document: RecentDocument, position: GroupPosition, onClick: () -> Unit, onRemove: () -> Unit) {
     val lang = currentAppLanguage()
-    val today = com.kosmos.app.ui.component.rememberToday()
+    val today = rememberToday()
     val zone = java.time.ZoneId.systemDefault()
     val openedDay = java.time.Instant.ofEpochMilli(document.openedAt).atZone(zone).toLocalDate()
-    com.kosmos.app.ui.component.KosmosListRow(
+    KosmosListRow(
         title = document.name.ifBlank { stringResource(R.string.doc_viewer_default_title) },
         supporting = "${IsoDateTimeParser.dayLabelKorean(openedDay, today, lang)} ${IsoDateTimeParser.timeKorean(document.openedAt, lang = lang)}",
         leadingIcon = documentIcon(document),
@@ -163,7 +169,7 @@ private fun RecentRow(document: RecentDocument, position: GroupPosition, onClick
         onClick = onClick,
         divider = position == GroupPosition.First || position == GroupPosition.Middle,
         modifier = Modifier.groupItem(position),
-        trailing = { com.kosmos.app.ui.component.DeleteIconButton(onRemove, contentDescription = stringResource(R.string.doc_home_remove_recent_cd)) }
+        trailing = { DeleteIconButton(onRemove, contentDescription = stringResource(R.string.doc_home_remove_recent_cd)) }
     )
 }
 

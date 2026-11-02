@@ -24,6 +24,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 import com.kosmos.app.domain.memory.MemoryBackupManager
+import com.kosmos.app.data.local.db.KosmosMigrations
 
 /**
  * [ExportImportManager]
@@ -281,7 +282,7 @@ fun readSqliteUserVersion(file: File): Int? = runCatching {
  * 마찬가지로 공개 함수로 둔다.
  */
 fun minSupportedSchemaVersion(): Int =
-    com.kosmos.app.data.local.db.KosmosMigrations.ALL.minOf { it.startVersion }
+    KosmosMigrations.ALL.minOf { it.startVersion }
 
 /** 백업 스키마 버전 [version] 이 현재 앱에서 복원 가능한 범위인지 판정합니다 (0.40.2 M2-4). */
 fun isRestorableVersion(version: Int): Boolean =

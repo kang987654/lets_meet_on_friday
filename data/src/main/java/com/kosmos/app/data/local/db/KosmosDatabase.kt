@@ -12,6 +12,10 @@ import com.kosmos.app.data.local.db.entity.ConversationEntity
 import com.kosmos.app.data.local.db.entity.KnowledgeEntity
 import com.kosmos.app.data.local.db.entity.ProfileEntryEntity
 import com.kosmos.app.data.local.db.entity.TaskEntity
+import com.kosmos.app.data.local.db.dao.EpisodeDao
+import com.kosmos.app.data.local.db.dao.ProfileSuggestionDao
+import com.kosmos.app.data.local.db.entity.EpisodeEntity
+import com.kosmos.app.data.local.db.entity.ProfileSuggestionEntity
 
 @Database(
     entities = [
@@ -20,8 +24,8 @@ import com.kosmos.app.data.local.db.entity.TaskEntity
         AuditEntity::class,
         TaskEntity::class,
         KnowledgeEntity::class,
-        com.kosmos.app.data.local.db.entity.EpisodeEntity::class,
-        com.kosmos.app.data.local.db.entity.ProfileSuggestionEntity::class
+        EpisodeEntity::class,
+        ProfileSuggestionEntity::class
     ],
     version = KosmosDatabase.SCHEMA_VERSION,
     exportSchema = true
@@ -32,8 +36,8 @@ abstract class KosmosDatabase : RoomDatabase() {
     abstract fun auditDao(): AuditDao
     abstract fun taskDao(): TaskDao
     abstract fun knowledgeDao(): KnowledgeDao
-    abstract fun episodeDao(): com.kosmos.app.data.local.db.dao.EpisodeDao
-    abstract fun profileSuggestionDao(): com.kosmos.app.data.local.db.dao.ProfileSuggestionDao
+    abstract fun episodeDao(): EpisodeDao
+    abstract fun profileSuggestionDao(): ProfileSuggestionDao
 
     companion object {
         /**

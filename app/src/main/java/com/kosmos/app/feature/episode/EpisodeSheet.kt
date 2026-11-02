@@ -32,6 +32,9 @@ import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.currentAppLanguage
+import com.kosmos.app.domain.util.IsoDateTimeParser
+import com.kosmos.app.ui.component.Tag
+import com.kosmos.app.ui.component.kosmosTextFieldColors
 
 /**
  * 에피소드 시트 (시안 A′-3): 제목/태그/요약 열람 + 인라인 수정 + 삭제 + 원문 이동.
@@ -116,7 +119,7 @@ fun EpisodeSheet(
                 if (current.tags.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        current.tags.take(5).forEach { tag -> com.kosmos.app.ui.component.Tag(tag) }
+                        current.tags.take(5).forEach { tag -> Tag(tag) }
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
@@ -185,7 +188,7 @@ private fun EditForm(
     var summary by remember { mutableStateOf(episode.summary.orEmpty()) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        val fieldColors = com.kosmos.app.ui.component.kosmosTextFieldColors()
+        val fieldColors = kosmosTextFieldColors()
         OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.episode_sheet_title_label)) }, modifier = Modifier.fillMaxWidth(), colors = fieldColors)
         OutlinedTextField(value = tags, onValueChange = { tags = it }, label = { Text(stringResource(R.string.episode_sheet_tags_label)) }, modifier = Modifier.fillMaxWidth(), colors = fieldColors)
         OutlinedTextField(value = summary, onValueChange = { summary = it }, label = { Text(stringResource(R.string.episode_sheet_summary_label)) }, modifier = Modifier.fillMaxWidth(), minLines = 3, colors = fieldColors)
@@ -202,7 +205,7 @@ private fun EditForm(
 private fun formatRange(episode: Episode): String {
     val lang = currentAppLanguage()
     val start = "${com.kosmos.app.domain.util.IsoDateTimeParser.monthDayKorean(episode.startAt, lang = lang)} ${com.kosmos.app.domain.util.IsoDateTimeParser.timeKorean(episode.startAt, lang = lang)}"
-    val end = episode.endAt?.let { com.kosmos.app.domain.util.IsoDateTimeParser.timeKorean(it, lang = lang) }
+    val end = episode.endAt?.let { IsoDateTimeParser.timeKorean(it, lang = lang) }
     return if (end != null) {
         stringResource(R.string.episode_sheet_range_with_count, start, end, episode.messageCount)
     } else start

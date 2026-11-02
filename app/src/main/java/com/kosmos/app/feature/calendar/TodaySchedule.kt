@@ -6,6 +6,7 @@ import com.kosmos.app.domain.model.TaskItem
 import com.kosmos.app.domain.util.IsoDateTimeParser
 import java.time.LocalDate
 import java.time.ZoneId
+import com.kosmos.app.core.common.AppLanguage
 
 /**
  * 일정 화면 "오늘" 탭이 그릴 내용(0.38.3 M1, Things 3 의 오늘 화면 모티브).
@@ -52,9 +53,9 @@ object TodayComposer {
         pending: List<TaskItem>,
         today: LocalDate,
         zone: ZoneId,
-        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+        lang: AppLanguage = AppLanguage.KO
     ): TodayModel {
-        val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
+        val isEn = lang == AppLanguage.EN
         val events = week?.events.orEmpty()
         val todayEvents = events.filter { IsoDateTimeParser.toLocalDate(it.startIso, zone) == today }.map { event ->
             TodayEntry.Event(
@@ -86,9 +87,9 @@ object TodayComposer {
         )
     }
 
-    private fun timeOf(iso: String, zone: ZoneId, lang: com.kosmos.app.core.common.AppLanguage): String =
+    private fun timeOf(iso: String, zone: ZoneId, lang: AppLanguage): String =
         IsoDateTimeParser.toDisplayTimeKorean(iso, zone, lang)
-            ?: if (lang == com.kosmos.app.core.common.AppLanguage.EN) ALL_DAY_EN else ALL_DAY
+            ?: if (lang == AppLanguage.EN) ALL_DAY_EN else ALL_DAY
 
     private fun sortKeyOf(iso: String, today: LocalDate, zone: ZoneId): Long =
         if (IsoDateTimeParser.isDateOnly(iso)) today.atStartOfDay(zone).toInstant().toEpochMilli() - 1

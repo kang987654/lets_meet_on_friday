@@ -61,6 +61,8 @@ import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.currentAppLanguage
 import java.time.LocalDate
 import java.time.ZoneId
+import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.ui.component.rememberReducedMotion
 
 /**
  * 공통 승인 시트가 보일 내용 — 무엇을 하는지(종류) · 대상 · 언제 · 메모 · 안내 줄 · 버튼 글자.
@@ -86,7 +88,7 @@ data class ApprovalSheetContent(
             request: ApprovalRequest,
             today: LocalDate,
             zone: ZoneId = ZoneId.systemDefault(),
-            lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+            lang: AppLanguage = AppLanguage.KO
         ): ApprovalSheetContent {
             val defaultReject = context.getString(R.string.common_cancel)
             val defaultApprove = context.getString(R.string.approval_default_approve)
@@ -135,7 +137,7 @@ data class ApprovalSheetContent(
         fun of(
             context: Context,
             suggestions: List<ProfileSuggestion>,
-            lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+            lang: AppLanguage = AppLanguage.KO
         ): ApprovalSheetContent {
             val single = suggestions.singleOrNull()
             return ApprovalSheetContent(
@@ -153,7 +155,7 @@ data class ApprovalSheetContent(
             )
         }
 
-        private fun dayOf(context: Context, iso: String, today: LocalDate, zone: ZoneId, lang: com.kosmos.app.core.common.AppLanguage): String? {
+        private fun dayOf(context: Context, iso: String, today: LocalDate, zone: ZoneId, lang: AppLanguage): String? {
             val date = IsoDateTimeParser.toLocalDate(iso, zone) ?: return null
             return if (date == today) {
                 context.getString(R.string.common_today)
@@ -192,7 +194,7 @@ fun ApprovalSheetLayout(
     // 보조 버튼이 주 버튼만큼 무거워 보였다(0.38.5 impeccable P2 → 0.38.6 M2 사용자 결정).
     // [WHY] 남은 시간은 프레임 시계로 잰다 — `Animatable.animateTo(tween(60초))` 는 시스템 애니메이션 배율을 따라 "애니메이션 제거"면 곧바로 차서
     // 화면 읽기가 "0초 뒤 자동 취소"라고 했다(0.38.3 점검 P2). 실제 제한 시간은 [ApprovalCoordinator] 가 따로 센다. 애니메이션 제거면 1초에 한 번만 갱신(조용한 단계 채움).
-    val reduceMotion = com.kosmos.app.ui.component.rememberReducedMotion()
+    val reduceMotion = rememberReducedMotion()
     var elapsedFraction by remember(timeoutKey) { mutableFloatStateOf(0f) }
     if (timeoutKey != null) {
         LaunchedEffect(timeoutKey) {

@@ -9,6 +9,7 @@ import com.kosmos.app.core.security.ApprovalRules
 import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.usecase.SaveKnowledgeUseCase
 import javax.inject.Inject
+import com.kosmos.app.domain.model.MessageResult
 
 /**
  * [AddMemoryToolExecutor]
@@ -63,7 +64,7 @@ class AddMemoryToolExecutor @Inject constructor(
         return when (val saved = saveKnowledgeUseCase(content, tags)) {
             is AppResult.Success -> ToolResultJson.withResult(
                 ToolResultJson.success().put("message", if (en) "Saved to memory." else "기억에 저장했어요."),
-                kind = com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_NOTE.name,
+                kind = MessageResult.Kind.MEMORY_NOTE.name,
                 ref = saved.data.id
             ).toString()
             is AppResult.Failure -> ToolResultJson.error(

@@ -28,6 +28,7 @@ import com.kosmos.app.ui.component.KosmosIcon
 import com.kosmos.app.ui.component.kosmosSurface
 import com.kosmos.app.ui.component.sparkle
 import com.kosmos.app.ui.theme.KosmosTheme
+import com.kosmos.app.feature.splash.SplashAnchor
 
 /**
  * 대화 기록이 하나도 없을 때의 첫 화면(0.38.2 M7b, 처음 쓸 때·초기화 후 — 타임라인은 세션과 무관하다, ADR-022) — 작은 별자리 + 인사 + 눌러서 바로 시작하는 예시 세 개(알림·일정·기억).
@@ -38,7 +39,7 @@ import com.kosmos.app.ui.theme.KosmosTheme
 fun EmptyChat(onStarter: (String) -> Unit, modifier: Modifier = Modifier) {
     val colors = KosmosTheme.colors
     Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp).splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.EMPTY),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp).splashAnchor(SplashAnchor.EMPTY),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

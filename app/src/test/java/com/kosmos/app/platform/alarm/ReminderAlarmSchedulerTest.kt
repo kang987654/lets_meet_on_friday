@@ -19,6 +19,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import com.kosmos.app.core.common.AppError
 
 /**
  * [ReminderAlarmSchedulerTest]
@@ -96,7 +97,7 @@ class ReminderAlarmSchedulerTest {
     @Test
     fun `복원 조회 실패 시 아무것도 하지 않는다`() = runTest {
         coEvery { repository.getActiveReminders() } returns
-            AppResult.Failure(com.kosmos.app.core.common.AppError.DbReadError("task_item"))
+            AppResult.Failure(AppError.DbReadError("task_item"))
 
         scheduler.restoreAll(now = 0L)
 

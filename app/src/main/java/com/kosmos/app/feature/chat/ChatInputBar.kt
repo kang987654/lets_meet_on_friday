@@ -49,6 +49,9 @@ import com.kosmos.app.R
 import com.kosmos.app.ui.component.kosmosSurface
 
 import com.kosmos.app.platform.share.SharedInput
+import com.kosmos.app.feature.splash.SplashAnchor
+import com.kosmos.app.ui.component.rememberReducedMotion
+import com.kosmos.app.ui.theme.Motion
 // [WHY] ChatScreen.kt(1,200여 줄, 12개 컴포저블 동거)를 응집 단위로 분리했다
 // (2026-08-15, MVP 감사 refactor-ui) — 순수 이동이며 동작 변경이 없다. 이 파일: 입력바(텍스트·마이크·첨부 프리뷰).
 
@@ -58,7 +61,7 @@ private enum class InputAction { SEND, MIC, STOP }
 fun ChatInputBar(
     isLoading: Boolean,
     isRecording: Boolean,
-    sharedInput: com.kosmos.app.platform.share.SharedInput?,
+    sharedInput: SharedInput?,
     onClearSharedInput: () -> Unit,
     onSend: (String) -> Unit,
     onMicClick: () -> Unit,
@@ -77,7 +80,7 @@ fun ChatInputBar(
     var textState by remember { mutableStateOf(TextFieldValue("")) }
 
     LaunchedEffect(sharedInput) {
-        if (sharedInput is com.kosmos.app.platform.share.SharedInput.Text) {
+        if (sharedInput is SharedInput.Text) {
             textState = TextFieldValue(sharedInput.content)
             onClearSharedInput() // Consume the shared input text
         }
@@ -92,10 +95,10 @@ fun ChatInputBar(
             // E2E 계약(셀렉터·단독 compose)에 영향 없다.
             .navigationBarsPadding()
             .imePadding()
-            .splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.INPUT_BAR)
+            .splashAnchor(SplashAnchor.INPUT_BAR)
     ) {
         when (sharedInput) {
-            is com.kosmos.app.platform.share.SharedInput.Image -> AttachmentPreview(
+            is SharedInput.Image -> AttachmentPreview(
                 needsText = textState.text.isBlank(),
                 onClear = onClearSharedInput,
                 leading = { AttachmentThumbnail(uri = sharedInput.uri) },
@@ -104,7 +107,7 @@ fun ChatInputBar(
             )
             // [WHY] "Document Attached" 는 E2E 셀렉터다(MultimodalChatE2ETest) —
             // "Attach"/"Send" contentDescription 과 같은 불변 계약이라 한글화에서 제외.
-            is com.kosmos.app.platform.share.SharedInput.Document -> AttachmentPreview(
+            is SharedInput.Document -> AttachmentPreview(
                 needsText = textState.text.isBlank(),
                 onClear = onClearSharedInput,
                 title = "Document Attached",
@@ -141,7 +144,7 @@ fun ChatInputBar(
                 modifier = Modifier.size(width = 40.dp, height = 48.dp)
             ) {
                 Icon(
-                    painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_paperclip),
+                    painter = painterResource(id = R.drawable.ic_ph_paperclip),
                     contentDescription = "Attach",
                     tint = if (!isLoading) KosmosTheme.colors.textSecondary else KosmosTheme.colors.textMuted,
                     modifier = Modifier.size(24.dp)
@@ -159,7 +162,7 @@ fun ChatInputBar(
                     }
             ) {
                 Icon(
-                    painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_globe),
+                    painter = painterResource(id = R.drawable.ic_ph_globe),
                     contentDescription = stringResource(R.string.chat_web_search_cd),
                     tint = if (webSearchEnabled) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted,
                     modifier = Modifier.size(22.dp)
@@ -171,7 +174,7 @@ fun ChatInputBar(
                     .weight(1f)
                     .padding(horizontal = 8.dp)
             ) {
-                val reduced = com.kosmos.app.ui.component.rememberReducedMotion()
+                val reduced = rememberReducedMotion()
                 if (isRecording && !reduced) {
                     // [WHY] 듣는 중에는 지나온 소리가 흐르는 파형 — 글자만으로는 실제로 들리는지 알 수 없었다(0.38.4 M5, 사용자 선택 B). 화면 읽기에는 같은 말을 알린다.
                     val listeningDesc = stringResource(R.string.chat_listening_cd)
@@ -219,7 +222,7 @@ fun ChatInputBar(
                 targetState = inputAction,
                 // [WHY] 보이는 원은 40, 누르는 영역은 48 — 원 둘레 4dp 를 누르는 영역에 넣는다(0.38.6 M6 점검: 보내기·마이크가 40dp 였다).
                 modifier = Modifier.size(48.dp),
-                animationSpec = com.kosmos.app.ui.theme.Motion.short(),
+                animationSpec = Motion.short(),
                 label = "send_mic_transition"
             ) { action ->
                 if (action == InputAction.STOP) {
@@ -235,7 +238,7 @@ fun ChatInputBar(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_stop_fill),
+                            painter = painterResource(id = R.drawable.ic_ph_stop_fill),
                             contentDescription = stringResource(R.string.chat_stop_generation_cd),
                             tint = KosmosTheme.colors.brandText,
                             modifier = Modifier.size(20.dp)
@@ -257,7 +260,7 @@ fun ChatInputBar(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_arrow_up),
+                            painter = painterResource(id = R.drawable.ic_ph_arrow_up),
                             contentDescription = "Send",
                             tint = KosmosTheme.colors.onBrandSoft,
                             modifier = Modifier.size(20.dp)
@@ -279,7 +282,7 @@ fun ChatInputBar(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(id = if (isRecording) com.kosmos.app.R.drawable.ic_ph_stop_fill else com.kosmos.app.R.drawable.ic_ph_microphone),
+                            painter = painterResource(id = if (isRecording) R.drawable.ic_ph_stop_fill else R.drawable.ic_ph_microphone),
                             contentDescription = stringResource(
                                 if (isRecording) R.string.chat_stop_recording_cd else R.string.chat_voice_input_cd
                             ),
@@ -343,7 +346,7 @@ private fun AttachmentPreview(
             }
             IconButton(onClick = onClear) {
                 Icon(
-                    painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_x),
+                    painter = painterResource(id = R.drawable.ic_ph_x),
                     contentDescription = stringResource(R.string.chat_remove_attachment_cd),
                     tint = KosmosTheme.colors.textMuted
                 )

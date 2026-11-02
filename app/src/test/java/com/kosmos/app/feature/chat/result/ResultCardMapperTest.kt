@@ -14,6 +14,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.LocalDate
 import java.time.ZoneId
+import com.kosmos.app.core.common.AppLanguage
 
 /**
  * 결과 카드(0.38.2 M3)의 상태 판정 — 카드는 그 순간의 사진이 아니라 대상의 **현재 상태**다(D6 ④).
@@ -75,7 +76,7 @@ class ResultCardMapperTest {
     @Test
     @Config(qualifiers = "en")
     fun `영어 모드 — 리마인더·일정·기억 답 카드가 영어로 매핑된다`() {
-        val en = com.kosmos.app.core.common.AppLanguage.EN
+        val en = AppLanguage.EN
         val before = ResultCardMapper.reminder(context, reminder, today, zone, en)
         assertEquals("Upcoming", before.status)
         assertEquals("1:56 PM", before.value)
