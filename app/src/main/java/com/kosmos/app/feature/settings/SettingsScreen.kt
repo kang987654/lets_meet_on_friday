@@ -1,10 +1,7 @@
 package com.kosmos.app.feature.settings
 
-import android.app.AlarmManager
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
-import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -365,10 +362,7 @@ fun SettingsScreen(
             DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
-                        exactAlarmAllowed =
-                            Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-                            context.getSystemService(AlarmManager::class.java)
-                                ?.canScheduleExactAlarms() != false
+                        exactAlarmAllowed = NotificationAccess.canScheduleExact(context)
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
@@ -382,11 +376,7 @@ fun SettingsScreen(
                     KosmosListRow(
                         title = stringResource(R.string.settings_exact_alarm_allow),
                         onClick = {
-                            context.startActivity(
-                                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                                    data = Uri.parse("package:${context.packageName}")
-                                }
-                            )
+                            context.startActivity(NotificationAccess.exactAlarmSettingsIntent(context))
                         },
                         trailing = { Chevron() }
                     )

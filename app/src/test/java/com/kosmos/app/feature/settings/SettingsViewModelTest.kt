@@ -2,7 +2,6 @@ package com.kosmos.app.feature.settings
 
 import com.kosmos.app.data.local.prefs.SettingsDataStore
 import com.kosmos.app.domain.modelrunner.ModelRunner
-import com.kosmos.app.runtime.gemma.GemmaRuntimeManager
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +31,6 @@ class SettingsViewModelTest {
         io.mockk.every { briefingEnabledFlow } returns kotlinx.coroutines.flow.flowOf(true)
         io.mockk.every { briefingTimeMinutesFlow } returns kotlinx.coroutines.flow.flowOf(557)
     }
-    private val runtimeManager: GemmaRuntimeManager = mockk(relaxed = true)
     private val modelRunner: ModelRunner = mockk(relaxed = true)
     private val briefingScheduler: BriefingNotificationScheduler =
         mockk(relaxed = true)
@@ -44,7 +42,7 @@ class SettingsViewModelTest {
     }
 
     private fun viewModel() =
-        SettingsViewModel(settingsDataStore, runtimeManager, modelRunner, briefingScheduler, speechOutput)
+        SettingsViewModel(settingsDataStore, modelRunner, briefingScheduler, speechOutput)
 
     @Before
     fun setUp() {

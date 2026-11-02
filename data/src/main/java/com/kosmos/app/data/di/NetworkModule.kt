@@ -1,6 +1,8 @@
 package com.kosmos.app.data.di
 
+import com.kosmos.app.data.network.ModelDownloadService
 import com.kosmos.app.data.tool.WikipediaSearchToolImpl
+import com.kosmos.app.domain.tool.ModelDownloader
 import com.kosmos.app.domain.tool.WikipediaSearchTool
 import dagger.Binds
 import dagger.Module
@@ -57,6 +59,12 @@ object NetworkModule {
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class ToolBindingModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindModelDownloader(
+        impl: ModelDownloadService
+    ): ModelDownloader
 
     @Binds
     @Singleton

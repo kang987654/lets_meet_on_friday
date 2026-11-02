@@ -3,6 +3,7 @@ package com.kosmos.app.platform.alarm
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.kosmos.app.core.logging.AppLogger
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +32,8 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 fireHandler.fire(taskId)
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "리마인더 발화 처리 실패: $taskId", e)
             } finally {
                 pendingResult.finish()
             }
@@ -39,5 +42,6 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
 
     companion object {
         const val EXTRA_TASK_ID = "task_id"
+        private const val TAG = "ReminderAlarmReceiver"
     }
 }

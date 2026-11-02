@@ -16,9 +16,7 @@ import kotlin.coroutines.cancellation.CancellationException
  *    표면화되고 취소 전파가 끊긴다.)
  * 2. 그 외 예외는 [Result.failure]로 감싸 호출부의 `fold` 매핑에 위임합니다.
  */
-// [WHY] inline으로 두면 :core(JVM 21)와 소비 모듈(:data, JVM 17)의 타깃 불일치로
-// 컴파일이 깨지므로 일반 함수로 유지한다. suspend 블록 지원을 위해 suspend 시그니처 오버로드 제공.
-suspend fun <T> runCatchingCancellable(block: suspend () -> T): Result<T> =
+inline fun <T> runCatchingCancellable(block: () -> T): Result<T> =
     try {
         Result.success(block())
     } catch (e: CancellationException) {

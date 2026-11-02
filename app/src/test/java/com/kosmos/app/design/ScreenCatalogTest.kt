@@ -679,7 +679,7 @@ class ScreenCatalogTest {
 
     @Test fun settings() {
         val vm = SettingsViewModel(
-            settingsDataStore, runtimeManager, modelRunner, briefingScheduler, io.mockk.mockk(relaxed = true)
+            settingsDataStore, modelRunner, briefingScheduler, io.mockk.mockk(relaxed = true)
         )
         val themeVm = ThemeViewModel(settingsDataStore)
         val resetVm = DataResetViewModel(
@@ -693,7 +693,7 @@ class ScreenCatalogTest {
     /** 설정 아래쪽 — 브리핑·기억·음성·데이터 묶음과 각주(0.38.3 M3, 첫 화면에는 위 세 묶음만 보인다). */
     @Test fun settingsLower() {
         val vm = SettingsViewModel(
-            settingsDataStore, runtimeManager, modelRunner, briefingScheduler, io.mockk.mockk(relaxed = true)
+            settingsDataStore, modelRunner, briefingScheduler, io.mockk.mockk(relaxed = true)
         )
         val themeVm = ThemeViewModel(settingsDataStore)
         val resetVm = DataResetViewModel(

@@ -3,6 +3,7 @@ package com.kosmos.app.platform.alarm
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.kosmos.app.core.logging.AppLogger
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,9 +32,15 @@ class ReminderBootReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 scheduler.restoreAll()
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "재부팅 후 리마인더 복원 실패", e)
             } finally {
                 pendingResult.finish()
             }
         }
+    }
+
+    private companion object {
+        const val TAG = "ReminderBootReceiver"
     }
 }

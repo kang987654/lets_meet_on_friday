@@ -25,8 +25,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import com.kosmos.app.data.local.prefs.SettingsDataStore
 import com.kosmos.app.domain.modelrunner.ModelLoadState
+import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.platform.speech.SpeechOutput
-import com.kosmos.app.runtime.gemma.GemmaRuntimeManager
 
 /**
  * [EnglishModeUiTest]
@@ -74,7 +74,7 @@ class EnglishModeUiTest {
             every { ttsEngineFlow } returns flowOf("")
             every { appLanguageOptionFlow } returns flowOf("EN")
         }
-        val runtimeManager = mockk<GemmaRuntimeManager>(relaxed = true) {
+        val modelRunner = mockk<ModelRunner>(relaxed = true) {
             every { loadState } returns kotlinx.coroutines.flow.MutableStateFlow(
                 ModelLoadState.NotFound("/m")
             )
@@ -86,8 +86,7 @@ class EnglishModeUiTest {
         }
         val settingsVm = SettingsViewModel(
             settingsDataStore = settingsDataStore,
-            runtimeManager = runtimeManager,
-            modelRunner = mockk(relaxed = true),
+            modelRunner = modelRunner,
             briefingScheduler = mockk(relaxed = true),
             speechOutput = speechOutput
         )

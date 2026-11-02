@@ -59,33 +59,12 @@ class GemmaRuntimeManager @Inject constructor(
     }
 
     override fun checkModelFile() {
-        val externalModelsDir = context.getExternalFilesDir("models")
-        val internalModelsDir = File(context.filesDir, "models")
-        
-        var modelFile: File? = null
+        val externalModelsDir = context.getExternalFilesDir(Constants.MODEL_DIR_NAME)
+        val internalModelsDir = File(context.filesDir, Constants.MODEL_DIR_NAME)
 
-        // 1. Check external dir first (Android Studio push target usually)
-        if (externalModelsDir != null && externalModelsDir.exists()) {
-            // [WHY] firstOrNull 은 파일시스템 나열 순서(비결정적)라 옛 모델이 남아 있으면 그게
-            // 잡힐 수 있다. 내부 저장소 분기와 같은 기준(최신 수정 파일)으로 통일한다.
-            val externalFile = externalModelsDir.listFiles()
-                ?.filter { it.name.endsWith(".litertlm") }
-                ?.maxByOrNull { it.lastModified() }
-            if (externalFile != null) {
-                modelFile = externalFile
-            }
-        }
-        
-        // 2. Check internal dir if not found (standalone push target or Downloaded via App)
-        if (modelFile == null && internalModelsDir.exists()) {
-            // Find the most recently modified .litertlm file
-            val internalFile = internalModelsDir.listFiles()
-                ?.filter { it.name.endsWith(".litertlm") }
-                ?.maxByOrNull { it.lastModified() }
-            if (internalFile != null) {
-                modelFile = internalFile
-            }
-        }
+        // 1. 외부 저장소(Android Studio push 경로) 우선 탐색 후 2. 내부 저장소(앱 다운로드 경로) 탐색
+        val modelFile = findLatestModelFile(externalModelsDir)
+            ?: findLatestModelFile(internalModelsDir)
 
         if (modelFile != null) {
             // [WHY] 툴 호출 지원은 모델 파일에 달렸다(Gemma 4 = 지원, Gemma 3n = 미지원).
@@ -110,4 +89,12 @@ class GemmaRuntimeManager @Inject constructor(
             )
         }
     }
+
+    // [WHY] firstOrNull 은 파일시스템 나열 순서(비결정적)라 옛 모델이 남아 있으면 그게
+    // 잡힐 수 있다. 외부·내부 저장소 모두 최신 수정 파일 기준으로 통일한다.
+    private fun findLatestModelFile(dir: File?): File? =
+        dir?.takeIf { it.exists() }
+            ?.listFiles()
+            ?.filter { it.name.endsWith(".litertlm") }
+            ?.maxByOrNull { it.lastModified() }
 }

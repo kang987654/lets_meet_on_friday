@@ -3,7 +3,6 @@ package com.kosmos.app.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kosmos.app.data.local.prefs.SettingsDataStore
-import com.kosmos.app.runtime.gemma.GemmaRuntimeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +18,6 @@ import com.kosmos.app.work.BriefingNotificationScheduler
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
-    private val runtimeManager: GemmaRuntimeManager,
     private val modelRunner: ModelRunner,
     private val briefingScheduler: BriefingNotificationScheduler,
     private val speechOutput: SpeechOutput
@@ -37,7 +35,7 @@ class SettingsViewModel @Inject constructor(
         combine(
             settingsDataStore.responseStyleFlow,
             settingsDataStore.maxTokensFlow,
-            runtimeManager.loadState
+            modelRunner.loadState
         ) { responseStyle, maxTokens, loadState -> Triple(responseStyle, maxTokens, loadState) },
         combine(
             settingsDataStore.briefingEnabledFlow,
