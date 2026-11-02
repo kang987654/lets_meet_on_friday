@@ -1,7 +1,5 @@
 package com.kosmos.app.feature.chat
 
-import com.kosmos.app.core.common.AppLanguage
-
 import com.kosmos.app.feature.splash.splashAnchor
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Canvas
@@ -12,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +24,7 @@ import com.kosmos.app.R
 import com.kosmos.app.ui.component.KosmosIcon
 import com.kosmos.app.ui.component.kosmosSurface
 import com.kosmos.app.ui.component.sparkle
+import com.kosmos.app.ui.theme.KosmosShapes
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.feature.splash.SplashAnchor
 
@@ -74,7 +72,7 @@ private fun Starter(@DrawableRes icon: Int, text: String, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .kosmosSurface(shape = RoundedCornerShape(99.dp))
+            .kosmosSurface(shape = KosmosShapes.full)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 9.dp)
     ) {

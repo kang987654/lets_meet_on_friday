@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -68,6 +67,7 @@ import com.kosmos.app.ui.component.groupItem
 import com.kosmos.app.ui.component.groupPosition
 import com.kosmos.app.ui.component.showUndo
 import com.kosmos.app.ui.restartApp
+import com.kosmos.app.ui.theme.KosmosShapes
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.currentAppLanguage
 import kotlinx.coroutines.launch
@@ -326,7 +326,7 @@ fun MemoryScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(top = 16.dp)
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(KosmosShapes.md)
                                     .clickable { showCompleted = !showCompleted }
                                     // [WHY] "남은 할 일" 섹션 제목·묶음과 시작점을 맞춘다 — 8dp 더 들어가 있었다(0.38.3 M6 점검 P1).
                                     .padding(vertical = 12.dp),

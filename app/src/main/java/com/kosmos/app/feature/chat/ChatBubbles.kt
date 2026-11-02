@@ -1,15 +1,13 @@
 package com.kosmos.app.feature.chat
 
-import com.kosmos.app.core.common.AppLanguage
-
 import com.kosmos.app.feature.splash.splashAnchor
 import com.kosmos.app.ui.component.appearOnce
 import com.kosmos.app.ui.component.pressScale
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.kosmos.app.R
+import com.kosmos.app.ui.theme.KosmosShapes
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -328,7 +326,7 @@ fun ChatBubbleAssistant(
                     modifier = Modifier
                         .padding(start = 14.dp, top = 4.dp)
                         .minimumInteractiveComponentSize()
-                        .kosmosSurface(shape = RoundedCornerShape(99.dp))
+                        .kosmosSurface(shape = KosmosShapes.full)
                         .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onRecallChipClick)
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
@@ -370,7 +368,7 @@ private fun EvidenceLine(line: Evidence) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = if (conflict) {
-            Modifier.fillMaxWidth().background(colors.warningText.copy(alpha = 0.10f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 8.dp)
+            Modifier.fillMaxWidth().background(colors.warningText.copy(alpha = 0.10f), KosmosShapes.sm).padding(horizontal = 10.dp, vertical = 8.dp)
         } else Modifier
     ) {
         val icon = when (line.kind) {
@@ -404,8 +402,8 @@ private fun ChatChipRow(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .pressScale(source)
-                    .clip(RoundedCornerShape(99.dp))
-                    .kosmosSurface(shape = RoundedCornerShape(99.dp))
+                    .clip(KosmosShapes.full)
+                    .kosmosSurface(shape = KosmosShapes.full)
                     .clickable(interactionSource = source, indication = androidx.compose.material3.ripple(), role = androidx.compose.ui.semantics.Role.Button) { onChipClick(chip) }
                     .padding(start = if (chip.icon != null) 12.dp else 14.dp, end = 14.dp, top = 8.dp, bottom = 8.dp)
             ) {
@@ -469,7 +467,7 @@ internal fun AttachmentThumbnail(uri: Uri, sizeDp: Int = 48) {
     Box(
         modifier = Modifier
             .size(sizeDp.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(KosmosShapes.sm)
             .background(KosmosTheme.colors.surfaceSunk)
     ) {
         bitmap?.let {

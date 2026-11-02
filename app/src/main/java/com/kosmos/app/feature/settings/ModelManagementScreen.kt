@@ -18,6 +18,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kosmos.app.R
 import com.kosmos.app.ui.component.KosmosButton
+import com.kosmos.app.ui.theme.KosmosShapes
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.ui.component.KosmosListGroup
@@ -110,7 +111,7 @@ fun ModelManagementScreen(
                         label = { Text(stringResource(R.string.model_mgmt_custom_url_label), color = KosmosTheme.colors.textMuted) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = kosmosTextFieldColors(),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                        shape = KosmosShapes.md
                     )
                     KosmosButton(stringResource(R.string.model_mgmt_download_custom_url), { startDownload(customUrl) }, Modifier.fillMaxWidth(), enabled = customUrl.isNotBlank())
                 }

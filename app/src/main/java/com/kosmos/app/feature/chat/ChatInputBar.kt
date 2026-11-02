@@ -1,13 +1,12 @@
 package com.kosmos.app.feature.chat
 
-import com.kosmos.app.core.common.AppLanguage
-
 import com.kosmos.app.feature.splash.splashAnchor
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
+import com.kosmos.app.ui.theme.KosmosShapes
 import com.kosmos.app.ui.theme.KosmosTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,7 +27,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,7 +42,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.kosmos.app.R
 import com.kosmos.app.ui.component.kosmosSurface
 
@@ -316,7 +313,7 @@ private fun AttachmentPreview(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .kosmosSurface(shape = RoundedCornerShape(12.dp))
+            .kosmosSurface(shape = KosmosShapes.md)
             .padding(12.dp)
     ) {
         Row(

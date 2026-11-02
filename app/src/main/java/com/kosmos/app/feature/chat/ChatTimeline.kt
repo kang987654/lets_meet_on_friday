@@ -44,6 +44,7 @@ import com.kosmos.app.feature.chat.result.ResultCardState
 import com.kosmos.app.ui.component.KosmosIcon
 import com.kosmos.app.ui.component.LocalClock
 import com.kosmos.app.ui.component.kosmosSurface
+import com.kosmos.app.ui.theme.KosmosShapes
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.currentAppLanguage
 import kotlinx.coroutines.CoroutineScope
@@ -188,7 +189,7 @@ internal fun SummaryTiles(
             .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
             .fillMaxWidth()
             .height(44.dp)
-            .kosmosSurface(shape = RoundedCornerShape(99.dp)),
+            .kosmosSurface(shape = KosmosShapes.full),
         verticalAlignment = Alignment.CenterVertically
     ) {
         SummarySegment(
