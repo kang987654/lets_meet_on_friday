@@ -72,8 +72,8 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
-            // [WHY] `-Pfast` 빠른 반복용 — 전체(약 2분)의 70%가 Compose/Hilt E2E 와 Robolectric 스트림
-            // 스위트 5개(약 83초)에서 나온다. 나머지 460여 건은 약 40초다. 회차 게이트(§1)는 항상 전체다.
+            // [WHY] `-Pfast` 빠른 반복용 — 전체(약 2분 40초)의 약 60%가 Compose/Hilt E2E 와 Robolectric 스트림
+            // 스위트 5개(약 97초)에서 나온다. 나머지 600여 건은 약 63초다. 회차 게이트(§1)는 항상 전체다.
             if (project.hasProperty("fast")) {
                 all { test ->
                     test.filter {
@@ -86,7 +86,11 @@ android {
                 }
             }
             // [WHY] 대화상자 창까지 합성해 찍는 captureScreenRoboImage 의 정확도 권장값(Roborazzi README).
-            all { test -> test.systemProperty("robolectric.pixelCopyRenderMode", "hardware") }
+            // maxParallelForks=4 는 클래스 단위로 테스트 JVM 을 갈라 Robolectric/Roborazzi 스위트를 병렬 실행한다(CHANGELOG 0.40.3).
+            all { test ->
+                test.systemProperty("robolectric.pixelCopyRenderMode", "hardware")
+                test.maxParallelForks = 4
+            }
         }
     }
     lint {
@@ -153,8 +157,6 @@ dependencies {
     // Room ([WHY] 버전 카탈로그로 통일 — 하드코딩 버전과 카탈로그 버전이 갈라지는 드리프트 방지)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-
-    ksp(libs.androidx.room.compiler)
 
     // CameraX
 

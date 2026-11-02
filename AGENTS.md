@@ -18,7 +18,7 @@
 ```
 
 - 빠른 반복에는 `./gradlew :app:compileDebugKotlin :app:compileDebugUnitTestKotlin` 로 컴파일만 먼저 확인.
-- 테스트 빠른 반복은 `./gradlew test -Pfast` — E2E·Robolectric 스트림 스위트 5개(전체 시간의 약 70%)를
+- 테스트 빠른 반복은 `./gradlew test -Pfast` — E2E·Robolectric 스트림 스위트 5개(전체 시간의 약 60%)를
   뺀다. **회차 게이트는 항상 `-Pfast` 없이** 전체를 돌린다.
 - 회차마다 `docs/CHANGELOG.md` 에 기록한다 — 무엇을 왜 바꿨는지, 발견한 결함은 원인까지.
 - 사용자가 보는 동작(기능·화면 이름·권한·요구 사양)이 바뀌면 사용 안내 `docs/guide/USER_GUIDE.md` 와 `USER_GUIDE.en.md` 를
