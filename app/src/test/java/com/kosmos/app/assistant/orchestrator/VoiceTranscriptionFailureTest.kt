@@ -5,6 +5,7 @@ import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.agent.AgentResult
+import com.kosmos.app.domain.agent.ChatRequest
 import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage

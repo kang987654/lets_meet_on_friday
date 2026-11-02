@@ -1,5 +1,6 @@
 package com.kosmos.app.di
 
+import com.kosmos.app.assistant.orchestrator.AssistantOrchestrator
 import com.kosmos.app.assistant.tool.AddMemoryToolExecutor
 import com.kosmos.app.assistant.tool.AddReminderToolExecutor
 import com.kosmos.app.assistant.tool.AddScheduleToolExecutor
@@ -7,6 +8,7 @@ import com.kosmos.app.assistant.tool.GetScheduleToolExecutor
 import com.kosmos.app.assistant.tool.SearchMemoryToolExecutor
 import com.kosmos.app.assistant.tool.SearchWikipediaToolExecutor
 import com.kosmos.app.assistant.tool.ToolExecutor
+import com.kosmos.app.domain.agent.AssistantGateway
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -23,6 +25,9 @@ import dagger.multibindings.IntoSet
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class AgentModule {
+    // [WHY] SendChatMessageUseCase(:domain) 가 AssistantOrchestrator(:app) 를 AssistantGateway 로 주입받는다 (ADR-034).
+    @Binds abstract fun assistantGateway(o: AssistantOrchestrator): AssistantGateway
+
     @Binds @IntoSet abstract fun addSchedule(executor: AddScheduleToolExecutor): ToolExecutor
     @Binds @IntoSet abstract fun getSchedule(executor: GetScheduleToolExecutor): ToolExecutor
     @Binds @IntoSet abstract fun addMemory(executor: AddMemoryToolExecutor): ToolExecutor

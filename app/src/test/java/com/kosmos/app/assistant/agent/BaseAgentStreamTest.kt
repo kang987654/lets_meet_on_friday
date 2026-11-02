@@ -2,8 +2,8 @@ package com.kosmos.app.assistant.agent
 
 import com.kosmos.app.assistant.approval.ApprovalCoordinator
 import com.kosmos.app.assistant.context.ContextBuilder
-import com.kosmos.app.assistant.orchestrator.ChatRequest
-import com.kosmos.app.assistant.orchestrator.StreamUpdate
+import com.kosmos.app.domain.agent.ChatRequest
+import com.kosmos.app.domain.agent.StreamUpdate
 import com.kosmos.app.assistant.tool.ToolExecutor
 import com.kosmos.app.assistant.tool.ToolRegistry
 import com.kosmos.app.core.common.AppError

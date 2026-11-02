@@ -5,8 +5,8 @@ import com.kosmos.app.assistant.approval.ApprovalCoordinator
 import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.assistant.context.ToolParser
 import com.kosmos.app.assistant.orchestrator.AssistantMessageWriter
-import com.kosmos.app.assistant.orchestrator.ChatRequest
-import com.kosmos.app.assistant.orchestrator.StreamUpdate
+import com.kosmos.app.domain.agent.ChatRequest
+import com.kosmos.app.domain.agent.StreamUpdate
 import com.kosmos.app.assistant.tool.ToolArguments
 import com.kosmos.app.assistant.tool.ToolRegistry
 import com.kosmos.app.assistant.tool.ToolResultJson
@@ -128,8 +128,9 @@ abstract class BaseAgent(
             //
             // [WHY] 오디오 분기는 없다 — 음성은 `AssistantOrchestrator` 가 먼저 전사해
             // 텍스트로 바꿔 보내므로 에이전트까지 오디오가 오지 않는다 (ADR-014).
-            val modelResult = if (request.imageBytes != null && isFirstTurn) {
-                modelRunner.generateWithImage(prompt, request.imageBytes, wrappedOnToken)
+            val imageBytes = request.imageBytes
+            val modelResult = if (imageBytes != null && isFirstTurn) {
+                modelRunner.generateWithImage(prompt, imageBytes, wrappedOnToken)
             } else {
                 modelRunner.generate(prompt, wrappedOnToken)
             }

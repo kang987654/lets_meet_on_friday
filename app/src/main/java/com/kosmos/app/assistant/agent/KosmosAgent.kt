@@ -3,7 +3,7 @@ package com.kosmos.app.assistant.agent
 import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.assistant.context.PromptAssembler
-import com.kosmos.app.assistant.orchestrator.ChatRequest
+import com.kosmos.app.domain.agent.ChatRequest
 import com.kosmos.app.assistant.tool.ToolRegistry
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.domain.audit.AuditTrailService

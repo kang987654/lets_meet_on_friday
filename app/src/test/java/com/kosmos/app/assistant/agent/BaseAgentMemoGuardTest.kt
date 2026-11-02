@@ -2,7 +2,7 @@ package com.kosmos.app.assistant.agent
 
 import com.kosmos.app.assistant.approval.ApprovalCoordinator
 import com.kosmos.app.assistant.context.ContextBuilder
-import com.kosmos.app.assistant.orchestrator.ChatRequest
+import com.kosmos.app.domain.agent.ChatRequest
 import com.kosmos.app.assistant.tool.ToolArguments
 import com.kosmos.app.assistant.tool.ToolExecutor
 import com.kosmos.app.assistant.tool.ToolRegistry

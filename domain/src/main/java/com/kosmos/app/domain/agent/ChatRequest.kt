@@ -1,4 +1,4 @@
-package com.kosmos.app.assistant.orchestrator
+package com.kosmos.app.domain.agent
 
 /**
  * 스트리밍 중 UI 에 전달되는 **파싱된** 상태입니다.
@@ -32,3 +32,11 @@ data class ChatRequest(
      */
     val episodeId: String? = null
 )
+
+/**
+ * [SendChatMessageUseCase] 가 `:app` 의 오케스트레이터를 직접 알지 않고 `:domain` 에 살도록
+ * 끊어 주는 얇은 창구입니다 (ADR-034).
+ */
+interface AssistantGateway {
+    suspend fun processRequest(request: ChatRequest): AgentResult
+}

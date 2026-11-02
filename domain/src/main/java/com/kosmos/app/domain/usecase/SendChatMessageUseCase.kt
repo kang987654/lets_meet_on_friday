@@ -2,10 +2,21 @@ package com.kosmos.app.domain.usecase
 
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.common.CurrentLanguage
+import com.kosmos.app.core.common.ValidationField
+import com.kosmos.app.core.common.ValidationReason
+import com.kosmos.app.core.mapper.ErrorMessages
 import com.kosmos.app.domain.agent.AgentResult
-import com.kosmos.app.assistant.orchestrator.AssistantOrchestrator
-import com.kosmos.app.assistant.orchestrator.ChatRequest
+import com.kosmos.app.domain.agent.AssistantGateway
+import com.kosmos.app.domain.agent.ChatRequest
+import com.kosmos.app.domain.agent.StreamUpdate
+import com.kosmos.app.domain.memory.ConversationRepository
+import com.kosmos.app.domain.model.ChatMessage
+import com.kosmos.app.domain.model.InputType
+import com.kosmos.app.domain.tool.ImageProcessor
+import kotlinx.coroutines.CancellationException
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -14,44 +25,44 @@ import javax.inject.Inject
  *
  * ### Architecture Context
  * - **Layer**: Domain (UseCase)
- * - **Dependencies**: [AssistantOrchestrator]
+ * - **Dependencies**: [AssistantGateway]
  *
  * ### Key Flow
  * 1. 사용자 입력의 유효성(빈 문자열, 최대 글자 수 초과 등) 검사
  * 2. 유효한 입력에 한해 [ChatRequest] 객체 생성
- * 3. [AssistantOrchestrator]로 요청을 위임하여 모델 추론 파이프라인 실행
+ * 3. [AssistantGateway]로 요청을 위임하여 모델 추론 파이프라인 실행
  * 4. 파이프라인의 최종 결과([AgentResult])를 반환
  */
 class SendChatMessageUseCase @Inject constructor(
-    private val assistantOrchestrator: AssistantOrchestrator,
-    private val conversationRepository: com.kosmos.app.domain.memory.ConversationRepository,
-    private val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor,
+    private val assistant: AssistantGateway,
+    private val conversationRepository: ConversationRepository,
+    private val imageProcessor: ImageProcessor,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) {
     companion object {
         // [WHY] 같은 값이 `Constants.MAX_INPUT_CHARS` 에도 있었고 이쪽이 그것을 가려(shadow)
         // 두 곳이 갈릴 수 있었다. core 상수를 정본으로 삼고 여기서는 참조만 한다.
-        const val MAX_INPUT_CHARS = com.kosmos.app.core.common.Constants.MAX_INPUT_CHARS
+        const val MAX_INPUT_CHARS = Constants.MAX_INPUT_CHARS
     }
 
     suspend operator fun invoke(
-        sessionId: String, 
+        sessionId: String,
         message: String,
         imageBytes: ByteArray? = null,
         documentText: String? = null,
         audioFilePath: String? = null,
-        onStream: ((com.kosmos.app.assistant.orchestrator.StreamUpdate) -> Unit)? = null
+        onStream: ((StreamUpdate) -> Unit)? = null
     ): AppResult<AgentResult> {
         val trimmedMessage = message.trim()
 
         // 1. 유효성 검사 (빈 문자열)
         if (trimmedMessage.isBlank() && imageBytes == null && audioFilePath == null && documentText == null) {
-            return AppResult.Failure(AppError.ValidationError(com.kosmos.app.core.common.ValidationField.CONTENT, com.kosmos.app.core.common.ValidationReason.BLANK))
+            return AppResult.Failure(AppError.ValidationError(ValidationField.CONTENT, ValidationReason.BLANK))
         }
 
         // 2. 유효성 검사 (길이 제한)
         if (trimmedMessage.length > MAX_INPUT_CHARS) {
-            return AppResult.Failure(AppError.ValidationError(com.kosmos.app.core.common.ValidationField.CONTENT, com.kosmos.app.core.common.ValidationReason.TOO_LONG))
+            return AppResult.Failure(AppError.ValidationError(ValidationField.CONTENT, ValidationReason.TOO_LONG))
         }
 
         val processedImageBytes = imageBytes?.let {
@@ -70,11 +81,11 @@ class SendChatMessageUseCase @Inject constructor(
             audioFilePath = audioFilePath,
             onStream = onStream
         )
-        
+
         return try {
-            val result = assistantOrchestrator.processRequest(request)
+            val result = assistant.processRequest(request)
             AppResult.Success(result)
-        } catch (e: kotlinx.coroutines.CancellationException) {
+        } catch (e: CancellationException) {
             // [WHY] 취소는 오류가 아니다 — 예전에는 catch(Exception) 이 취소까지 잡아 "알 수 없는
             // 오류" 말풍선을 DB 에 저장했다(화면을 떠나 viewModelScope 가 취소되는 경우).
             throw e
@@ -84,12 +95,12 @@ class SendChatMessageUseCase @Inject constructor(
             // 시스템 에러 메시지(Assistant 역할)를 DB에 강제로 저장하여 턴 동기화 보장.
             // [WHY] 문구는 ErrorMessages 가 단일 출처다 — 예외 원문(e.message)을 말풍선에 싣지 않고 현재 언어를 따른다(0.40.2 M1-2).
             val lang = currentLanguage.current
-            val errorMessageToSave = com.kosmos.app.domain.model.ChatMessage(
-                id = java.util.UUID.randomUUID().toString(),
+            val errorMessageToSave = ChatMessage(
+                id = UUID.randomUUID().toString(),
                 sessionId = sessionId,
-                role = com.kosmos.app.domain.model.ChatMessage.Role.ASSISTANT,
-                content = com.kosmos.app.core.mapper.ErrorMessages.userMessage(error, lang),
-                inputType = com.kosmos.app.domain.model.InputType.TEXT,
+                role = ChatMessage.Role.ASSISTANT,
+                content = ErrorMessages.userMessage(error, lang),
+                inputType = InputType.TEXT,
                 createdAt = System.currentTimeMillis()
             )
             conversationRepository.save(errorMessageToSave)

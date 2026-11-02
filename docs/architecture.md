@@ -2144,3 +2144,9 @@ zip(`ZipFile`, 캐시 복사) + SAX + `PdfRenderer` — 전부 플랫폼 내장�
   - (a) **자체 문자열 표(`KosmosStrings`)**: 안드로이드 시스템 설정의 "앱별 언어"와 연동되지 않고 `lintDebug` 의 `MissingTranslation` 검사를 쓸 수 없어 표준 리소스(`values` / `values-en`) + `KosmosTheme.language` 조합으로 선회.
   - (b) **영어 전용 `KosmosToolDeclarationsEn` 복제**: 현행 선언 공유만으로 영어 툴 스모크 12/12 가 통과해 7개 실행기 선언 복제·유지보수 비용을 기각.
 - **대가·한계**: 쓰기 시점 상위 개념 태그는 해당 대화/메모의 언어로 생성되므로, 한국어로 저장한 메모를 영어로 질문하거나(`"what's my bike password?"` ↔ `"자전거 비밀번호"`) 그 반대로 찾는 **교차 언어 기억 검색**은 공통 영문 약어(`KTX`, `PIN`, `WiFi`)가 겹치는 경우 외에는 지원하지 않는다(사용 안내와 README 한계에 명시).
+
+### ADR-034. SendChatMessageUseCase 를 AssistantGateway 로 끊어 :domain 에 둔다 (2026-11-02)
+
+- **Status**: Accepted (0.40.3 M2 — 계획서 `docs/plans/0.40.3-structure-cleanup.md`, 사용자 결정)
+- **Context**: `SendChatMessageUseCase` 가 하는 일(빈 줄·길이 검사, 이미지 리사이즈, 오케스트레이터 위임, 예외 때 사용자 문구 말풍선 저장)은 모두 `:domain` 의 책임인데, `:app` 의 `AssistantOrchestrator` 와 `ChatRequest` 를 직접 참조해 유스케이스 18개 중 혼자 `:app/domain/usecase/` 에 남아 있었다. 한편 `:domain/model/ChatRequest.kt` 에는 초기 스캐폴딩의 동명 죽은 모델이 남아 있었다.
+- **결정**: `:domain/model/ChatRequest.kt` 를 삭제하고, 실제로 쓰이는 `ChatRequest`·`StreamUpdate` 를 `:domain/agent/` 로 옮기며, 메서드 하나짜리 `AssistantGateway` 인터페이스를 `:domain/agent/` 에 두어 `AssistantOrchestrator` 가 구현하고 Hilt `@Binds` 로 연결한다. 이로써 `SendChatMessageUseCase` 가 `:domain/usecase/` 로 이관되어 모든 유스케이스가 `:domain` 에 모인다.

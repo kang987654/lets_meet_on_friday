@@ -3,6 +3,8 @@ package com.kosmos.app.assistant.orchestrator
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.domain.agent.AgentResult
+import com.kosmos.app.domain.agent.AssistantGateway
+import com.kosmos.app.domain.agent.ChatRequest
 import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.domain.memory.ConversationRepository
@@ -35,10 +37,10 @@ class AssistantOrchestrator @Inject constructor(
     private val episodeSummarizeScheduler: com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler,
     private val conversationPrewarmer: ConversationPrewarmer,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
-) {
+) : AssistantGateway {
     private val messageWriter = AssistantMessageWriter(conversationRepository, auditTrailService)
 
-    suspend fun processRequest(request: ChatRequest): AgentResult {
+    override suspend fun processRequest(request: ChatRequest): AgentResult {
         // [WHY] 사용자가 말하는 중이다 — 조용해지기를 기다리던 요약을 미룬다(0.39.1, 이미 도는 요약은 그대로).
         episodeSummarizeScheduler.onUserActivity()
         // [WHY] 지난 턴 뒤의 대화 준비가 아직 엔진에 닿지 않았으면 멈춘다 — 이 턴의 툴 호출과 회신 사이에 끼면 안 된다(0.39.2 M3).
@@ -50,9 +52,10 @@ class AssistantOrchestrator @Inject constructor(
         // 열면 자기 발화가 비어 있고, (b) 오디오가 대화 KV 에 남아 컨텍스트를 더 먹는다.
         // 전사해서 **텍스트 턴**으로 돌리면 저장·검색·히스토리가 전부 정상이 되고, PRD F2 의
         // 원래 의도("음성을 텍스트로 변환 후 채팅과 동일한 흐름")에도 부합한다 (ADR-014).
-        val transcript = if (request.audioFilePath != null) {
+        val audioFilePath = request.audioFilePath
+        val transcript = if (audioFilePath != null) {
             try {
-                when (val result = transcribeAudioUseCase(request.audioFilePath)) {
+                when (val result = transcribeAudioUseCase(audioFilePath)) {
                     is AppResult.Success -> result.data
                     // [WHY] 전사에 실패하면 **사용자 메시지를 저장하지 않는다.** 내용 없는 말풍선을
                     // 남기는 대신 재시도 안내만 띄운다 (PRD EC3).
@@ -69,7 +72,7 @@ class AssistantOrchestrator @Inject constructor(
             } finally {
                 // [WHY] 성공·실패를 가리지 않고 지운다. 예전에는 실패 시 `return` 이 삭제를 건너뛰어
                 // 마지막 녹음이 캐시에 남았다(실측: `kosmos_audio_input.wav` 138KB 잔존).
-                runCatching { java.io.File(request.audioFilePath).delete() }
+                runCatching { java.io.File(audioFilePath).delete() }
             }
         } else {
             null
@@ -81,7 +84,7 @@ class AssistantOrchestrator @Inject constructor(
         val now = System.currentTimeMillis()
         val episodeId = episodeBoundaryManager.onUserMessage(request.sessionId, now)
         val content = transcript ?: request.message
-        val inputType = if (request.audioFilePath != null) InputType.VOICE else if (request.imageBytes != null) InputType.IMAGE else InputType.TEXT
+        val inputType = if (audioFilePath != null) InputType.VOICE else if (request.imageBytes != null) InputType.IMAGE else InputType.TEXT
         val saveUserResult = messageWriter.save(request.sessionId, ChatMessage.Role.USER, content, inputType, episodeId = episodeId, now = now)
         if (saveUserResult is AppResult.Failure) {
             return AgentResult.Error(saveUserResult.error)
@@ -90,8 +93,9 @@ class AssistantOrchestrator @Inject constructor(
         // 3. 문서 텍스트 저장
         // [WHY] 첨부 문서를 SYSTEM 역할로 저장하면 문서 안의 지시문이 시스템 프롬프트로 승격되어
         // 세션 내내 지속되는 프롬프트 인젝션 경로가 된다. USER 역할의 구분된 블록으로 저장한다.
-        if (request.documentText != null) {
-            val documentBlock = AttachedDocumentBlock.wrap(request.documentText)
+        val documentText = request.documentText
+        if (documentText != null) {
+            val documentBlock = AttachedDocumentBlock.wrap(documentText)
             val saveDocResult = messageWriter.save(request.sessionId, ChatMessage.Role.USER, documentBlock, InputType.TEXT, episodeId = episodeId, now = now)
             if (saveDocResult is AppResult.Failure) {
                 return AgentResult.Error(saveDocResult.error)

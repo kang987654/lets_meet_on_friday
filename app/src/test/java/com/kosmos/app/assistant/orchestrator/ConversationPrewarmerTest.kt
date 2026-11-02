@@ -73,7 +73,7 @@ class ConversationPrewarmerTest {
         runBlocking {
             agent.prepareNextTurn(context(history))
             val next = history + msg(ChatMessage.Role.USER, "좋은 아침", 5)
-            assertTrue(agent.execute(com.kosmos.app.assistant.orchestrator.ChatRequest(sessionId = "s1", message = "좋은 아침"), context(next)) is AgentResult.Text)
+            assertTrue(agent.execute(com.kosmos.app.domain.agent.ChatRequest(sessionId = "s1", message = "좋은 아침"), context(next)) is AgentResult.Text)
         }
 
         assertEquals(generated.first().systemInstruction, prepared.single().systemInstruction)
