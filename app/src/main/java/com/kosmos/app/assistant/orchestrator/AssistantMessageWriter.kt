@@ -62,15 +62,17 @@ class AssistantMessageWriter(
     /**
      * @param auditDetail 감사 로그에 남길 진단 원문.
      * @param error 사용자에게 보여줄 오류. null 이면 [auditDetail] 을 담은 일반 추론 오류로 취급한다.
+     * @param language 오류 말풍선 문구의 언어 (0.40.2 M1-2).
      */
     suspend fun saveError(
         sessionId: String,
         auditDetail: String,
-        error: AppError? = null
+        error: AppError? = null,
+        language: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
     ): AgentResult.Error {
         auditTrailService.logError(sessionId, auditDetail)
         val shown = error ?: AppError.ModelInferenceError(auditDetail)
-        save(sessionId, ChatMessage.Role.ASSISTANT, ErrorMessages.userMessage(shown), InputType.TEXT)
+        save(sessionId, ChatMessage.Role.ASSISTANT, ErrorMessages.userMessage(shown, language), InputType.TEXT)
         return AgentResult.Error(shown)
     }
 }

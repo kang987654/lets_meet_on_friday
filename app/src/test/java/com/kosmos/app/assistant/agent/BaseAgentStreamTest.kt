@@ -396,6 +396,63 @@ class BaseAgentStreamTest {
         )
     }
 
+    @Test
+    fun `상한 턴의 툴 호출은 실행하지 않는다`() {
+        var executeCount = 0
+        val executor: ToolExecutor = mockk {
+            every { name } returns "GetSchedule"
+            every { actionType } returns null
+            coEvery { execute(any(), any()) } answers {
+                executeCount++
+                """{"status":"success"}"""
+            }
+        }
+        val registry: ToolRegistry = mockk { every { getExecutor("GetSchedule") } returns executor }
+        var invalidated = false
+        val baseRunner = ChunkedModelRunner(
+            listOf(
+                ModelTurn("", listOf(toolCall("GetSchedule"))),
+                ModelTurn("", listOf(toolCall("GetSchedule"))),
+                ModelTurn("", listOf(toolCall("GetSchedule")))
+            )
+        )
+        val runner = object : ModelRunner by baseRunner {
+            override fun invalidateConversation() {
+                invalidated = true
+            }
+        }
+        val agent = TestAgent(
+            modelRunner = runner,
+            toolRegistry = registry,
+            auditTrailService = mockk(relaxed = true),
+            conversationRepository = mockk(relaxed = true),
+            approvalCoordinator = mockk(relaxed = true),
+            allowedTools = listOf("GetSchedule")
+        )
+
+        val result = runBlocking { agent.execute(ChatRequest(sessionId = "s1", message = "질문"), mockk(relaxed = true)) }
+
+        assertTrue(result is AgentResult.Error)
+        assertEquals("상한 턴(3번째)의 툴 호출은 실행되지 않아야 한다", 2, executeCount)
+        assertTrue("살아 있는 대화 KV 를 비워야 한다", invalidated)
+    }
+
+    @Test
+    fun `saveError 는 전달된 언어에 맞는 오류 문구를 말풍선으로 저장한다`() = runBlocking {
+        val saved = mutableListOf<ChatMessage>()
+        val repo: ConversationRepository = mockk {
+            coEvery { save(any()) } answers { saved += firstArg<ChatMessage>(); AppResult.Success(Unit) }
+        }
+        val writer = com.kosmos.app.assistant.orchestrator.AssistantMessageWriter(repo, mockk(relaxed = true))
+        val err = AppError.ModelInferenceError("boom")
+
+        writer.saveError("s1", "boom", err)
+        writer.saveError("s1", "boom", err, com.kosmos.app.core.common.AppLanguage.EN)
+
+        assertEquals(com.kosmos.app.core.mapper.ErrorMessages.userMessage(err, com.kosmos.app.core.common.AppLanguage.KO), saved[0].content)
+        assertEquals(com.kosmos.app.core.mapper.ErrorMessages.userMessage(err, com.kosmos.app.core.common.AppLanguage.EN), saved[1].content)
+    }
+
     // --- 스트리밍 표시 ---
 
     @Test

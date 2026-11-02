@@ -24,7 +24,8 @@ import javax.inject.Inject
 class SendChatMessageUseCase @Inject constructor(
     private val assistantOrchestrator: AssistantOrchestrator,
     private val conversationRepository: com.kosmos.app.domain.memory.ConversationRepository,
-    private val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor
+    private val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) {
     companion object {
         // [WHY] 같은 값이 `Constants.MAX_INPUT_CHARS` 에도 있었고 이쪽이 그것을 가려(shadow)
@@ -80,12 +81,13 @@ class SendChatMessageUseCase @Inject constructor(
             val error = AppError.ModelInferenceError(e.message ?: "unknown")
 
             // 시스템 에러 메시지(Assistant 역할)를 DB에 강제로 저장하여 턴 동기화 보장.
-            // [WHY] 문구는 ErrorMessages 가 단일 출처다 — 예외 원문(e.message)을 말풍선에 싣지 않는다.
+            // [WHY] 문구는 ErrorMessages 가 단일 출처다 — 예외 원문(e.message)을 말풍선에 싣지 않고 현재 언어를 따른다(0.40.2 M1-2).
+            val lang = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
             val errorMessageToSave = com.kosmos.app.domain.model.ChatMessage(
                 id = java.util.UUID.randomUUID().toString(),
                 sessionId = sessionId,
                 role = com.kosmos.app.domain.model.ChatMessage.Role.ASSISTANT,
-                content = com.kosmos.app.core.mapper.ErrorMessages.userMessage(error),
+                content = com.kosmos.app.core.mapper.ErrorMessages.userMessage(error, lang),
                 inputType = com.kosmos.app.domain.model.InputType.TEXT,
                 createdAt = System.currentTimeMillis()
             )

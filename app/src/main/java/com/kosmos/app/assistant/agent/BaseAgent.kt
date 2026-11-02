@@ -88,22 +88,6 @@ abstract class BaseAgent(
         var previous: com.kosmos.app.domain.memory.MemoSaveIntent.PreviousTurn? = null
         suspend fun previousTurn() = previous ?: loadPreviousTurn(request.sessionId).also { previous = it }
         while (true) {
-            if (loopCount >= MAX_TOOL_LOOP_COUNT) {
-                // [WHY] 루프 상한 초과는 타임아웃이 아니므로 오해를 부르는 Timeout 대신 추론 오류로 보고한다.
-                //
-                // [WHY] handleErrorAndReturn 을 경유해 말풍선도 남긴다. 예전에는 Error 만 직반환해
-                // 화면에 아무 흔적이 없었다. 시각 인자 형식 검증(BAD_FORMAT)이 생기면서 모델이
-                // 같은 깨진 값으로 상한까지 재시도하는 경로가 현실이 됐고(greedy 는 재시도가
-                // 동일할 수 있다), 그 끝이 무반응이면 사용자는 앱이 죽었다고 오해한다.
-                return@coroutineScope messageWriter.saveError(
-                    request.sessionId,
-                    "Max tool loop count exceeded",
-                    AppError.ModelInferenceError(
-                        if (language == AppLanguage.EN) "Exceeded the maximum tool call retry limit (${MAX_TOOL_LOOP_COUNT})."
-                        else "툴 호출 반복 상한(${MAX_TOOL_LOOP_COUNT}회)을 넘었어요."
-                    )
-                )
-            }
             loopCount++
 
             var tagSeen = false
@@ -157,13 +141,36 @@ abstract class BaseAgent(
                     request.sessionId,
                     "Model inference failed: ${modelResult.error}",
                     // [WHY] 원인을 그대로 넘겨야 발열·모델 미준비 같은 구체적 안내가 나온다.
-                    modelResult.error
+                    modelResult.error,
+                    language = language
                 )
             }
             lastTurn = turn
             parsedResult = ToolParser.parseStream(turn.text)
 
             if (turn.toolCalls.isNotEmpty()) {
+                if (loopCount >= MAX_TOOL_LOOP_COUNT) {
+                    // [WHY] 상한 턴에서 나온 툴 호출은 실행하지 않고 대화를 비운다(0.40.2 M1-1) — 실행 뒤 다음 루프에서
+                    // 상한을 검사하면 일정 추가 같은 부수효과가 일어난 뒤 오류 말풍선이 떠 "추가됨 + 오류"가 동시에 보이고,
+                    // 살아 있는 KV 에 회신 없는 툴 호출이 남는다.
+                    //
+                    // [WHY] 루프 상한 초과는 타임아웃이 아니므로 오해를 부르는 Timeout 대신 추론 오류로 보고한다.
+                    //
+                    // [WHY] handleErrorAndReturn 을 경유해 말풍선도 남긴다. 예전에는 Error 만 직반환해
+                    // 화면에 아무 흔적이 없었다. 시각 인자 형식 검증(BAD_FORMAT)이 생기면서 모델이
+                    // 같은 깨진 값으로 상한까지 재시도하는 경로가 현실이 됐고(greedy 는 재시도가
+                    // 동일할 수 있다), 그 끝이 무반응이면 사용자는 앱이 죽었다고 오해한다.
+                    modelRunner.invalidateConversation()
+                    return@coroutineScope messageWriter.saveError(
+                        request.sessionId,
+                        "Max tool loop count exceeded",
+                        AppError.ModelInferenceError(
+                            if (language == AppLanguage.EN) "Exceeded the maximum tool call retry limit (${MAX_TOOL_LOOP_COUNT})."
+                            else "툴 호출 반복 상한(${MAX_TOOL_LOOP_COUNT}회)을 넘었어요."
+                        ),
+                        language = language
+                    )
+                }
                 val call = turn.toolCalls.first() // 병렬 처리 방지
                 val args = ToolArguments.of(call.args)
                 val outcome = executeToolInner(

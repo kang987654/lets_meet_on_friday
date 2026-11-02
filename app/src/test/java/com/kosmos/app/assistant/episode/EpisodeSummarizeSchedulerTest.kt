@@ -256,6 +256,34 @@ class EpisodeSummarizeSchedulerTest {
         assertTrue(assigned[0].second != assigned[1].second)
     }
 
+    @Test
+    fun `소급 생성은 대화방별로 에피소드를 나눈다`() = runBlocking {
+        val now = System.currentTimeMillis()
+        coEvery { episodeRepository.getByStatus(EpisodeStatus.OPEN) } returns AppResult.Success(emptyList())
+        coEvery { episodeRepository.getByStatus(EpisodeStatus.CLOSED) } returns AppResult.Success(emptyList())
+        val baseTs = now - 60 * 60 * 1000L
+        val a1 = messages()[0].copy(id = "a1", sessionId = "sessionA", createdAt = baseTs)
+        val b1 = messages()[0].copy(id = "b1", sessionId = "sessionB", createdAt = baseTs + 60_000L)
+        val a2 = messages()[1].copy(id = "a2", sessionId = "sessionA", createdAt = baseTs + 120_000L)
+        val b2 = messages()[1].copy(id = "b2", sessionId = "sessionB", createdAt = baseTs + 180_000L)
+        coEvery { conversationRepository.getUnassigned() } returns AppResult.Success(listOf(a1, b1, a2, b2))
+        val assigned = mutableMapOf<String, String>()
+        coEvery { conversationRepository.assignEpisode(any(), any()) } answers {
+            assigned[firstArg()] = secondArg(); AppResult.Success(Unit)
+        }
+        val s = scheduler()
+
+        s.catchUp()
+
+        assertEquals(2, saved.size)
+        val epA = saved.single { it.sessionId == "sessionA" }
+        val epB = saved.single { it.sessionId == "sessionB" }
+        assertEquals(epA.id, assigned["a1"])
+        assertEquals(epA.id, assigned["a2"])
+        assertEquals(epB.id, assigned["b1"])
+        assertEquals(epB.id, assigned["b2"])
+    }
+
     // --- 조용해진 뒤 요약 (0.39.1) ---
 
     @Test

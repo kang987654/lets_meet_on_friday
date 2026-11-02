@@ -318,7 +318,12 @@ class EpisodeSummarizeScheduler @Inject constructor(
         }
     }
 
-    /** 시간 간격(30분)으로 잘라 소급 에피소드를 만들고 메시지를 배정한다 (exp33 분절 규칙). */
+    /**
+     * 대화방별로 시간 간격(30분)으로 잘라 소급 에피소드를 만들고 메시지를 배정한다 (exp33 분절 규칙).
+     *
+     * [WHY] `getUnassigned()` 는 대화방 구분 없이 전체 시간순을 돌려준다 — 대화방별로 먼저 묶지 않으면
+     * 서로 다른 대화방의 메시지가 한 에피소드로 섞인다(0.40.2 M1-3).
+     */
     private suspend fun backfill(messages: List<ChatMessage>, now: Long) {
         var chunk = mutableListOf<ChatMessage>()
         suspend fun flush() {
@@ -339,13 +344,15 @@ class EpisodeSummarizeScheduler @Inject constructor(
             synchronized(deferred) { deferred.addLast(ep.id) }
             chunk = mutableListOf()
         }
-        var prev: Long? = null
-        for (m in messages) {
-            if (prev != null && m.createdAt - prev > EpisodeBoundaryManager.IDLE_BOUNDARY_MS) flush()
-            chunk.add(m)
-            prev = m.createdAt
+        for ((_, sessionMessages) in messages.groupBy { it.sessionId }) {
+            var prev: Long? = null
+            for (m in sessionMessages) {
+                if (prev != null && m.createdAt - prev > EpisodeBoundaryManager.IDLE_BOUNDARY_MS) flush()
+                chunk.add(m)
+                prev = m.createdAt
+            }
+            flush()
         }
-        flush()
     }
 
     private companion object {

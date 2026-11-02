@@ -32,7 +32,8 @@ class AssistantOrchestrator @Inject constructor(
     private val transcribeAudioUseCase: com.kosmos.app.domain.usecase.TranscribeAudioUseCase,
     private val episodeBoundaryManager: com.kosmos.app.assistant.episode.EpisodeBoundaryManager,
     private val episodeSummarizeScheduler: com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler,
-    private val conversationPrewarmer: ConversationPrewarmer
+    private val conversationPrewarmer: ConversationPrewarmer,
+    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
 ) {
     private val messageWriter = AssistantMessageWriter(conversationRepository, auditTrailService)
 
@@ -100,8 +101,12 @@ class AssistantOrchestrator @Inject constructor(
         val contextResult = contextBuilder.build(request.sessionId)
         val context = when (contextResult) {
             is AppResult.Success -> contextResult.data
-            // [WHY] 감사에는 진단용 원문을, 말풍선에는 사용자 문구를 남긴다(AssistantMessageWriter).
-            is AppResult.Failure -> return messageWriter.saveError(request.sessionId, "대화 문맥을 구성하지 못했어요: ${contextResult.error}")
+            // [WHY] 감사에는 진단용 원문을, 말풍선에는 사용자 문구를 남긴다(AssistantMessageWriter, 0.40.2 M1-2 언어 반영).
+            is AppResult.Failure -> return messageWriter.saveError(
+                request.sessionId,
+                "대화 문맥을 구성하지 못했어요: ${contextResult.error}",
+                language = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+            )
         }
 
         // 5. 에이전트 위임
