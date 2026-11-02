@@ -70,7 +70,7 @@ fun SplashScreen(
     LaunchedEffect(loadState) {
         if (loadState is ModelLoadState.Ready) {
             val style = splashStyle
-            if (handoff != null && animate && style != null && !readyAtStart && started) {
+            if (handoff != null && previewTimeMs == null && !reduced && style != null && !readyAtStart && started) {
                 handoff.begin(SplashExit(style, clock, clock.time, last.text))
             }
             onInitializationComplete()

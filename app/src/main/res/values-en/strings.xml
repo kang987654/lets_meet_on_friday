@@ -12,7 +12,6 @@
     <string name="common_confirm">OK</string>
     <string name="common_close">Close</string>
     <string name="common_save">Save</string>
-    <string name="common_delete">Delete</string>
     <string name="common_edit">Edit</string>
     <string name="common_retry">Retry</string>
     <string name="common_undo">Undo</string>
@@ -26,10 +25,8 @@
     <string name="common_expand">Expand</string>
     <string name="common_refresh">Refresh</string>
     <string name="common_download">Download</string>
-    <string name="common_later">Later</string>
     <string name="common_ignore">Ignore</string>
     <string name="common_today">Today</string>
-    <string name="common_yesterday">Yesterday</string>
     <string name="common_all_day">All day</string>
 
     <!-- Theme & Display Options -->
@@ -53,20 +50,15 @@
     <string name="splash_checking_model">Checking model status…</string>
     <string name="splash_file_found">Model file found. Preparing engine…</string>
     <string name="splash_preparing_engine">Waking up AI engine (~10 sec)…</string>
-    <string name="splash_ready">Ready</string>
-    <string name="splash_model_needed_title">AI model required</string>
     <string name="splash_model_needed_body">AI model file not found. Please download it in Model Management.</string>
     <string name="splash_download_model">Download model</string>
     <string name="splash_engine_error_title">Couldn\'t start AI engine</string>
-    <string name="splash_manage_model">Manage model</string>
 
     <!-- Chat Screen & Header & Input -->
     <string name="image_attached">Image attached</string>
-    <string name="image_size_kb">Size: %1$d KB</string>
     <string name="chat_input_hint">Message…</string>
     <string name="attachment_needs_text">Type a message to send with this attachment</string>
     <string name="chat_menu_cd">Menu</string>
-    <string name="chat_status_sheet_cd">%1$s — tap for details</string>
     <string name="chat_view_device_status">View device status</string>
     <string name="chat_device_status_title">Device status</string>
     <string name="chat_collecting_metrics">Collecting metrics…</string>
@@ -84,8 +76,6 @@
     <string name="chat_device_memory">Memory %1$.1f/%2$.1fGB</string>
     <string name="chat_device_memory_with_app">%1$s (App %2$.1fGB)</string>
     <string name="chat_device_speed">Speed %1$.1f tok/s</string>
-    <string name="chat_web_search_on_cd">Wikipedia search on (tap to turn off)</string>
-    <string name="chat_web_search_off_cd">Wikipedia search off (tap to turn on)</string>
     <string name="chat_web_search_cd">Web search</string>
     <string name="chat_state_on">On</string>
     <string name="chat_state_off">Off</string>
@@ -93,10 +83,6 @@
     <string name="chat_listening_hint">Listening…</string>
     <string name="chat_writing_reply_hint">Writing a reply…</string>
     <string name="chat_doc_truncated_subtitle">%1$s · truncated</string>
-    <string name="chat_status_sheet_title">System Status</string>
-    <string name="chat_status_engine_label">AI Engine</string>
-    <string name="chat_status_device_label">Device</string>
-    <string name="chat_shared_text_label">Shared text</string>
     <string name="chat_remove_attachment_cd">Remove attachment</string>
     <string name="chat_stop_generation_cd">Stop reply</string>
     <string name="chat_stop_recording_cd">Stop recording</string>
@@ -110,12 +96,6 @@
     <string name="chat_web_search_disabled_notice">Web search turned off. Answering on-device only.</string>
     <string name="chat_Scroll_to_bottom_cd">Scroll to latest</string>
     <string name="chat_voice_placeholder">(Voice message)</string>
-    <string name="chat_Empty_greeting_morning">Good morning</string>
-    <string name="chat_Empty_greeting_Morning_with_name">Good morning, %1$s</string>
-    <string name="chat_Empty_greeting_afternoon">Hello</string>
-    <string name="chat_Empty_greeting_afternoon_with_name">Hello, %1$s</string>
-    <string name="chat_Empty_greeting_evening">Good evening</string>
-    <string name="chat_Empty_greeting_evening_with_name">Good evening, %1$s</string>
     <string name="chat_empty_title">What can I help with today?</string>
     <string name="chat_Empty_subtitle">Reminders, events, and memories stay right on your phone.</string>
     <string name="chat_Empty_prompt_1">Remind me to drink water in 30 minutes</string>
@@ -128,9 +108,7 @@
     <string name="chat_summary_tasks">To-dos</string>
     <string name="chat_summary_pending_tasks_cd">Pending to-dos</string>
     <string name="chat_summary_open_cd">Open %1$s</string>
-    <string name="chat_summary_count">%1$d</string>
     <string name="chat_summary_none">None</string>
-    <string name="chat_summary_check_needed">Check permissions</string>
     <string name="chat_briefing_title">Morning briefing</string>
     <string name="chat_bubble_attached_image">Attached image</string>
     <string name="chat_bubble_attached_image_cd">Attached image</string>
@@ -146,8 +124,6 @@
     <string name="chat_bubble_read_aloud_cd">Read reply</string>
     <string name="chat_bubble_view_past_chat">Review past chat</string>
     <string name="chat_bubble_view_past_chats_count">Review %1$d past chats</string>
-    <string name="chat_bubble_view_chat">View chat</string>
-    <string name="chat_bubble_streaming_suffix"> — writing</string>
     <string name="chat_clipboard_label">Chat message</string>
     <string name="chat_message_copied">Message copied.</string>
     <string name="chat_thermal_critical">Device is hot. Slowing down to protect it.</string>
@@ -177,8 +153,6 @@
     <string name="result_memory_conflict_multi">Past chats (%1$d) had %2$s; followed your saved note</string>
 
     <!-- Reminder Edit Sheet -->
-    <string name="reminder_edit_title">Edit Reminder</string>
-    <string name="reminder_edit_current_label">Current reminder</string>
     <string name="reminder_edit_cancelled_body">This reminder was cancelled. Ask the assistant to set a new one if needed.</string>
     <string name="reminder_edit_completed_body">This reminder is already completed.</string>
     <string name="reminder_edit_snooze_10m">Snooze 10m</string>
@@ -212,29 +186,17 @@
     <string name="approval_enable_in_settings">Enable in Settings</string>
     <string name="approval_timeout_note">Automatically cancelled if not chosen within 1 minute.</string>
     <string name="approval_profile_replaces">Currently \'%1$s\'. Saving will replace it.</string>
-    <string name="approval_allow_permission">Allow permission</string>
-    <string name="profile_suggestion_sheet_label">Profile Suggestion</string>
-    <string name="profile_suggestion_sheet_title">Found items from your chat to remember</string>
-    <string name="profile_suggestion_sheet_subtitle">Check the items you want to save. You can turn off automatic suggestions in Settings &gt; Memory.</string>
     <string name="profile_suggestion_save_selected">Save %1$d selected</string>
 
     <!-- Drawer -->
-    <string name="drawer_new_chat">New chat</string>
     <string name="drawer_search_hint">Search past chats</string>
-    <string name="drawer_search_clear_cd">Clear search</string>
     <string name="drawer_section_search_results">Search results</string>
     <string name="drawer_section_recent_chats">Past chats</string>
     <string name="drawer_empty_search">No matching chats.</string>
     <string name="drawer_empty_episodes">As chats build up, they\'re automatically organized by topic here.</string>
     <string name="drawer_untitled_episode">Untitled</string>
-    <string name="drawer_summarizing">Summarizing…</string>
-    <string name="drawer_profile_title">My Profile</string>
     <string name="drawer_profile_cd">Profile</string>
     <string name="drawer_profile_suggestions_cd">Profile, new suggestions</string>
-    <string name="drawer_profile_empty">Add your name, title, or preferences</string>
-    <string name="drawer_profile_Format_one">%1$s: %2$s</string>
-    <string name="drawer_profile_Format_more">%1$s: %2$s +%3$d more</string>
-    <string name="drawer_nav_section">Navigate</string>
     <string name="drawer_nav_calendar">Calendar</string>
     <string name="drawer_nav_memory">Notes &amp; To-dos</string>
     <string name="drawer_nav_documents">Documents</string>
@@ -242,7 +204,6 @@
     <string name="drawer_nav_settings">Settings</string>
 
     <!-- Episode Sheet -->
-    <string name="episode_sheet_title">Past Chat</string>
     <string name="episode_sheet_loading">Loading conversation…</string>
     <string name="episode_sheet_missing">This conversation summary was deleted. Your chat history is still intact.</string>
     <string name="episode_sheet_title_label">Title</string>
@@ -259,7 +220,6 @@
     <string name="profile_sheet_title">Profile</string>
     <string name="profile_sheet_free_percent">%1$d%% free</string>
     <string name="profile_sheet_subtitle">Your assistant always remembers what you write here.\ne.g. Name, title, tone, job.</string>
-    <string name="profile_sheet_budget_label">Prompt budget: %1$d / %2$d tokens</string>
     <string name="profile_sheet_key_label">Key</string>
     <string name="profile_sheet_key_placeholder">e.g. Name</string>
     <string name="profile_sheet_value_label">Value</string>
@@ -277,13 +237,9 @@
     <string name="calendar_tab_month">Month</string>
     <string name="calendar_permission_warning">Couldn\'t read the device calendar. Showing only events saved in KOSMOS.</string>
     <string name="calendar_permission_allow">Open permission settings</string>
-    <string name="calendar_today_section_timeline">Today\'s Events · Reminders</string>
-    <string name="calendar_today_empty_timeline">No events or reminders for today.</string>
-    <string name="calendar_today_section_tasks">Tasks</string>
     <string name="calendar_today_section_upcoming">Upcoming</string>
     <string name="calendar_today_all_clear">No events or tasks for today.\nTry saying \"Schedule a meeting tomorrow at 3 PM\" in chat.</string>
     <string name="calendar_source_device">Device calendar</string>
-    <string name="calendar_source_app">KOSMOS</string>
     <string name="calendar_reminder_tag">Reminder</string>
     <string name="calendar_complete_task_cd">Complete %1$s</string>
     <string name="calendar_prev_month_cd">Previous month</string>
@@ -316,22 +272,15 @@
     <string name="memory_backup_restore_done_title">Restore complete</string>
     <string name="memory_backup_restore_done_body">Restart the app to use your restored data.</string>
     <string name="memory_backup_failed_title">Backup failed</string>
-    <string name="memory_search_notes_hint">Search notes…</string>
-    <string name="memory_search_tasks_hint">Search tasks…</string>
     <string name="memory_empty_notes">No saved notes yet.\nAsk \"Remember this\" in chat and it\'ll appear here.</string>
     <string name="memory_empty_tasks">No pending to-dos.\nAdd one below or say \"Add groceries to my to-dos\" in chat.</string>
-    <string name="memory_empty_search">No matching results.</string>
     <string name="memory_note_auto_tag">Auto</string>
     <string name="memory_note_deleted_snackbar">Note deleted.</string>
     <string name="memory_task_deleted_snackbar">To-do deleted.</string>
     <string name="memory_tasks_completed_section">Completed %1$d</string>
-    <string name="memory_backup_export_done">Backup file saved.</string>
-    <string name="memory_backup_import_done">Restore complete — %1$d added, %2$d duplicates skipped</string>
-    <string name="memory_load_more">Load more</string>
 
     <!-- Memory Cleanup Screen -->
     <string name="cleanup_title">Memory Cleanup</string>
-    <string name="cleanup_idle_title">Review this week\'s chats and merge duplicate memories</string>
     <string name="cleanup_idle_body">Creates a weekly review from the last 7 days of conversations and finds duplicate memories to merge. This may take a few minutes if you have many memories. Closing the app stops it, and tapping again restarts from the beginning.</string>
     <string name="cleanup_start_button">Start cleanup</string>
     <string name="cleanup_waiting_auto">Waiting for automatic cleanup to finish…</string>
@@ -343,7 +292,6 @@
     <string name="cleanup_running_apply">Applying selected items… Re-summarizing merged conversations.</string>
     <string name="cleanup_section_weekly_review">Weekly review</string>
     <string name="cleanup_empty_weekly_review">No summarized conversations from the past 7 days to review.</string>
-    <string name="cleanup_weekly_review_saved">Also saved to your notes</string>
     <string name="cleanup_section_note_merges">Memories to merge</string>
     <string name="cleanup_empty_note_merges">No overlapping memories found.</string>
     <string name="cleanup_note_merges_guide">Select only what you want to merge. Unchecked memories stay as they are.</string>
@@ -351,7 +299,6 @@
     <string name="cleanup_empty_episode_merges">No split conversations found.</string>
     <string name="cleanup_episode_merges_guide">These appear to be parts of the same conversation. Selected ones will be merged and re-summarized.</string>
     <string name="cleanup_episode_merge_result">Merge into one conversation and re-summarize</string>
-    <string name="cleanup_empty_proposals">No duplicate items found to merge.</string>
     <string name="cleanup_finish_without_merge">Finish without merging</string>
     <string name="cleanup_apply_selected">Merge %1$d selected</string>
     <string name="cleanup_done_review_saved">Saved this week\'s review to memory.</string>
@@ -360,8 +307,6 @@
     <string name="cleanup_done_merged_none">&#160;No memories merged.</string>
     <string name="cleanup_done_episodes_merged">&#160;Merged %1$d related conversations into one.</string>
     <string name="cleanup_done_episodes_skipped">&#160;Kept %1$d separate because re-summarization showed different topics.</string>
-    <string name="cleanup_done_title">Cleanup complete</string>
-    <string name="cleanup_done_body">Merged %1$d notes · %2$d chats</string>
 
     <!-- Document Home & Viewer -->
     <string name="doc_home_title">Documents</string>
@@ -378,23 +323,15 @@
     <string name="doc_viewer_zoom_cd">Zoom %1$d%%, tap to change</string>
     <string name="doc_viewer_loading">Opening…</string>
     <string name="doc_viewer_reading_sheet">Reading sheet…</string>
-    <string name="doc_viewer_send_to_chat_cd">Send to chat</string>
-    <string name="doc_viewer_cancel_selection_cd">Cancel selection</string>
     <string name="doc_viewer_send_action">Send to chat</string>
     <string name="doc_viewer_preview_chars">%1$d / %2$d chars</string>
     <string name="doc_viewer_preview_truncated_suffix">&#160;· Sending first part only (total %1$d chars)</string>
     <string name="doc_viewer_select_rows_guide">Tap the starting row number to send</string>
     <string name="doc_viewer_select_rows_end_guide">Tap the ending row number</string>
-    <string name="doc_viewer_select_rows_from">From row %1$d — tap the end row number</string>
-    <string name="doc_viewer_select_rows_range">Rows %1$d–%2$d (%3$d rows)</string>
     <string name="doc_viewer_select_blocks_guide">Tap paragraphs or tables to send</string>
-    <string name="doc_viewer_select_blocks_count">%1$d paragraphs selected</string>
     <string name="doc_viewer_pdf_extracting">Finding text on this page…</string>
     <string name="doc_viewer_pdf_unsupported">Cannot extract PDF text on this device (Android 15+ required)</string>
     <string name="doc_viewer_pdf_no_text">No text on this page (it may be an image)</string>
-    <string name="doc_viewer_pdf_page_ready">Page %1$d text ready</string>
-    <string name="doc_viewer_tokens_truncated">Truncated to fit limit (~%1$d tokens)</string>
-    <string name="doc_viewer_tokens_count">~%1$d tokens</string>
     <string name="doc_viewer_cell_clipboard_label">Cell content</string>
     <string name="doc_error_unsupported">This format isn\'t supported yet.\nSupported: PDF, Excel (xlsx), CSV, Word (docx), and HWPX.</string>
     <string name="doc_error_unreadable">Couldn\'t open the file.\nPermission may have expired or the file may have moved.</string>
@@ -408,15 +345,10 @@
     <string name="doc_flow_empty">This document is empty</string>
     <string name="doc_flow_truncated">Showing the first part of this long document</string>
     <string name="doc_flow_image_cd">Document image</string>
-    <string name="doc_flow_image_placeholder">[Image]</string>
     <string name="doc_sheet_empty">This sheet is empty</string>
     <string name="doc_sheet_reading_remaining">Reading remaining rows…</string>
     <string name="doc_sheet_truncated">File is large; showing the first %1$d rows</string>
-    <string name="doc_sheet_cell_detail_title">Cell %1$s%2$d</string>
     <string name="doc_pdf_page_label">Page %1$d</string>
-    <string name="doc_pdf_page_indicator">Page %1$d / %2$d</string>
-    <string name="doc_pdf_zoom_label">%1$sx</string>
-    <string name="doc_pdf_render_failed">Couldn\'t render this page</string>
 
     <!-- Notifications & Widget -->
     <string name="notif_channel_download_name">Model Download</string>
