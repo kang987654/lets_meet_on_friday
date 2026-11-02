@@ -12,6 +12,7 @@ import java.time.ZoneId
 class IsoDateTimeParserDisplayTest {
 
     private val seoul = ZoneId.of("Asia/Seoul")
+    private val utc = ZoneId.of("UTC")
 
     @Test
     fun `날짜는 월 일 요일로 표기한다`() {
@@ -56,5 +57,12 @@ class IsoDateTimeParserDisplayTest {
         assertEquals("오전 8:30", IsoDateTimeParser.clockKorean(8 * 60 + 30))
         assertEquals("오후 12:00", IsoDateTimeParser.clockKorean(12 * 60))
         assertEquals("오전 12:05", IsoDateTimeParser.clockKorean(5))
+    }
+
+    @Test
+    fun `epoch 표기 헬퍼`() {
+        val ms = java.time.Instant.parse("2026-09-30T16:05:00Z").toEpochMilli()
+        assertEquals("9월 30일", IsoDateTimeParser.monthDayKorean(ms, utc))
+        assertEquals("오후 4:05", IsoDateTimeParser.timeKorean(ms, utc))
     }
 }

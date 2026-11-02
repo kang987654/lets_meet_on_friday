@@ -2,7 +2,6 @@ package com.kosmos.app.feature.chat
 
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.InputType
-import com.kosmos.app.domain.util.IsoDateTimeParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -33,12 +32,5 @@ class DateLabelTest {
         assertEquals("오늘", dateLabelIfBoundary(msg("2026-09-30T01:00:00Z"), msg("2026-09-29T23:00:00Z"), today, utc))
         assertEquals("어제", dateLabelIfBoundary(msg("2026-09-29T01:00:00Z"), msg("2026-09-28T23:00:00Z"), today, utc))
         assertEquals("9월 27일", dateLabelIfBoundary(msg("2026-09-27T01:00:00Z"), msg("2026-09-26T23:00:00Z"), today, utc))
-    }
-
-    @Test
-    fun `epoch 표기 헬퍼`() {
-        val ms = java.time.Instant.parse("2026-09-30T16:05:00Z").toEpochMilli()
-        assertEquals("9월 30일", IsoDateTimeParser.monthDayKorean(ms, utc))
-        assertEquals("오후 4:05", IsoDateTimeParser.timeKorean(ms, utc))
     }
 }

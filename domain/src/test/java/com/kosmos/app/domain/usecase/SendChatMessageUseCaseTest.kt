@@ -1,7 +1,7 @@
 package com.kosmos.app.domain.usecase
 
-import com.kosmos.app.assistant.orchestrator.AssistantOrchestrator
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.domain.agent.AssistantGateway
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
 import io.mockk.coEvery
@@ -22,7 +22,7 @@ import org.junit.Test
  */
 class SendChatMessageUseCaseTest {
 
-    private val orchestrator: AssistantOrchestrator = mockk()
+    private val orchestrator: AssistantGateway = mockk()
     private val conversationRepository: ConversationRepository = mockk(relaxed = true)
     private val useCase = SendChatMessageUseCase(orchestrator, conversationRepository, mockk())
 
