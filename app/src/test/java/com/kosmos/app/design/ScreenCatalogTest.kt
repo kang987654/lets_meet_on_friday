@@ -580,7 +580,7 @@ class ScreenCatalogTest {
         shoot("03-approval-reminder") {
             ApprovalSheet(
                 request = request, onApprove = {}, onReject = {},
-                footnote = NotificationAccess.INEXACT_NOTE, onFootnoteAction = {}
+                footnote = NotificationAccess.inexactNote(ApplicationProvider.getApplicationContext()), onFootnoteAction = {}
             )
         }
     }
@@ -613,7 +613,7 @@ class ScreenCatalogTest {
     }
 
     @Test fun drawer() {
-        val vm = DrawerViewModel(episodeRepository, profileRepository, suggestionRepository)
+        val vm = DrawerViewModel(episodeRepository, suggestionRepository)
         shoot("04-drawer", onSurface = true) { AppDrawerContent(viewModel = vm) }
     }
 

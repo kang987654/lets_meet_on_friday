@@ -194,7 +194,6 @@ object Constants {
     // 사용자가 절대 만들 수 없는 파일명을 요구하지 않도록 한다.
     const val DEFAULT_MODEL_FILENAME = "gemma-4-E4B-it.litertlm"
     const val DEFAULT_MODEL_DOWNLOAD_URL = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
-    const val CALENDAR_DRAFT_MIN_CONFIDENCE = 0.7f
 
     // --- 모델 다운로드 (WorkManager 전경 작업, ADR-006) ---
     const val MODEL_DOWNLOAD_WORK_NAME = "model_download"

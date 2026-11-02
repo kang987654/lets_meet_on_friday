@@ -19,13 +19,6 @@ import org.junit.Test
 class ErrorMessageMappingTest {
 
     @Test
-    fun `reason containing the word timeout is not misclassified as missing time`() {
-        // [WHY] 구 매퍼는 reason에 "time"이 들어가면 MISSING_TIME_INFO로 분류했다.
-        val code = ErrorCodeMapper.toErrorCode(AppError.ValidationError(ValidationField.CONTENT, "timeout"))
-        assertFalse(code == ErrorCode.MISSING_TIME_INFO)
-    }
-
-    @Test
     fun `user messages never leak internal class names`() {
         val errors = listOf(
             AppError.DbWriteError("task_item"),
@@ -56,8 +49,6 @@ class ErrorMessageMappingTest {
                     AppError.ValidationError(ValidationField.CONTENT, ValidationReason.BLANK)
                 ErrorCode.INPUT_TOO_LONG ->
                     AppError.ValidationError(ValidationField.CONTENT, ValidationReason.TOO_LONG)
-                ErrorCode.MISSING_TIME_INFO ->
-                    AppError.ValidationError(ValidationField.NATURAL_LANGUAGE_REQUEST, ValidationReason.MISSING_TIME)
                 ErrorCode.INVALID_INPUT -> AppError.ValidationError("x", "y")
                 ErrorCode.IMAGE_TOO_LARGE -> AppError.ImageTooLarge(1L)
                 ErrorCode.UNSUPPORTED_IMAGE_FORMAT -> AppError.UnsupportedImageFormat("x")

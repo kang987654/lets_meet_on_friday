@@ -136,8 +136,7 @@ data class ApprovalSheetContent(
          */
         fun of(
             context: Context,
-            suggestions: List<ProfileSuggestion>,
-            lang: AppLanguage = AppLanguage.KO
+            suggestions: List<ProfileSuggestion>
         ): ApprovalSheetContent {
             val single = suggestions.singleOrNull()
             return ApprovalSheetContent(
@@ -318,7 +317,6 @@ fun ProfileSuggestionSheet(
 ) {
     val context = LocalContext.current
     val resources = androidx.compose.ui.platform.LocalResources.current
-    val lang = currentAppLanguage()
     // [WHY] 이미 있는 항목을 바꾸는 제안이 표시 없이 덮어썼다(0.38.6 M6 점검 P2).
     fun replaces(s: ProfileSuggestion): String? = current[s.key]?.takeIf { it != s.value }?.let {
         resources.getString(R.string.approval_profile_replaces, it)
@@ -326,7 +324,7 @@ fun ProfileSuggestionSheet(
     val colors = KosmosTheme.colors
     val ids = suggestions.map { it.id }
     var selected by remember(ids) { mutableStateOf(ids.toSet()) }
-    val base = ApprovalSheetContent.of(context, suggestions, lang)
+    val base = ApprovalSheetContent.of(context, suggestions)
     val multi = suggestions.size > 1
     val content = if (multi) base.copy(approveLabel = stringResource(R.string.profile_suggestion_save_selected, selected.size)) else base
     ApprovalSheetLayout(

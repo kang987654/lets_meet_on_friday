@@ -2,7 +2,6 @@ package com.kosmos.app.feature.drawer
 
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.memory.EpisodeRepository
-import com.kosmos.app.domain.memory.ProfileRepository
 import com.kosmos.app.domain.memory.ProfileSuggestionRepository
 import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.domain.model.EpisodeStatus
@@ -34,10 +33,9 @@ class DrawerViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
     private val episodes: EpisodeRepository = mockk()
-    private val profiles: ProfileRepository = mockk { every { observeEntries() } returns flowOf(emptyList()) }
     private val suggestions: ProfileSuggestionRepository = mockk { every { observePending() } returns flowOf(emptyList()) }
 
-    private fun viewModel() = DrawerViewModel(episodes, profiles, suggestions)
+    private fun viewModel() = DrawerViewModel(episodes, suggestions)
 
     private fun episode(id: String, title: String, summary: String, tags: List<String>, createdAt: Long) = Episode(
         id = id, sessionId = "s", status = EpisodeStatus.SUMMARIZED, title = title, summary = summary, tags = tags,

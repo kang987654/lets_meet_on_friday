@@ -155,7 +155,7 @@ private fun FlowTableCell(cell: TableCell, scale: Float) {
             .width(CELL_WIDTH * cell.colSpan)
             .fillMaxHeight()
             .border(0.5.dp, colors.border)
-            .background(if (cell.merged) colors.surface else colors.surface)
+            .background(colors.surface)
             .padding(6.dp)
     ) {
         if (!cell.merged) {

@@ -99,7 +99,7 @@ class ApprovalSheetContentTest {
         assertEquals("Set", reminder.approveLabel)
 
         val s = ProfileSuggestion("p1", "Role", "Developer", null, ProfileSuggestionStatus.PENDING, 0, 0)
-        val profile = ApprovalSheetContent.of(context, listOf(s, s.copy(id = "p2")), en)
+        val profile = ApprovalSheetContent.of(context, listOf(s, s.copy(id = "p2")))
         assertEquals("Save Profile", profile.label)
         assertEquals("2 items found in chat", profile.title)
         assertEquals("Ignore all", profile.rejectLabel)

@@ -25,9 +25,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
-import com.kosmos.app.domain.memory.ProfileRepository
 import com.kosmos.app.domain.memory.ProfileSuggestionRepository
-import com.kosmos.app.domain.model.ProfileEntry
 
 /**
  * [DrawerViewModel]
@@ -44,7 +42,6 @@ import com.kosmos.app.domain.model.ProfileEntry
 @HiltViewModel
 class DrawerViewModel @Inject constructor(
     private val episodeRepository: EpisodeRepository,
-    profileRepository: ProfileRepository,
     suggestionRepository: ProfileSuggestionRepository
 ) : ViewModel() {
 
@@ -52,11 +49,6 @@ class DrawerViewModel @Inject constructor(
     val pendingSuggestionCount: StateFlow<Int> =
         suggestionRepository.observePending().map { it.size }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
-
-    /** 프로필 고정 카드(A′-2) — 상시 주입 기억의 열람 창. 빈 목록이면 등록 안내 상태. */
-    val profileEntries: StateFlow<List<ProfileEntry>> =
-        profileRepository.observeEntries()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** 아카이브 목록 — MemoryViewModel 의 Pager 전례 그대로. */
     val episodePaging: Flow<PagingData<Episode>> =

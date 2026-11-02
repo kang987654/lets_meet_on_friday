@@ -14,8 +14,7 @@ package com.kosmos.app.core.mapper
 enum class ErrorCode {
     EMPTY_INPUT,
     INPUT_TOO_LONG,
-    MISSING_TIME_INFO,
-    /** 위 세 가지로 분류되지 않는 입력 검증 실패 (기존에는 INPUT_TOO_LONG으로 오분류됐음) */
+    /** 위 두 가지로 분류되지 않는 입력 검증 실패 (기존에는 INPUT_TOO_LONG으로 오분류됐음) */
     INVALID_INPUT,
     IMAGE_TOO_LARGE,
     UNSUPPORTED_IMAGE_FORMAT,

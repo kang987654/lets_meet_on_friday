@@ -42,7 +42,7 @@ internal object PlanetScene {
     val END_MS: Long = max(WARP_MS, (COMET_LAND * WARP_MS).toLong() + PULSE_MS)
 
     /** 입력바로 가는 빛의 몫 — 넓은 테두리라 같은 비율이면 대부분이 아래로 몰렸다(시안 사용자 피드백). */
-    private const val INPUT_BAR_WEIGHT = 0.4f
+    const val INPUT_BAR_WEIGHT = 0.4f
 
     /** [kind] 0 구체(a=극각, b=방위각) / 1 고리(a=각, b=궤도 반지름 배율). [sx]·[sy] 는 모이기 전 자리, [sp] 는 흩어지는 세기. */
     internal class P(val sx: Float, val sy: Float, val kind: Int, val a: Float, val b: Float, val sp: Float)

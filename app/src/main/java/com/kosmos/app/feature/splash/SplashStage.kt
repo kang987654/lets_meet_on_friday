@@ -186,7 +186,7 @@ fun SplashOverlay(handoff: SplashHandoff) {
             handoff.anchorsOf(SplashAnchor.TITLE, screen).forEach { add(it to 1f) }
             handoff.anchorsOf(SplashAnchor.BUBBLE, screen).forEach { add(it to 1f) }
             handoff.anchorsOf(SplashAnchor.EMPTY, screen).forEach { add(it to 1f) }
-            handoff.anchorsOf(SplashAnchor.INPUT_BAR, screen).forEach { add(it to 0.4f) }
+            handoff.anchorsOf(SplashAnchor.INPUT_BAR, screen).forEach { add(it to PlanetScene.INPUT_BAR_WEIGHT) }
         }
         handoff.stopCollecting()
         val planned = exitStart(exit.style, exit.readyAt)

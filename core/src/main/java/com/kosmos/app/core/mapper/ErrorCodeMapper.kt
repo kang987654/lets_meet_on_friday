@@ -22,7 +22,6 @@ object ErrorCodeMapper {
         is AppError.ValidationError -> when (error.reason) {
             ValidationReason.BLANK -> ErrorCode.EMPTY_INPUT
             ValidationReason.TOO_LONG -> ErrorCode.INPUT_TOO_LONG
-            ValidationReason.MISSING_TIME -> ErrorCode.MISSING_TIME_INFO
             else -> ErrorCode.INVALID_INPUT
         }
 
