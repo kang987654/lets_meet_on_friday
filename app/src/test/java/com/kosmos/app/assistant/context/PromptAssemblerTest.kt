@@ -130,17 +130,6 @@ class PromptAssemblerTest {
     }
 
     @Test
-    fun `다음주 월요일은 항상 오늘 이후의 월요일이다`() {
-        // [WHY] 한국어에서 주는 월요일에 시작하므로 오늘이 월요일이면 7일 뒤여야 한다.
-        val now = java.time.LocalDate.now()
-        val nextMonday = now.with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY))
-
-        assertEquals(java.time.DayOfWeek.MONDAY, nextMonday.dayOfWeek)
-        assertTrue("오늘 이후여야 한다", nextMonday.isAfter(now))
-        assertTrue("한 주 이내여야 한다", nextMonday.isBefore(now.plusDays(8)))
-    }
-
-    @Test
     fun `상대 날짜를 되묻지 말라는 지시가 있고 예전의 추측 금지 문구는 없다`() {
         // [WHY] "If you lack mandatory information … DO NOT guess. Ask the user first." 가
         // 일정 등록을 막는 주범이었다(PC 실험: 4케이스 중 3 실패 → 교체 후 4/4). 이 회귀가

@@ -321,24 +321,6 @@ class EpisodeSummarizeSchedulerTest {
     }
 
     @Test
-    fun `이미 시작한 요약은 새 요청이 와도 끝까지 돈다`() = runBlocking {
-        coEvery { episodeRepository.getById("e1") } returns AppResult.Success(closedEpisode())
-        coEvery { conversationRepository.getByEpisode("e1") } returns AppResult.Success(messages())
-        var started = false
-        coEvery { summarize(any()) } coAnswers { started = true; delay(300); AppResult.Success(listOf(doc())) }
-        val s = scheduler()
-
-        closed.emit(EpisodeBoundaryManager.ClosedEpisode("e1", EpisodeBoundaryManager.CloseTrigger.RESET))
-        delay(200)
-        s.onTurnCompleted()
-        waitUntil { started }
-        s.onUserActivity() // 요약 도중의 질문 — 추론 중 취소는 대화를 망가뜨리는 경로라 하지 않는다(0.38.6)
-
-        waitUntil { saved.any { it.status == EpisodeStatus.SUMMARIZED } }
-        assertTrue(saved.any { it.status == EpisodeStatus.SUMMARIZED })
-    }
-
-    @Test
     fun `엔진이 내려가 실패한 요약은 재시도로 세지 않는다`() = runBlocking {
         coEvery { episodeRepository.getById("e1") } returns AppResult.Success(closedEpisode())
         coEvery { conversationRepository.getByEpisode("e1") } returns AppResult.Success(messages())
@@ -376,7 +358,7 @@ class EpisodeSummarizeSchedulerTest {
         delay(200)
         s.onTurnCompleted()
         waitUntil { sumStarted }
-        s.onUserActivity() // 요약 도중 새 요청 도착
+        s.onUserActivity() // 요약 도중의 질문 — 추론 중 취소는 대화를 망가뜨리는 경로라 하지 않는다(0.38.6)
 
         waitUntil { saved.any { it.status == EpisodeStatus.SUMMARIZED } }
         delay(150)

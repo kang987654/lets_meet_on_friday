@@ -56,31 +56,22 @@ class GetTodayScheduleUseCaseTest {
         id = id, title = id, isCompleted = false, dueDateIso = dueIso, createdAt = 0L
     )
 
+    private val utc = ZoneId.of("UTC")
+    private val fixedToday = LocalDate.of(2026, 10, 15)
+    private val fixedNow = fixedToday.atTime(8, 0).atZone(utc).toInstant().toEpochMilli()
+
     private fun todayAt(hour: Int): LocalDateTime =
-        LocalDate.now(ZoneId.systemDefault()).atTime(hour, 0)
-
-    @Test
-    fun `offset datetime is parsed and included in today's schedule`() = runBlocking {
-        val zone = ZoneId.systemDefault()
-        val offsetIso = todayAt(15).atZone(zone).toOffsetDateTime().toString() // 예: 2026-07-31T15:00+09:00
-        val useCase = GetTodayScheduleUseCase(FakeTaskRepository(listOf(task("offset", offsetIso))), fakeCalendarTool)
-
-        val result = useCase(ScheduleData.RangeType.TODAY)
-
-        assertTrue(result is AppResult.Success)
-        assertEquals(1, (result as AppResult.Success).data.events.size)
-    }
+        fixedToday.atTime(hour, 0)
 
     @Test
     fun `mixed iso formats are all parsed and sorted by actual time`() = runBlocking {
-        val zone = ZoneId.systemDefault()
         val localIso = todayAt(18).toString()                                        // 로컬 일시
-        val offsetIso = todayAt(9).atZone(zone).toOffsetDateTime().toString()        // 오프셋 포함
-        val utcIso = todayAt(12).atZone(zone).toInstant().toString()                 // UTC(Z)
+        val offsetIso = todayAt(9).atZone(utc).withZoneSameInstant(ZoneId.of("+09:00")).toOffsetDateTime().toString() // 오프셋 포함
+        val utcIso = todayAt(12).atZone(utc).toInstant().toString()                  // UTC(Z)
         val tasks = listOf(task("local18", localIso), task("offset09", offsetIso), task("utc12", utcIso))
         val useCase = GetTodayScheduleUseCase(FakeTaskRepository(tasks), fakeCalendarTool)
 
-        val result = useCase(ScheduleData.RangeType.TODAY)
+        val result = useCase(ScheduleData.RangeType.TODAY, fixedNow, utc)
 
         assertTrue(result is AppResult.Success)
         val events = (result as AppResult.Success).data.events
@@ -89,13 +80,12 @@ class GetTodayScheduleUseCaseTest {
 
     @Test
     fun `date-only iso is included and week range covers 7 days inclusive`() = runBlocking {
-        val today = LocalDate.now(ZoneId.systemDefault())
-        val dateOnly = task("d0", today.toString())
-        val day6 = task("d6", today.plusDays(6).toString())
-        val day7 = task("d7", today.plusDays(7).toString()) // 8일째 — WEEK 범위 밖
+        val dateOnly = task("d0", fixedToday.toString())
+        val day6 = task("d6", fixedToday.plusDays(6).toString())
+        val day7 = task("d7", fixedToday.plusDays(7).toString()) // 8일째 — WEEK 범위 밖
         val useCase = GetTodayScheduleUseCase(FakeTaskRepository(listOf(day7, day6, dateOnly)), fakeCalendarTool)
 
-        val result = useCase(ScheduleData.RangeType.WEEK)
+        val result = useCase(ScheduleData.RangeType.WEEK, fixedNow, utc)
 
         assertTrue(result is AppResult.Success)
         assertEquals(listOf("d0", "d6"), (result as AppResult.Success).data.events.map { it.id })
@@ -105,7 +95,6 @@ class GetTodayScheduleUseCaseTest {
     fun `fixed clock decides today regardless of wall clock`() = runBlocking {
         // 2026-09-30T23:30Z — UTC 기준으로는 아직 9/30, 자정 경계 플레이크가 없는 고정 시각.
         val now = java.time.Instant.parse("2026-09-30T23:30:00Z").toEpochMilli()
-        val utc = ZoneId.of("UTC")
         val tasks = listOf(task("today", "2026-09-30T10:00:00"), task("tomorrow", "2026-10-01T00:10:00"))
         val useCase = GetTodayScheduleUseCase(FakeTaskRepository(tasks), fakeCalendarTool)
 
@@ -122,7 +111,7 @@ class GetTodayScheduleUseCaseTest {
             fakeCalendarTool
         )
 
-        val result = useCase(ScheduleData.RangeType.TODAY)
+        val result = useCase(ScheduleData.RangeType.TODAY, fixedNow, utc)
 
         assertTrue(result is AppResult.Success)
         assertEquals(listOf("ok"), (result as AppResult.Success).data.events.map { it.id })

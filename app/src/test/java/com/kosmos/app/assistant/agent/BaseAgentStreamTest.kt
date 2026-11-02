@@ -371,7 +371,7 @@ class BaseAgentStreamTest {
         // [WHY] 모델이 같은 툴을 계속 부르면 루프가 스스로 멈추지 않는다. 상한이 그 브레이크인데
         // 이 경로만 검증이 없어, 루프 탈출 구조를 건드리는 변경이 무엇을 깨뜨렸는지 알 수 없었다.
         //
-        // 턴 3개 = MAX_TOOL_LOOP_COUNT. 세 턴 모두 툴을 부르므로 네 번째 진입에서 걸린다.
+        // 턴 3개 = MAX_TOOL_LOOP_COUNT. 세 번째 턴의 툴 호출이 실행 전에 막힌다(0.40.2 M1-1).
         // 하나라도 줄이면 정상 종료로 빠져 이 경로를 못 탄다.
         val harness = runAgent(
             ModelTurn("", listOf(toolCall("GetSchedule"))),

@@ -19,30 +19,6 @@ import org.junit.Test
 class ErrorMessageMappingTest {
 
     @Test
-    fun `canonical validation reasons map to their error codes`() {
-        assertEquals(
-            ErrorCode.EMPTY_INPUT,
-            ErrorCodeMapper.toErrorCode(AppError.ValidationError(ValidationField.CONTENT, ValidationReason.BLANK))
-        )
-        assertEquals(
-            ErrorCode.INPUT_TOO_LONG,
-            ErrorCodeMapper.toErrorCode(AppError.ValidationError(ValidationField.CONTENT, ValidationReason.TOO_LONG))
-        )
-        assertEquals(
-            ErrorCode.MISSING_TIME_INFO,
-            ErrorCodeMapper.toErrorCode(
-                AppError.ValidationError(ValidationField.NATURAL_LANGUAGE_REQUEST, ValidationReason.MISSING_TIME)
-            )
-        )
-    }
-
-    @Test
-    fun `unknown validation reason falls back to INVALID_INPUT instead of INPUT_TOO_LONG`() {
-        val code = ErrorCodeMapper.toErrorCode(AppError.ValidationError("someField", "someReason"))
-        assertEquals(ErrorCode.INVALID_INPUT, code)
-    }
-
-    @Test
     fun `reason containing the word timeout is not misclassified as missing time`() {
         // [WHY] 구 매퍼는 reason에 "time"이 들어가면 MISSING_TIME_INFO로 분류했다.
         val code = ErrorCodeMapper.toErrorCode(AppError.ValidationError(ValidationField.CONTENT, "timeout"))

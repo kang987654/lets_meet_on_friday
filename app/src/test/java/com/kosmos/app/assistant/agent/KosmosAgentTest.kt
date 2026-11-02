@@ -4,7 +4,6 @@ import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.assistant.context.PromptAssembler
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -34,6 +33,8 @@ class KosmosAgentTest {
         webSearchEnabled = webSearchEnabled
     )
 
+    // [WHY] 이것이 라우터 폐지의 핵심 계약이다. 예전 키워드 분류는 `예약`은 잡고 `약속`은
+    // 놓치는 식으로 새서, 표현에 따라 툴이 사라졌다.
     @Test
     fun `웹 검색이 꺼져 있으면 로컬 툴 6개만 노출된다`() {
         // [WHY] SearchMemory 는 로컬 조회이므로 토글과 무관하게 항상 있다. 매 턴 자동 RAG
@@ -53,15 +54,5 @@ class KosmosAgentTest {
             listOf("AddSchedule", "GetSchedule", "AddMemory", "SearchMemory", "AddReminder", "ListReminders", "SearchWikipedia"),
             tools
         )
-    }
-
-    @Test
-    fun `일정 툴은 입력 표현과 무관하게 항상 노출된다`() {
-        // [WHY] 이것이 라우터 폐지의 핵심 계약이다. 예전 키워드 분류는 `예약`은 잡고 `약속`은
-        // 놓치는 식으로 새서, 표현에 따라 툴이 사라졌다.
-        val tools = agent().availableTools(context(webSearchEnabled = false))
-
-        assertTrue(tools.contains("AddSchedule"))
-        assertTrue(tools.contains("GetSchedule"))
     }
 }
