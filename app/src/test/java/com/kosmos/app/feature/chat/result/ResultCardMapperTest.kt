@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.chat.result
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.model.TaskItem
 import org.junit.Assert.assertEquals
@@ -9,6 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -19,38 +22,40 @@ import java.time.ZoneId
 @RunWith(RobolectricTestRunner::class)
 class ResultCardMapperTest {
 
+    private val context: Context get() = ApplicationProvider.getApplicationContext()
     private val zone = ZoneId.of("Asia/Seoul")
     private val today = LocalDate.of(2026, 10, 15)
     private val reminder = TaskItem(id = "t1", title = "물 마시기", isCompleted = false, createdAt = 0, remindAtIso = "2026-10-15T13:56:00")
 
     @Test
     fun `리마인더 — 울리기 전·울렸음·완료·취소함 상태와 오늘 표기`() {
-        val before = ResultCardMapper.reminder(reminder, today, zone)
+        val before = ResultCardMapper.reminder(context, reminder, today, zone)
         assertEquals("울리기 전", before.status)
         assertEquals("오후 1:56", before.value)
         assertEquals("오늘", before.sub)
         assertFalse(before.muted)
 
-        assertEquals("울렸음", ResultCardMapper.reminder(reminder.copy(remindedAtMs = 1), today, zone).status)
-        assertEquals("완료", ResultCardMapper.reminder(reminder.copy(isCompleted = true), today, zone).status)
+        assertEquals("울렸음", ResultCardMapper.reminder(context, reminder.copy(remindedAtMs = 1), today, zone).status)
+        assertEquals("완료", ResultCardMapper.reminder(context, reminder.copy(isCompleted = true), today, zone).status)
 
-        val cancelled = ResultCardMapper.reminder(reminder.copy(cancelledAt = 5), today, zone)
+        val cancelled = ResultCardMapper.reminder(context, reminder.copy(cancelledAt = 5), today, zone)
         assertEquals("취소함", cancelled.status)
         assertTrue("취소는 흐리게 + 취소선(사용자 결정)", cancelled.muted && cancelled.struck)
     }
 
     @Test
     fun `지운 대상은 지웠다고 흐리게 — 다른 날 일정은 날짜 표기`() {
-        val gone = ResultCardMapper.reminder(null, today, zone)
+        val gone = ResultCardMapper.reminder(context, null, today, zone)
         assertEquals("지운 알림", gone.title)
         assertTrue(gone.muted)
 
         val meeting = ResultCardMapper.schedule(
+            context,
             TaskItem(id = "t5", title = "팀 회의", isCompleted = false, createdAt = 0, dueDateIso = "2026-10-19T10:00:00"), today, zone
         )
         assertEquals("오전 10:00", meeting.value)
         assertEquals("10월 19일 (월)", meeting.sub)
-        assertTrue(ResultCardMapper.schedule(null, today, zone).muted)
+        assertTrue(ResultCardMapper.schedule(context, null, today, zone).muted)
     }
 
     @Test
@@ -58,29 +63,30 @@ class ResultCardMapperTest {
         val note = KnowledgeNote(id = "k1", content = "자전거 비밀번호는 134", createdAt = 0, updatedAt = 0)
         val noteAt = java.time.ZonedDateTime.of(2026, 10, 12, 9, 0, 0, 0, zone).toInstant().toEpochMilli()
 
-        val recall = ResultCardMapper.recall(note, """{"noteAt":$noteAt,"conflictCount":1,"otherValues":["4321"]}""", zone)
+        val recall = ResultCardMapper.recall(context, note, """{"noteAt":$noteAt,"conflictCount":1,"otherValues":["4321"]}""", zone)
 
         assertEquals("자전거 비밀번호는 134", recall.title)
         assertNull("값은 메모 문장에 이미 있다 — 따로 크게 두지 않는다", recall.value)
         assertEquals(listOf("10월 12일에 저장한 메모", "지난 대화 1건엔 4321, 메모 값을 따랐어요"), recall.evidence.map { it.text })
 
-        assertEquals(listOf("지난 대화에서 찾았어요"), ResultCardMapper.recall(null, null, zone).evidence.map { it.text })
+        assertEquals(listOf("지난 대화에서 찾았어요"), ResultCardMapper.recall(context, null, null, zone).evidence.map { it.text })
     }
 
     @Test
+    @Config(qualifiers = "en")
     fun `영어 모드 — 리마인더·일정·기억 답 카드가 영어로 매핑된다`() {
         val en = com.kosmos.app.core.common.AppLanguage.EN
-        val before = ResultCardMapper.reminder(reminder, today, zone, en)
+        val before = ResultCardMapper.reminder(context, reminder, today, zone, en)
         assertEquals("Upcoming", before.status)
         assertEquals("1:56 PM", before.value)
         assertEquals("Today", before.sub)
 
-        val cancelled = ResultCardMapper.reminder(reminder.copy(cancelledAt = 5), today, zone, en)
+        val cancelled = ResultCardMapper.reminder(context, reminder.copy(cancelledAt = 5), today, zone, en)
         assertEquals("Cancelled", cancelled.status)
 
         val note = KnowledgeNote(id = "k1", content = "Bike PIN is 134", createdAt = 0, updatedAt = 0)
         val noteAt = java.time.ZonedDateTime.of(2026, 10, 12, 9, 0, 0, 0, zone).toInstant().toEpochMilli()
-        val recall = ResultCardMapper.recall(note, """{"noteAt":$noteAt,"conflictCount":1,"otherValues":["4321"]}""", zone, en)
+        val recall = ResultCardMapper.recall(context, note, """{"noteAt":$noteAt,"conflictCount":1,"otherValues":["4321"]}""", zone, en)
         assertEquals(listOf("Note saved on Oct 12", "Past chat had 4321; followed your saved note"), recall.evidence.map { it.text })
     }
 }

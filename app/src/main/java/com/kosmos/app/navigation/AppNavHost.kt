@@ -81,6 +81,7 @@ fun AppNavHost(
             val summary by extras.summary.collectAsStateWithLifecycle()
             // [WHY] ChatScreen 의 기본 hiltViewModel() 과 같은 인스턴스(같은 내비게이션 항목) — 수정 결과 한 줄을 대화 끝에 붙이려고 꺼낸다.
             val chatViewModel: com.kosmos.app.feature.chat.ChatViewModel = androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
+            val context = androidx.compose.ui.platform.LocalContext.current
             ChatScreen(
                 viewModel = chatViewModel,
                 // [WHY] 설정 진입은 드로어 타일로 이동(M2-2) — ☰ 이 셸의 드로어를 연다.
@@ -90,7 +91,7 @@ fun AppNavHost(
                 jumpToTimestamp = jumpToTimestamp,
                 onJumpConsumed = onJumpConsumed,
                 resultStates = resultStates,
-                onEnsureResult = { extras.ensure(it) },
+                onEnsureResult = { extras.ensure(context, it) },
                 summary = summary,
                 onRefreshSummary = { extras.refreshSummary() },
                 onOpenTasks = { navController.navigate(AppDestination.MemoryTasks.route) { launchSingleTop = true } },
@@ -99,7 +100,7 @@ fun AppNavHost(
                 onResultClick = { message ->
                     val result = message.result ?: return@ChatScreen
                     when (result.kind) {
-                        com.kosmos.app.domain.model.MessageResult.Kind.REMINDER -> extras.openReminder(result.ref)
+                        com.kosmos.app.domain.model.MessageResult.Kind.REMINDER -> extras.openReminder(context, result.ref)
                         com.kosmos.app.domain.model.MessageResult.Kind.SCHEDULE ->
                             navController.navigate(AppDestination.Calendar.route) { launchSingleTop = true }
                         com.kosmos.app.domain.model.MessageResult.Kind.MEMORY_NOTE,

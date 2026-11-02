@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.chat.result
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.InputType
 import com.kosmos.app.domain.model.MessageResult
@@ -14,6 +16,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class) // org.json 은 JVM 단위 테스트에서 스텁이다
 class ChatChipRulesTest {
 
+    private val context: Context get() = ApplicationProvider.getApplicationContext()
     private fun labels(text: String) = ChatChipRules.answerChips(text).map { it.label }
 
     @Test
@@ -36,12 +39,12 @@ class ChatChipRulesTest {
     @Test
     fun `행동 칩 — 충돌이 있으면 지난 대화 정리만, 카드와 같은 칩은 없음`() {
         val meta = """{"conflictCount":2,"conflictEpisodeIds":["e1","e2"]}"""
-        val recall = ChatChipRules.actionChips(MessageResult(MessageResult.Kind.MEMORY_RECALL, "k1", meta))
+        val recall = ChatChipRules.actionChips(context, MessageResult(MessageResult.Kind.MEMORY_RECALL, "k1", meta))
         assertEquals(listOf("지난 대화 2건 정리"), recall.map { it.label })
         assertEquals(ChatChip.Action.OpenEpisode("e1"), recall.first().action)
-        assertEquals(emptyList<String>(), ChatChipRules.actionChips(MessageResult(MessageResult.Kind.MEMORY_RECALL, "k1", """{"noteAt":1}""")).map { it.label })
-        assertEquals(emptyList<String>(), ChatChipRules.actionChips(MessageResult(MessageResult.Kind.SCHEDULE, "t1")).map { it.label })
-        assertEquals(emptyList<ChatChip>(), ChatChipRules.actionChips(MessageResult(MessageResult.Kind.REMINDER, "t1")))
+        assertEquals(emptyList<String>(), ChatChipRules.actionChips(context, MessageResult(MessageResult.Kind.MEMORY_RECALL, "k1", """{"noteAt":1}""")).map { it.label })
+        assertEquals(emptyList<String>(), ChatChipRules.actionChips(context, MessageResult(MessageResult.Kind.SCHEDULE, "t1")).map { it.label })
+        assertEquals(emptyList<ChatChip>(), ChatChipRules.actionChips(context, MessageResult(MessageResult.Kind.REMINDER, "t1")))
     }
 
     @Test
@@ -54,6 +57,6 @@ class ChatChipRulesTest {
     @Test
     fun `사용자 메시지에는 칩 없음`() {
         val user = ChatMessage(id = "m", sessionId = "s", role = ChatMessage.Role.USER, content = "진한 쪽이 좋으세요, 부드러운 쪽이 좋으세요?", inputType = InputType.TEXT, createdAt = 0)
-        assertEquals(emptyList<ChatChip>(), ChatChipRules.of(user))
+        assertEquals(emptyList<ChatChip>(), ChatChipRules.of(context, user))
     }
 }

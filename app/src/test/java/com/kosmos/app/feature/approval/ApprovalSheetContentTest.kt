@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.approval
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import com.kosmos.app.assistant.approval.ApprovalPreview
 import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.domain.model.ProfileSuggestion
@@ -7,14 +9,19 @@ import com.kosmos.app.domain.model.ProfileSuggestionStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.time.LocalDate
 import java.time.ZoneId
 
 /**
  * 공통 승인 시트(0.38.2 M5)가 보일 내용 — 종류별 대상·언제·버튼 글자, ISO 원문을 노출하지 않는다(§4-7). 날짜·시간대 고정(§2-④).
  */
+@RunWith(RobolectricTestRunner::class)
 class ApprovalSheetContentTest {
 
+    private val context: Context get() = ApplicationProvider.getApplicationContext()
     private val zone = ZoneId.of("Asia/Seoul")
     private val today = LocalDate.of(2026, 10, 15)
     private fun request(preview: ApprovalPreview?) = ApprovalRequest("s1", "제목", "설명", preview = preview)
@@ -22,6 +29,7 @@ class ApprovalSheetContentTest {
     @Test
     fun `일정 — 오늘이면 '오늘', 끝 시각은 큰 시각 아래 '까지', 메모는 메모 면, 주 버튼은 추가하기`() {
         val c = ApprovalSheetContent.of(
+            context,
             request(ApprovalPreview(ApprovalPreview.Kind.SCHEDULE, "팀 회의", "2026-10-15T15:00:00", "2026-10-15T16:00:00", "3층 회의실")),
             today, zone
         )
@@ -37,13 +45,13 @@ class ApprovalSheetContentTest {
 
     @Test
     fun `알림 — 다른 날이면 날짜 표기, 메모는 큰 값 없이 내용만`() {
-        val reminder = ApprovalSheetContent.of(request(ApprovalPreview(ApprovalPreview.Kind.REMINDER, "약 먹기", "2026-10-16T09:00:00")), today, zone)
+        val reminder = ApprovalSheetContent.of(context, request(ApprovalPreview(ApprovalPreview.Kind.REMINDER, "약 먹기", "2026-10-16T09:00:00")), today, zone)
         assertEquals("알림 등록", reminder.label)
         assertEquals("오전 9:00", reminder.value)
         assertEquals(false, reminder.sub.orEmpty().contains("2026-10-16T"))
         assertEquals("등록하기", reminder.approveLabel)
 
-        val memo = ApprovalSheetContent.of(request(ApprovalPreview(ApprovalPreview.Kind.MEMORY, "자물쇠 비밀번호는 수첩에")), today, zone)
+        val memo = ApprovalSheetContent.of(context, request(ApprovalPreview(ApprovalPreview.Kind.MEMORY, "자물쇠 비밀번호는 수첩에")), today, zone)
         assertEquals("메모 저장", memo.label)
         assertNull(memo.value)
         assertEquals("저장하기", memo.approveLabel)
@@ -51,23 +59,25 @@ class ApprovalSheetContentTest {
 
     @Test
     fun `미리보기 없는 요청은 제목·설명, 프로필 제안은 한 건이면 항목·여러 건이면 개수와 무시·프로필에 저장`() {
-        val plain = ApprovalSheetContent.of(request(null), today, zone)
+        val plain = ApprovalSheetContent.of(context, request(null), today, zone)
         assertEquals("제목", plain.label)
         assertEquals("설명", plain.title)
 
         val s = ProfileSuggestion("p1", "직업", "개발자", null, ProfileSuggestionStatus.PENDING, 0, 0)
-        val profile = ApprovalSheetContent.of(listOf(s))
+        val profile = ApprovalSheetContent.of(context, listOf(s))
         assertEquals("프로필 저장", profile.label)
         assertEquals("개발자", profile.title)
         assertEquals("무시", profile.rejectLabel)
         assertEquals("프로필에 저장", profile.approveLabel)
-        assertEquals("대화에서 찾은 항목 3개", ApprovalSheetContent.of(listOf(s, s.copy(id = "p2"), s.copy(id = "p3"))).title)
+        assertEquals("대화에서 찾은 항목 3개", ApprovalSheetContent.of(context, listOf(s, s.copy(id = "p2"), s.copy(id = "p3"))).title)
     }
 
     @Test
+    @Config(qualifiers = "en")
     fun `영어 모드 — 일정·알림·메모·프로필 시트 문구가 영어로 조립된다`() {
         val en = com.kosmos.app.core.common.AppLanguage.EN
         val schedule = ApprovalSheetContent.of(
+            context,
             request(ApprovalPreview(ApprovalPreview.Kind.SCHEDULE, "Team Meeting", "2026-10-15T15:00:00", "2026-10-15T16:00:00", "Room 301")),
             today, zone, en
         )
@@ -79,6 +89,7 @@ class ApprovalSheetContentTest {
         assertEquals("Cancel", schedule.rejectLabel)
 
         val reminder = ApprovalSheetContent.of(
+            context,
             request(ApprovalPreview(ApprovalPreview.Kind.REMINDER, "Take medicine", "2026-10-16T09:00:00")),
             today, zone, en
         )
@@ -87,7 +98,7 @@ class ApprovalSheetContentTest {
         assertEquals("Set", reminder.approveLabel)
 
         val s = ProfileSuggestion("p1", "Role", "Developer", null, ProfileSuggestionStatus.PENDING, 0, 0)
-        val profile = ApprovalSheetContent.of(listOf(s, s.copy(id = "p2")), en)
+        val profile = ApprovalSheetContent.of(context, listOf(s, s.copy(id = "p2")), en)
         assertEquals("Save Profile", profile.label)
         assertEquals("2 items found in chat", profile.title)
         assertEquals("Ignore all", profile.rejectLabel)

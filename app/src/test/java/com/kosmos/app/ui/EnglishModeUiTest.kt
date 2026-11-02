@@ -115,6 +115,7 @@ class EnglishModeUiTest {
     }
 
     @Test
+    @Config(qualifiers = "en")
     fun `영어 모드에서 빈 채팅 화면 문구가 영어로 표시된다`() {
         rule.setContent {
             KosmosTheme(language = AppLanguage.EN) {

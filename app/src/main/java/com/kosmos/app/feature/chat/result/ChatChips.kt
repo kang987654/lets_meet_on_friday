@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.chat.result
 
+import android.content.Context
 import com.kosmos.app.R
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.MessageResult
@@ -31,11 +32,11 @@ object ChatChipRules {
     private val PARTICLE = Regex("(이|가|을|를|은|는)$")
 
     fun of(
-        message: ChatMessage,
-        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+        context: Context,
+        message: ChatMessage
     ): List<ChatChip> {
         if (message.role != ChatMessage.Role.ASSISTANT) return emptyList()
-        return answerChips(message.content) + actionChips(message.result, lang)
+        return answerChips(message.content) + actionChips(context, message.result)
     }
 
     /** 양자택일 질문의 두 선택지. 아니면 빈 목록. */
@@ -63,10 +64,10 @@ object ChatChipRules {
      * 두세 개였다(0.38.6 M3 사용자 결정).
      */
     fun actionChips(
-        result: MessageResult?,
-        lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+        context: Context,
+        result: MessageResult?
     ): List<ChatChip> = when (result?.kind) {
-        MessageResult.Kind.MEMORY_RECALL -> listOfNotNull(conflictChip(result.meta, lang))
+        MessageResult.Kind.MEMORY_RECALL -> listOfNotNull(conflictChip(context, result.meta))
         MessageResult.Kind.MEMORY_NOTE, MessageResult.Kind.SCHEDULE, MessageResult.Kind.REMINDER, null -> emptyList()
     }
 
@@ -81,16 +82,15 @@ object ChatChipRules {
         return json.optString("episodeId").takeIf { it.isNotEmpty() }
     }
 
-    private fun conflictChip(meta: String?, lang: com.kosmos.app.core.common.AppLanguage): ChatChip? {
+    private fun conflictChip(context: Context, meta: String?): ChatChip? {
         val json = meta?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return null
         val ids = json.optJSONArray("conflictEpisodeIds") ?: return null
         val first = ids.optString(0).takeIf { it.isNotEmpty() } ?: return null
         val count = json.optInt("conflictCount", ids.length())
-        val isEn = lang == com.kosmos.app.core.common.AppLanguage.EN
-        val label = if (isEn) {
-            if (count > 1) "Review $count past chats" else "Review past chat"
+        val label = if (count > 1) {
+            context.getString(R.string.chat_bubble_view_past_chats_count, count)
         } else {
-            if (count > 1) "지난 대화 ${count}건 정리" else "지난 대화 정리"
+            context.getString(R.string.chat_bubble_view_past_chat)
         }
         return ChatChip(label, ChatChip.Action.OpenEpisode(first), R.drawable.ic_ph_chat_text)
     }

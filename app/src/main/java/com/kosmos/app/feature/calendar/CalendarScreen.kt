@@ -301,6 +301,7 @@ private fun UpcomingRow(entry: UpcomingEntry, divider: Boolean) {
 /** 오늘 탭에서 연 알림의 수정 시트 — 0.38.2 [com.kosmos.app.feature.chat.result.ReminderEditSheet] 그대로. */
 @Composable
 private fun ReminderEditHost(viewModel: CalendarViewModel, reminders: List<com.kosmos.app.domain.model.TaskItem>, today: java.time.LocalDate) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val editing by viewModel.editingReminder.collectAsStateWithLifecycle()
     val error by viewModel.editError.collectAsStateWithLifecycle()
     val id = editing ?: return
@@ -309,7 +310,7 @@ private fun ReminderEditHost(viewModel: CalendarViewModel, reminders: List<com.k
     val at = task.remindAtIso?.let { com.kosmos.app.domain.util.IsoDateTimeParser.toEpochMillis(it) }
         ?.let { java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()) }
     com.kosmos.app.feature.chat.result.ReminderEditSheet(
-        state = com.kosmos.app.feature.chat.result.ResultCardMapper.reminder(task, today, lang = lang),
+        state = com.kosmos.app.feature.chat.result.ResultCardMapper.reminder(context, task, today, lang = lang),
         initialHour = at?.hour ?: 9,
         initialMinute = at?.minute ?: 0,
         error = error,

@@ -325,12 +325,13 @@ class ScreenCatalogTest {
     /** 결과 카드·요약 타일(0.38.2) — 셸(AppNavHost)이 하듯 ChatExtrasViewModel 을 붙인다. 시각은 고정([NOW]). */
     @Composable
     private fun ChatWithExtras(vm: com.kosmos.app.feature.chat.ChatViewModel, extras: com.kosmos.app.feature.chat.result.ChatExtrasViewModel) {
+        val context = androidx.compose.ui.platform.LocalContext.current
         val states by extras.results.collectAsState()
         val summary by extras.summary.collectAsState()
         com.kosmos.app.feature.chat.ChatScreen(
             viewModel = vm,
             resultStates = states,
-            onEnsureResult = { extras.ensure(it, TODAY) },
+            onEnsureResult = { extras.ensure(context, it, TODAY) },
             summary = summary,
             onRefreshSummary = { extras.refreshSummary(NOW, ZoneId.of(ZONE)) }
         )
@@ -446,7 +447,9 @@ class ScreenCatalogTest {
 
     /** 알림 카드를 누르면 — 수정 시트(0.38.2 M4). 시트만 그린다(시각 고정). */
     @Test fun reminderEditSheet() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         val state = com.kosmos.app.feature.chat.result.ResultCardMapper.reminder(
+            context,
             TaskItem(id = "t1", title = "물 마시기", isCompleted = false, createdAt = 0, remindAtIso = "2026-10-15T13:56:00"),
             TODAY, ZoneId.of(ZONE)
         )

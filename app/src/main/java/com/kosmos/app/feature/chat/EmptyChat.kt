@@ -22,6 +22,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import com.kosmos.app.R
 import com.kosmos.app.ui.component.KosmosIcon
 import com.kosmos.app.ui.component.kosmosSurface
@@ -36,7 +37,6 @@ import com.kosmos.app.ui.theme.KosmosTheme
 @Composable
 fun EmptyChat(onStarter: (String) -> Unit, modifier: Modifier = Modifier) {
     val colors = KosmosTheme.colors
-    val en = KosmosTheme.language == com.kosmos.app.core.common.AppLanguage.EN
     Column(
         modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp).splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.EMPTY),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -48,18 +48,21 @@ fun EmptyChat(onStarter: (String) -> Unit, modifier: Modifier = Modifier) {
             STAR_RADII.forEachIndexed { i, r -> sparkle(points[i], r.dp.toPx(), colors.brand.copy(alpha = if (i == BRIGHTEST) 1f else 0.7f)) }
         }
         Text(
-            if (en) "What can I help with today?" else "오늘은 무엇을 맡길까요?",
+            stringResource(R.string.chat_empty_title),
             style = MaterialTheme.typography.titleLarge,
             color = colors.textPrimary
         )
         Text(
-            if (en) "Reminders, events, and memories stay right on your phone." else "알림, 일정, 기억을 휴대폰 안에서만 처리해요.",
+            stringResource(R.string.chat_Empty_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = colors.textSecondary,
             textAlign = TextAlign.Center
         )
         Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            (if (en) STARTERS_EN else STARTERS).forEach { (icon, text) -> Starter(icon, text) { onStarter(text) } }
+            STARTERS.forEach { (icon, textRes) ->
+                val text = stringResource(textRes)
+                Starter(icon, text) { onStarter(text) }
+            }
         }
     }
 }
@@ -84,13 +87,7 @@ private val STAR_RADII = listOf(4f, 6f, 9f, 5f, 4f)
 private const val BRIGHTEST = 2
 
 private val STARTERS = listOf(
-    R.drawable.ic_ph_bell to "30분 뒤에 물 마시라고 알려 줘",
-    R.drawable.ic_ph_calendar_blank to "오늘 일정 알려 줘",
-    R.drawable.ic_ph_clock_counter_clockwise to "지난번에 기억해 둔 거 찾아 줘"
-)
-
-private val STARTERS_EN = listOf(
-    R.drawable.ic_ph_bell to "Remind me to drink water in 30 minutes",
-    R.drawable.ic_ph_calendar_blank to "What's on my schedule today?",
-    R.drawable.ic_ph_clock_counter_clockwise to "Find what I asked you to remember"
+    R.drawable.ic_ph_bell to R.string.chat_Empty_prompt_1,
+    R.drawable.ic_ph_calendar_blank to R.string.chat_Empty_prompt_2,
+    R.drawable.ic_ph_clock_counter_clockwise to R.string.chat_Empty_prompt_3
 )

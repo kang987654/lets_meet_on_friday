@@ -1,7 +1,9 @@
 package com.kosmos.app.feature.chat.result
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kosmos.app.R
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.memory.KnowledgeRepository
 import com.kosmos.app.domain.memory.TaskRepository
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -61,6 +64,27 @@ class ChatExtrasViewModel @Inject constructor(
     val results: StateFlow<Map<String, ResultCardState>> = _results.asStateFlow()
 
     private val watching = mutableSetOf<String>()
+    private val watchJobs = mutableListOf<kotlinx.coroutines.Job>()
+
+    init {
+        // [WHY] 언어가 바뀌어 화면이 재생성돼도 ViewModel 은 살아남는다 — 옛 언어로 매핑된 카드 캐시를 비워
+        // 재구성된 화면이 새 Context 로케일로 다시 구독·조립하게 한다(0.40.1 M2).
+        appLanguageHolder?.languageFlow?.let { flow ->
+            viewModelScope.launch {
+                var last = appLanguageHolder.current
+                flow.collectLatest { lang ->
+                    if (lang != last) {
+                        last = lang
+                        watchJobs.forEach { it.cancel() }
+                        watchJobs.clear()
+                        watching.clear()
+                        _results.value = emptyMap()
+                        _editError.value = null
+                    }
+                }
+            }
+        }
+    }
 
     /** 알림 시각(epoch ms) — 수정 시트의 시간 고르기 처음 값. 대상 흐름이 채운다. */
     private val reminderTimes = mutableMapOf<String, Long>()
@@ -75,12 +99,12 @@ class ChatExtrasViewModel @Inject constructor(
     val summary: StateFlow<ChatSummary?> = _summary.asStateFlow()
 
     /** [result] 의 대상을 구독한다 — 같은 키는 한 번만. */
-    fun ensure(result: MessageResult, today: LocalDate = LocalDate.now()) {
+    fun ensure(context: Context, result: MessageResult, today: LocalDate = LocalDate.now()) {
         val key = keyOf(result)
         if (!watching.add(key)) return
-        viewModelScope.launch {
+        val job = viewModelScope.launch {
             var previous: ResultCardState? = null
-            stateFlowOf(result, today).collect { state ->
+            stateFlowOf(context, result, today).collect { state ->
                 _results.update { it + (key to state) }
                 // [WHY] 알람이 울리거나 시트·다른 화면에서 바뀌어도 대화 수는 그대로라 요약이 지난 시각을 "다음"으로 보였다(0.38.2 실기기) —
                 // 지켜보는 할 일의 상태가 바뀌면 요약도 다시 센다. 첫 값은 지금 상태일 뿐이라 세지 않는다.
@@ -88,16 +112,17 @@ class ChatExtrasViewModel @Inject constructor(
                 previous = state
             }
         }
+        watchJobs += job
     }
 
-    private fun stateFlowOf(result: MessageResult, today: LocalDate): Flow<ResultCardState> = when (result.kind) {
+    private fun stateFlowOf(context: Context, result: MessageResult, today: LocalDate): Flow<ResultCardState> = when (result.kind) {
         MessageResult.Kind.REMINDER -> taskRepository.observeById(result.ref).map { task ->
             task?.remindAtIso?.let { iso -> IsoDateTimeParser.toEpochMillis(iso)?.let { reminderTimes[result.ref] = it } }
-            ResultCardMapper.reminder(task, today, lang = currentLang)
+            ResultCardMapper.reminder(context, task, today, lang = currentLang)
         }
-        MessageResult.Kind.SCHEDULE -> taskRepository.observeById(result.ref).map { ResultCardMapper.schedule(it, today, lang = currentLang) }
-        MessageResult.Kind.MEMORY_NOTE -> flow { emit(ResultCardMapper.note(noteOf(result.ref), lang = currentLang)) }
-        MessageResult.Kind.MEMORY_RECALL -> flow { emit(ResultCardMapper.recall(result.ref.takeIf { it.isNotEmpty() }?.let { noteOf(it) }, result.meta, lang = currentLang)) }
+        MessageResult.Kind.SCHEDULE -> taskRepository.observeById(result.ref).map { ResultCardMapper.schedule(context, it, today, lang = currentLang) }
+        MessageResult.Kind.MEMORY_NOTE -> flow { emit(ResultCardMapper.note(context, noteOf(result.ref))) }
+        MessageResult.Kind.MEMORY_RECALL -> flow { emit(ResultCardMapper.recall(context, result.ref.takeIf { it.isNotEmpty() }?.let { noteOf(it) }, result.meta, lang = currentLang)) }
     }
 
     private suspend fun noteOf(id: String) = (knowledgeRepository.getById(id) as? AppResult.Success)?.data
@@ -131,8 +156,8 @@ class ChatExtrasViewModel @Inject constructor(
     private val _editError = MutableStateFlow<String?>(null)
     val editError: StateFlow<String?> = _editError.asStateFlow()
 
-    fun openReminder(taskId: String) {
-        ensure(MessageResult(MessageResult.Kind.REMINDER, taskId))
+    fun openReminder(context: Context, taskId: String) {
+        ensure(context, MessageResult(MessageResult.Kind.REMINDER, taskId))
         _editError.value = null
         _editingReminder.value = taskId
     }
@@ -143,16 +168,17 @@ class ChatExtrasViewModel @Inject constructor(
     }
 
     /** 수정 결과로 저장된 비서 한 줄(D8)을 [onSaved] 로 넘긴다 — 화면이 대화 끝에 붙인다. */
-    fun snooze(taskId: String, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) =
-        edit(onSaved) { reminderEditor.snooze(taskId) }
+    fun snooze(context: Context, taskId: String, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) =
+        edit(context, onSaved) { reminderEditor.snooze(taskId) }
 
-    fun reschedule(taskId: String, hour: Int, minute: Int, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) =
-        edit(onSaved) { reminderEditor.reschedule(taskId, hour, minute) }
+    fun reschedule(context: Context, taskId: String, hour: Int, minute: Int, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) =
+        edit(context, onSaved) { reminderEditor.reschedule(taskId, hour, minute) }
 
-    fun cancelReminder(taskId: String, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) =
-        edit(onSaved) { reminderEditor.cancel(taskId) }
+    fun cancelReminder(context: Context, taskId: String, onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit) =
+        edit(context, onSaved) { reminderEditor.cancel(taskId) }
 
     private fun edit(
+        context: Context,
         onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit,
         action: suspend () -> AppResult<com.kosmos.app.domain.model.ChatMessage>
     ) {
@@ -165,7 +191,7 @@ class ChatExtrasViewModel @Inject constructor(
                 }
                 is AppResult.Failure -> _editError.value =
                     (result.error as? com.kosmos.app.core.common.AppError.ValidationError)?.reason
-                        ?: if (currentLang == com.kosmos.app.core.common.AppLanguage.EN) "Couldn't update the reminder. Please try again." else "알림을 바꾸지 못했어요. 다시 시도해 주세요."
+                        ?: context.getString(R.string.chat_reminder_update_failed)
             }
         }
     }

@@ -5,8 +5,12 @@ import com.kosmos.app.core.common.AppLanguage
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import com.kosmos.app.R
 import com.kosmos.app.ui.theme.KosmosTheme
+import com.kosmos.app.ui.theme.currentAppLanguage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,7 +61,7 @@ fun CustomChatHeader(
     warningMessage: String? = null,
     onStatusClick: () -> Unit = {}
 ) {
-    val lang = KosmosTheme.language
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -72,7 +76,7 @@ fun CustomChatHeader(
         IconButton(onClick = onMenuClick) {
             androidx.compose.material3.Icon(
                 painter = painterResource(id = com.kosmos.app.R.drawable.ic_ph_list),
-                contentDescription = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Menu" else "메뉴",
+                contentDescription = stringResource(R.string.chat_menu_cd),
                 tint = KosmosTheme.colors.textSecondary,
                 modifier = Modifier.size(com.kosmos.app.ui.component.IconSize.inline)
             )
@@ -99,16 +103,22 @@ fun CustomChatHeader(
         }
         // [WHY] 별 색만으로 엔진 상태를 전했다 — 화면 읽기에도 말한다(DESIGN "색만으로 상태를 전하지 않는다", 0.38.3 점검 P2).
         // 시작 화면 전환에서 우리 별이 이 자리에 앉는다(0.38.4 M6).
+        val engineStateDesc = when (engineState) {
+            is ModelLoadState.Ready -> stringResource(R.string.chat_engine_state_ready_cd)
+            is ModelLoadState.Error -> stringResource(R.string.chat_engine_state_error_cd)
+            is ModelLoadState.NotFound -> stringResource(R.string.chat_engine_state_missing_cd)
+            else -> stringResource(R.string.chat_engine_state_preparing_cd)
+        }
         com.kosmos.app.ui.component.StarGlyph(
             dotColor,
             Modifier.size(12.dp).splashAnchor(com.kosmos.app.feature.splash.SplashAnchor.HEADER_STAR)
-                .semantics { contentDescription = engineStateDescription(engineState, lang) }
+                .semantics { contentDescription = engineStateDesc }
         )
 
         Spacer(modifier = Modifier.weight(1f))
 
         // [WHY] 별이 노랑·빨강이면 캡슐 글자가 원인을 말한다 — 별 색만으로는 왜인지 알 수 없었다(0.39.3 M3). 수치는 시트에.
-        val capsule = capsuleContent(engineState, deviceStatus, warningMessage != null, lang)
+        val capsule = capsuleContent(engineState, deviceStatus, warningMessage != null, context = context)
         if (capsule != null) {
             val capsuleColor = when (capsule.tone) {
                 CapsuleTone.DANGER -> KosmosTheme.colors.dangerText
@@ -123,7 +133,7 @@ fun CustomChatHeader(
                     .kosmosSurface(shape = RoundedCornerShape(99.dp))
                     .clickable(
                         role = androidx.compose.ui.semantics.Role.Button,
-                        onClickLabel = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "View device status" else "기기 상태 보기",
+                        onClickLabel = stringResource(R.string.chat_view_device_status),
                         onClick = onStatusClick
                     )
                     .padding(horizontal = 10.dp, vertical = 5.dp)
@@ -176,16 +186,16 @@ internal fun StatusDetailContent(
     warningMessage: String?,
     onRetry: () -> Unit
 ) {
-    val lang = KosmosTheme.language
-    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
+    val context = LocalContext.current
+    val lang = currentAppLanguage()
     Column(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
         Text(
-            text = if (en) "Device status" else "기기 상태",
+            text = stringResource(R.string.chat_device_status_title),
             style = MaterialTheme.typography.titleMedium,
             color = KosmosTheme.colors.textPrimary
         )
         Spacer(modifier = Modifier.height(12.dp))
-        engineProblem(engineState, lang)?.let { (title, reason) ->
+        engineProblem(engineState, lang, context)?.let { (title, reason) ->
             Text(
                 text = title,
                 color = KosmosTheme.colors.dangerText,
@@ -195,22 +205,21 @@ internal fun StatusDetailContent(
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = reason, color = KosmosTheme.colors.textSecondary, style = MaterialTheme.typography.bodySmall)
             Spacer(modifier = Modifier.height(12.dp))
-            com.kosmos.app.ui.component.KosmosButton(if (en) "Retry" else "다시 시도", onRetry, Modifier.fillMaxWidth())
+            com.kosmos.app.ui.component.KosmosButton(stringResource(R.string.common_retry), onRetry, Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(16.dp))
         }
         Text(
-            text = formatDeviceStatus(status, lang).ifEmpty { if (en) "Collecting metrics…" else "수치를 수집하는 중이에요." },
+            text = formatDeviceStatus(status, lang, context).ifEmpty { stringResource(R.string.chat_collecting_metrics) },
             color = KosmosTheme.colors.textSecondary,
             style = MaterialTheme.typography.bodyMedium
         )
         val engineLabel = when (engineState) {
-            is ModelLoadState.Ready -> if (en) {
-                "Engine ready (${com.kosmos.app.ui.modelDisplayName(engineState.modelInfo.modelId)})"
-            } else {
-                "엔진 준비됨 (${com.kosmos.app.ui.modelDisplayName(engineState.modelInfo.modelId)})"
-            }
+            is ModelLoadState.Ready -> stringResource(
+                R.string.chat_engine_ready_with_model,
+                com.kosmos.app.ui.modelDisplayName(engineState.modelInfo.modelId)
+            )
             is ModelLoadState.Error, is ModelLoadState.NotFound -> null
-            else -> if (en) "Preparing engine" else "엔진 준비 중"
+            else -> stringResource(R.string.chat_engine_preparing)
         }
         engineLabel?.let {
             Spacer(modifier = Modifier.height(8.dp))
@@ -235,13 +244,14 @@ internal fun StatusDetailContent(
 /** 엔진이 멈춘 이유 — (제목, 원인 문장). 시작 화면과 같은 문구(ErrorMessages). 멈추지 않았으면 null. */
 internal fun engineProblem(
     state: ModelLoadState,
-    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO,
+    context: android.content.Context? = null
 ): Pair<String, String>? {
     val en = lang == com.kosmos.app.core.common.AppLanguage.EN
     return when (state) {
-        is ModelLoadState.Error -> (if (en) "Couldn't load AI engine" else "AI 엔진을 올리지 못했어요") to
+        is ModelLoadState.Error -> (context?.getString(R.string.splash_engine_error_title) ?: if (en) "Couldn't load AI engine" else "AI 엔진을 올리지 못했어요") to
             com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error, lang)
-        is ModelLoadState.NotFound -> (if (en) "AI model file not found" else "AI 모델 파일이 없어요") to
+        is ModelLoadState.NotFound -> (context?.getString(R.string.splash_model_needed_body)?.substringBefore(".") ?: if (en) "AI model file not found" else "AI 모델 파일이 없어요") to
             com.kosmos.app.core.mapper.ErrorMessages.userMessage(com.kosmos.app.core.common.AppError.ModelNotFound(state.expectedPath), lang)
         else -> null
     }
@@ -261,18 +271,26 @@ internal fun capsuleContent(
     engineState: ModelLoadState,
     status: com.kosmos.app.runtime.metrics.DeviceStatus,
     heatWarning: Boolean,
-    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO,
+    context: android.content.Context? = null
 ): CapsuleContent? {
     val en = lang == com.kosmos.app.core.common.AppLanguage.EN
     val stop = com.kosmos.app.R.drawable.ic_ph_warning_circle
     return when {
-        engineState is ModelLoadState.Error -> CapsuleContent(if (en) "Engine error" else "엔진 오류", CapsuleTone.DANGER, stop)
-        engineState is ModelLoadState.NotFound -> CapsuleContent(if (en) "No model" else "모델 없음", CapsuleTone.DANGER, stop)
+        engineState is ModelLoadState.Error -> CapsuleContent(
+            context?.getString(R.string.chat_engine_error_short) ?: if (en) "Engine error" else "엔진 오류",
+            CapsuleTone.DANGER, stop
+        )
+        engineState is ModelLoadState.NotFound -> CapsuleContent(
+            context?.getString(R.string.chat_engine_no_model_short) ?: if (en) "No model" else "모델 없음",
+            CapsuleTone.DANGER, stop
+        )
         heatWarning -> CapsuleContent(
             if (status.temperatureCelsius > 0f) {
-                if (en) "Heat %.0f°".format(status.temperatureCelsius) else "발열 주의 %.0f°".format(status.temperatureCelsius)
+                context?.getString(R.string.chat_heat_warning_temp, status.temperatureCelsius)
+                    ?: if (en) "Heat %.0f°".format(status.temperatureCelsius) else "발열 주의 %.0f°".format(status.temperatureCelsius)
             } else {
-                if (en) "Heat" else "발열 주의"
+                context?.getString(R.string.chat_heat_warning_short) ?: if (en) "Heat" else "발열 주의"
             },
             CapsuleTone.WARNING,
             com.kosmos.app.R.drawable.ic_ph_warning
@@ -280,20 +298,6 @@ internal fun capsuleContent(
         else -> formatStatusCapsule(status).takeIf { it.isNotEmpty() }?.let {
             CapsuleContent(it, CapsuleTone.NORMAL, if (status.temperatureCelsius > 0f) com.kosmos.app.R.drawable.ic_ph_thermometer else null)
         }
-    }
-}
-
-/** 헤더 별의 화면 읽기 설명 — 별 색과 같은 상태. */
-internal fun engineStateDescription(
-    state: ModelLoadState,
-    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
-): String {
-    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
-    return when (state) {
-        is ModelLoadState.Ready -> if (en) "AI engine ready" else "AI 엔진 준비됨"
-        is ModelLoadState.Error -> if (en) "AI engine error" else "AI 엔진 오류"
-        is ModelLoadState.NotFound -> if (en) "AI model missing" else "AI 모델 없음"
-        else -> if (en) "Preparing AI engine" else "AI 엔진 준비 중"
     }
 }
 
@@ -309,27 +313,34 @@ internal fun formatStatusCapsule(status: com.kosmos.app.runtime.metrics.DeviceSt
 /** 한 줄에 하나 — `온도 41.2°C` / `메모리 3.4/8.0GB(앱 4.1GB)` / `생성 속도 12.4 tok/s`. 세 항목 이상을 가운뎃점으로 잇지 않는다(DESIGN). */
 internal fun formatDeviceStatus(
     status: com.kosmos.app.runtime.metrics.DeviceStatus,
-    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO,
+    context: android.content.Context? = null
 ): String {
     val en = lang == com.kosmos.app.core.common.AppLanguage.EN
     val parts = mutableListOf<String>()
     if (status.temperatureCelsius > 0f) {
-        parts += if (en) "Temp %.1f°C".format(status.temperatureCelsius) else "온도 %.1f°C".format(status.temperatureCelsius)
+        parts += context?.getString(R.string.chat_device_temp, status.temperatureCelsius)
+            ?: if (en) "Temp %.1f°C".format(status.temperatureCelsius) else "온도 %.1f°C".format(status.temperatureCelsius)
     }
     if (status.memoryTotalBytes > 0L) {
-        val ram = (if (en) "Memory %.1f/%.1fGB" else "메모리 %.1f/%.1fGB").format(
-            status.memoryUsedBytes.toGigabytes(),
-            status.memoryTotalBytes.toGigabytes()
-        )
+        val used = status.memoryUsedBytes.toGigabytes()
+        val total = status.memoryTotalBytes.toGigabytes()
+        val ram = context?.getString(R.string.chat_device_memory, used, total)
+            ?: (if (en) "Memory %.1f/%.1fGB" else "메모리 %.1f/%.1fGB").format(used, total)
         // [WHY] 앱 PSS 를 함께 보여준다 — 3.7GB 모델이 차지하는 몫이 이 숫자다. 시스템 전체
         // 사용량만 보면 다른 앱과 구분이 안 된다.
         parts += if (status.appMemoryBytes > 0L) {
-            (if (en) "$ram (App %.1fGB)" else "$ram(앱 %.1fGB)").format(status.appMemoryBytes.toGigabytes())
+            val appGb = status.appMemoryBytes.toGigabytes()
+            context?.getString(R.string.chat_device_memory_with_app, ram, appGb)
+                ?: (if (en) "$ram (App %.1fGB)" else "$ram(앱 %.1fGB)").format(appGb)
         } else {
             ram
         }
     }
-    status.tokensPerSecond?.let { parts += (if (en) "Speed %.1f tok/s" else "생성 속도 %.1f tok/s").format(it) }
+    status.tokensPerSecond?.let {
+        parts += context?.getString(R.string.chat_device_speed, it)
+            ?: (if (en) "Speed %.1f tok/s" else "생성 속도 %.1f tok/s").format(it)
+    }
     return parts.joinToString("\n")
 }
 
