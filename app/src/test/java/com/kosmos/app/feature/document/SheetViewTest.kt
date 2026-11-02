@@ -103,7 +103,7 @@ class SheetViewTest {
     @Test
     fun `오류와 빈 시트 문구`() {
         show(DocumentViewerState.Failed(DocumentError.ENCRYPTED))
-        composeRule.onNodeWithText(documentErrorMessage(DocumentError.ENCRYPTED)).assertIsDisplayed()
+        composeRule.onNodeWithText(documentErrorMessage(androidx.test.core.app.ApplicationProvider.getApplicationContext(), DocumentError.ENCRYPTED)).assertIsDisplayed()
     }
 
     @Test

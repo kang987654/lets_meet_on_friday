@@ -16,12 +16,15 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * [ProfileSuggestionResolverTest]
  * 제안 승인이 **상한을 집행**하고 source=auto 로 저장하는지, 거절이 이력으로 남는지 고정합니다.
  * 추정기는 [ProfileSheetViewModelTest] 와 같은 실물 [GemmaTokenizer].
  */
+@RunWith(RobolectricTestRunner::class)
 class ProfileSuggestionResolverTest {
 
     private val profileRepository: ProfileRepository = mockk {
@@ -33,7 +36,7 @@ class ProfileSuggestionResolverTest {
     }
     private val tokenizer = GemmaTokenizer()
 
-    private fun resolver() = ProfileSuggestionResolver(profileRepository, suggestionRepository, tokenizer)
+    private fun resolver() = ProfileSuggestionResolver(profileRepository, suggestionRepository, tokenizer, androidx.test.core.app.ApplicationProvider.getApplicationContext())
 
     private fun suggestion(key: String = "이름", value: String = "진우") = ProfileSuggestion(
         id = "s1", key = key, value = value, episodeId = "e1",

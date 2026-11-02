@@ -218,8 +218,7 @@ private fun TodayTimeRow(entry: TodayEntry, divider: Boolean, onClick: (() -> Un
 internal fun eventSubLine(
     endLabel: String?,
     source: CalendarEvent.Source,
-    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO,
-    deviceLabel: String = if (lang == com.kosmos.app.core.common.AppLanguage.EN) "Device calendar" else "기기 캘린더"
+    deviceLabel: String
 ): String? =
     listOfNotNull(
         endLabel,

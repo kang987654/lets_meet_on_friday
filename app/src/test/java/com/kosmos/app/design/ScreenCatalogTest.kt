@@ -611,7 +611,7 @@ class ScreenCatalogTest {
     }
 
     @Test fun profileSheet() {
-        val vm = com.kosmos.app.feature.profile.ProfileSheetViewModel(profileRepository, tokenizer)
+        val vm = com.kosmos.app.feature.profile.ProfileSheetViewModel(profileRepository, tokenizer, androidx.test.core.app.ApplicationProvider.getApplicationContext())
         shoot("11-profile-sheet") { com.kosmos.app.feature.profile.ProfileSheet(onDismiss = {}, viewModel = vm) }
     }
 

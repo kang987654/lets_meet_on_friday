@@ -102,9 +102,12 @@ class ChatExtrasViewModel @Inject constructor(
     fun ensure(context: Context, result: MessageResult, today: LocalDate = LocalDate.now()) {
         val key = keyOf(result)
         if (!watching.add(key)) return
+        // [WHY] 구독은 화면 재생성을 넘어 산다 — 화면(Activity) Context 를 쥐면 버려진 화면이 해제되지 않는다.
+        // 언어가 바뀌면 캐시를 비우고 새로 구독하므로 애플리케이션 Context 로도 새 언어가 반영된다.
+        val appContext = context.applicationContext
         val job = viewModelScope.launch {
             var previous: ResultCardState? = null
-            stateFlowOf(context, result, today).collect { state ->
+            stateFlowOf(appContext, result, today).collect { state ->
                 _results.update { it + (key to state) }
                 // [WHY] 알람이 울리거나 시트·다른 화면에서 바뀌어도 대화 수는 그대로라 요약이 지난 시각을 "다음"으로 보였다(0.38.2 실기기) —
                 // 지켜보는 할 일의 상태가 바뀌면 요약도 다시 센다. 첫 값은 지금 상태일 뿐이라 세지 않는다.
@@ -182,6 +185,7 @@ class ChatExtrasViewModel @Inject constructor(
         onSaved: (com.kosmos.app.domain.model.ChatMessage) -> Unit,
         action: suspend () -> AppResult<com.kosmos.app.domain.model.ChatMessage>
     ) {
+        val appContext = context.applicationContext
         viewModelScope.launch {
             when (val result = action()) {
                 is AppResult.Success -> {
@@ -191,7 +195,7 @@ class ChatExtrasViewModel @Inject constructor(
                 }
                 is AppResult.Failure -> _editError.value =
                     (result.error as? com.kosmos.app.core.common.AppError.ValidationError)?.reason
-                        ?: context.getString(R.string.chat_reminder_update_failed)
+                        ?: appContext.getString(R.string.chat_reminder_update_failed)
             }
         }
     }

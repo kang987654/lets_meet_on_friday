@@ -316,7 +316,7 @@ private fun SelectedDayEvents(date: LocalDate, events: List<CalendarEvent>, zone
                     ScheduleRow(
                         timeLabel = time,
                         title = event.title,
-                        sub = eventSubLine(end, event.source, lang, deviceLabel),
+                        sub = eventSubLine(end, event.source, deviceLabel),
                         icon = com.kosmos.app.R.drawable.ic_ph_calendar_blank,
                         divider = index < events.lastIndex
                     )

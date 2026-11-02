@@ -24,6 +24,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * [ProfileSheetViewModelTest]
@@ -31,6 +33,7 @@ import org.junit.Test
  * 산다. 추정기는 실물 [GemmaTokenizer](과대 추정이 안전 방향, exp26 계수)를 쓴다.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class ProfileSheetViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
@@ -46,7 +49,7 @@ class ProfileSheetViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
-        viewModel = ProfileSheetViewModel(repository, tokenizer)
+        viewModel = ProfileSheetViewModel(repository, tokenizer, androidx.test.core.app.ApplicationProvider.getApplicationContext())
     }
 
     @After

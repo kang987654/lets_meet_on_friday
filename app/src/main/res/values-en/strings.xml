@@ -53,6 +53,7 @@
     <string name="splash_model_needed_body">AI model file not found. Please download it in Model Management.</string>
     <string name="splash_download_model">Download model</string>
     <string name="splash_engine_error_title">Couldn\'t start AI engine</string>
+    <string name="chat_engine_no_model_title">AI model file not found</string>
 
     <!-- Chat Screen & Header & Input -->
     <string name="image_attached">Image attached</string>

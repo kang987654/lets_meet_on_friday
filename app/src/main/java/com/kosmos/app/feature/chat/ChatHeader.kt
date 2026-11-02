@@ -118,7 +118,7 @@ fun CustomChatHeader(
         Spacer(modifier = Modifier.weight(1f))
 
         // [WHY] 별이 노랑·빨강이면 캡슐 글자가 원인을 말한다 — 별 색만으로는 왜인지 알 수 없었다(0.39.3 M3). 수치는 시트에.
-        val capsule = capsuleContent(engineState, deviceStatus, warningMessage != null, context = context)
+        val capsule = capsuleContent(context, engineState, deviceStatus, warningMessage != null)
         if (capsule != null) {
             val capsuleColor = when (capsule.tone) {
                 CapsuleTone.DANGER -> KosmosTheme.colors.dangerText
@@ -195,7 +195,7 @@ internal fun StatusDetailContent(
             color = KosmosTheme.colors.textPrimary
         )
         Spacer(modifier = Modifier.height(12.dp))
-        engineProblem(engineState, lang, context)?.let { (title, reason) ->
+        engineProblem(context, engineState, lang)?.let { (title, reason) ->
             Text(
                 text = title,
                 color = KosmosTheme.colors.dangerText,
@@ -209,7 +209,7 @@ internal fun StatusDetailContent(
             Spacer(modifier = Modifier.height(16.dp))
         }
         Text(
-            text = formatDeviceStatus(status, lang, context).ifEmpty { stringResource(R.string.chat_collecting_metrics) },
+            text = formatDeviceStatus(context, status).ifEmpty { stringResource(R.string.chat_collecting_metrics) },
             color = KosmosTheme.colors.textSecondary,
             style = MaterialTheme.typography.bodyMedium
         )
@@ -243,18 +243,15 @@ internal fun StatusDetailContent(
 
 /** 엔진이 멈춘 이유 — (제목, 원인 문장). 시작 화면과 같은 문구(ErrorMessages). 멈추지 않았으면 null. */
 internal fun engineProblem(
+    context: android.content.Context,
     state: ModelLoadState,
-    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO,
-    context: android.content.Context? = null
-): Pair<String, String>? {
-    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
-    return when (state) {
-        is ModelLoadState.Error -> (context?.getString(R.string.splash_engine_error_title) ?: if (en) "Couldn't load AI engine" else "AI 엔진을 올리지 못했어요") to
-            com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error, lang)
-        is ModelLoadState.NotFound -> (context?.getString(R.string.splash_model_needed_body)?.substringBefore(".") ?: if (en) "AI model file not found" else "AI 모델 파일이 없어요") to
-            com.kosmos.app.core.mapper.ErrorMessages.userMessage(com.kosmos.app.core.common.AppError.ModelNotFound(state.expectedPath), lang)
-        else -> null
-    }
+    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO
+): Pair<String, String>? = when (state) {
+    is ModelLoadState.Error -> context.getString(R.string.splash_engine_error_title) to
+        com.kosmos.app.core.mapper.ErrorMessages.userMessage(state.error, lang)
+    is ModelLoadState.NotFound -> context.getString(R.string.chat_engine_no_model_title) to
+        com.kosmos.app.core.mapper.ErrorMessages.userMessage(com.kosmos.app.core.common.AppError.ModelNotFound(state.expectedPath), lang)
+    else -> null
 }
 
 internal enum class CapsuleTone { NORMAL, WARNING, DANGER }
@@ -268,29 +265,26 @@ internal data class CapsuleContent(val text: String, val tone: CapsuleTone, @and
  * [WHY] 원인이 수치보다 먼저다 — 별이 빨개도 캡슐은 회색 수치 그대로라 이유를 알 수 없었다(0.39.3 M3). 엔진 정지가 발열보다 먼저(답을 못 한다).
  */
 internal fun capsuleContent(
+    context: android.content.Context,
     engineState: ModelLoadState,
     status: com.kosmos.app.runtime.metrics.DeviceStatus,
-    heatWarning: Boolean,
-    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO,
-    context: android.content.Context? = null
+    heatWarning: Boolean
 ): CapsuleContent? {
-    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
     val stop = com.kosmos.app.R.drawable.ic_ph_warning_circle
     return when {
         engineState is ModelLoadState.Error -> CapsuleContent(
-            context?.getString(R.string.chat_engine_error_short) ?: if (en) "Engine error" else "엔진 오류",
+            context.getString(R.string.chat_engine_error_short),
             CapsuleTone.DANGER, stop
         )
         engineState is ModelLoadState.NotFound -> CapsuleContent(
-            context?.getString(R.string.chat_engine_no_model_short) ?: if (en) "No model" else "모델 없음",
+            context.getString(R.string.chat_engine_no_model_short),
             CapsuleTone.DANGER, stop
         )
         heatWarning -> CapsuleContent(
             if (status.temperatureCelsius > 0f) {
-                context?.getString(R.string.chat_heat_warning_temp, status.temperatureCelsius)
-                    ?: if (en) "Heat %.0f°".format(status.temperatureCelsius) else "발열 주의 %.0f°".format(status.temperatureCelsius)
+                context.getString(R.string.chat_heat_warning_temp, status.temperatureCelsius)
             } else {
-                context?.getString(R.string.chat_heat_warning_short) ?: if (en) "Heat" else "발열 주의"
+                context.getString(R.string.chat_heat_warning_short)
             },
             CapsuleTone.WARNING,
             com.kosmos.app.R.drawable.ic_ph_warning
@@ -312,34 +306,28 @@ internal fun formatStatusCapsule(status: com.kosmos.app.runtime.metrics.DeviceSt
 
 /** 한 줄에 하나 — `온도 41.2°C` / `메모리 3.4/8.0GB(앱 4.1GB)` / `생성 속도 12.4 tok/s`. 세 항목 이상을 가운뎃점으로 잇지 않는다(DESIGN). */
 internal fun formatDeviceStatus(
-    status: com.kosmos.app.runtime.metrics.DeviceStatus,
-    lang: com.kosmos.app.core.common.AppLanguage = com.kosmos.app.core.common.AppLanguage.KO,
-    context: android.content.Context? = null
+    context: android.content.Context,
+    status: com.kosmos.app.runtime.metrics.DeviceStatus
 ): String {
-    val en = lang == com.kosmos.app.core.common.AppLanguage.EN
     val parts = mutableListOf<String>()
     if (status.temperatureCelsius > 0f) {
-        parts += context?.getString(R.string.chat_device_temp, status.temperatureCelsius)
-            ?: if (en) "Temp %.1f°C".format(status.temperatureCelsius) else "온도 %.1f°C".format(status.temperatureCelsius)
+        parts += context.getString(R.string.chat_device_temp, status.temperatureCelsius)
     }
     if (status.memoryTotalBytes > 0L) {
         val used = status.memoryUsedBytes.toGigabytes()
         val total = status.memoryTotalBytes.toGigabytes()
-        val ram = context?.getString(R.string.chat_device_memory, used, total)
-            ?: (if (en) "Memory %.1f/%.1fGB" else "메모리 %.1f/%.1fGB").format(used, total)
+        val ram = context.getString(R.string.chat_device_memory, used, total)
         // [WHY] 앱 PSS 를 함께 보여준다 — 3.7GB 모델이 차지하는 몫이 이 숫자다. 시스템 전체
         // 사용량만 보면 다른 앱과 구분이 안 된다.
         parts += if (status.appMemoryBytes > 0L) {
             val appGb = status.appMemoryBytes.toGigabytes()
-            context?.getString(R.string.chat_device_memory_with_app, ram, appGb)
-                ?: (if (en) "$ram (App %.1fGB)" else "$ram(앱 %.1fGB)").format(appGb)
+            context.getString(R.string.chat_device_memory_with_app, ram, appGb)
         } else {
             ram
         }
     }
     status.tokensPerSecond?.let {
-        parts += context?.getString(R.string.chat_device_speed, it)
-            ?: (if (en) "Speed %.1f tok/s" else "생성 속도 %.1f tok/s").format(it)
+        parts += context.getString(R.string.chat_device_speed, it)
     }
     return parts.joinToString("\n")
 }

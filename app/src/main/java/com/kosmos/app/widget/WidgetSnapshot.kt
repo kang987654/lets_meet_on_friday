@@ -54,7 +54,7 @@ internal fun buildWidgetSnapshot(
     nowMs: Long,
     zone: ZoneId = ZoneId.systemDefault(),
     lang: AppLanguage = AppLanguage.KO,
-    allDayLabel: String = if (lang == AppLanguage.EN) "All day" else "종일"
+    allDayLabel: String
 ): WidgetSnapshot {
     val events = schedule?.events.orEmpty()
     val lines = events.take(WIDGET_MAX_EVENTS).map { event ->

@@ -51,7 +51,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.kosmos.app.R
-import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.domain.document.DocumentError
 import com.kosmos.app.ui.theme.KosmosTheme
 import kotlinx.coroutines.launch
@@ -308,20 +307,6 @@ internal fun documentErrorMessage(context: Context, error: DocumentError): Strin
     DocumentError.TOO_LARGE -> context.getString(R.string.doc_error_too_large)
     DocumentError.CORRUPT -> context.getString(R.string.doc_error_corrupt)
     DocumentError.ENCRYPTED -> context.getString(R.string.doc_error_encrypted)
-}
-
-internal fun documentErrorMessage(
-    error: DocumentError,
-    lang: AppLanguage = AppLanguage.KO
-): String {
-    val en = lang == AppLanguage.EN
-    return when (error) {
-        DocumentError.UNSUPPORTED -> if (en) "This format isn't supported yet.\nSupported: PDF, Excel (xlsx), CSV, Word (docx), and HWPX." else "이 형식은 아직 열 수 없어요.\nPDF, 엑셀(xlsx), CSV, 워드(docx), 한글(hwpx)을 열 수 있어요."
-        DocumentError.UNREADABLE -> if (en) "Couldn't open the file.\nPermission may have expired or the file may have moved." else "파일을 열 수 없어요.\n권한이 만료됐거나 파일이 옮겨졌을 수 있어요."
-        DocumentError.TOO_LARGE -> if (en) "This file is too large to open." else "파일이 너무 커서 열 수 없어요."
-        DocumentError.CORRUPT -> if (en) "This file appears corrupted or doesn't match its format." else "파일이 손상됐거나 내용이 형식과 달라요."
-        DocumentError.ENCRYPTED -> if (en) "Password-protected or legacy format (xls, doc, hwp) isn't supported." else "암호가 걸린 문서이거나 지원하지 않는 옛 형식(xls, doc, hwp)이에요."
-    }
 }
 
 internal fun nextZoom(zoom: Float): Float = when {
