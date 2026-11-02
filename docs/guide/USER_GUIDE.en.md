@@ -76,6 +76,7 @@ Requested only when needed. Everything else keeps working if you decline.
 ## 7. Good to know
 - **Short conversational memory** — it directly remembers only the last few turns and finds the rest by searching past conversations and notes. Ask it to remember important things.
 - **Memory search follows the language of the note** — Korean notes and summaries are matched by Korean queries, and English notes by English queries (except when they share common English abbreviations or codes).
+- **Right after switching languages, a few replies may follow the previous language** — if you switch from Korean to English mid-conversation, replies or event titles can stay in Korean until the earlier turns drop out of the recent history. Keep talking in the new language and it settles.
 - **It can be wrong** — it is a small model. A confirmation sheet always appears before saving, so check the content.
 - **When the device is hot** (battery around 43°C or more) background work such as memory cleanup and briefings is postponed.
 - **Some turns are slow** — if you ask while the conversation is still warming up right after the model wakes (about 10 seconds), or when a turn has to rebuild the conversation on the spot, the first answer can take around 10 seconds.
