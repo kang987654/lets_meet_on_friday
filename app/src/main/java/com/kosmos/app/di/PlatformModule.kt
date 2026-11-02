@@ -71,4 +71,10 @@ abstract class PlatformModule {
     abstract fun bindDeviceResourceProvider(
         impl: com.kosmos.app.platform.device.AndroidDeviceResourceProvider
     ): com.kosmos.app.platform.device.DeviceResourceProvider
+
+    // [WHY] 싱글턴 AppLanguageHolder 하나를 CurrentLanguage 읽기 전용 창구로도 노출한다 (0.40.3 M1).
+    @Binds
+    abstract fun currentLanguage(
+        holder: com.kosmos.app.core.config.AppLanguageHolder
+    ): com.kosmos.app.core.common.CurrentLanguage
 }

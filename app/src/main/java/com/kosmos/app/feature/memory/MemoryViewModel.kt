@@ -49,30 +49,11 @@ class MemoryViewModel @Inject constructor(
     private val backupFileWriter: BackupFileWriter,
     private val reminderAlarmScheduler: com.kosmos.app.platform.alarm.ReminderAlarmScheduler,
     private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
 ) : ViewModel() {
 
-    constructor(
-        knowledgeRepository: KnowledgeRepository,
-        taskRepository: TaskRepository,
-        exportMemoryUseCase: ExportMemoryUseCase,
-        importMemoryUseCase: ImportMemoryUseCase,
-        backupFileWriter: BackupFileWriter,
-        reminderAlarmScheduler: com.kosmos.app.platform.alarm.ReminderAlarmScheduler,
-        widgetRefresher: com.kosmos.app.widget.WidgetRefresher
-    ) : this(
-        knowledgeRepository,
-        taskRepository,
-        exportMemoryUseCase,
-        importMemoryUseCase,
-        backupFileWriter,
-        reminderAlarmScheduler,
-        widgetRefresher,
-        null
-    )
-
     private val currentLang: com.kosmos.app.core.common.AppLanguage
-        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+        get() = currentLanguage.current
 
 
     private val _uiState = MutableStateFlow(MemoryUiState())

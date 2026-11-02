@@ -41,11 +41,11 @@ class ProfileSheetViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val tokenizer: Tokenizer,
     @param:ApplicationContext private val context: Context,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
 ) : ViewModel() {
 
     private val currentLang: com.kosmos.app.core.common.AppLanguage
-        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+        get() = currentLanguage.current
 
     val entries: StateFlow<List<ProfileEntry>> = profileRepository.observeEntries()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

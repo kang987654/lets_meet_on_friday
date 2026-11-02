@@ -1,6 +1,7 @@
 package com.kosmos.app.assistant.orchestrator
 
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.assistant.context.ContextBuilder
@@ -33,7 +34,7 @@ class AssistantOrchestrator @Inject constructor(
     private val episodeBoundaryManager: com.kosmos.app.assistant.episode.EpisodeBoundaryManager,
     private val episodeSummarizeScheduler: com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler,
     private val conversationPrewarmer: ConversationPrewarmer,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) {
     private val messageWriter = AssistantMessageWriter(conversationRepository, auditTrailService)
 
@@ -105,7 +106,7 @@ class AssistantOrchestrator @Inject constructor(
             is AppResult.Failure -> return messageWriter.saveError(
                 request.sessionId,
                 "대화 문맥을 구성하지 못했어요: ${contextResult.error}",
-                language = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+                language = currentLanguage.current
             )
         }
 

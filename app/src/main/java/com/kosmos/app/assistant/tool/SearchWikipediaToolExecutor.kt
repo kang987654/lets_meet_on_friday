@@ -2,7 +2,7 @@ package com.kosmos.app.assistant.tool
 
 import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
-import com.kosmos.app.core.config.AppLanguageHolder
+import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.core.security.ApprovalRules
 import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.usecase.QueryWikipediaUseCase
@@ -21,20 +21,10 @@ import javax.inject.Inject
  *    토글 OFF 시 에이전트 allowlist에서 제외되어 이 실행기에 도달하지 못합니다.
  * 2. 검색 결과를 JSON(JSONObject 이스케이프 적용) 문자열로 반환합니다.
  */
-class SearchWikipediaToolExecutor internal constructor(
+class SearchWikipediaToolExecutor @Inject constructor(
     private val queryWikipediaUseCase: QueryWikipediaUseCase,
-    private val languageProvider: () -> AppLanguage = { AppLanguage.KO }
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ToolExecutor {
-
-    @Inject constructor(
-        queryWikipediaUseCase: QueryWikipediaUseCase,
-        appLanguageHolder: AppLanguageHolder
-    ) : this(queryWikipediaUseCase, { appLanguageHolder.current })
-
-    /** 단위 테스트 하위 호환용 생성자. */
-    constructor(
-        queryWikipediaUseCase: QueryWikipediaUseCase
-    ) : this(queryWikipediaUseCase, { AppLanguage.KO })
 
     override val name: String = ToolNames.SEARCH_WIKIPEDIA
 
@@ -42,7 +32,7 @@ class SearchWikipediaToolExecutor internal constructor(
 
     override suspend fun execute(args: ToolArguments, sessionId: String): String {
         val topic = args.requireString("topic")
-        val appLang = languageProvider()
+        val appLang = currentLanguage.current
         val en = appLang == AppLanguage.EN
         val defaultWikiLang = if (en) "en" else "ko"
         val lang = args.optString("lang") ?: defaultWikiLang

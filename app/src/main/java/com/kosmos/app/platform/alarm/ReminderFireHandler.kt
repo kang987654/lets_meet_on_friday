@@ -27,12 +27,10 @@ import javax.inject.Singleton
 class ReminderFireHandler @Inject constructor(
     private val taskRepository: TaskRepository,
     private val notifier: ReminderNotifier,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
 ) {
-    constructor(taskRepository: TaskRepository, notifier: ReminderNotifier) : this(taskRepository, notifier, null)
-
     private val currentLang: com.kosmos.app.core.common.AppLanguage
-        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+        get() = currentLanguage.current
 
     suspend fun fire(taskId: String, now: Long = System.currentTimeMillis()) {
         val task = when (val result = taskRepository.getById(taskId)) {

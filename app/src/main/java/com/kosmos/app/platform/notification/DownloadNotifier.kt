@@ -50,11 +50,8 @@ interface DownloadNotifier {
  */
 @Singleton
 class AndroidDownloadNotifier @Inject constructor(
-    @param:ApplicationContext private val context: Context,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    @param:ApplicationContext private val context: Context
 ) : DownloadNotifier {
-
-    constructor(context: Context) : this(context, null)
 
     override fun progressNotification(
         percent: Int,

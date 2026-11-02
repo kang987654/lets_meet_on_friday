@@ -70,32 +70,8 @@ class ChatViewModel @Inject constructor(
     private val suggestionRepository: com.kosmos.app.domain.memory.ProfileSuggestionRepository,
     private val suggestionResolver: com.kosmos.app.feature.profile.ProfileSuggestionResolver,
     private val speechOutput: com.kosmos.app.platform.speech.SpeechOutput,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
 ) : ViewModel() {
-
-    constructor(
-        context: Context,
-        savedStateHandle: SavedStateHandle,
-        sessionStore: SessionStore,
-        conversationRepository: ConversationRepository,
-        sendChatMessageUseCase: SendChatMessageUseCase,
-        episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
-        approvalCoordinator: ApprovalCoordinator,
-        shareIntentHandler: ShareIntentHandler,
-        runtimeMetricsCollector: RuntimeMetricsCollector,
-        modelRunner: ModelRunner,
-        audioRecorder: com.kosmos.app.platform.speech.AudioRecorder,
-        briefingGenerator: com.kosmos.app.assistant.briefing.MorningBriefingGenerator,
-        voiceLaunchHandler: com.kosmos.app.platform.launch.VoiceLaunchHandler,
-        suggestionRepository: com.kosmos.app.domain.memory.ProfileSuggestionRepository,
-        suggestionResolver: com.kosmos.app.feature.profile.ProfileSuggestionResolver,
-        speechOutput: com.kosmos.app.platform.speech.SpeechOutput
-    ) : this(
-        context, savedStateHandle, sessionStore, conversationRepository, sendChatMessageUseCase,
-        episodeRepository, approvalCoordinator, shareIntentHandler, runtimeMetricsCollector,
-        modelRunner, audioRecorder, briefingGenerator, voiceLaunchHandler, suggestionRepository,
-        suggestionResolver, speechOutput, null
-    )
 
     /** 녹음 중 소리 크기(0..1) — 입력바 파형(0.38.4 M5). */
     val recordingLevel: kotlinx.coroutines.flow.StateFlow<Float> get() = audioRecorder.level
@@ -154,7 +130,7 @@ class ChatViewModel @Inject constructor(
     val episodeChipLabels: StateFlow<Map<String, String?>> = _episodeChipLabels.asStateFlow()
 
     private val currentLang: com.kosmos.app.core.common.AppLanguage
-        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+        get() = currentLanguage.current
 
     /** [episodeId] 라벨을 캐시에 채웁니다 — 이미 조회했으면(실패 포함) 재조회하지 않습니다. */
     fun ensureEpisodeChipLabel(episodeId: String) {
@@ -205,14 +181,12 @@ class ChatViewModel @Inject constructor(
             }
         }
         // [WHY] 언어가 바뀌어 화면이 재생성돼도 ViewModel 은 살아남는다 — 옛 언어로 만든 회수 칩 라벨 캐시를 비운다(0.40.1 M2).
-        appLanguageHolder?.languageFlow?.let { flow ->
-            viewModelScope.launch {
-                var last = appLanguageHolder.current
-                flow.collectLatest { lang ->
-                    if (lang != last) {
-                        last = lang
-                        _episodeChipLabels.value = emptyMap()
-                    }
+        viewModelScope.launch {
+            var last = currentLanguage.current
+            currentLanguage.languageFlow.collectLatest { lang ->
+                if (lang != last) {
+                    last = lang
+                    _episodeChipLabels.value = emptyMap()
                 }
             }
         }

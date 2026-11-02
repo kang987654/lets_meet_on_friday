@@ -2,7 +2,7 @@ package com.kosmos.app.assistant.tool
 
 import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
-import com.kosmos.app.core.config.AppLanguageHolder
+import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
@@ -20,23 +20,11 @@ import javax.inject.Inject
  * 1. `date` 인자("today"/"week")로 조회 범위를 결정합니다.
  * 2. 조회 결과를 JSON(JSONObject 이스케이프 적용) 문자열로 반환합니다.
  */
-class GetScheduleToolExecutor internal constructor(
+class GetScheduleToolExecutor @Inject constructor(
     private val getTodayScheduleUseCase: GetTodayScheduleUseCase,
     private val summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase,
-    private val languageProvider: () -> AppLanguage = { AppLanguage.KO }
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ToolExecutor {
-
-    @Inject constructor(
-        getTodayScheduleUseCase: GetTodayScheduleUseCase,
-        summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase,
-        appLanguageHolder: AppLanguageHolder
-    ) : this(getTodayScheduleUseCase, summarizeScheduleUseCase, { appLanguageHolder.current })
-
-    /** 단위 테스트 하위 호환용 생성자. */
-    constructor(
-        getTodayScheduleUseCase: GetTodayScheduleUseCase,
-        summarizeScheduleUseCase: com.kosmos.app.domain.usecase.SummarizeScheduleUseCase
-    ) : this(getTodayScheduleUseCase, summarizeScheduleUseCase, { AppLanguage.KO })
 
     override val name: String = ToolNames.GET_SCHEDULE
 
@@ -54,7 +42,7 @@ class GetScheduleToolExecutor internal constructor(
             raw.contains("today") || raw.contains("오늘") -> ScheduleData.RangeType.TODAY
             else -> ScheduleData.RangeType.WEEK
         }
-        val lang = languageProvider()
+        val lang = currentLanguage.current
         val en = lang == AppLanguage.EN
         val res = getTodayScheduleUseCase(range)
         return if (res is AppResult.Success) {

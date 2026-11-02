@@ -7,7 +7,7 @@ import android.media.AudioManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import com.kosmos.app.core.common.AppLanguage
-import com.kosmos.app.core.config.AppLanguageHolder
+import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.data.local.prefs.SettingsDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -39,23 +39,11 @@ import javax.inject.Singleton
  * [WHY] init 에서 엔진을 만들지 않는다(§2-④) — 첫 [speak]/[availableEngines] 때 만든다. 낭독을 안 쓰는 사용자는 엔진 바인딩 비용이 없다.
  */
 @Singleton
-open class SpeechOutput internal constructor(
+open class SpeechOutput @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settings: SettingsDataStore,
-    private val languageProvider: () -> AppLanguage = { AppLanguage.KO }
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) {
-
-    @Inject constructor(
-        @ApplicationContext context: Context,
-        settings: SettingsDataStore,
-        appLanguageHolder: AppLanguageHolder
-    ) : this(context, settings, { appLanguageHolder.current })
-
-    /** 단위 테스트 하위 호환용 생성자. */
-    constructor(
-        context: Context,
-        settings: SettingsDataStore
-    ) : this(context, settings, { AppLanguage.KO })
 
     /** 엔진·음성 준비 상태 — 설정 화면 안내에 쓴다. */
     enum class VoiceStatus { UNKNOWN, READY, NO_KOREAN_OFFLINE_VOICE, INIT_FAILED }
@@ -190,7 +178,7 @@ open class SpeechOutput internal constructor(
     }
 
     private fun targetLangCode(): String =
-        if (languageProvider() == AppLanguage.EN) ENGLISH else KOREAN
+        if (currentLanguage.current == AppLanguage.EN) ENGLISH else KOREAN
 
     private fun selectOfflineVoice(engine: TextToSpeech) {
         val targetLang = targetLangCode()

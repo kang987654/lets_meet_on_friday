@@ -46,21 +46,11 @@ class ReminderEditor @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val sessionStore: SessionStore,
     private val modelRunner: ModelRunner,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
 ) {
 
-    constructor(
-        taskRepository: TaskRepository,
-        alarmScheduler: ReminderAlarmScheduler,
-        widgetRefresher: WidgetRefresher,
-        auditTrailService: AuditTrailService,
-        conversationRepository: ConversationRepository,
-        sessionStore: SessionStore,
-        modelRunner: ModelRunner
-    ) : this(taskRepository, alarmScheduler, widgetRefresher, auditTrailService, conversationRepository, sessionStore, modelRunner, null)
-
     private val currentLang: com.kosmos.app.core.common.AppLanguage
-        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+        get() = currentLanguage.current
 
     /** 지금 시각 또는 원래 시각 중 늦은 쪽에서 [minutes] 분 뒤로. */
     suspend fun snooze(taskId: String, minutes: Long = 10, now: Long = System.currentTimeMillis(), zone: ZoneId = ZoneId.systemDefault()): AppResult<ChatMessage> {

@@ -3,9 +3,9 @@ package com.kosmos.app.assistant.context
 import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
+import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.core.common.ResponseStyle
 import com.kosmos.app.core.common.runCatchingCancellable
-import com.kosmos.app.core.config.AppLanguageHolder
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.tool.Tokenizer
@@ -31,40 +31,13 @@ import javax.inject.Inject
  * 임베더가 영어 전용이라 한국어 검색이 무작위였으므로 제거했고, 기억 조회는 `SearchMemory`
  * 툴로 옮겼다 (ADR-013).
  */
-class ContextBuilder private constructor(
+class ContextBuilder @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val tokenizer: Tokenizer,
     private val settingsDataStore: SettingsDataStore,
     private val profileRepository: com.kosmos.app.domain.memory.ProfileRepository,
-    private val languageProvider: () -> AppLanguage
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) {
-    @Inject
-    constructor(
-        conversationRepository: ConversationRepository,
-        tokenizer: Tokenizer,
-        settingsDataStore: SettingsDataStore,
-        profileRepository: com.kosmos.app.domain.memory.ProfileRepository,
-        appLanguageHolder: AppLanguageHolder
-    ) : this(
-        conversationRepository,
-        tokenizer,
-        settingsDataStore,
-        profileRepository,
-        languageProvider = { appLanguageHolder.current }
-    )
-
-    constructor(
-        conversationRepository: ConversationRepository,
-        tokenizer: Tokenizer,
-        settingsDataStore: SettingsDataStore,
-        profileRepository: com.kosmos.app.domain.memory.ProfileRepository
-    ) : this(
-        conversationRepository,
-        tokenizer,
-        settingsDataStore,
-        profileRepository,
-        languageProvider = { AppLanguage.KO }
-    )
     data class Context(
         val recentConversations: List<ChatMessage>,
         val sessionId: String,
@@ -142,7 +115,7 @@ class ContextBuilder private constructor(
                         profileText = profileText,
                         maxTokens = maxTokens,
                         repeatDropped = forModel.size != refusalKept.size,
-                        language = languageProvider()
+                        language = currentLanguage.current
                     )
                 )
             }

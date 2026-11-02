@@ -3,7 +3,7 @@ package com.kosmos.app.assistant.tool
 import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
-import com.kosmos.app.core.config.AppLanguageHolder
+import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.domain.memory.KnowledgeRepository
 import com.kosmos.app.domain.memory.RecallConflict
 import com.kosmos.app.domain.model.KnowledgeNote
@@ -40,9 +40,9 @@ class SearchMemoryToolExecutor internal constructor(
     private val repository: KnowledgeRepository,
     private val episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
     private val tokenizer: com.kosmos.app.domain.tool.Tokenizer,
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO,
     // 지금 대화의 사용자 말(결과 맨 위 "방금 이 대화" 줄) — 없으면 그 줄을 싣지 않는다(단위 테스트 생성부 호환).
-    private val conversations: com.kosmos.app.domain.memory.ConversationRepository? = null,
-    private val languageProvider: () -> AppLanguage = { AppLanguage.KO }
+    private val conversations: com.kosmos.app.domain.memory.ConversationRepository? = null
 ) : ToolExecutor {
 
     @Inject constructor(
@@ -50,16 +50,15 @@ class SearchMemoryToolExecutor internal constructor(
         episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
         tokenizer: com.kosmos.app.domain.tool.Tokenizer,
         conversations: com.kosmos.app.domain.memory.ConversationRepository,
-        appLanguageHolder: AppLanguageHolder
-    ) : this(repository, episodeRepository, tokenizer, conversations, { appLanguageHolder.current })
+        currentLanguage: CurrentLanguage
+    ) : this(repository, episodeRepository, tokenizer, currentLanguage, conversations)
 
-    /** 단위 테스트 하위 호환용 생성자. */
     constructor(
         repository: KnowledgeRepository,
         episodeRepository: com.kosmos.app.domain.memory.EpisodeRepository,
         tokenizer: com.kosmos.app.domain.tool.Tokenizer,
-        conversations: com.kosmos.app.domain.memory.ConversationRepository? = null
-    ) : this(repository, episodeRepository, tokenizer, conversations, { AppLanguage.KO })
+        conversations: com.kosmos.app.domain.memory.ConversationRepository?
+    ) : this(repository, episodeRepository, tokenizer, CurrentLanguage.KO, conversations)
 
     override val name: String = ToolNames.SEARCH_MEMORY
 
@@ -90,7 +89,7 @@ class SearchMemoryToolExecutor internal constructor(
             .filter { it.isNotEmpty() }
             .distinct()
             .take(MAX_TOKENS)
-        val lang = languageProvider()
+        val lang = currentLanguage.current
         val en = lang == AppLanguage.EN
 
         // [WHY] 지금 대화에서 사용자가 방금 말한 값을 맨 위에 — 검색된 옛 값보다 최신이다(0.38.8 결정 2, [com.kosmos.app.domain.memory.CurrentConversationLines]).

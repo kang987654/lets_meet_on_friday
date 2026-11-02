@@ -84,8 +84,9 @@ class SpeechOutputTest {
     fun `영어 설정일 때는 영어 오프라인 음성을 고른다(0·40·0 M2b)`() = runTest {
         val enOutput = SpeechOutput(
             ApplicationProvider.getApplicationContext(),
-            settings
-        ) { com.kosmos.app.core.common.AppLanguage.EN }
+            settings,
+            com.kosmos.app.core.common.CurrentLanguage.fixed(com.kosmos.app.core.common.AppLanguage.EN)
+        )
         val enVoice = Voice("en-test", Locale.US, Voice.QUALITY_HIGH, Voice.LATENCY_NORMAL, false, emptySet())
         ShadowTextToSpeech.addVoice(enVoice)
 

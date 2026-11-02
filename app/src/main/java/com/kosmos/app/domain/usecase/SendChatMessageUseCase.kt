@@ -2,6 +2,7 @@ package com.kosmos.app.domain.usecase
 
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.assistant.orchestrator.AssistantOrchestrator
 import com.kosmos.app.assistant.orchestrator.ChatRequest
@@ -25,7 +26,7 @@ class SendChatMessageUseCase @Inject constructor(
     private val assistantOrchestrator: AssistantOrchestrator,
     private val conversationRepository: com.kosmos.app.domain.memory.ConversationRepository,
     private val imageProcessor: com.kosmos.app.domain.tool.ImageProcessor,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) {
     companion object {
         // [WHY] 같은 값이 `Constants.MAX_INPUT_CHARS` 에도 있었고 이쪽이 그것을 가려(shadow)
@@ -82,7 +83,7 @@ class SendChatMessageUseCase @Inject constructor(
 
             // 시스템 에러 메시지(Assistant 역할)를 DB에 강제로 저장하여 턴 동기화 보장.
             // [WHY] 문구는 ErrorMessages 가 단일 출처다 — 예외 원문(e.message)을 말풍선에 싣지 않고 현재 언어를 따른다(0.40.2 M1-2).
-            val lang = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+            val lang = currentLanguage.current
             val errorMessageToSave = com.kosmos.app.domain.model.ChatMessage(
                 id = java.util.UUID.randomUUID().toString(),
                 sessionId = sessionId,

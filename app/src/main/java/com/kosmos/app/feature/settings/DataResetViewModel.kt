@@ -50,19 +50,11 @@ class DataResetViewModel @Inject constructor(
     private val reminderAlarmScheduler: ReminderAlarmScheduler,
     private val widgetRefresher: WidgetRefresher,
     private val sessionStore: SessionStore,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
 ) : ViewModel() {
 
-    constructor(
-        dataResetRepository: DataResetRepository,
-        taskRepository: TaskRepository,
-        reminderAlarmScheduler: ReminderAlarmScheduler,
-        widgetRefresher: WidgetRefresher,
-        sessionStore: SessionStore
-    ) : this(dataResetRepository, taskRepository, reminderAlarmScheduler, widgetRefresher, sessionStore, null)
-
     private val currentLang: com.kosmos.app.core.common.AppLanguage
-        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+        get() = currentLanguage.current
 
     private val _state = MutableStateFlow<DataResetState>(DataResetState.Idle)
     val state: StateFlow<DataResetState> = _state.asStateFlow()

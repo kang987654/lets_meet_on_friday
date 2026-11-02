@@ -4,7 +4,7 @@ import com.kosmos.app.assistant.approval.ApprovalPreview
 import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
-import com.kosmos.app.core.config.AppLanguageHolder
+import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.core.security.ApprovalRules
 import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.usecase.SaveKnowledgeUseCase
@@ -22,20 +22,10 @@ import javax.inject.Inject
  * 1. 영구 상태 변경이므로 사용자 승인(MEMORY_WRITE)을 거친 후에만 실행됩니다 (BaseAgent 공통 경로).
  * 2. content/tags 인자를 파싱하여 [SaveKnowledgeUseCase]로 저장합니다.
  */
-class AddMemoryToolExecutor internal constructor(
+class AddMemoryToolExecutor @Inject constructor(
     private val saveKnowledgeUseCase: SaveKnowledgeUseCase,
-    private val languageProvider: () -> AppLanguage = { AppLanguage.KO }
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ToolExecutor {
-
-    @Inject constructor(
-        saveKnowledgeUseCase: SaveKnowledgeUseCase,
-        appLanguageHolder: AppLanguageHolder
-    ) : this(saveKnowledgeUseCase, { appLanguageHolder.current })
-
-    /** 단위 테스트 하위 호환용 생성자. */
-    constructor(
-        saveKnowledgeUseCase: SaveKnowledgeUseCase
-    ) : this(saveKnowledgeUseCase, { AppLanguage.KO })
 
     override val name: String = ToolNames.ADD_MEMORY
 
@@ -48,7 +38,7 @@ class AddMemoryToolExecutor internal constructor(
     override fun buildApprovalRequest(args: ToolArguments, sessionId: String): ApprovalRequest {
         val content = args.requireString("content")
         val preview = if (content.length > 80) content.take(80) + "…" else content
-        val en = languageProvider() == AppLanguage.EN
+        val en = currentLanguage.current == AppLanguage.EN
         return ApprovalRequest(
             sessionId = sessionId,
             title = if (en) "Save Note" else "메모 저장",
@@ -64,7 +54,7 @@ class AddMemoryToolExecutor internal constructor(
         // 프롬프트가 지시한 정식 형태(`{"tags":["work","urgent"]}`)로 보낸 태그가 전부
         // 조용히 버려지고 콤마 문자열 폴백만 동작했다.
         val tags = args.stringList("tags")
-        val en = languageProvider() == AppLanguage.EN
+        val en = currentLanguage.current == AppLanguage.EN
 
         // [WHY] 문구는 exp38 실측으로 정했다(발화 6개). 실패 문구가 사실만 말하면("Failed to save
         // memory: DbWriteError…" 영어 2/6, 한국어 번역 3/6) 모델이 오류를 무시하고 "기억해 두었습니다"

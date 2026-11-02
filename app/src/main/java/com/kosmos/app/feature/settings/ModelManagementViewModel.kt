@@ -2,6 +2,7 @@ package com.kosmos.app.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.core.mapper.ErrorMessages
 import com.kosmos.app.domain.tool.ModelDownloadStatus
 import com.kosmos.app.domain.usecase.DownloadModelUseCase
@@ -56,13 +57,11 @@ sealed class DownloadState {
 @HiltViewModel
 class ModelManagementViewModel @Inject constructor(
     private val downloadModelUseCase: DownloadModelUseCase,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ViewModel() {
 
-    constructor(downloadModelUseCase: DownloadModelUseCase) : this(downloadModelUseCase, null)
-
     private val currentLang: com.kosmos.app.core.common.AppLanguage
-        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+        get() = currentLanguage.current
 
     val downloadState: StateFlow<DownloadState> = downloadModelUseCase.status
         .map { it.toUiState() }

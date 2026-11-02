@@ -4,7 +4,7 @@ import com.kosmos.app.assistant.approval.ApprovalPreview
 import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
-import com.kosmos.app.core.config.AppLanguageHolder
+import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.core.security.ApprovalRules
 import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.usecase.AddScheduleUseCase
@@ -23,23 +23,11 @@ import javax.inject.Inject
  * 2. 사용자 승인(BaseAgent 공통 경로, CALENDAR_WRITE)은 실행 전에 이미 완료된 상태입니다.
  * 3. [AddScheduleUseCase] 실행 결과를 JSON 문자열로 반환합니다.
  */
-class AddScheduleToolExecutor internal constructor(
+class AddScheduleToolExecutor @Inject constructor(
     private val addScheduleUseCase: AddScheduleUseCase,
     private val widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
-    private val languageProvider: () -> AppLanguage = { AppLanguage.KO }
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ToolExecutor {
-
-    @Inject constructor(
-        addScheduleUseCase: AddScheduleUseCase,
-        widgetRefresher: com.kosmos.app.widget.WidgetRefresher,
-        appLanguageHolder: AppLanguageHolder
-    ) : this(addScheduleUseCase, widgetRefresher, { appLanguageHolder.current })
-
-    /** 단위 테스트 하위 호환용 생성자. */
-    constructor(
-        addScheduleUseCase: AddScheduleUseCase,
-        widgetRefresher: com.kosmos.app.widget.WidgetRefresher
-    ) : this(addScheduleUseCase, widgetRefresher, { AppLanguage.KO })
 
     override val name: String = ToolNames.ADD_SCHEDULE
 
@@ -47,7 +35,7 @@ class AddScheduleToolExecutor internal constructor(
 
     override fun buildApprovalRequest(args: ToolArguments, sessionId: String): ApprovalRequest {
         val draft = parse(args)
-        val en = languageProvider() == AppLanguage.EN
+        val en = currentLanguage.current == AppLanguage.EN
         return ApprovalRequest(
             sessionId = sessionId,
             title = if (en) "Approve Schedule" else "일정 추가 승인",
@@ -68,7 +56,7 @@ class AddScheduleToolExecutor internal constructor(
 
     override suspend fun execute(args: ToolArguments, sessionId: String): String {
         val draft = parse(args)
-        val en = languageProvider() == AppLanguage.EN
+        val en = currentLanguage.current == AppLanguage.EN
 
         val res = addScheduleUseCase(draft.title, draft.startTime, draft.endTime, draft.description)
         return if (res is AppResult.Success) {

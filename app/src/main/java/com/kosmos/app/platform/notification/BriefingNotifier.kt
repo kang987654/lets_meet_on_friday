@@ -32,11 +32,8 @@ interface BriefingNotifier {
 
 @Singleton
 class AndroidBriefingNotifier @Inject constructor(
-    @param:ApplicationContext private val context: Context,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    @param:ApplicationContext private val context: Context
 ) : BriefingNotifier {
-
-    constructor(context: Context) : this(context, null)
 
     override fun notifyPreview(eventCount: Int, taskCount: Int, deviceCalendarFailed: Boolean) {
         val body = buildString {

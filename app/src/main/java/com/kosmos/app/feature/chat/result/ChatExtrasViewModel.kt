@@ -47,18 +47,11 @@ class ChatExtrasViewModel @Inject constructor(
     private val knowledgeRepository: KnowledgeRepository,
     private val getTodaySchedule: GetTodayScheduleUseCase,
     private val reminderEditor: ReminderEditor,
-    private val appLanguageHolder: com.kosmos.app.core.config.AppLanguageHolder? = null
+    private val currentLanguage: com.kosmos.app.core.common.CurrentLanguage = com.kosmos.app.core.common.CurrentLanguage.KO
 ) : ViewModel() {
 
-    constructor(
-        taskRepository: TaskRepository,
-        knowledgeRepository: KnowledgeRepository,
-        getTodaySchedule: GetTodayScheduleUseCase,
-        reminderEditor: ReminderEditor
-    ) : this(taskRepository, knowledgeRepository, getTodaySchedule, reminderEditor, null)
-
     private val currentLang: com.kosmos.app.core.common.AppLanguage
-        get() = appLanguageHolder?.current ?: com.kosmos.app.core.common.AppLanguage.KO
+        get() = currentLanguage.current
 
     private val _results = MutableStateFlow<Map<String, ResultCardState>>(emptyMap())
     val results: StateFlow<Map<String, ResultCardState>> = _results.asStateFlow()
@@ -71,19 +64,17 @@ class ChatExtrasViewModel @Inject constructor(
     init {
         // [WHY] 언어가 바뀌어 화면이 재생성돼도 ViewModel 은 살아남는다 — 옛 언어로 매핑된 카드 캐시를 비워
         // 재구성된 화면이 새 Context 로케일로 다시 구독·조립하게 한다(0.40.1 M2).
-        appLanguageHolder?.languageFlow?.let { flow ->
-            viewModelScope.launch {
-                var last = appLanguageHolder.current
-                flow.collectLatest { lang ->
-                    if (lang != last) {
-                        last = lang
-                        watchJobs.forEach { it.cancel() }
-                        watchJobs.clear()
-                        watching.clear()
-                        watchedResults.clear()
-                        _results.value = emptyMap()
-                        _editError.value = null
-                    }
+        viewModelScope.launch {
+            var last = currentLanguage.current
+            currentLanguage.languageFlow.collectLatest { lang ->
+                if (lang != last) {
+                    last = lang
+                    watchJobs.forEach { it.cancel() }
+                    watchJobs.clear()
+                    watching.clear()
+                    watchedResults.clear()
+                    _results.value = emptyMap()
+                    _editError.value = null
                 }
             }
         }

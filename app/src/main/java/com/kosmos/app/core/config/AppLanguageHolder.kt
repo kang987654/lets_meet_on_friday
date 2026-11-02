@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.LocaleList
 import com.kosmos.app.assistant.orchestrator.ConversationPrewarmer
 import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.core.common.runCatchingCancellable
 import com.kosmos.app.data.local.prefs.SettingsDataStore
 import com.kosmos.app.domain.modelrunner.ModelRunner
@@ -49,18 +50,18 @@ class AppLanguageHolder @Inject constructor(
     private val conversationPrewarmer: Provider<ConversationPrewarmer>,
     private val widgetRefresher: Provider<WidgetRefresher>,
     private val sessionStore: com.kosmos.app.data.local.prefs.SessionStore
-) {
+) : CurrentLanguage {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // [WHY] 초기 기본값은 KO — Hilt 테스트나 start() 호출 전에도 기존 한국어 동작과 100% 일치한다.
     private val _language = MutableStateFlow(AppLanguage.KO)
-    val languageFlow: StateFlow<AppLanguage> = _language.asStateFlow()
+    override val languageFlow: StateFlow<AppLanguage> = _language.asStateFlow()
 
     private val _option = MutableStateFlow(AppLanguage.Option.SYSTEM)
     val optionFlow: StateFlow<AppLanguage.Option> = _option.asStateFlow()
 
     /** 현재 적용된 [AppLanguage] (`KO` 또는 `EN`). */
-    val current: AppLanguage
+    override val current: AppLanguage
         get() = _language.value
 
     /**
