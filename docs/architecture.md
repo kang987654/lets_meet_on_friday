@@ -2127,9 +2127,9 @@ zip(`ZipFile`, 캐시 복사) + SAX + `PdfRenderer` — 전부 플랫폼 내장�
   3. 한국어 2글자 묶음(바이그램) 기억 검색(`BigramMatcher`)은 공백을 지우고 2글자씩 잘라, 영문 문장(`"my bike password"`)에서는 단어 경계를 넘는 조각(`yb`, `ke`)과 흔한 철자(`th`, `er`)가 무관한 영문 메모에 점수를 주는 문제가 있었다.
   4. 영어로 대화하다가 설정을 한국어로 바꾼 직후 이전 영어 에피소드의 요약·자동 추출이 돌면, 설정 언어만 보고 한국어 지시문을 쓸 경우 재료 언어와 요약/태그 언어가 섞인다.
 - **결정**:
-  1. **언어 정본(Single Source of Truth)과 화면 무재생성 전환**:
-     - Android 13(API 33)+ 에서는 시스템 `LocaleManager.applicationLocales` / `context.resources.configuration.locales` 를 유일한 정본으로 삼고(`res/xml/locales_config.xml` 등록), API 26~32 만 `SettingsDataStore` 폴백을 쓴다.
-     - `AndroidManifest.xml` 의 `MainActivity` `configChanges` 에 `locale|layoutDirection` 을 추가해 언어 전환 시 Activity 재생성을 막고, `onConfigurationChanged` 가 `AppLanguageHolder.onConfigurationChanged` 를 불러 `KosmosTheme(language = appLanguage)`·알림 채널 이름·Glance 위젯을 즉시 갱신하며 `ModelRunner.invalidateConversation()` + `ConversationPrewarmer` 로 새 언어의 대화를 미리 준비한다.
+  1. **언어 정본(Single Source of Truth)과 안드로이드 표준 리소스(`strings.xml`) 전환**:
+     - Android 13(API 33)+ 에서는 시스템 `LocaleManager.applicationLocales` / `context.resources.configuration.locales` 를 유일한 정본으로 삼고(`res/xml/locales_config.xml` 등록), `SettingsScreen` 의 언어 토글은 `LocaleManager` 가 동작하는 API 33(`TIRAMISU`) 이상에서만 노출한다(`0.40.1`).
+     - `AndroidManifest.xml` 의 `MainActivity` 는 `android:configChanges="uiMode"` 만 유지한다(언어 변경 시 Activity 가 표준 재생성되어 `stringResource(R.string.xxx)` 가 새 로케일의 `res/values/strings.xml` · `res/values-en/strings.xml` 을 읽으며, 3.6GB AI 엔진은 `KosmosApp` `@Singleton` 프로세스 수명에 살아서 재로드되지 않는다). `AppLanguageHolder` 는 언어 변경 시 알림 채널 이름(대상 로케일 `createConfigurationContext` 적용)·Glance 위젯을 즉시 갱신하고 `ModelRunner.invalidateConversation()` + `ConversationPrewarmer` 로 새 언어의 대화를 미리 준비하며, Activity 재생성을 넘어 살아남는 `ChatViewModel._episodeChipLabels` 와 `ChatExtrasViewModel._results` 캐시는 `languageFlow` 변경 시 비워 새 언어로 다시 채우게 한다(`0.40.1`).
      - Robolectric 단위/UI 테스트는 기본 로케일이 `en-US` 라 기존 한국어 테스트를 보호하기 위해 `app/src/test/resources/robolectric.properties` 에 `qualifiers=ko-rKR` 를 고정한다.
   2. **공유 툴 선언 + 영어 시스템 지시(`MEASURED_OVERHEAD_EN = 1,224`)**:
      - `exp72_english_mode.py` 실측에서 현행 `KosmosToolDeclarations` 를 그대로 공유한 채 시스템 지시만 영어로 바꿔도 7개 툴 호출 스모크가 **12/12** 정확히 일치했고, 첫 턴 KV 오버헤드는 한국어(`1,257`)보다 33토큰 작은 **`1,224`**(예약 `1,400` 안에 76토큰 여유)로 측정됐다. 따라서 별도 영어 `ToolSet` 복제 없이 선언을 공유하고 `TokenBudgetInvariantTest` 에 한·영 오버헤드 불변식을 모두 고정한다.
