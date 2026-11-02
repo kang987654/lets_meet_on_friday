@@ -171,6 +171,7 @@
    - UI 문자열은 한국어를 기본(`res/values/strings.xml`)으로 하고 영어 번역(`res/values-en/strings.xml`)을 함께 유지한다(§2-② E2E 계약 문자열 제외). `lintDebug` 의 `MissingTranslation` 이 오류 등급이므로 한국어 리소스를 추가할 때는 반드시 영어 번역도 함께 넣는다.
    - 일시 표기는 `IsoDateTimeParser`(`toDisplayKorean` 등 `lang: AppLanguage` 인자 지원)가 단일 출처다 — ISO 원문을 화면·모델 관측값에 노출하지 않는다 (0.19.2).
    - 예외: 활동 기록의 "원문 보기"(펼친 뒤 한 번 더 눌러야 보이는 감사 기록 원문 — 직접 오류를 보기 위한 것, 0.38.4 사용자 결정).
+8. **Import 규약 (0.40.3)**: 다른 파일의 클래스·함수는 코드 위치에 전체 경로(`com.kosmos.app.*`)를 쓰지 않고 `import` 로 쓴다(이름 충돌 때만 예외).
 
 ---
 
