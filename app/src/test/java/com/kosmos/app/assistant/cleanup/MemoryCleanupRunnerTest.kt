@@ -228,7 +228,9 @@ class MemoryCleanupRunnerTest {
         awaitState(r) { it is MemoryCleanupRunner.State.Running }
         r.onUserActivity()
         assertEquals(MemoryCleanupRunner.State.Idle, r.state.value)
-        coVerify { modelRunner.endDeferRestore(false) }
+        // [WHY] cancel() 은 취소 요청만 보낸다 — endDeferRestore(false) 는 취소된 코루틴의 finally 가 다른 스레드에서 조금 뒤에 부른다.
+        // 기다리지 않으면 병렬 게이트 부하에서 간헐 실패했다(0.41.0 M1, 사용자 확인 후 timeout 추가 — 검사 내용 불변).
+        coVerify(timeout = 2_000) { modelRunner.endDeferRestore(false) }
 
         // Review 상태에서는 onUserActivity 가 검토 결과를 날리지 않는다.
         givenHappyPath()

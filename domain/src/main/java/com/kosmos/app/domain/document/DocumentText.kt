@@ -36,22 +36,32 @@ object DocumentText {
     /**
      * 시트의 [rows] 범위(행 번호, 0부터)를 글자로. 머리 행이 범위 밖이면 앞에 붙인다 — 열 이름 없이는 "금액이 얼마야"를 답할 수 없다.
      */
-    fun sheet(sheet: Sheet, rows: IntRange, cap: Int, format: TableFormat = TABLE_FORMAT): ClippedText {
+    fun sheet(sheet: Sheet, rows: IntRange, cap: Int, format: TableFormat = TABLE_FORMAT): ClippedText =
+        clip(table(sheetGrid(sheet, rows), format), cap)
+
+    /** 시트 전체를 표 형식 줄로 — 문서 보관함 색인용, 상한 없음(0.41.0). 머리 행 규칙은 [sheet] 와 같다. */
+    fun sheetLines(sheet: Sheet, format: TableFormat = TABLE_FORMAT): List<String> =
+        table(sheetGrid(sheet, 0..Int.MAX_VALUE), format).filter { it.isNotBlank() }
+
+    /** 읽기 모드 표 블록을 표 형식 줄로 — 첫 행이 열 이름(문서 보관함 색인용, 0.41.0). */
+    fun tableLines(block: FlowBlock.Table, format: TableFormat = TABLE_FORMAT): List<String> =
+        table(block.rows.map { row -> row.map { cell -> cell.blocks.joinToString(" ") { it.plainText() } } }, format).filter { it.isNotBlank() }
+
+    private fun sheetGrid(sheet: Sheet, rows: IntRange): List<List<String>> {
         val headerRow = headerRow(sheet)
         // [WHY] 머리 행 위(표 제목 등)는 고른 범위에 들어 있어도 뺀다 — 남기면 그 행이 열 이름 자리를 차지한다.
         // [WHY] 배경색만 있는 빈 칸으로 이뤄진 행(서식용으로 담은 것)은 글자에 넣지 않는다 — 모델 입력은 서식 전과 같아야 한다.
         val picked = sheet.rows.filter { it.index in rows && (headerRow == null || it.index >= headerRow.index) && it.cells.any { c -> c.text.isNotBlank() } }
         val header = headerRow?.takeIf { it.index !in rows }
         val width = sheet.columnCount.coerceAtLeast(1)
-        val grid = (listOfNotNull(header) + picked).map { row -> List(width) { c -> row.cells.firstOrNull { it.column == c }?.text.orEmpty() } }
-        return clip(table(grid, format), cap)
+        return (listOfNotNull(header) + picked).map { row -> List(width) { c -> row.cells.firstOrNull { it.column == c }?.text.orEmpty() } }
     }
 
     /** 읽기 모드 블록들(고른 순서)을 글자로. */
     fun flow(blocks: List<FlowBlock>, cap: Int, format: TableFormat = TABLE_FORMAT): ClippedText {
         val units = blocks.flatMap { block ->
             when (block) {
-                is FlowBlock.Table -> table(block.rows.map { row -> row.map { cell -> cell.blocks.joinToString(" ") { it.plainText() } } }, format)
+                is FlowBlock.Table -> tableLines(block, format)
                 is FlowBlock.ListItem -> listOf("  ".repeat(block.level) + "- " + block.spans.plainText())
                 is FlowBlock.Image, FlowBlock.PageBreak -> emptyList()
                 else -> listOf(block.plainText())
