@@ -12,6 +12,7 @@ import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.InputType
 import javax.inject.Inject
 import com.kosmos.app.assistant.agent.KosmosAgent
+import com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
 import com.kosmos.app.assistant.episode.EpisodeBoundaryManager
 import com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
 import com.kosmos.app.domain.usecase.TranscribeAudioUseCase
@@ -40,6 +41,7 @@ class AssistantOrchestrator @Inject constructor(
     private val episodeBoundaryManager: EpisodeBoundaryManager,
     private val episodeSummarizeScheduler: EpisodeSummarizeScheduler,
     private val conversationPrewarmer: ConversationPrewarmer,
+    private val memoryCleanupRunner: MemoryCleanupRunner,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : AssistantGateway {
     private val messageWriter = AssistantMessageWriter(conversationRepository, auditTrailService)
@@ -47,6 +49,8 @@ class AssistantOrchestrator @Inject constructor(
     override suspend fun processRequest(request: ChatRequest): AgentResult {
         // [WHY] 사용자가 말하는 중이다 — 조용해지기를 기다리던 요약을 미룬다(0.39.1, 이미 도는 요약은 그대로).
         episodeSummarizeScheduler.onUserActivity()
+        // [WHY] 수동 기억 정리가 계획(Waiting·Running) 중이면 취소해 채팅 추론이 수십 번의 병합 판정 뒤에서 기다리지 않게 한다(0.40.6 M3 D2=A).
+        memoryCleanupRunner.onUserActivity()
         // [WHY] 지난 턴 뒤의 대화 준비가 아직 엔진에 닿지 않았으면 멈춘다 — 이 턴의 툴 호출과 회신 사이에 끼면 안 된다(0.39.2 M3).
         conversationPrewarmer.onUserActivity()
         // 1. 음성이면 먼저 전사한다.

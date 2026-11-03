@@ -62,7 +62,8 @@ class VoiceTranscriptionFailureTest {
             // "미배정 저장" 폴백이라 기존 단언에 영향이 없다.
             episodeBoundaryManager = mockk(relaxed = true),
             episodeSummarizeScheduler = mockk(relaxed = true),
-            conversationPrewarmer = mockk(relaxed = true)
+            conversationPrewarmer = mockk(relaxed = true),
+            memoryCleanupRunner = mockk(relaxed = true)
         )
     }
 

@@ -129,9 +129,31 @@ class GemmaModelRunner @Inject constructor(
     // [WHY] 화면에서 고친 사실(알림 미룸 등)은 DB 히스토리에만 있다 — 살아 있는 대화를 재사용하면 모델이 옛 값을 안다(0.38.2 M4, 사용자 결정).
     // 다음 사용자 턴에서 한 번 다시 만든다. 툴 회신 턴은 그대로 이어 간다(턴 중간에 문맥을 바꾸면 회신이 엉뚱한 대화로 간다).
     @Volatile private var conversationStale = false
+    private val deferRestoreDepth = java.util.concurrent.atomic.AtomicInteger(0)
+    @Volatile private var pendingConversationRestore = false
 
     override fun invalidateConversation() {
         conversationStale = true
+        pendingConversationRestore = false
+    }
+
+    override fun beginDeferRestore() {
+        deferRestoreDepth.incrementAndGet()
+    }
+
+    override suspend fun endDeferRestore(restore: Boolean) {
+        val depth = deferRestoreDepth.decrementAndGet().coerceAtLeast(0)
+        if (depth > 0) return
+        val needRestore = pendingConversationRestore
+        pendingConversationRestore = false
+        if (!restore || !needRestore || conversationStale || loadState.value !is ModelLoadState.Ready) return
+        withContext(llmDispatcher) {
+            lifecycleMutex.withLock {
+                if (!conversationStale && loadState.value is ModelLoadState.Ready) {
+                    conversation?.let { runCatching { it.getTokenCount() } }
+                }
+            }
+        }
     }
 
     // [WHY] 지금 send 중인 대화(캐시 채팅이든 oneShot 이든)와 사용자 취소. cancel() 은 뮤텍스 밖에서 불린다.
@@ -257,6 +279,7 @@ class GemmaModelRunner @Inject constructor(
                     discardCachedConversation()
                     return@withLock AppResult.Success(ModelTurn("", emptyList()))
                 }
+                if (!prompt.oneShot) pendingConversationRestore = false
                 metricsCollector.handleCooldownIfNecessary()
                 metricsCollector.recordStart()
                 val startTime = System.currentTimeMillis()
@@ -375,9 +398,15 @@ class GemmaModelRunner @Inject constructor(
                     if (prompt.oneShot) {
                         runCatching { currentConversation.close() }
                         // [WHY] 부수 대화를 돌리면 엔진이 채팅 대화 상태를 다시 올리는 비용이 그 대화의 첫 호출에 붙는다(exp65: PC 1.1초,
-                        // 실기기 3.3~3.5초 — 0.39.0 M1). 다음 사용자 턴에서 치르지 않게 지금 한 번 불러 되살려 둔다. 요약은 조용할 때 돌므로(0.39.1)
-                        // 이 비용도 조용할 때 치른다. 다시 만들 대화(stale)라면 되살릴 필요가 없다.
-                        if (!conversationStale) conversation?.let { runCatching { it.getTokenCount() } }
+                        // 실기기 3.3~3.5초 — 0.39.0 M1). 다음 사용자 턴에서 치르지 않게 지금 한 번 불러 되살려 둔다. 단, deferRestore 묶음 안이면
+                        // 중간 복원을 건너뛰고 묶음 끝(endDeferRestore)에서 한 번만 복원한다(0.40.6 M3, exp73 defer).
+                        if (!conversationStale && conversation != null) {
+                            if (deferRestoreDepth.get() > 0) {
+                                pendingConversationRestore = true
+                            } else {
+                                conversation?.let { runCatching { it.getTokenCount() } }
+                            }
+                        }
                     } else if (turnFailed || userCancelled || watchdog.timedOut) {
                         // [WHY] 취소를 맞은 대화는 이후 send 가 전부 즉시 "Task cancelled" 다(exp57 A, 0.38.6 M0 실기기 결함).
                         // 실패한 대화도 네이티브 상태를 알 수 없다 — 다음 턴은 DB 히스토리로 새로 만든다.
@@ -482,6 +511,7 @@ class GemmaModelRunner @Inject constructor(
         val existing = conversation
         conversation = null
         cachedKey = null
+        pendingConversationRestore = false
         existing?.let { runCatching { it.close() } }
     }
 
@@ -497,6 +527,7 @@ class GemmaModelRunner @Inject constructor(
                 runCatching { engine?.close() }
                 engine = null
                 cachedKey = null
+                pendingConversationRestore = false
                 // [WHY] 해제 직후 상태를 사실(파일은 있고 엔진은 없음 = FileFound)로 되돌린다 — Ready 로 두면 재진입한
                 // 스플래시가 warmUp 을 건너뛰어 "엔진 준비 중"이 영원히 멈춘다.
                 runtimeManager.checkModelFile()

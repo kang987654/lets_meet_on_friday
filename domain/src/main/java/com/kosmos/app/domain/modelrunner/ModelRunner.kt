@@ -64,4 +64,34 @@ interface ModelRunner {
      * [WHY] 다시 만드는 비용(실기기 +6~7초)을 다음 질문이 아니라 답을 읽는 동안 치른다(0.39.2 M3). 기본 구현은 테스트 가짜 러너용.
      */
     suspend fun prepareConversation(prompt: ChatPrompt) {}
+
+    /**
+     * 연속된 `oneShot` 부수 추론 묶음 동안 매 호출 끝의 채팅 대화 복원(`getTokenCount`)을 미룹니다 (0.40.6 M3, exp73 defer).
+     */
+    fun beginDeferRestore() {}
+
+    /**
+     * [beginDeferRestore] 로 시작한 묶음을 마칩니다. 중첩 깊이가 0 이 되고 [restore] 가 `true` 이며
+     * 그사이 `oneShot` 추론이 1회 이상 돌았으면(대화가 stale 이 아닐 때) 채팅 대화를 한 번 복원합니다.
+     */
+    suspend fun endDeferRestore(restore: Boolean = true) {}
+}
+
+/**
+ * [block] 안의 연속된 `oneShot` 추론에서 매번 치르던 채팅 대화 복원(`getTokenCount`)을 묶음 끝 1회로 미룹니다 (0.40.6 M3).
+ *
+ * [WHY] `PlanMemoryMergeUseCase`·`EpisodeSummarizeScheduler` 처럼 어느 `oneShot` 호출이 마지막인지 미리 알 수 없는 배치에서
+ * 유스케이스나 `ChatPrompt` 시그니처를 오염시키지 않고 호출부 스코프만으로 중간 복원을 생략한다 (exp73 defer: 3회 연속 시 복원 9.40s → 3.99s).
+ * 코루틴이 취소되어 빠져나갈 때는 `restore = isActive` 로 불필요한 복원을 건너뛴다.
+ */
+suspend inline fun <T> ModelRunner.deferRestore(block: suspend () -> T): T {
+    beginDeferRestore()
+    var completedNormally = false
+    return try {
+        block().also { completedNormally = true }
+    } finally {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+            endDeferRestore(restore = completedNormally)
+        }
+    }
 }

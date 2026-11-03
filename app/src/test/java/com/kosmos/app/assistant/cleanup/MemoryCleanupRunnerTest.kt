@@ -12,6 +12,7 @@ import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
@@ -40,7 +41,7 @@ class MemoryCleanupRunnerTest {
     private val apply: ApplyMemoryMergeUseCase = mockk()
     private val metrics: RuntimeMetricsCollector = mockk { every { getCurrentTemp() } returns 30f }
     private val loadState = MutableStateFlow<ModelLoadState>(ModelLoadState.Ready(ModelInfo("m", "m", "1", "Q4", 0L)))
-    private val modelRunner: ModelRunner = mockk { every { loadState } returns this@MemoryCleanupRunnerTest.loadState }
+    private val modelRunner: ModelRunner = mockk(relaxUnitFun = true) { every { loadState } returns this@MemoryCleanupRunnerTest.loadState }
 
     private val reviewNote = KnowledgeNote(id = "weekly-review-2026-W40", content = "이번 주 회고", createdAt = 0L, updatedAt = 0L)
     private val proposal = MergeProposal(
@@ -198,5 +199,42 @@ class MemoryCleanupRunnerTest {
         r.apply(emptyList(), listOf(p1))
 
         assertTrue(lockedDuringApply)
+    }
+
+    @Test
+    fun `정리 계획 묶음은 deferRestore 범위로 감싸 끝날 때 한 번만 복원한다`() = runBlocking {
+        givenHappyPath()
+        val r = runner()
+
+        r.start()
+        awaitState(r) { it is MemoryCleanupRunner.State.Review }
+
+        coVerifyOrder {
+            modelRunner.beginDeferRestore()
+            review(any(), any())
+            plan(any())
+            planEpisodes(any(), any())
+            modelRunner.endDeferRestore(true)
+        }
+    }
+
+    @Test
+    fun `사용자 채팅 활동이 들어오면 Waiting 과 Running 만 취소하고 Review 는 유지한다`() = runBlocking {
+        val gateOpen = CompletableDeferred<Unit>()
+        coEvery { review(any(), any()) } coAnswers { gateOpen.await(); AppResult.Success(reviewNote) }
+        val r = runner()
+
+        r.start()
+        awaitState(r) { it is MemoryCleanupRunner.State.Running }
+        r.onUserActivity()
+        assertEquals(MemoryCleanupRunner.State.Idle, r.state.value)
+        coVerify { modelRunner.endDeferRestore(false) }
+
+        // Review 상태에서는 onUserActivity 가 검토 결과를 날리지 않는다.
+        givenHappyPath()
+        r.start()
+        val reached = awaitState(r) { it is MemoryCleanupRunner.State.Review }
+        r.onUserActivity()
+        assertEquals(reached, r.state.value)
     }
 }

@@ -10,6 +10,7 @@ import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.domain.model.EpisodeStatus
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.domain.modelrunner.deferRestore
 import com.kosmos.app.domain.usecase.SummarizeEpisodeUseCase
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 import com.kosmos.app.runtime.metrics.shouldDeferBackgroundInference
@@ -154,17 +155,20 @@ class EpisodeSummarizeScheduler @Inject constructor(
             deferred.clear()
             b
         }
-        for (i in batch.indices) {
-            // [WHY] 드레인이 요약 → 자동 추출 → 다음 에피소드를 연달아 돌아 그사이 들어온 질문이 기다렸다(0.39.1 M3·0.39.4 M0).
-            // 돌고 있는 추론은 취소하지 않되(0.38.6 결함 경로), 항목 사이·추출 전에 새 요청이 있었으면 남은 항목을 큐 앞쪽으로 되돌리고 멈춘다.
-            if (userActivitySeq.get() != activityAtStart) {
-                requeueFront(batch.subList(i, batch.size))
-                return@withLock
-            }
-            val interruptedDuringItem = process(batch[i], now, activityAtStart)
-            if (interruptedDuringItem) {
-                requeueFront(batch.subList(i + 1, batch.size))
-                return@withLock
+        // [WHY] 에피소드 요약·사실 추출이 연속으로 돌 때 매 oneShot 마다 채팅 대화를 복원하지 않고 드레인이 끝날 때 한 번만 복원한다 (0.40.6 M3, exp73 defer).
+        modelRunner.deferRestore {
+            for (i in batch.indices) {
+                // [WHY] 드레인이 요약 → 자동 추출 → 다음 에피소드를 연달아 돌아 그사이 들어온 질문이 기다렸다(0.39.1 M3·0.39.4 M0).
+                // 돌고 있는 추론은 취소하지 않되(0.38.6 결함 경로), 항목 사이·추출 전에 새 요청이 있었으면 남은 항목을 큐 앞쪽으로 되돌리고 멈춘다.
+                if (userActivitySeq.get() != activityAtStart) {
+                    requeueFront(batch.subList(i, batch.size))
+                    return@withLock
+                }
+                val interruptedDuringItem = process(batch[i], now, activityAtStart)
+                if (interruptedDuringItem) {
+                    requeueFront(batch.subList(i + 1, batch.size))
+                    return@withLock
+                }
             }
         }
     }

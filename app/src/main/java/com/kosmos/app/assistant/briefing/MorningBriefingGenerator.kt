@@ -15,6 +15,7 @@ import com.kosmos.app.domain.model.InputType
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.domain.modelrunner.deferRestore
 import com.kosmos.app.domain.usecase.GenerateBriefingUseCase
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
@@ -143,43 +144,47 @@ class MorningBriefingGenerator @Inject constructor(
         val materials = collectMaterials(zone, now)
         // [WHY] Ready 편승으로 함께 깨어난 ConversationPrewarmer 가 DB 저장 전 기록으로 대화를 미리 만들지 않게 먼저 멈춘다 (0.40.6 M1).
         conversationPrewarmer.onUserActivity()
-        val briefing = when (val result = generateBriefing(materials)) {
-            is AppResult.Success -> result.data
-            is AppResult.Failure -> {
-                AppLogger.e(TAG, "브리핑 추론 실패: ${result.error}")
-                return@withLock // DB 에 안 남았으므로 다음 Ready 가 자연 재시도
+        // [WHY] 브리핑 추론(oneShot) 직후 어차피 invalidateConversation 으로 대화 캐시를 비우므로,
+        // oneShot 직후의 구 대화 복원(getTokenCount)을 deferRestore 로 묶어 무효화 시 함께 건너뛴다 (0.40.6 M1·M3).
+        modelRunner.deferRestore {
+            val briefing = when (val result = generateBriefing(materials)) {
+                is AppResult.Success -> result.data
+                is AppResult.Failure -> {
+                    AppLogger.e(TAG, "브리핑 추론 실패: ${result.error}")
+                    return@deferRestore // DB 에 안 남았으므로 다음 Ready 가 자연 재시도
+                }
             }
+
+            // [WHY] activeSessionId 를 쓴다 — ChatViewModel 이 이 값으로 라이브 테일을 조회하므로
+            // 다른 id 로 저장하면 loadMessages 사정권 밖이 된다. 앱을 한 번도 안 연 기기면 값이
+            // 없을 수 있어 여기서 만들어 저장한다(다음 채팅이 그대로 이어받음).
+            val sessionId = sessionStore.activeSessionIdFlow.first()
+                ?: UUID.randomUUID().toString().also { sessionStore.saveActiveSessionId(it) }
+
+            val episodeId = boundaryManager.onAssistantInitiatedMessage(sessionId, now)
+            val saved = messageWriter.save(
+                sessionId, ChatMessage.Role.ASSISTANT, briefing, InputType.BRIEFING,
+                episodeId = episodeId,
+                now = now
+            )
+            if (saved is AppResult.Failure) {
+                AppLogger.e(TAG, "브리핑 저장 실패: ${saved.error}")
+                return@deferRestore
+            }
+
+            // [WHY] 브리핑이 DB 에 추가됐으므로 기존 대화 캐시를 비우고 브리핑이 반영된 대화방으로 다음 턴을 미리 준비한다 (0.40.6 M1).
+            modelRunner.invalidateConversation()
+            conversationPrewarmer.afterTurn(sessionId)
+
+            auditTrailService.logModelRun(
+                sessionId = GenerateBriefingUseCase.SESSION_ID,
+                prompt = "${AuditTrailService.PROMPT_MORNING_BRIEFING} (events=${materials.events.size}, " +
+                    "tasks=${materials.pendingTasks.size}, episodes=${materials.recentEpisodes.size})",
+                output = briefing
+            )
+            _briefingSaved.tryEmit(Unit)
+            AppLogger.d(TAG, "아침 브리핑 생성 완료")
         }
-
-        // [WHY] activeSessionId 를 쓴다 — ChatViewModel 이 이 값으로 라이브 테일을 조회하므로
-        // 다른 id 로 저장하면 loadMessages 사정권 밖이 된다. 앱을 한 번도 안 연 기기면 값이
-        // 없을 수 있어 여기서 만들어 저장한다(다음 채팅이 그대로 이어받음).
-        val sessionId = sessionStore.activeSessionIdFlow.first()
-            ?: UUID.randomUUID().toString().also { sessionStore.saveActiveSessionId(it) }
-
-        val episodeId = boundaryManager.onAssistantInitiatedMessage(sessionId, now)
-        val saved = messageWriter.save(
-            sessionId, ChatMessage.Role.ASSISTANT, briefing, InputType.BRIEFING,
-            episodeId = episodeId,
-            now = now
-        )
-        if (saved is AppResult.Failure) {
-            AppLogger.e(TAG, "브리핑 저장 실패: ${saved.error}")
-            return@withLock
-        }
-
-        // [WHY] 브리핑이 DB 에 추가됐으므로 기존 대화 캐시를 비우고 브리핑이 반영된 대화방으로 다음 턴을 미리 준비한다 (0.40.6 M1).
-        modelRunner.invalidateConversation()
-        conversationPrewarmer.afterTurn(sessionId)
-
-        auditTrailService.logModelRun(
-            sessionId = GenerateBriefingUseCase.SESSION_ID,
-            prompt = "${AuditTrailService.PROMPT_MORNING_BRIEFING} (events=${materials.events.size}, " +
-                "tasks=${materials.pendingTasks.size}, episodes=${materials.recentEpisodes.size})",
-            output = briefing
-        )
-        _briefingSaved.tryEmit(Unit)
-        AppLogger.d(TAG, "아침 브리핑 생성 완료")
     }
 
     private suspend fun collectMaterials(zone: ZoneId, now: Long): GenerateBriefingUseCase.BriefingMaterials {

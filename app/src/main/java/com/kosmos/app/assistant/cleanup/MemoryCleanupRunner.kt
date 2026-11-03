@@ -12,6 +12,7 @@ import com.kosmos.app.domain.cleanup.PlanMemoryMergeUseCase
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.domain.modelrunner.deferRestore
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 import com.kosmos.app.runtime.metrics.shouldDeferBackgroundInference
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +22,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -98,48 +100,60 @@ class MemoryCleanupRunner @Inject constructor(
         _state.value = State.Waiting
         job = scope.launch {
             gate.mutex.withLock {
-                _state.value = State.Running(Step.WEEKLY_REVIEW, 0, 1)
-                val lang = currentLanguage.current
-                val reviewResult = if (lang == AppLanguage.EN) {
-                    generateWeeklyReview(System.currentTimeMillis(), java.time.ZoneId.systemDefault(), lang)
-                } else {
-                    generateWeeklyReview()
-                }
-                val review = when (reviewResult) {
-                    is AppResult.Success -> reviewResult.data
-                    is AppResult.Failure -> {
-                        AppLogger.w(TAG, "주간 회고 실패: ${reviewResult.error}")
-                        null
+                // [WHY] 회고·노트 병합 판정·에피소드 통합 판정에서 수십 번 도는 oneShot 마다 채팅 대화를 복원하지 않고,
+                // 정리 계획 묶음이 끝날 때 한 번만 복원한다 (0.40.6 M3, exp73 defer).
+                modelRunner.deferRestore {
+                    _state.value = State.Running(Step.WEEKLY_REVIEW, 0, 1)
+                    val lang = currentLanguage.current
+                    val reviewResult = if (lang == AppLanguage.EN) {
+                        generateWeeklyReview(System.currentTimeMillis(), java.time.ZoneId.systemDefault(), lang)
+                    } else {
+                        generateWeeklyReview()
+                    }
+                    val review = when (reviewResult) {
+                        is AppResult.Success -> reviewResult.data
+                        is AppResult.Failure -> {
+                            AppLogger.w(TAG, "주간 회고 실패: ${reviewResult.error}")
+                            null
+                        }
+                    }
+                    // [WHY] 단계 사이에 발열을 다시 본다 — 회고 뒤 병합 판정은 수십 번 추론이라 이 지점이 마지막 기회다.
+                    blockReason()?.let {
+                        _state.value = State.Blocked(it)
+                        return@withLock
+                    }
+                    _state.value = State.Running(Step.MERGE, 0, 0)
+                    val proposals = when (
+                        val result = planMerge { done, total ->
+                            if (isActive) _state.value = State.Running(Step.MERGE, done, total)
+                        }
+                    ) {
+                        is AppResult.Success -> result.data
+                        is AppResult.Failure -> {
+                            AppLogger.w(TAG, "병합 계획 실패: ${result.error}")
+                            emptyList()
+                        }
+                    }
+                    blockReason()?.let {
+                        _state.value = State.Blocked(it)
+                        return@withLock
+                    }
+                    _state.value = State.Running(Step.EPISODE_MERGE, 0, 0)
+                    val episodeProposals = when (
+                        val result = planEpisodeMerge { done, total ->
+                            if (isActive) _state.value = State.Running(Step.EPISODE_MERGE, done, total)
+                        }
+                    ) {
+                        is AppResult.Success -> result.data
+                        is AppResult.Failure -> {
+                            AppLogger.w(TAG, "에피소드 통합 계획 실패: ${result.error}")
+                            emptyList()
+                        }
+                    }
+                    if (isActive) {
+                        _state.value = State.Review(review, proposals, episodeProposals)
                     }
                 }
-                // [WHY] 단계 사이에 발열을 다시 본다 — 회고 뒤 병합 판정은 수십 번 추론이라 이 지점이 마지막 기회다.
-                blockReason()?.let {
-                    _state.value = State.Blocked(it)
-                    return@withLock
-                }
-                _state.value = State.Running(Step.MERGE, 0, 0)
-                val proposals = when (val result = planMerge { done, total -> _state.value = State.Running(Step.MERGE, done, total) }) {
-                    is AppResult.Success -> result.data
-                    is AppResult.Failure -> {
-                        AppLogger.w(TAG, "병합 계획 실패: ${result.error}")
-                        emptyList()
-                    }
-                }
-                blockReason()?.let {
-                    _state.value = State.Blocked(it)
-                    return@withLock
-                }
-                _state.value = State.Running(Step.EPISODE_MERGE, 0, 0)
-                val episodeProposals = when (
-                    val result = planEpisodeMerge { done, total -> _state.value = State.Running(Step.EPISODE_MERGE, done, total) }
-                ) {
-                    is AppResult.Success -> result.data
-                    is AppResult.Failure -> {
-                        AppLogger.w(TAG, "에피소드 통합 계획 실패: ${result.error}")
-                        emptyList()
-                    }
-                }
-                _state.value = State.Review(review, proposals, episodeProposals)
             }
         }
     }
@@ -152,8 +166,21 @@ class MemoryCleanupRunner @Inject constructor(
         val review = _state.value as? State.Review ?: return
         _state.value = State.Applying
         val merged = if (selected.isEmpty()) 0 else applyMerge(selected)
-        val episodesMerged = if (selectedEpisodes.isEmpty()) 0 else gate.mutex.withLock { applyEpisodeMerge(selectedEpisodes) }
+        val episodesMerged = if (selectedEpisodes.isEmpty()) 0 else gate.mutex.withLock {
+            modelRunner.deferRestore { applyEpisodeMerge(selectedEpisodes) }
+        }
         _state.value = State.Done(review.weeklyReview, merged, episodesMerged, selectedEpisodes.size - episodesMerged)
+    }
+
+    /**
+     * 사용자가 채팅을 시작했을 때 호출 — 정리 계획 중([State.Waiting]·[State.Running])이면 중단해 채팅 추론이 기다리지 않게 한다 (0.40.6 M3 D2=A).
+     * 이미 만들어진 검토 화면([State.Review])이나 적용 중([State.Applying])은 건드리지 않는다.
+     */
+    fun onUserActivity() {
+        val current = _state.value
+        if (current is State.Waiting || current is State.Running) {
+            cancel()
+        }
     }
 
     /** 취소합니다 — 사용자 취소·앱 onStop. 아직 적용 전이라 데이터는 그대로다. */
