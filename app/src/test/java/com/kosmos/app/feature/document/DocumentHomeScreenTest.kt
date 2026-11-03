@@ -1,5 +1,7 @@
 package com.kosmos.app.feature.document
 
+import com.kosmos.app.platform.document.LibraryIndexer
+import com.kosmos.app.testing.FakeLibraryRepository
 import android.net.Uri
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -36,7 +38,7 @@ class DocumentHomeScreenTest {
     }
 
     private fun show() {
-        composeRule.setContent { KosmosTheme { DocumentHomeScreen(viewModel = DocumentHomeViewModel(store, access), onBack = {}) } }
+        composeRule.setContent { KosmosTheme { DocumentHomeScreen(viewModel = DocumentHomeViewModel(store, access, FakeLibraryRepository(), io.mockk.mockk<LibraryIndexer>(relaxed = true) { io.mockk.every { progress } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap()) }), onBack = {}) } }
         composeRule.waitForIdle()
     }
 

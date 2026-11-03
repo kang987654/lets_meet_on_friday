@@ -9,7 +9,6 @@ import com.kosmos.app.domain.library.LibraryHit
 import com.kosmos.app.domain.library.LibraryStatus
 import com.kosmos.app.domain.memory.ResetTarget
 import com.kosmos.app.testing.InMemoryKosmosDbRule
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -56,6 +55,9 @@ class LibraryRepositoryTest {
         repo.replaceChunks(id, chunks, lines.sumOf { it.length }).ok()
     }
 
+    // [WHY] Flow 관찰(observeDocuments) 대신 일반 조회 — 테스트가 DB 를 닫은 뒤 Room 무효화 갱신이 백그라운드에서 터져 다음 테스트로 넘어갔다.
+    private suspend fun documents() = dbRule.db.libraryDao().documents().mapNotNull { repo.document(it.id).ok() }
+
     private fun search(q: String): List<LibraryHit> = runBlocking { repo.search(q, 3).ok() }
 
     @Before
@@ -67,7 +69,7 @@ class LibraryRepositoryTest {
 
     @Test
     fun `조각을 넣으면 문서가 준비 상태가 되고 조각 수와 글자 수를 든다`() = runBlocking {
-        val docs = repo.observeDocuments().first().associateBy { it.id }
+        val docs = documents().associateBy { it.id }
         assertEquals(LibraryStatus.READY, docs.getValue("d1").status)
         assertEquals(3, docs.getValue("d1").chunkCount)
         assertEquals(civil.sumOf { it.length } + criminal.sumOf { it.length }, repo.totalChars().ok())
@@ -93,11 +95,11 @@ class LibraryRepositoryTest {
     @Test
     fun `다시 넣으면 앞 조각과 색인을 바꾸고 지우면 문서와 조각과 색인이 모두 사라진다`() = runBlocking {
         add("d2", "형법", listOf("제1조(범죄의 성립과 처벌) 범죄의 성립과 처벌은 행위 시의 법률에 따른다."))
-        assertEquals(1, repo.observeDocuments().first().single { it.id == "d2" }.chunkCount)
+        assertEquals(1, documents().single { it.id == "d2" }.chunkCount)
         assertTrue("앞 조각의 색인이 남지 않는다", search("절도").none { it.documentId == "d2" })
 
         repo.remove("d1").ok()
-        assertTrue(repo.observeDocuments().first().none { it.id == "d1" })
+        assertTrue(documents().none { it.id == "d1" })
         assertTrue(search("소멸시효").none { it.documentId == "d1" })
         dbRule.db.query("SELECT COUNT(*) FROM library_fts", null).use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
     }
@@ -113,6 +115,6 @@ class LibraryRepositoryTest {
         assertEquals(emptyList<LibraryHit>(), search("   "))
         DataResetRepositoryImpl(dbRule.db).reset(setOf(ResetTarget.LIBRARY)).ok()
         assertEquals(emptyList<LibraryHit>(), search("소멸시효"))
-        assertTrue(repo.observeDocuments().first().isEmpty())
+        assertTrue(documents().isEmpty())
     }
 }

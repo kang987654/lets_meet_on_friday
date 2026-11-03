@@ -191,7 +191,8 @@ private val RESET_OPTIONS = listOf(
     ResetOption(ResetTarget.CONVERSATIONS, R.string.settings_reset_opt_conversations_title, R.string.settings_reset_opt_conversations_detail),
     ResetOption(ResetTarget.TASKS, R.string.settings_reset_opt_tasks_title, R.string.settings_reset_opt_tasks_detail),
     ResetOption(ResetTarget.KNOWLEDGE, R.string.settings_reset_opt_knowledge_title, R.string.settings_reset_opt_knowledge_detail),
-    ResetOption(ResetTarget.PROFILE, R.string.settings_reset_opt_profile_title, R.string.settings_reset_opt_profile_detail)
+    ResetOption(ResetTarget.PROFILE, R.string.settings_reset_opt_profile_title, R.string.settings_reset_opt_profile_detail),
+    ResetOption(ResetTarget.LIBRARY, R.string.settings_reset_opt_library_title, R.string.settings_reset_opt_library_detail)
 )
 
 /**

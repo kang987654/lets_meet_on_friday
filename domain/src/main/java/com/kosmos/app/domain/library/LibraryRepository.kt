@@ -7,6 +7,28 @@ import kotlinx.coroutines.flow.Flow
 enum class LibraryStatus { INDEXING, READY, FAILED }
 
 /**
+ * 색인 실패 사유 — [LibraryDocument.error] 에 이름으로 저장하고 화면이 언어별 문구로 바꾼다.
+ *
+ * [WHY] 문구를 저장하면 언어를 바꿔도 저장한 언어로 남는다(최근 문서 이름 0.40.2 M2-7 과 같은 결함) — 사유 코드만 둔다.
+ */
+enum class LibraryFailure {
+    /** 파일을 열 수 없다(권한 만료·삭제·손상·암호) — 문서 뷰어의 오류 분류([com.kosmos.app.domain.document.DocumentError])를 뒤에 붙인다. */
+    OPEN_FAILED,
+
+    /** 글자를 뽑지 못했다 — 스캔 PDF, 또는 PDF 글자 추출을 지원하지 않는 기기(안드로이드 15 + 확장 13 미만). */
+    NO_TEXT,
+
+    /** 문서 하나가 [LibraryLimits.MAX_DOCUMENT_CHARS] 를 넘는다. */
+    TOO_LARGE,
+
+    /** 보관함 전체가 [LibraryLimits.MAX_TOTAL_CHARS] 를 넘는다. */
+    LIBRARY_FULL,
+
+    /** 색인 중에 앱이 종료됐다. */
+    INTERRUPTED
+}
+
+/**
  * 보관함에 등록한 문서.
  *
  * @property uri 원본의 콘텐츠 URI(지속 열람 권한) — 원본은 제자리에 두고 글자·조각·색인만 앱 DB 에 둔다(결정 D2).

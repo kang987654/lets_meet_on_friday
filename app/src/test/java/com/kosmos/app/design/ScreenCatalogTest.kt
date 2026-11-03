@@ -1,5 +1,10 @@
 package com.kosmos.app.design
 
+import com.kosmos.app.domain.library.LibraryFailure
+import com.kosmos.app.domain.library.LibraryStatus
+import com.kosmos.app.domain.library.LibraryDocument
+import com.kosmos.app.platform.document.LibraryIndexer
+import com.kosmos.app.testing.FakeLibraryRepository
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.padding
@@ -660,7 +665,7 @@ class ScreenCatalogTest {
     )
 
     @Test fun documentHome() {
-        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess)
+        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess, FakeLibraryRepository(), io.mockk.mockk<LibraryIndexer>(relaxed = true) { io.mockk.every { progress } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap()) })
         shoot("08-documents") { DocumentHomeScreen(viewModel = vm, onBack = {}) }
     }
 
@@ -674,8 +679,24 @@ class ScreenCatalogTest {
                 RecentDocument("content://d/1", "가계부.xlsx", null, NOW - 1_200_000L)
             ).forEach { recentDocumentsStore.add(it) }
         }
-        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess)
+        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess, FakeLibraryRepository(), io.mockk.mockk<LibraryIndexer>(relaxed = true) { io.mockk.every { progress } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap()) })
         shoot("31-documents-recent") { DocumentHomeScreen(viewModel = vm, onBack = {}) }
+    }
+
+    /** 문서 보관함 — 준비됨(조각·글자 수)·색인 중(쪽 진행률)·실패(사유 + 다시 시도) 세 상태(0.41.0). */
+    @Test fun documentHomeLibrary() {
+        val library = FakeLibraryRepository(
+            listOf(
+                LibraryDocument("l1", "content://l/1", "민법.pdf", "application/pdf", NOW - 3, LibraryStatus.READY, chunkCount = 1115, charCount = 155806),
+                LibraryDocument("l2", "content://l/2", "출장 여비 지침.hwpx", null, NOW - 2, LibraryStatus.INDEXING),
+                LibraryDocument("l3", "content://l/3", "스캔 계약서.pdf", "application/pdf", NOW - 1, LibraryStatus.FAILED, error = LibraryFailure.NO_TEXT.name)
+            )
+        )
+        val indexer = io.mockk.mockk<LibraryIndexer>(relaxed = true) {
+            io.mockk.every { progress } returns kotlinx.coroutines.flow.MutableStateFlow(mapOf("l2" to LibraryIndexer.Progress(11, 40)))
+        }
+        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess, library, indexer)
+        shoot("34-documents-library") { DocumentHomeScreen(viewModel = vm, onBack = {}) }
     }
 
     @Test fun settings() {
