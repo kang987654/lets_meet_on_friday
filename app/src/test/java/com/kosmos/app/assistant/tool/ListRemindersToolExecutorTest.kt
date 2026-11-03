@@ -8,6 +8,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -37,5 +38,13 @@ class ListRemindersToolExecutorTest {
     @Test
     fun `알림이 없으면 없다고 말한다`() {
         assertEquals("등록된 알림이 없어요.", run(AppResult.Success(emptyList())).getString("data"))
+    }
+
+    @Test
+    fun `알림이 많으면 툴 결과 토큰 상한에서 문장 경계로 자른다`() {
+        val many = (1..80).map { i -> task("r$i", "반복해서 확인해야 하는 중요한 알림 항목 $i", "2026-10-24T07:00:00") }
+        val data = run(AppResult.Success(many)).getString("data")
+        assertTrue(data.startsWith("[알림]\n- 반복해서 확인해야 하는 중요한 알림 항목 1"))
+        assertTrue(data.endsWith("... [TRUNCATED TO SAVE CONTEXT]"))
     }
 }

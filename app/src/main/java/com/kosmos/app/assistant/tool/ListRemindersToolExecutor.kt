@@ -2,10 +2,14 @@ package com.kosmos.app.assistant.tool
 
 import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.domain.memory.TaskRepository
+import com.kosmos.app.domain.tool.Tokenizer
 import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.util.IsoDateTimeParser
+import com.kosmos.app.domain.util.SentenceTruncator
+import com.kosmos.app.runtime.gemma.GemmaTokenizer
 import javax.inject.Inject
 
 /**
@@ -25,6 +29,7 @@ import javax.inject.Inject
  */
 class ListRemindersToolExecutor @Inject constructor(
     private val taskRepository: TaskRepository,
+    private val tokenizer: Tokenizer = GemmaTokenizer(),
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ToolExecutor {
 
@@ -45,7 +50,13 @@ class ListRemindersToolExecutor @Inject constructor(
                     en -> "[Reminders]\n" + lines.joinToString("\n")
                     else -> "[알림]\n" + lines.joinToString("\n")
                 }
-                ToolResultJson.success().put("data", text).toString()
+                val capped = SentenceTruncator.truncate(
+                    text = text,
+                    maxTokens = Constants.TOOL_RESULT_MAX_TOKENS - Constants.TOOL_RESULT_ENVELOPE_RESERVE_TOKENS,
+                    tokenizer = tokenizer,
+                    marker = "\n\n... [TRUNCATED TO SAVE CONTEXT]"
+                )
+                ToolResultJson.success().put("data", capped).toString()
             }
             is AppResult.Failure -> ToolResultJson.error(if (en) "Failed to list reminders" else "알림 목록 조회 실패")
         }

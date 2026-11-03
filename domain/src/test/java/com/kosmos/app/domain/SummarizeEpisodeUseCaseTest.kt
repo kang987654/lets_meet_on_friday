@@ -23,7 +23,7 @@ import org.junit.Test
  *
  * [WHY] 이 호출이 `oneShot` 이 아니면 시스템 지시와 sessionId 가 채팅과 달라 런타임이 캐시된
  * 채팅 대화를 파괴한다 — 에피소드가 닫힐 때마다 다음 채팅 턴이 전체 프리필을 다시 내게 된다
- * (ADR-010·014, SummarizeScheduleUseCaseTest 와 같은 계약).
+ * (ADR-010·014).
  */
 class SummarizeEpisodeUseCaseTest {
 

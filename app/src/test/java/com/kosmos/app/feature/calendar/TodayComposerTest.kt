@@ -23,7 +23,7 @@ class TodayComposerTest {
         CalendarEvent(id = id, title = id, startIso = start, endIso = end, source = source)
 
     private fun week(vararg events: CalendarEvent, failed: Boolean = false) =
-        ScheduleData(events = events.toList().toImmutableList(), summary = null, rangeType = ScheduleData.RangeType.WEEK, deviceCalendarFailed = failed)
+        ScheduleData(events = events.toList().toImmutableList(), rangeType = ScheduleData.RangeType.WEEK, deviceCalendarFailed = failed)
 
     @Test
     fun `오늘 일정과 오늘 울릴 알림이 시간순으로 섞인다 — 다른 날 알림은 빠진다`() {

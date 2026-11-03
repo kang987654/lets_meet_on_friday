@@ -1,22 +1,25 @@
 package com.kosmos.app.assistant.tool
 
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.domain.model.CalendarEvent
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
 import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.slot
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import com.kosmos.app.domain.usecase.SummarizeScheduleUseCase
 
 /**
  * [GetScheduleRangeTest]
- * 모델이 보낸 `date` 값이 어떤 조회 범위로 해석되는지 고정합니다.
+ * 모델이 보낸 `date` 값이 어떤 조회 범위로 해석되는지와 결과 형식(종료 시각·캘린더 실패·절단)을 고정합니다.
  *
  * [WHY] 이전 구현은 `"week"` 포함 여부만 보고 나머지를 전부 TODAY 로 떨어뜨렸다. PC 실험에서
  * "내일 스케줄 알려줘" 에 모델이 `date='tomorrow'` 를, "모레 뭐 있지?" 에 `date='2026-08-09'`
@@ -32,17 +35,12 @@ class GetScheduleRangeTest {
         val useCase: GetTodayScheduleUseCase = mockk {
             coEvery { this@mockk.invoke(capture(captured)) } returns AppResult.Success(
                 ScheduleData(
-                    events = kotlinx.collections.immutable.persistentListOf(),
-                    summary = "없음",
+                    events = persistentListOf(),
                     rangeType = ScheduleData.RangeType.TODAY
                 )
             )
         }
-        // 이 테스트는 범위 해석만 본다 — 요약은 관심사가 아니므로 빈 문자열로 둔다.
-        val summarize: SummarizeScheduleUseCase = mockk {
-            coEvery { this@mockk.invoke(any(), any()) } returns AppResult.Success("")
-        }
-        val executor = GetScheduleToolExecutor(useCase, summarize)
+        val executor = GetScheduleToolExecutor(useCase)
         val json = if (dateArg == null) JSONObject() else JSONObject().put("date", dateArg)
 
         runBlocking { executor.execute(ToolArguments(json), "s1") }
@@ -69,5 +67,68 @@ class GetScheduleRangeTest {
         cases.forEach { (arg, expected) ->
             assertEquals("date=[$arg]", expected, rangeFor(arg))
         }
+    }
+
+    @Test
+    fun `결과 형식 - 시작과 종료 시각·빈 일정·기기 캘린더 실패 안내·토큰 상한 절단`() = runBlocking {
+        // 1. 일반 일정 (시작~종료 시각 포함)
+        val eventUseCase: GetTodayScheduleUseCase = mockk {
+            coEvery { this@mockk.invoke(any()) } returns AppResult.Success(
+                ScheduleData(
+                    events = persistentListOf(
+                        CalendarEvent(
+                            id = "e1",
+                            title = "팀 회의",
+                            startIso = "2026-08-20T10:00:00",
+                            endIso = "2026-08-20T11:00:00"
+                        )
+                    ),
+                    rangeType = ScheduleData.RangeType.TODAY
+                )
+            )
+        }
+        val normalData = JSONObject(
+            GetScheduleToolExecutor(eventUseCase).execute(ToolArguments(JSONObject()), "s1")
+        ).getString("data")
+        assertTrue(normalData.startsWith("[일정]\n- 팀 회의 (8월 20일 오전 10:00 ~ 오전 11:00)"))
+        assertFalse("중첩 요약 문구가 없어야 한다", normalData.contains("일정 요약"))
+
+        // 2. 빈 일정 + 기기 캘린더 읽기 실패(EC4)
+        val emptyFailedUseCase: GetTodayScheduleUseCase = mockk {
+            coEvery { this@mockk.invoke(any()) } returns AppResult.Success(
+                ScheduleData(
+                    events = persistentListOf(),
+                    rangeType = ScheduleData.RangeType.TODAY,
+                    deviceCalendarFailed = true
+                )
+            )
+        }
+        val emptyFailedData = JSONObject(
+            GetScheduleToolExecutor(emptyFailedUseCase).execute(ToolArguments(JSONObject()), "s1")
+        ).getString("data")
+        assertTrue(emptyFailedData.startsWith("등록된 일정이 없어요."))
+        assertTrue("일정이 0건이어도 기기 캘린더 실패 안내가 포함돼야 한다", emptyFailedData.contains("기기 캘린더를 읽지 못해"))
+
+        // 3. 다량 일정 — 토큰 상한(400) 절단 표식
+        val manyEvents = (1..80).map { i ->
+            CalendarEvent(
+                id = "e$i",
+                title = "반복 프로젝트 점검 회의 $i",
+                startIso = "2026-08-20T10:00:00",
+                endIso = "2026-08-20T11:00:00"
+            )
+        }
+        val manyUseCase: GetTodayScheduleUseCase = mockk {
+            coEvery { this@mockk.invoke(any()) } returns AppResult.Success(
+                ScheduleData(
+                    events = persistentListOf(*manyEvents.toTypedArray()),
+                    rangeType = ScheduleData.RangeType.WEEK
+                )
+            )
+        }
+        val cappedData = JSONObject(
+            GetScheduleToolExecutor(manyUseCase).execute(ToolArguments(JSONObject().put("date", "week")), "s1")
+        ).getString("data")
+        assertTrue(cappedData.endsWith("... [TRUNCATED TO SAVE CONTEXT]"))
     }
 }

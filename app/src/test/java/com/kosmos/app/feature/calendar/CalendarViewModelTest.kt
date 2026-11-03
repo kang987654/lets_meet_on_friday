@@ -181,7 +181,6 @@ class CalendarViewModelTest {
         coEvery { useCase(any()) } returns AppResult.Success(
             ScheduleData(
                 events = events,
-                summary = null,
                 rangeType = ScheduleData.RangeType.TODAY,
                 deviceCalendarFailed = deviceCalendarFailed
             )

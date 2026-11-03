@@ -24,7 +24,7 @@ import javax.inject.Inject
  * 영어 판은 exp72 에서 5/5 검증됐다.
  *
  * [WHY] `oneShot = true` — 부수 계산이다. 붙이지 않으면 시스템 지시와 sessionId 가 채팅과
- * 달라 런타임이 캐시된 채팅 대화를 파괴한다 (ADR-010·014, SummarizeScheduleUseCase 전례).
+ * 달라 런타임이 캐시된 채팅 대화를 파괴한다 (ADR-010·014).
  */
 class SummarizeEpisodeUseCase @Inject constructor(
     private val modelRunner: ModelRunner,

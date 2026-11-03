@@ -35,7 +35,6 @@ class WidgetSnapshotTest {
     private fun schedule(vararg events: CalendarEvent, calendarFailed: Boolean = false) =
         ScheduleData(
             events = events.toList().toPersistentList(),
-            summary = null,
             rangeType = ScheduleData.RangeType.TODAY,
             deviceCalendarFailed = calendarFailed
         )

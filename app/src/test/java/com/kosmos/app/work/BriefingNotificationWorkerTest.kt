@@ -54,7 +54,7 @@ class BriefingNotificationWorkerTest {
         every { settingsDataStore.briefingEnabledFlow } returns flowOf(true)
         every { settingsDataStore.briefingTimeMinutesFlow } returns flowOf(557)
         coEvery { getTodaySchedule(ScheduleData.RangeType.TODAY) } returns AppResult.Success(
-            ScheduleData(events = persistentListOf(), summary = null, rangeType = ScheduleData.RangeType.TODAY)
+            ScheduleData(events = persistentListOf(), rangeType = ScheduleData.RangeType.TODAY)
         )
         coEvery { taskRepository.getPendingTodosData(any(), any()) } returns AppResult.Success(
             listOf(TaskItem(id = "t1", title = "특강 준비", isCompleted = false, createdAt = 0L))

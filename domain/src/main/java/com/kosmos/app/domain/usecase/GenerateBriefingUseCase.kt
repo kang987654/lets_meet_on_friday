@@ -103,7 +103,12 @@ class GenerateBriefingUseCase @Inject constructor(
                 appendLine(noneLine)
             } else {
                 materials.events.forEach { event ->
-                    val time = IsoDateTimeParser.toDisplayKorean(event.startIso, lang = lang) ?: event.startIso
+                    val time = IsoDateTimeParser.toDisplayRangeKorean(
+                        event.startIso,
+                        event.endIso,
+                        materials.zoneId,
+                        lang = lang
+                    ) ?: event.startIso
                     appendLine("- ${event.title} ($time)")
                 }
             }

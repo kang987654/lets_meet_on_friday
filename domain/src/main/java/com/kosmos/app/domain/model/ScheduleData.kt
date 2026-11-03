@@ -10,7 +10,6 @@ import kotlinx.collections.immutable.ImmutableList
  */
 data class ScheduleData(
     val events: ImmutableList<CalendarEvent>,
-    val summary: String?,
     val rangeType: RangeType,
     val deviceCalendarFailed: Boolean = false
 ) {

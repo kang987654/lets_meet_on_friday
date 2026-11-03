@@ -30,7 +30,7 @@ import com.kosmos.app.domain.util.IsoDateTimeParser
  * [WHY] **요약은 여기서 만들지 않는다.** 예전에는 이 유스케이스가 `ModelRunner` 를 들고 요약
  * 추론까지 했는데, 그 때문에 (a) 캘린더 화면이 추론이 끝날 때까지 목록조차 못 보여 줬고,
  * (b) `GetScheduleToolExecutor` 를 통해 **툴 실행 도중에 추론이 한 번 더** 돌았다. 조회는 수십
- * 밀리초, 요약은 10초짜리 작업이라 한 반환값에 묶을 이유가 없다 → [SummarizeScheduleUseCase].
+ * 밀리초짜리 작업이며 툴 결과도 목록만 돌려준다(0.40.6 M2).
  */
 class GetTodayScheduleUseCase @Inject constructor(
     private val taskRepository: TaskRepository,
@@ -63,14 +63,9 @@ class GetTodayScheduleUseCase @Inject constructor(
             is AppResult.Success -> loaded.data
             is AppResult.Failure -> return AppResult.Failure(loaded.error)
         }
-        // [WHY] 요약은 이 유스케이스가 만들지 않는다 — `SummarizeScheduleUseCase` 로 분리했다.
-        // 예전에는 여기서 요약 추론(~10초)을 **기다린 뒤** 결과를 냈고, 그동안 캘린더 화면은
-        // 스피너만 돌았다. 조회와 요약은 수명이 다른 작업이라 한 반환값에 묶으면 느린 쪽이
-        // 빠른 쪽을 인질로 잡는다.
         return AppResult.Success(
             ScheduleData(
                 events = events.toImmutableList(),
-                summary = null,
                 rangeType = range,
                 deviceCalendarFailed = deviceCalendarFailed
             )

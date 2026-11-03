@@ -66,6 +66,34 @@ object IsoDateTimeParser {
         }
 
     /**
+     * 시작·종료 일시 범위 표기 — 같은 날 시간대 일정이면 `"8월 20일 오후 4:00 ~ 오후 5:00"` / `"Aug 20, 4:00 PM ~ 5:00 PM"`.
+     * 다른 날에 걸친 일정이면 종료 쪽에도 날짜를 붙이고(`"8월 20일 오후 11:00 ~ 8월 21일 오전 1:00"`),
+     * 종일 일정이거나 시작·종료 시각이 같으면 시작 표기만 반환합니다. 파싱 실패 시 null.
+     *
+     * [WHY] 일정 툴 결과와 아침 브리핑 재료에 시작 시각만 들어가면 "회의 몇 시에 끝나?"에 답할 수 없다 (0.40.6 M2, exp73).
+     */
+    fun toDisplayRangeKorean(
+        startIso: String,
+        endIso: String,
+        zoneId: ZoneId = ZoneId.systemDefault(),
+        lang: AppLanguage = AppLanguage.KO
+    ): String? {
+        val startDisplay = toDisplayKorean(startIso, zoneId, lang) ?: return null
+        if (isDateOnly(startIso) || startIso == endIso) return startDisplay
+        val startMs = toEpochMillis(startIso, zoneId) ?: return startDisplay
+        val endMs = toEpochMillis(endIso, zoneId) ?: return startDisplay
+        if (endMs <= startMs) return startDisplay
+        val startDt = Instant.ofEpochMilli(startMs).atZone(zoneId)
+        val endDt = Instant.ofEpochMilli(endMs).atZone(zoneId)
+        val endPart = if (startDt.toLocalDate() == endDt.toLocalDate()) {
+            toDisplayTimeKorean(endIso, zoneId, lang) ?: return startDisplay
+        } else {
+            toDisplayKorean(endIso, zoneId, lang) ?: return startDisplay
+        }
+        return "$startDisplay ~ $endPart"
+    }
+
+    /**
      * 글 속의 ISO 날짜·일시를 사람이 읽는 표기로 — 한국어 `"10월 26일 오후 4:30"`, 영어 `"Oct 26, 4:30 PM"`.
      * 날짜만이면 `"10월 26일"` / `"Oct 26"`. 날짜로 읽히지 않는 숫자 묶음("1234-56-78")·전화번호·송장번호는 그대로 둔다.
      *

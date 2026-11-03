@@ -1,5 +1,6 @@
 package com.kosmos.app.domain.util
 
+import com.kosmos.app.core.common.AppLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -64,5 +65,34 @@ class IsoDateTimeParserDisplayTest {
         val ms = java.time.Instant.parse("2026-09-30T16:05:00Z").toEpochMilli()
         assertEquals("9월 30일", IsoDateTimeParser.monthDayKorean(ms, utc))
         assertEquals("오후 4:05", IsoDateTimeParser.timeKorean(ms, utc))
+    }
+
+    @Test
+    fun `시작과 종료 일시 범위 표기 - 같은 날·다른 날·종일·동일 시각`() {
+        assertEquals(
+            "8월 20일 오후 4:00 ~ 오후 5:30",
+            IsoDateTimeParser.toDisplayRangeKorean("2026-08-20T16:00:00", "2026-08-20T17:30:00", seoul)
+        )
+        assertEquals(
+            "Aug 20, 4:00 PM ~ 5:30 PM",
+            IsoDateTimeParser.toDisplayRangeKorean(
+                "2026-08-20T16:00:00",
+                "2026-08-20T17:30:00",
+                seoul,
+                AppLanguage.EN
+            )
+        )
+        assertEquals(
+            "8월 20일 오후 11:00 ~ 8월 21일 오전 1:00",
+            IsoDateTimeParser.toDisplayRangeKorean("2026-08-20T23:00:00", "2026-08-21T01:00:00", seoul)
+        )
+        assertEquals(
+            "8월 15일 종일",
+            IsoDateTimeParser.toDisplayRangeKorean("2026-08-15", "2026-08-15", seoul)
+        )
+        assertEquals(
+            "8월 20일 오후 4:00",
+            IsoDateTimeParser.toDisplayRangeKorean("2026-08-20T16:00:00", "2026-08-20T16:00:00", seoul)
+        )
     }
 }

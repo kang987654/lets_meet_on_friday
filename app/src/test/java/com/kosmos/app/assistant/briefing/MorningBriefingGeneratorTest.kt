@@ -80,7 +80,7 @@ class MorningBriefingGeneratorTest {
             AppResult.Success(0)
         coEvery { conversationRepository.save(any()) } returns AppResult.Success(Unit)
         coEvery { getTodaySchedule(ScheduleData.RangeType.TODAY) } returns AppResult.Success(
-            ScheduleData(events = persistentListOf(), summary = null, rangeType = ScheduleData.RangeType.TODAY)
+            ScheduleData(events = persistentListOf(), rangeType = ScheduleData.RangeType.TODAY)
         )
         coEvery { taskRepository.getPendingTasksData(any(), any()) } returns AppResult.Success(emptyList())
         coEvery { episodeRepository.getEpisodes(any(), any()) } returns AppResult.Success(emptyList())
