@@ -106,3 +106,6 @@ Thumbs.db
 
 # 화면 카탈로그 출력(0.38.0 감사용, -Pcatalog 로 재생성)
 docs/design/audit-0.38/
+
+# exp74 공개 법령 원문(내려받은 자료 — 커밋하지 않는다)
+scratch/lab/library_data/
