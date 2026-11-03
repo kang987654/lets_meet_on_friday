@@ -75,13 +75,18 @@ internal object RuntimeDiagnostics {
      * 뮤텍스 안에서 일어난다. 프리페이스를 logcat 에 남기는 것 자체도 사용자 발화가 새는 경로다.
      * [WHY] 조각으로 나눠 찍는다 — 예전 `take(2000)` 은 툴 선언 블록 중간에서 잘려 정작 답이 안 보였다.
      * [WHY] renderPrefaceIntoString 은 @ExperimentalApi — 진단용이라 API 가 사라져도 로그만 잃는다.
+     * [WHY] 재생성 이유와 직전 KV 를 함께 남긴다 — 재생성은 전체 프리필이라 GPU 를 오래 붙잡는다. 왜 다시 만들었는지 실기기 로그로
+     * 바로 읽게 한다(0.40.7).
+     *
+     * @param cause `first`·`stale`·`session` 또는 [com.kosmos.app.domain.modelrunner.ConversationResetEvent.Reason] 이름
+     * @param previousTokens 버린 대화의 KV 토큰 수 — 판정이 읽지 않았으면 null
      */
     @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
-    fun logConversationCreated(prompt: ChatPrompt, created: Conversation) {
+    fun logConversationCreated(prompt: ChatPrompt, created: Conversation, cause: String, previousTokens: Int?) {
         if (!BuildConfig.DEBUG) return
         Log.d(
             TAG,
-            "conversation created: tools=${prompt.enabledTools}, " +
+            "conversation created: cause=$cause, previousKv=${previousTokens ?: "-"}, tools=${prompt.enabledTools}, " +
                 "providers=${KosmosToolDeclarations.providersFor(prompt.enabledTools).size}"
         )
         runCatching { created.renderPrefaceIntoString() }

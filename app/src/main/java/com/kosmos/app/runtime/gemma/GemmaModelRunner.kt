@@ -609,9 +609,11 @@ class GemmaModelRunner @Inject constructor(
         val stale = conversationStale && prompt.toolResponse == null
         if (stale) conversationStale = false
         // [WHY] 키를 비워 넘기면 재생성(리셋 사유 없음 — 주제가 끝난 사건이 아니라 에피소드 경계가 아니다).
+        var observedTokens: Int? = null
         val decision = decideConversation(cachedKey.takeIf { existing != null && !stale }, prompt) {
             val tokens = existing?.getTokenCount() ?: 0
             RuntimeDiagnostics.warnIfOverCeiling(tokens)
+            observedTokens = tokens
             tokens
         }
         if (decision is ConversationDecision.Reuse && existing != null) return existing
@@ -638,7 +640,12 @@ class GemmaModelRunner @Inject constructor(
         } finally {
             ExperimentalFlags.enableConversationConstrainedDecoding = false
         }
-        RuntimeDiagnostics.logConversationCreated(prompt, newConversation)
+        val cause = when {
+            existing == null -> "first"
+            stale -> "stale"
+            else -> (decision as? ConversationDecision.Recreate)?.resetReason?.name ?: "session"
+        }
+        RuntimeDiagnostics.logConversationCreated(prompt, newConversation, cause, observedTokens)
         conversation = newConversation
         cachedKey = ConversationKey.of(prompt)
         return newConversation
