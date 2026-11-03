@@ -13,10 +13,12 @@ package com.kosmos.app.domain.agent
  *   [WHY] 빈 문자열을 넘기면 UI 가 "텍스트 있음"으로 오해해 타이핑 인디케이터를 숨겼고,
  *   생각 블록만 스트리밍되는 구간에서 빈 버블에 스피너도 없는 상태가 됐다.
  * @property thinking 누적된 사고 과정. 없으면 `null`.
+ * @property transcribedUserText 음성 전사가 끝난 직후 낙관적 사용자 말풍선(`"(음성 메시지)"`)을 즉시 교체할 전사문(0.40.6 M4). 일반 스트리밍 토큰에서는 `null`.
  */
 data class StreamUpdate(
     val content: String?,
-    val thinking: String?
+    val thinking: String?,
+    val transcribedUserText: String? = null
 )
 
 data class ChatRequest(

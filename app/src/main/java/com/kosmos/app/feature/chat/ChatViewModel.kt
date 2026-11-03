@@ -489,11 +489,20 @@ class ChatViewModel @Inject constructor(
                     // 다음 턴으로 넘어갈 때 비울 신호가 없어서 1턴 문장이 2턴에 이어붙었다
                     // (ADR-007).
                     onStream = { update ->
+                        val transcribed = update.transcribedUserText
                         _uiState.update { state ->
-                            state.copy(
-                                streamingText = update.content,
-                                streamingThinking = update.thinking
-                            )
+                            if (transcribed != null) {
+                                state.copy(
+                                    messages = state.messages.map { msg ->
+                                        if (msg.id == tempUserMessage.id) msg.copy(content = transcribed) else msg
+                                    }.toImmutableList()
+                                )
+                            } else {
+                                state.copy(
+                                    streamingText = update.content,
+                                    streamingThinking = update.thinking
+                                )
+                            }
                         }
                     }
                 )

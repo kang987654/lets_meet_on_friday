@@ -5,6 +5,7 @@ import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.domain.agent.AssistantGateway
 import com.kosmos.app.domain.agent.ChatRequest
+import com.kosmos.app.domain.agent.StreamUpdate
 import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.domain.memory.ConversationRepository
@@ -96,6 +97,10 @@ class AssistantOrchestrator @Inject constructor(
         val saveUserResult = messageWriter.save(request.sessionId, ChatMessage.Role.USER, content, inputType, episodeId = episodeId, now = now)
         if (saveUserResult is AppResult.Failure) {
             return AgentResult.Error(saveUserResult.error)
+        }
+        // [WHY] 음성 턴은 에이전트 추론(10~15초)이 끝날 때까지 기다리지 않고 전사문 저장 직후 말풍선의 "(음성 메시지)" 자리표시자를 즉시 전사문으로 바꾼다(0.40.6 M4).
+        if (transcript != null) {
+            request.onStream?.invoke(StreamUpdate(content = null, thinking = null, transcribedUserText = transcript))
         }
 
         // 3. 문서 텍스트 저장

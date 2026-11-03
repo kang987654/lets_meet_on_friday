@@ -6,6 +6,7 @@ import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.domain.agent.ChatRequest
+import com.kosmos.app.domain.agent.StreamUpdate
 import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.domain.memory.ConversationRepository
 import com.kosmos.app.domain.model.ChatMessage
@@ -90,11 +91,17 @@ class VoiceTranscriptionFailureTest {
     @Test
     fun `전사 성공 시에도 임시 오디오 파일을 지우고 전사문을 저장한다`() = runBlocking {
         val audio = tempAudio()
+        val updates = mutableListOf<StreamUpdate>()
         coEvery { transcribe(any()) } returns AppResult.Success(TRANSCRIPT)
         coEvery { contextBuilder.build(any()) } returns AppResult.Failure(AppError.DbReadError("여기서 멈춘다"))
 
         orchestrator().processRequest(
-            ChatRequest(sessionId = SESSION, message = "", audioFilePath = audio.absolutePath)
+            ChatRequest(
+                sessionId = SESSION,
+                message = "",
+                audioFilePath = audio.absolutePath,
+                onStream = { updates += it }
+            )
         )
 
         assertFalse(audio.exists())
@@ -102,6 +109,23 @@ class VoiceTranscriptionFailureTest {
             "전사문이 USER 메시지로 저장돼야 한다. 저장된 것: ${savedMessages.map { it.role to it.content }}",
             savedMessages.any { it.role == ChatMessage.Role.USER && it.content == TRANSCRIPT }
         )
+        assertEquals(
+            "에이전트 추론 전에 onStream 으로 전사문이 즉시 전달돼야 한다",
+            listOf(StreamUpdate(content = null, thinking = null, transcribedUserText = TRANSCRIPT)),
+            updates
+        )
+    }
+
+    @Test
+    fun `텍스트 요청은 transcribedUserText 스트림을 보내지 않는다`() = runBlocking {
+        val updates = mutableListOf<StreamUpdate>()
+        coEvery { contextBuilder.build(any()) } returns AppResult.Failure(AppError.DbReadError("여기서 멈춘다"))
+
+        orchestrator().processRequest(
+            ChatRequest(sessionId = SESSION, message = "안녕", onStream = { updates += it })
+        )
+
+        assertTrue(updates.isEmpty())
     }
 
     @Test
