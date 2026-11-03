@@ -3,6 +3,7 @@ package com.kosmos.app.assistant.tool
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.memory.TaskRepository
 import com.kosmos.app.domain.model.TaskItem
+import com.kosmos.app.runtime.gemma.GemmaTokenizer
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -25,7 +26,7 @@ class ListRemindersToolExecutorTest {
 
     private fun run(result: AppResult<List<TaskItem>>): JSONObject {
         val repo: TaskRepository = mockk { coEvery { getActiveReminders() } returns result }
-        return JSONObject(runBlocking { ListRemindersToolExecutor(repo).execute(ToolArguments(JSONObject()), "s1") })
+        return JSONObject(runBlocking { ListRemindersToolExecutor(repo, GemmaTokenizer()).execute(ToolArguments(JSONObject()), "s1") })
     }
 
     @Test

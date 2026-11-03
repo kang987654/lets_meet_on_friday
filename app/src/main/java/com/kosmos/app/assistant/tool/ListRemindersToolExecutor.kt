@@ -9,7 +9,6 @@ import com.kosmos.app.domain.tool.Tokenizer
 import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.util.IsoDateTimeParser
 import com.kosmos.app.domain.util.SentenceTruncator
-import com.kosmos.app.runtime.gemma.GemmaTokenizer
 import javax.inject.Inject
 
 /**
@@ -18,7 +17,7 @@ import javax.inject.Inject
  *
  * ### Architecture Context
  * - **Layer**: Assistant (Tool)
- * - **Dependencies**: [TaskRepository]
+ * - **Dependencies**: [TaskRepository], [Tokenizer]
  *
  * ### Key Flow
  * 1. 울리기 전·취소 안 됨·미완료 알림을 모두 읽는다([TaskRepository.getActiveReminders]).
@@ -29,7 +28,7 @@ import javax.inject.Inject
  */
 class ListRemindersToolExecutor @Inject constructor(
     private val taskRepository: TaskRepository,
-    private val tokenizer: Tokenizer = GemmaTokenizer(),
+    private val tokenizer: Tokenizer,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ToolExecutor {
 

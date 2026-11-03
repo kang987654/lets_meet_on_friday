@@ -10,7 +10,6 @@ import com.kosmos.app.domain.tool.ToolNames
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
 import com.kosmos.app.domain.util.IsoDateTimeParser
 import com.kosmos.app.domain.util.SentenceTruncator
-import com.kosmos.app.runtime.gemma.GemmaTokenizer
 import javax.inject.Inject
 
 /**
@@ -31,7 +30,7 @@ import javax.inject.Inject
  */
 class GetScheduleToolExecutor @Inject constructor(
     private val getTodayScheduleUseCase: GetTodayScheduleUseCase,
-    private val tokenizer: Tokenizer = GemmaTokenizer(),
+    private val tokenizer: Tokenizer,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ToolExecutor {
 
@@ -67,24 +66,27 @@ class GetScheduleToolExecutor @Inject constructor(
                         .toDisplayRangeKorean(event.startIso, event.endIso, lang = lang) ?: event.startIso
                     "- ${event.title} ($display)"
                 }
-                val weekTail = if (range == ScheduleData.RangeType.WEEK) {
-                    if (en) WEEK_TAIL_EN else WEEK_TAIL_KO
-                } else {
-                    ""
-                }
-                header + "\n" + lines.joinToString("\n") + weekTail
+                header + "\n" + lines.joinToString("\n")
+            }
+            val weekTail = if (data.events.isNotEmpty() && range == ScheduleData.RangeType.WEEK) {
+                if (en) WEEK_TAIL_EN else WEEK_TAIL_KO
+            } else {
+                ""
             }
             val calNote = if (data.deviceCalendarFailed) {
                 if (en) CAL_FAIL_TAIL_EN else CAL_FAIL_TAIL_KO
             } else {
                 ""
             }
+            // [WHY] 목록만 자르고 꼬리 안내는 그 뒤에 붙인다 — 안내까지 한 덩어리로 자르면 일정이 많은 주에 날짜 대조·캘린더 실패 안내가 먼저 잘려 나간다.
+            val tails = weekTail + calNote
             val capped = SentenceTruncator.truncate(
-                text = body + calNote,
-                maxTokens = Constants.TOOL_RESULT_MAX_TOKENS - Constants.TOOL_RESULT_ENVELOPE_RESERVE_TOKENS,
+                text = body,
+                maxTokens = Constants.TOOL_RESULT_MAX_TOKENS - Constants.TOOL_RESULT_ENVELOPE_RESERVE_TOKENS -
+                    tokenizer.sizeInTokens(tails),
                 tokenizer = tokenizer,
                 marker = TRUNCATION_MARKER
-            )
+            ) + tails
             // [WHY] 일정 제목에 따옴표/개행이 있어도 JSON이 깨지지 않도록 JSONObject로 조립한다.
             ToolResultJson.success().put("data", capped).toString()
         } else {

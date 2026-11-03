@@ -4,6 +4,7 @@ import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.model.CalendarEvent
 import com.kosmos.app.domain.model.ScheduleData
 import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
+import com.kosmos.app.runtime.gemma.GemmaTokenizer
 import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.slot
@@ -40,7 +41,7 @@ class GetScheduleRangeTest {
                 )
             )
         }
-        val executor = GetScheduleToolExecutor(useCase)
+        val executor = GetScheduleToolExecutor(useCase, GemmaTokenizer())
         val json = if (dateArg == null) JSONObject() else JSONObject().put("date", dateArg)
 
         runBlocking { executor.execute(ToolArguments(json), "s1") }
@@ -88,7 +89,7 @@ class GetScheduleRangeTest {
             )
         }
         val normalData = JSONObject(
-            GetScheduleToolExecutor(eventUseCase).execute(ToolArguments(JSONObject()), "s1")
+            GetScheduleToolExecutor(eventUseCase, GemmaTokenizer()).execute(ToolArguments(JSONObject()), "s1")
         ).getString("data")
         assertTrue(normalData.startsWith("[일정]\n- 팀 회의 (8월 20일 오전 10:00 ~ 오전 11:00)"))
         assertFalse("중첩 요약 문구가 없어야 한다", normalData.contains("일정 요약"))
@@ -104,12 +105,12 @@ class GetScheduleRangeTest {
             )
         }
         val emptyFailedData = JSONObject(
-            GetScheduleToolExecutor(emptyFailedUseCase).execute(ToolArguments(JSONObject()), "s1")
+            GetScheduleToolExecutor(emptyFailedUseCase, GemmaTokenizer()).execute(ToolArguments(JSONObject()), "s1")
         ).getString("data")
         assertTrue(emptyFailedData.startsWith("등록된 일정이 없어요."))
         assertTrue("일정이 0건이어도 기기 캘린더 실패 안내가 포함돼야 한다", emptyFailedData.contains("기기 캘린더를 읽지 못해"))
 
-        // 3. 다량 일정 — 토큰 상한(400) 절단 표식
+        // 3. 다량 일정 — 토큰 상한(400)에서 목록만 자르고 날짜 대조·기기 캘린더 실패 꼬리 안내는 살린다
         val manyEvents = (1..80).map { i ->
             CalendarEvent(
                 id = "e$i",
@@ -122,13 +123,16 @@ class GetScheduleRangeTest {
             coEvery { this@mockk.invoke(any()) } returns AppResult.Success(
                 ScheduleData(
                     events = persistentListOf(*manyEvents.toTypedArray()),
-                    rangeType = ScheduleData.RangeType.WEEK
+                    rangeType = ScheduleData.RangeType.WEEK,
+                    deviceCalendarFailed = true
                 )
             )
         }
         val cappedData = JSONObject(
-            GetScheduleToolExecutor(manyUseCase).execute(ToolArguments(JSONObject().put("date", "week")), "s1")
+            GetScheduleToolExecutor(manyUseCase, GemmaTokenizer()).execute(ToolArguments(JSONObject().put("date", "week")), "s1")
         ).getString("data")
-        assertTrue(cappedData.endsWith("... [TRUNCATED TO SAVE CONTEXT]"))
+        assertTrue(cappedData.contains("... [TRUNCATED TO SAVE CONTEXT]"))
+        assertTrue("잘려도 날짜 대조 안내가 남아야 한다", cappedData.contains("다른 날짜 일정은 말하지 마세요."))
+        assertTrue("잘려도 기기 캘린더 실패 안내가 끝에 남아야 한다", cappedData.endsWith("꼭 함께 알려주세요.)"))
     }
 }

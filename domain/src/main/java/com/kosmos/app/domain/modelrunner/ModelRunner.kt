@@ -82,7 +82,8 @@ interface ModelRunner {
  *
  * [WHY] `PlanMemoryMergeUseCase`·`EpisodeSummarizeScheduler` 처럼 어느 `oneShot` 호출이 마지막인지 미리 알 수 없는 배치에서
  * 유스케이스나 `ChatPrompt` 시그니처를 오염시키지 않고 호출부 스코프만으로 중간 복원을 생략한다 (exp73 defer: 3회 연속 시 복원 9.40s → 3.99s).
- * 코루틴이 취소되어 빠져나갈 때는 `restore = isActive` 로 불필요한 복원을 건너뛴다.
+ * [block] 이 끝까지 돌았을 때만 복원한다 — 취소·예외는 물론 바깥 람다로의 비지역 반환(`return@withLock` 등: 발열 중단·사용자
+ * 끼어들기)으로 빠져나가도 `restore = false` 로 건너뛰고, 그 비용은 다음 채팅 턴의 첫 호출이 치른다.
  */
 suspend inline fun <T> ModelRunner.deferRestore(block: suspend () -> T): T {
     beginDeferRestore()
