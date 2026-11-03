@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.40.6 · 2026-11-03. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.40.7 · 2026-11-03. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 KOSMOS is an AI assistant that runs entirely on your phone, with no server. Ask in plain language (Korean or English) and it creates calendar events,
 reminders and notes, and answers by searching your past conversations and notes. It always asks for your confirmation before saving.
@@ -80,7 +80,7 @@ Requested only when needed. Everything else keeps working if you decline.
 - **It can be wrong** — it is a small model. A confirmation sheet always appears before saving, so check the content.
 - **When the device is hot** (battery around 43°C or more) background work such as memory cleanup and briefings is postponed.
 - **Sending a chat message during memory cleanup cancels the cleanup** — so your answer does not wait behind it, cleanup stops if it is still preparing its results (an already open review screen stays). Start it again from Settings.
-- **Some turns are slow** — if you ask while the conversation is still warming up right after the model wakes (about 10 seconds), or when a turn has to rebuild the conversation on the spot, the first answer can take around 10 seconds.
+- **Some turns are slow** — after the model wakes and after each answer, the assistant prepares the next conversation once you have stopped typing for 5 seconds (about 5–10 seconds; it waits so typing stays smooth). If you send before that, or when a turn has to rebuild the conversation on the spot, the first answer can take around 10 seconds.
 
 ## 8. Running on the emulator (developers)
 - Copy the model file to the path in section 3 on an x86_64 AVD. The app detects the emulator and runs the model **on CPU only** (the GPU path looks for OpenCL, which emulators lack, and fails at generation).
