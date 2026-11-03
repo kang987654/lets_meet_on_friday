@@ -16,6 +16,8 @@ import com.kosmos.app.data.embedder.DisabledTextEmbedder
 import com.kosmos.app.data.local.repository.AuditRepositoryImpl
 import com.kosmos.app.data.local.repository.ConversationRepositoryImpl
 import com.kosmos.app.data.local.repository.DataResetRepositoryImpl
+import com.kosmos.app.data.local.repository.LibraryRepositoryImpl
+import com.kosmos.app.domain.library.LibraryRepository
 import com.kosmos.app.data.local.repository.EpisodeRepositoryImpl
 import com.kosmos.app.data.local.repository.ProfileRepositoryImpl
 import com.kosmos.app.data.local.repository.ProfileSuggestionRepositoryImpl
@@ -48,6 +50,12 @@ abstract class MemoryModule {
     abstract fun bindTaskRepository(
         impl: TaskRepositoryImpl
     ): TaskRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLibraryRepository(
+        impl: LibraryRepositoryImpl
+    ): LibraryRepository
 
     @Binds
     @Singleton

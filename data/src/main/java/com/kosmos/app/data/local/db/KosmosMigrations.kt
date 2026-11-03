@@ -192,7 +192,28 @@ object KosmosMigrations {
         }
     }
 
+    /**
+     * v10 → v11: 문서 보관함(0.41.0) — 문서·조각·FTS4 색인 테이블. 기존 테이블은 건드리지 않는다.
+     * DDL 은 `data/schemas/.../11.json` 의 createSql 그대로다(LibraryMigrationTest 가 대조).
+     */
+    val MIGRATION_10_11 = object : Migration(10, 11) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `library_document` (`id` TEXT NOT NULL, `uri` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                    "`mimeType` TEXT, `addedAt` INTEGER NOT NULL, `status` TEXT NOT NULL, `chunkCount` INTEGER NOT NULL, " +
+                    "`charCount` INTEGER NOT NULL, `error` TEXT, PRIMARY KEY(`id`))"
+            )
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `library_chunk` (`rowId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `documentId` TEXT NOT NULL, " +
+                    "`idx` INTEGER NOT NULL, `sectionPath` TEXT NOT NULL, `article` TEXT, `page` INTEGER, `text` TEXT NOT NULL)"
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_library_chunk_documentId` ON `library_chunk` (`documentId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_library_chunk_article` ON `library_chunk` (`article`)")
+            db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS `library_fts` USING FTS4(`tokens` TEXT NOT NULL)")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
-        MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
+        MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11
     )
 }

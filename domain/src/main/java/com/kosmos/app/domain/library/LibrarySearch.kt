@@ -4,9 +4,9 @@ import com.kosmos.app.domain.search.BigramMatcher
 import kotlin.math.ln
 
 /**
- * 검색 후보 — 색인이 돌려준 조각과 그 조각의 문서 이름.
+ * 검색 후보 — 색인이 돌려준 조각과 그 조각의 문서.
  */
-data class LibraryCandidate(val documentName: String, val chunk: LibraryChunk)
+data class LibraryCandidate(val documentName: String, val chunk: LibraryChunk, val documentId: String = "")
 
 /**
  * [LibrarySearch]

@@ -10,7 +10,7 @@ import com.kosmos.app.core.common.AppResult
  * - [KNOWLEDGE]: 지식 노트 전체(직접·자동 저장).
  * - [PROFILE]: 프로필 항목과 호칭 제안 카드.
  */
-enum class ResetTarget { CONVERSATIONS, TASKS, KNOWLEDGE, PROFILE }
+enum class ResetTarget { CONVERSATIONS, TASKS, KNOWLEDGE, PROFILE, LIBRARY }
 
 /**
  * [DataResetRepository]
