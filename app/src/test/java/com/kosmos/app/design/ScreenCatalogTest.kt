@@ -412,7 +412,8 @@ class ScreenCatalogTest {
         speechOutput = io.mockk.mockk(relaxed = true) {
             io.mockk.every { speakingMessageId } returns MutableStateFlow(null)
             io.mockk.coEvery { autoReadEnabled() } returns false
-        }
+        },
+        conversationPrewarmer = io.mockk.mockk(relaxed = true)
     )
 
     private fun memoryViewModel() = MemoryViewModel(

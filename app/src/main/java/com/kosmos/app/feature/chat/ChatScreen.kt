@@ -369,6 +369,7 @@ fun ChatScreen(
                 onMicClick = startVoice,
                 onAttachClick = { imagePickerLauncher.launch("*/*") },
                 onStopGeneration = { viewModel.cancelGeneration() },
+                onTyping = { viewModel.onTyping() },
                 webSearchEnabled = webSearchEnabled,
                 onToggleWebSearch = { enabled ->
                     onToggleWebSearch(enabled)

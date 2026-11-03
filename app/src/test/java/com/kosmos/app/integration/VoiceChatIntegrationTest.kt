@@ -137,7 +137,8 @@ class VoiceChatIntegrationTest {
             speechOutput = io.mockk.mockk(relaxed = true) {
                 io.mockk.every { speakingMessageId } returns kotlinx.coroutines.flow.MutableStateFlow(null)
                 io.mockk.coEvery { autoReadEnabled() } returns false
-            }
+            },
+            conversationPrewarmer = io.mockk.mockk(relaxed = true)
         )
     }
 

@@ -72,7 +72,9 @@ fun ChatInputBar(
     // 문서 파일(xlsx·docx·hwpx·PDF)을 읽는 중 — 기본값은 E2E 계약(단독 compose) 때문에 필수다(0.35.0 M4).
     attachmentExtracting: Boolean = false,
     // 녹음 중 소리 크기(0..1) — 파형(0.38.4 M5). 기본값은 E2E 계약(단독 compose) 때문에.
-    recordingLevel: () -> Float = { 0f }
+    recordingLevel: () -> Float = { 0f },
+    // 글자가 바뀔 때(커서 이동 제외) — 다음 턴 대화 미리 준비를 입력이 멎을 때까지 미룬다(0.40.7). 기본값은 E2E 계약(단독 compose).
+    onTyping: () -> Unit = {}
 ) {
     var textState by remember { mutableStateOf(TextFieldValue("")) }
 
@@ -195,7 +197,10 @@ fun ChatInputBar(
                 }
                 BasicTextField(
                     value = textState,
-                    onValueChange = { textState = it },
+                    onValueChange = {
+                        if (it.text != textState.text) onTyping()
+                        textState = it
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     textStyle = MaterialTheme.typography.bodyMedium.copy(color = KosmosTheme.colors.textPrimary),
                     cursorBrush = SolidColor(KosmosTheme.colors.brand),

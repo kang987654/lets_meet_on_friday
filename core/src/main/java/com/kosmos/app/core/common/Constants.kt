@@ -141,6 +141,14 @@ object Constants {
     // [WHY] 바닥(예약 + 최소 히스토리)을 따라 올린다 — 1,750(예약 1,450, 0.38.5 M5) → 1,800(예약 1,500, 0.38.6 M4). 슬라이더 하한 2,000 아래라 실제 임계값은 그대로다.
     const val MIN_CONVERSATION_RESET_TOKENS = 1800
 
+    /**
+     * 대화 미리 준비(ConversationPrewarmer)를 시작하기 전 기다리는 조용한 시간입니다 — 턴 종료·마지막 입력 중 늦은 시각부터.
+     *
+     * [WHY] 미리 준비의 재생성 프리필은 GPU 를 수 초 붙잡아 같은 GPU 로 그리는 화면이 끊긴다. 답 직후 입력과 겹치지 않게
+     * 입력이 멎은 뒤에 시작한다(0.40.7, 사용자 결정 5초).
+     */
+    const val PREWARM_QUIET_MS = 5_000L
+
     // [WHY] **프롬프트 슬라이딩 윈도우 후보 수(ContextBuilder 전용).** 화면 타임라인은 [CHAT_TIMELINE_PAGE_SIZE] 로
     // 따로 간다 — UI 페이지 크기를 조정하려고 이 값을 만지면 프롬프트 예산이 함께 흔들린다.
     const val MAX_RECENT_CONVERSATIONS = 150

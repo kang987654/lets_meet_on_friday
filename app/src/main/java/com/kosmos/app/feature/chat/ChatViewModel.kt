@@ -39,6 +39,7 @@ import com.kosmos.app.platform.share.ShareIntentHandler
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.assistant.briefing.MorningBriefingGenerator
+import com.kosmos.app.assistant.orchestrator.ConversationPrewarmer
 import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.domain.memory.EpisodeRepository
 import com.kosmos.app.domain.memory.ProfileSuggestionRepository
@@ -80,6 +81,7 @@ class ChatViewModel @Inject constructor(
     private val suggestionRepository: ProfileSuggestionRepository,
     private val suggestionResolver: ProfileSuggestionResolver,
     private val speechOutput: SpeechOutput,
+    private val conversationPrewarmer: ConversationPrewarmer,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ViewModel() {
 
@@ -537,6 +539,11 @@ class ChatViewModel @Inject constructor(
         _uiState.update { it.copy(sharedInput = null) }
     }
 
+    /** 입력란 글자가 바뀌었다 — 다음 턴 대화 미리 준비를 입력이 멎을 때까지 미룬다(0.40.7). */
+    fun onTyping() {
+        conversationPrewarmer.onTyping()
+    }
+
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
     }
@@ -631,6 +638,9 @@ class ChatViewModel @Inject constructor(
             speechOutput.stop()
             val result = audioRecorder.startRecording()
             if (result is AppResult.Success) {
+                // [WHY] 녹음 상한까지를 입력 중으로 본다 — 녹음 중에 미리 준비 프리필이 시작되면 끝낸 뒤 전사가 그 프리필을 기다린다(0.40.7).
+                // 녹음을 보내면 새 요청이 남은 준비를 취소한다.
+                conversationPrewarmer.onTyping(System.currentTimeMillis() + Constants.MAX_AUDIO_SECONDS * 1000L)
                 _uiState.update { it.copy(isRecording = true) }
                 recordingTimeoutJob = viewModelScope.launch {
                     kotlinx.coroutines.delay(Constants.MAX_AUDIO_SECONDS * 1000L)

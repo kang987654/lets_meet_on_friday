@@ -110,7 +110,7 @@ class ConversationPrewarmerTest {
             coEvery { prepareConversation(any()) } coAnswers { done.complete(firstArg()); Unit }
         }
 
-        ConversationPrewarmer(builder, runner, defaultSessionStore) { agent(runner) }.afterTurn("s1")
+        ConversationPrewarmer(builder, runner, defaultSessionStore) { agent(runner) }.apply { quietMs = 0 }.afterTurn("s1")
 
         val prompt = runBlocking { withTimeout(5_000) { done.await() } }
         assertEquals("s1", prompt.sessionId)
@@ -125,7 +125,10 @@ class ConversationPrewarmerTest {
             every { it.loadState } returns (loadState as StateFlow<ModelLoadState>)
             coEvery { it.prepareConversation(any()) } coAnswers { prepared += firstArg<ChatPrompt>() }
         }
-        val prewarmer = ConversationPrewarmer(builder, runner, defaultSessionStore) { agent(runner) }.also { it.start() }
+        val prewarmer = ConversationPrewarmer(builder, runner, defaultSessionStore) { agent(runner) }.also {
+            it.quietMs = 0
+            it.start()
+        }
 
         // 첫 실행 Ready
         loadState.value = ModelLoadState.Ready(mockk(relaxed = true))
@@ -143,5 +146,36 @@ class ConversationPrewarmerTest {
         }
         assertEquals(2, prepared.size)
         prewarmer.onUserActivity()
+    }
+
+    @Test
+    fun `조용해지기까지 남은 시간은 마지막 활동 기준이고 지났으면 0이다`() {
+        assertEquals(5_000L, quietRemainingMs(lastActivityAt = 1_000, now = 1_000, quietMs = 5_000))
+        assertEquals(1_500L, quietRemainingMs(lastActivityAt = 1_000, now = 4_500, quietMs = 5_000))
+        assertEquals(0L, quietRemainingMs(lastActivityAt = 1_000, now = 6_000, quietMs = 5_000))
+        assertEquals(0L, quietRemainingMs(lastActivityAt = 1_000, now = 9_000, quietMs = 5_000))
+    }
+
+    @Test
+    fun `입력이 이어지는 동안에는 준비하지 않고 입력이 멎으면 준비한다`() {
+        val done = CompletableDeferred<Long>()
+        val builder: ContextBuilder = mockk { coEvery { build("s1") } returns AppResult.Success(context(history.take(2))) }
+        val runner: ModelRunner = mockk(relaxed = true) {
+            coEvery { prepareConversation(any()) } coAnswers { done.complete(System.currentTimeMillis()); Unit }
+        }
+        val prewarmer = ConversationPrewarmer(builder, runner, defaultSessionStore) { agent(runner) }.apply { quietMs = 1_000 }
+
+        prewarmer.afterTurn("s1")
+        // 조용한 시간(1초)보다 훨씬 짧은 간격(100ms)으로 1.2초 동안 친다 — 간격을 넉넉히 둬 GC 멈춤에도 흔들리지 않게.
+        val typingEnd = System.currentTimeMillis() + 1_200
+        while (System.currentTimeMillis() < typingEnd) {
+            prewarmer.onTyping()
+            Thread.sleep(100)
+        }
+        val lastTyping = System.currentTimeMillis()
+        assertTrue("입력 중에는 준비가 시작되지 않아야 한다", !done.isCompleted)
+
+        val preparedAt = runBlocking { withTimeout(5_000) { done.await() } }
+        assertTrue("마지막 입력 뒤 조용한 시간이 지나고 준비해야 한다", preparedAt - lastTyping >= 900)
     }
 }

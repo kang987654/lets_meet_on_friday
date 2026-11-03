@@ -148,7 +148,8 @@ class ChatSpeechIntegrationTest {
             },
             suggestionResolver = io.mockk.mockk(relaxed = true),
             // 0.29.0 생성부 추가 — 낭독은 E2E 범위 밖(자동 낭독 꺼짐).
-            speechOutput = speech
+            speechOutput = speech,
+            conversationPrewarmer = io.mockk.mockk(relaxed = true)
         )
     }
 
