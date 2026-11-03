@@ -1,6 +1,7 @@
 package com.kosmos.app.assistant.briefing
 
 import com.kosmos.app.assistant.episode.EpisodeBoundaryManager
+import com.kosmos.app.assistant.orchestrator.ConversationPrewarmer
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.data.local.prefs.SessionStore
 import com.kosmos.app.data.local.prefs.SettingsDataStore
@@ -18,6 +19,7 @@ import com.kosmos.app.domain.usecase.GetTodayScheduleUseCase
 import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.collections.immutable.persistentListOf
@@ -65,6 +67,8 @@ class MorningBriefingGeneratorTest {
     }
     private val notificationScheduler: BriefingNotificationScheduler =
         mockk(relaxed = true)
+    private val conversationPrewarmer: ConversationPrewarmer =
+        mockk(relaxed = true)
 
     @Before
     fun defaults() {
@@ -87,7 +91,8 @@ class MorningBriefingGeneratorTest {
     private fun generator() = MorningBriefingGenerator(
         settingsDataStore, sessionStore, conversationRepository, episodeRepository,
         taskRepository, getTodaySchedule, generateBriefing, boundaryManager,
-        auditTrailService, metricsCollector, modelRunner, notificationScheduler
+        auditTrailService, metricsCollector, modelRunner, notificationScheduler,
+        conversationPrewarmer
     )
 
     @Test
@@ -189,6 +194,19 @@ class MorningBriefingGeneratorTest {
         waitUntil { g.briefingSaved.replayCache.isNotEmpty() }
 
         coVerify(exactly = 1) { generateBriefing(any()) }
+    }
+
+    @Test
+    fun `브리핑 저장 후 대화 캐시를 무효화하고 활성 세션 대화를 미리 준비한다`() = runBlocking {
+        generator().maybeGenerate(now)
+
+        coVerifyOrder {
+            conversationPrewarmer.onUserActivity()
+            generateBriefing(any())
+            conversationRepository.save(any())
+            modelRunner.invalidateConversation()
+            conversationPrewarmer.afterTurn("s1")
+        }
     }
 
     private suspend fun waitUntil(timeoutMs: Long = 2_000, cond: () -> Boolean) {

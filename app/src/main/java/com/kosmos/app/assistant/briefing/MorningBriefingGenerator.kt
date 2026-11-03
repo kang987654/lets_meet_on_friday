@@ -34,6 +34,7 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.kosmos.app.assistant.orchestrator.AssistantMessageWriter
+import com.kosmos.app.assistant.orchestrator.ConversationPrewarmer
 import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.domain.util.IsoDateTimeParser
 import com.kosmos.app.work.BriefingNotificationScheduler
@@ -68,6 +69,7 @@ class MorningBriefingGenerator @Inject constructor(
     private val metricsCollector: RuntimeMetricsCollector,
     private val modelRunner: ModelRunner,
     private val notificationScheduler: BriefingNotificationScheduler,
+    private val conversationPrewarmer: ConversationPrewarmer,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) {
 
@@ -139,6 +141,8 @@ class MorningBriefingGenerator @Inject constructor(
         }
 
         val materials = collectMaterials(zone, now)
+        // [WHY] Ready 편승으로 함께 깨어난 ConversationPrewarmer 가 DB 저장 전 기록으로 대화를 미리 만들지 않게 먼저 멈춘다 (0.40.6 M1).
+        conversationPrewarmer.onUserActivity()
         val briefing = when (val result = generateBriefing(materials)) {
             is AppResult.Success -> result.data
             is AppResult.Failure -> {
@@ -163,6 +167,10 @@ class MorningBriefingGenerator @Inject constructor(
             AppLogger.e(TAG, "브리핑 저장 실패: ${saved.error}")
             return@withLock
         }
+
+        // [WHY] 브리핑이 DB 에 추가됐으므로 기존 대화 캐시를 비우고 브리핑이 반영된 대화방으로 다음 턴을 미리 준비한다 (0.40.6 M1).
+        modelRunner.invalidateConversation()
+        conversationPrewarmer.afterTurn(sessionId)
 
         auditTrailService.logModelRun(
             sessionId = GenerateBriefingUseCase.SESSION_ID,
