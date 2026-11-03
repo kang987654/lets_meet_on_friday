@@ -59,7 +59,9 @@ class KosmosAgent @Inject constructor(
             documentAttached = request.documentText != null
         )
         // [WHY] 같은 질문의 앞 답을 기록에서 뺀 턴 — 살아 있는 대화에는 그 답이 남아 있어 모델이 되풀이한다. 이 턴에 다시 만든다(0.39.3 M4d).
-        if (context.repeatDropped) modelRunner.invalidateConversation()
+        // [WHY] 문서가 첨부된 턴도 다시 만든다 — 문서 블록은 DB 기록에만 저장되고, 재사용된 대화에는 이번 입력만 가서 모델이 문서를 못 본다
+        // (미리 준비된 대화를 재사용해 예전 첨부 문서로 답했다 — 0.40.8, 에뮬레이터 재현). 다시 만들면 기록째 프리필된다.
+        if (context.repeatDropped || request.documentText != null) modelRunner.invalidateConversation()
         return executeToolLoop(request, initialPrompt, tools, context.language)
     }
 

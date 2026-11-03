@@ -2,7 +2,15 @@ package com.kosmos.app.assistant.agent
 
 import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.assistant.context.PromptAssembler
+import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.domain.agent.ChatRequest
+import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.domain.modelrunner.ModelTurn
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.mockk
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -44,6 +52,36 @@ class KosmosAgentTest {
         val tools = agent().availableTools(context(webSearchEnabled = false))
 
         assertEquals(listOf("AddSchedule", "GetSchedule", "AddMemory", "SearchMemory", "AddReminder", "ListReminders"), tools)
+    }
+
+    // [WHY] 문서 블록은 DB 기록에만 저장된다 — 재사용된 대화에는 이번 입력만 가서 모델이 문서를 못 봤다(0.40.8, 에뮬레이터 재현).
+    @Test
+    fun `문서가 첨부된 턴은 대화를 다시 만들고 보통 턴은 재사용한다`() {
+        val runner: ModelRunner = mockk(relaxed = true) {
+            coEvery { generate(any(), any()) } returns AppResult.Success(ModelTurn("네"))
+        }
+        val agent = KosmosAgent(
+            modelRunner = runner,
+            toolRegistry = mockk(relaxed = true),
+            auditTrailService = mockk(relaxed = true),
+            conversationRepository = mockk(relaxed = true) { coEvery { save(any()) } returns AppResult.Success(Unit) },
+            approvalCoordinator = mockk(relaxed = true),
+            promptAssembler = PromptAssembler()
+        )
+
+        runBlocking { agent.execute(ChatRequest(sessionId = "s1", message = "안녕"), context(webSearchEnabled = false)) }
+        coVerify(exactly = 0) { runner.invalidateConversation() }
+
+        runBlocking {
+            agent.execute(
+                ChatRequest(sessionId = "s1", message = "코드명이 뭐야?", documentText = "프로젝트 코드명은 푸른고래입니다."),
+                context(webSearchEnabled = false)
+            )
+        }
+        coVerifyOrder {
+            runner.invalidateConversation()
+            runner.generate(any(), any())
+        }
     }
 
     @Test
