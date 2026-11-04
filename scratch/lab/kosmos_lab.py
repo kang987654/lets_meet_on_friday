@@ -136,6 +136,20 @@ def few_shot_messages():
     ]
 
 
+def speculative_kwargs() -> dict:
+    """환경 변수 KOSMOS_LAB_SPEC=off|on|adaptive 로 추측 디코딩(MTP)을 켠다 — 비우면 지정하지 않음(앱 현행과 같다).
+
+    [WHY] LiteRT-LM 0.19.0 에서 MTP 가 제약 디코딩과 함께 지원된다 — ADR-011 의 "툴 호출과 충돌" 판단을 회귀 세트로 다시 재기 위해(exp77).
+    0.18.0 패키지에는 이 설정이 없으므로 켜려면 0.19.0 이 필요하다.
+    """
+    import os
+
+    mode = os.environ.get("KOSMOS_LAB_SPEC", "").strip().upper()
+    if not mode:
+        return {}
+    return {"speculative_decoding_config": llm.SpeculativeDecodingConfig(mode=llm.SpeculativeDecodingMode[mode])}
+
+
 def create_chat_conversation(engine, history=None, tools=ALL_TOOLS, system_message=None, few_shot=False):
     """앱 채팅 대화와 동일 설정. history 는 [{'role': 'user'|'model', 'content': str}].
 
@@ -145,6 +159,7 @@ def create_chat_conversation(engine, history=None, tools=ALL_TOOLS, system_messa
     inject_few_shot = few_shot and tools and (add_memory in tools)
     initial = (few_shot_messages() if inject_few_shot else []) + list(history or [])
     return engine.create_conversation(
+        **speculative_kwargs(),
         system_message=system_message if system_message is not None else fixture("system_instruction.txt"),
         messages=initial or None,
         tools=tools,

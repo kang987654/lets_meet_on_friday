@@ -10,6 +10,7 @@ import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.SpeculativeDecodingConfig
 import android.util.Log
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
@@ -124,6 +125,8 @@ class GemmaModelRunner @Inject constructor(
 
     private var engine: Engine? = null
     private var conversation: Conversation? = null
+    // [WHY] 엔진을 올릴 때 한 번 정한다 — GPU 엔진만 값이 있다([MtpMode.resolve], 0.41.1). 엔진과 수명이 같다.
+    private var speculative: SpeculativeDecodingConfig? = null
     private var cachedKey: ConversationKey? = null
 
     // [WHY] 화면에서 고친 사실(알림 미룸 등)은 DB 히스토리에만 있다 — 살아 있는 대화를 재사용하면 모델이 옛 값을 안다(0.38.2 M4, 사용자 결정).
@@ -338,6 +341,7 @@ class GemmaModelRunner @Inject constructor(
 
                     metricsCollector.recordEnd(System.currentTimeMillis() - startTime, tokenCount)
                     if (!prompt.oneShot) RuntimeDiagnostics.logKvUsage("턴 종료", currentConversation)
+                    RuntimeDiagnostics.logBenchmark(prompt, currentConversation)
 
                     // [WHY] 타임아웃 판정이 스트리밍 오류보다 먼저다 — cancelProcess 가 수집을
                     // 예외로 끝낼 수 있는데, 그 예외를 일반 추론 오류로 보고하면 "다시 시도해
@@ -381,6 +385,7 @@ class GemmaModelRunner @Inject constructor(
 
                     metricsCollector.recordEnd(System.currentTimeMillis() - startTime)
                     if (!prompt.oneShot) RuntimeDiagnostics.logKvUsage("턴 종료", currentConversation)
+                    RuntimeDiagnostics.logBenchmark(prompt, currentConversation)
 
                     // [WHY] 텍스트가 비어도 툴 호출만 온 턴은 정상이다 — 모델이 말 없이 곧바로
                     // 툴을 부르는 경우가 흔하다. 둘 다 비었을 때만 실패로 본다.
@@ -560,6 +565,7 @@ class GemmaModelRunner @Inject constructor(
         }
     }
 
+    @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
     private fun ensureInferenceInitialized(modelPath: String) {
         if (engine == null) {
             // [WHY] 네이티브 로그는 기본 억제라 제약 디코딩 문법 실패 같은 결정적 진단이 남지 않는다 — 디버그 빌드만 INFO 로
@@ -573,6 +579,9 @@ class GemmaModelRunner @Inject constructor(
             val cacheDir = context.cacheDir.absolutePath
             // [WHY] 에뮬레이터는 PC GPU 로 초기화·프리필까지 되지만 토큰 샘플러가 OpenCL 을 찾다 생성에서 매번 실패한다(런타임에 샘플러
             // 백엔드 설정은 없다) — 초기화 실패에만 걸리는 아래 CPU 폴백이 구제하지 못하므로 처음부터 CPU 로 간다(0.39.0 M2, CHANGELOG 0.20.2).
+            // [WHY] 턴마다 첫 토큰 시간·프리필/디코드 속도를 진단 로그로 — MTP 모드별 휴대폰 실측(0.41.1 M2)의 근거. 디버그만.
+            runCatching { ExperimentalFlags.enableBenchmark = BuildConfig.DEBUG }
+            speculative = null
             if (runningOnEmulator) {
                 engine = Engine(buildEngineConfig(modelPath, Backend.CPU(), cacheDir)).also { it.initialize() }
                 Log.d("GemmaModelRunner", "Engine initialized with CPU backend (emulator)")
@@ -583,7 +592,9 @@ class GemmaModelRunner @Inject constructor(
                 gpuEngine = Engine(buildEngineConfig(modelPath, Backend.GPU(), cacheDir))
                 gpuEngine.initialize()
                 engine = gpuEngine
-                Log.d("GemmaModelRunner", "Engine initialized with GPU backend")
+                val mtp = MtpMode.resolve(gpu = true, debug = BuildConfig.DEBUG, debugDir = context.getExternalFilesDir(null))
+                speculative = mtp?.toConfig()
+                Log.d("GemmaModelRunner", "Engine initialized with GPU backend (mtp=$mtp)")
             } catch (e: Exception) {
                 Log.e("GemmaModelRunner", "Failed to initialize GPU backend, falling back to CPU", e)
                 // [WHY] 초기화에 실패한 GPU 엔진도 네이티브 핸들을 쥐고 있을 수 있다 — 버리기 전에 닫는다.
@@ -603,7 +614,7 @@ class GemmaModelRunner @Inject constructor(
         // [WHY] 부수 계산(음성 전사, 일정 요약)은 시스템 지시와 sessionId 가 채팅과 다르므로,
         // 캐시된 대화에 섞으면 재사용 판정이 깨져 채팅 전체가 다시 프리필된다(ADR-010).
         // 캐시를 **건드리지 않고** 임시 대화를 만들어 돌려준다 — 호출자가 닫는다.
-        if (prompt.oneShot) return currentEngine.createConversation(oneShotConversationConfig(prompt))
+        if (prompt.oneShot) return currentEngine.createConversation(oneShotConversationConfig(prompt, speculative))
 
         val existing = conversation
         val stale = conversationStale && prompt.toolResponse == null
@@ -636,7 +647,7 @@ class GemmaModelRunner @Inject constructor(
         // `ConversationConfig` 필드가 아니라 생성 시점에만 읽히는 전역이다.
         ExperimentalFlags.enableConversationConstrainedDecoding = prompt.enabledTools.isNotEmpty()
         val newConversation = try {
-            currentEngine.createConversation(chatConversationConfig(prompt))
+            currentEngine.createConversation(chatConversationConfig(prompt, speculative))
         } finally {
             ExperimentalFlags.enableConversationConstrainedDecoding = false
         }

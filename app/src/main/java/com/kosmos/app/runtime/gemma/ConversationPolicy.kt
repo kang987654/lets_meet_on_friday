@@ -4,6 +4,7 @@ import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.SamplerConfig
+import com.google.ai.edge.litertlm.SpeculativeDecodingConfig
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ChatPrompt
@@ -89,9 +90,13 @@ internal val GREEDY_SAMPLER = SamplerConfig(temperature = 1.0, topK = 1, topP = 
 /**
  * 채팅 대화 설정 — 히스토리·툴 선언을 싣는다.
  *
+ * @param speculative 추측 디코딩(MTP) 설정 — GPU 엔진일 때만 [MtpMode.toConfig], 아니면 null(미지정, 0.41.1).
  * [WHY] few-shot 시범은 싣지 않는다 — 툴 호출의 진짜 원인은 지침 거리였고 턴 리마인더가 해결한다(ADR-017, exp35 11/11).
  */
-internal fun chatConversationConfig(prompt: ChatPrompt): ConversationConfig = ConversationConfig(
+internal fun chatConversationConfig(
+    prompt: ChatPrompt,
+    speculative: SpeculativeDecodingConfig? = null
+): ConversationConfig = ConversationConfig(
     systemInstruction = Contents.of(prompt.systemInstruction),
     initialMessages = prompt.history.map {
         if (it.role == ChatMessage.Role.USER) Message.user(it.content) else Message.model(it.content)
@@ -102,7 +107,8 @@ internal fun chatConversationConfig(prompt: ChatPrompt): ConversationConfig = Co
     // [WHY] false 여야 런타임이 툴을 스스로 실행하지 않고 우리에게 호출을 넘긴다 —
     // 승인 다이얼로그(PRD F4)를 거쳐야 하므로 자동 실행을 쓸 수 없다.
     automaticToolCalling = false,
-    samplerConfig = GREEDY_SAMPLER
+    samplerConfig = GREEDY_SAMPLER,
+    speculativeDecodingConfig = speculative
 )
 
 /**
@@ -110,8 +116,12 @@ internal fun chatConversationConfig(prompt: ChatPrompt): ConversationConfig = Co
  *
  * [WHY] 툴도 히스토리도 싣지 않는다 — 툴 선언(수백 토큰)이 빠져 프리필이 짧은 시스템 지시뿐이다.
  */
-internal fun oneShotConversationConfig(prompt: ChatPrompt): ConversationConfig = ConversationConfig(
+internal fun oneShotConversationConfig(
+    prompt: ChatPrompt,
+    speculative: SpeculativeDecodingConfig? = null
+): ConversationConfig = ConversationConfig(
     systemInstruction = Contents.of(prompt.systemInstruction),
     automaticToolCalling = false,
-    samplerConfig = GREEDY_SAMPLER
+    samplerConfig = GREEDY_SAMPLER,
+    speculativeDecodingConfig = speculative
 )

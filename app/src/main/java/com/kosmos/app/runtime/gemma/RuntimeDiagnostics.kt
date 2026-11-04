@@ -56,6 +56,25 @@ internal object RuntimeDiagnostics {
     }
 
     /**
+     * 턴의 첫 토큰 시간·프리필/디코드 속도를 남깁니다 — 엔진을 올릴 때 디버그 빌드만 벤치마크를 켠다(GemmaModelRunner).
+     *
+     * [WHY] MTP 모드(OFF·ON·ADAPTIVE)별 휴대폰 속도를 같은 로그 한 줄로 비교하기 위해서다(0.41.1 M2). 체감·벽시계는 화면 그리기와 툴 왕복이 섞인다.
+     * [WHY] 벤치마크 API 가 실험적이라 실패하면 로그만 잃는다 — 턴에는 영향이 없어야 한다.
+     */
+    @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
+    fun logBenchmark(prompt: ChatPrompt, conversation: Conversation) {
+        if (!BuildConfig.DEBUG) return
+        runCatching { conversation.getBenchmarkInfo() }.onSuccess { b ->
+            Log.d(
+                TAG,
+                "bench: oneShot=${prompt.oneShot}, ttft=${"%.2f".format(b.timeToFirstTokenInSecond)}s, " +
+                    "prefill=${b.lastPrefillTokenCount}tok@${"%.0f".format(b.lastPrefillTokensPerSecond)}/s, " +
+                    "decode=${b.lastDecodeTokenCount}tok@${"%.1f".format(b.lastDecodeTokensPerSecond)}/s"
+            )
+        }
+    }
+
+    /**
      * [WHY] 툴 호출 여부는 실기기에서만 확인할 수 있고 감사 로그에는 시스템 지시가 남지 않는다.
      * enabledTools 를 함께 남겨야 toolCalls=[] 가 "선언 안 됨"인지 "모델이 거부"인지 구분된다.
      */
