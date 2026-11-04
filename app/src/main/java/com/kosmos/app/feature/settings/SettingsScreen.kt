@@ -76,7 +76,10 @@ fun SettingsScreen(
     onNavigateToModelManagement: () -> Unit = {},
     onNavigateToMemoryCleanup: () -> Unit = {},
     dataResetViewModel: DataResetViewModel = hiltViewModel(),
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    // [WHY] 뜻 검색 모델(선택 설치, 0.41.2)은 자기 ViewModel 을 가진 슬롯 — 모델 관리 화면은 채팅 모델이 없을 때만 열려 설치된 사용자가 닿지 못한다.
+    // 기본값은 빈 칸이라 화면 카탈로그·테스트는 그대로다.
+    embeddingSection: @Composable () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val languageOption by themeViewModel.languageOption.collectAsStateWithLifecycle()
@@ -97,6 +100,7 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp)
         ) {
             Section(stringResource(R.string.settings_section_model)) { ModelStatus(uiState.modelLoadState, onNavigateToModelManagement, viewModel::refreshModelState) }
+            embeddingSection()
 
             // [WHY] 고르는 값은 세그먼트로 바로 바꾼다(시안 A, 사용자 선택) — 값 행 + 시트는 한 번 더 눌러야 하고 글자 크기 미리보기가 시트로 숨는다.
             Section(stringResource(R.string.settings_section_display), footnote = stringResource(R.string.settings_display_footnote)) {

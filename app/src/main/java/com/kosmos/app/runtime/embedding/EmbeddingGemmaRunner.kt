@@ -125,15 +125,16 @@ class EmbeddingGemmaRunner @Inject constructor(
 /**
  * 임베딩 엔진 백엔드 — 휴대폰 실측(0.41.2 M2)으로 기본값을 정한다.
  *
- * [WHY] NPU 는 넣지 않는다 — Qualcomm NPU 는 앱에 QNN 라이브러리를 함께 실어야 하고(공식 안내에 절차 없음) 모델 카드상 S26 Ultra 텍스트 임베딩이
- * CPU 27.1ms · GPU 25.9ms 로 이미 짧다. CPU 면 채팅 GPU 와 다투지 않는다.
+ * [WHY] 기본은 GPU(0.41.2 Q3 사용자 결정) — S25 Ultra 실측 민법 1,136조각에서 GPU 43ms/개·엔진 2.5초, CPU 83ms/개·7.5초.
+ * 채팅 GPU 와의 겹침은 LibraryEmbedder 가 채팅 중 멈추고 늦게 이어 가는 것으로 피한다.
+ * [WHY] NPU 는 넣지 않는다 — Qualcomm NPU 는 앱에 QNN 라이브러리를 함께 실어야 하고 LiteRT-LM 공식 예제에도 쓰임이 없다(별도 조사 회차 몫).
  */
 enum class EmbeddingBackend {
     CPU,
     GPU;
 
     companion object {
-        val DEFAULT: EmbeddingBackend = CPU
+        val DEFAULT: EmbeddingBackend = GPU
         const val DEBUG_FILE_NAME = "debug_embed.txt"
 
         fun parse(text: String?): EmbeddingBackend? = text?.trim()?.uppercase()?.let { key -> entries.firstOrNull { it.name == key } }

@@ -30,9 +30,7 @@ import com.kosmos.app.ui.component.kosmosTextFieldColors
 @Composable
 fun ModelManagementScreen(
     viewModel: ModelManagementViewModel = hiltViewModel(),
-    onBack: () -> Unit,
-    // [WHY] 뜻 검색 모델(선택 설치, 0.41.2)은 자기 ViewModel 을 가진 슬롯 — 기본값은 빈 칸이라 화면 카탈로그·테스트는 그대로다.
-    embeddingSection: @Composable () -> Unit = {}
+    onBack: () -> Unit
 ) {
     val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
     var customUrl by remember { mutableStateOf("") }
@@ -103,8 +101,6 @@ fun ModelManagementScreen(
                     KosmosButton(stringResource(R.string.common_download), { startDownload(defaultModelUrl) }, Modifier.fillMaxWidth(), accent = true)
                 }
             }
-
-            embeddingSection()
 
             SectionHeader(stringResource(R.string.model_mgmt_custom_url_section), Modifier.padding(top = 16.dp))
             KosmosListGroup {

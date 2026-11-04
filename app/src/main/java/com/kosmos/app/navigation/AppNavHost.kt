@@ -164,7 +164,8 @@ fun AppNavHost(
                     onNavigateToMemoryCleanup = {
                         navController.navigate(AppDestination.MemoryCleanup.route)
                     },
-                    onBack = { navigateBack() }
+                    onBack = { navigateBack() },
+                    embeddingSection = { EmbeddingModelSectionRoute() }
                 )
             }
         }
@@ -183,8 +184,7 @@ fun AppNavHost(
 
         composable(route = AppDestination.ModelManagement.route) {
             ModelManagementScreen(
-                onBack = { navigateBack() },
-                embeddingSection = { EmbeddingModelSectionRoute() }
+                onBack = { navigateBack() }
             )
         }
 

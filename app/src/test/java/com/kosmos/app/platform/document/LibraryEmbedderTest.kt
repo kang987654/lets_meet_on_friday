@@ -84,7 +84,7 @@ class LibraryEmbedderTest {
     @Test
     fun `채팅이 시작되면 멈추고 답이 끝나면 남은 조각부터 이어 간다`() = runBlocking {
         val fake = FakeEmbedder().apply { gate = CompletableDeferred() }
-        val embedder = LibraryEmbedder(repo) { fake }
+        val embedder = LibraryEmbedder(repo) { fake }.apply { resumeDelayMs = 0 }
 
         embedder.prepareAll()
         withTimeout(5_000) { embedder.state.first { it is LibraryEmbedder.State.Running } }
@@ -93,6 +93,29 @@ class LibraryEmbedderTest {
         assertTrue("멈춘 묶음은 저장되지 않는다", repo.vectors.isEmpty())
 
         fake.gate = null
+        embedder.onTurnFinished()
+        withTimeout(5_000) { while (repo.vectors.size < 23) kotlinx.coroutines.delay(10) }
+        embedder.awaitIdle()
+        assertEquals(23, repo.vectors.size)
+    }
+
+    @Test
+    fun `답이 끝나도 바로 잇지 않고 기다리는 사이 새 채팅이 오면 다시 미룬다`() = runBlocking {
+        val fake = FakeEmbedder().apply { gate = CompletableDeferred() }
+        val embedder = LibraryEmbedder(repo) { fake }.apply { resumeDelayMs = 300 }
+
+        embedder.prepareAll()
+        withTimeout(5_000) { embedder.state.first { it is LibraryEmbedder.State.Running } }
+        embedder.onUserActivity()
+        fake.gate = null
+
+        embedder.onTurnFinished()
+        kotlinx.coroutines.delay(100)
+        embedder.onUserActivity()
+        kotlinx.coroutines.delay(400)
+        assertTrue("기다리는 사이 새 채팅이면 잇지 않는다", embedder.state.value is LibraryEmbedder.State.Paused)
+        assertTrue("멈춘 사이 저장된 묶음이 없다", repo.vectors.isEmpty())
+
         embedder.onTurnFinished()
         withTimeout(5_000) { while (repo.vectors.size < 23) kotlinx.coroutines.delay(10) }
         embedder.awaitIdle()

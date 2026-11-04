@@ -1,6 +1,7 @@
 package com.kosmos.app.platform.document
 
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.domain.library.EmbedderProvider
 import com.kosmos.app.domain.library.Int8Vector
@@ -11,10 +12,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -30,7 +33,7 @@ import javax.inject.Singleton
  * ### Key Flow
  * 1. [prepareAll] — 보관함의 "뜻 검색 준비" 버튼: 벡터 없는 조각 전부. [prepare] — 색인이 끝난 새 문서 하나(LibraryIndexer 가 부른다).
  * 2. [BATCH] 개씩 임베딩 → int8 → 저장. 묶음마다 저장하므로 끊겨도 다음에 남은 조각부터(멱등).
- * 3. 채팅을 시작하면 [onUserActivity] 로 멈추고([State.Paused]), 답이 끝나면 [onTurnFinished] 가 이어 간다.
+ * 3. 채팅을 시작하면 [onUserActivity] 로 멈추고([State.Paused]), 답이 끝나면 [onTurnFinished] 가 [Constants.EMBED_RESUME_DELAY_MS] 뒤 이어 간다.
  *
  * [WHY] 자동 백그라운드로 돌리지 않는다 — 채팅 중 모르는 사이 연산이 돌면 버벅임·발열이 생긴다(0.40.7). 새 문서까지 수동이면 문서 하나 때문에
  * 보관함 전체가 바이그램으로 돌아가므로 등록에 이어서는 자동이다(그 문서만).
@@ -65,19 +68,29 @@ class LibraryEmbedder @Inject constructor(
     /** 색인이 끝난 문서 하나 — 모델이 없으면 아무것도 하지 않는다. */
     fun prepare(documentId: String) = request(documentId)
 
-    /** 채팅이 시작됐다 — 하던 일을 멈추고 답이 끝나면 이어 간다. */
+    // [WHY] 테스트가 기다림을 줄이는 손잡이 — Hilt 생성자에 Long 을 넣으면 바인딩이 필요해진다(ConversationPrewarmer.quietMs 와 같은 결).
+    internal var resumeDelayMs: Long = Constants.EMBED_RESUME_DELAY_MS
+
+    /** 채팅이 시작됐다 — 하던 일(이어 가기 대기 포함)을 멈추고 답이 끝나면 이어 간다. */
     @Synchronized
     fun onUserActivity() {
-        val running = _state.value as? State.Running ?: return
+        when (val current = _state.value) {
+            is State.Running -> _state.value = State.Paused(current.done, current.total)
+            is State.Paused -> Unit
+            else -> return
+        }
         job?.cancel()
         job = null
-        _state.value = State.Paused(running.done, running.total)
     }
 
-    /** 답이 끝났다 — 멈춘 일이 있으면 이어 간다. */
+    /** 답이 끝났다 — 멈춘 일이 있으면 [resumeDelayMs] 뒤 이어 간다(그 사이 새 채팅이면 [onUserActivity] 가 다시 미룬다). */
     @Synchronized
     fun onTurnFinished() {
-        if (_state.value is State.Paused) launchIfIdle()
+        if (_state.value !is State.Paused || job?.isActive == true) return
+        job = scope.launch {
+            delay(resumeDelayMs)
+            drain()
+        }
     }
 
     /** 앱 백그라운드·사용자 취소 — 남은 일을 버린다(다음 버튼·등록이 남은 조각부터 다시). */
@@ -122,11 +135,14 @@ class LibraryEmbedder @Inject constructor(
         val total = remainingFor(embedder, documentId)
         var done = 0
         _state.value = State.Running(done, total)
-        while (scope.isActive) {
+        // [WHY] 이 작업 자신의 취소를 본다 — scope.isActive(앱 스코프)를 보면 멈춘 뒤에도 묶음이 저장되고 Paused 를 Running 으로 덮었다(0.41.2 Q3 테스트에서 발견).
+        while (true) {
+            currentCoroutineContext().ensureActive()
             val batch = (repository.chunksNeedingVectors(embedder.modelId, documentId, BATCH) as? AppResult.Success)?.data
                 ?: return failed("조각 읽기 실패")
             if (batch.isEmpty()) return true
             val vectors = embedder.embedDocuments(batch.map { it.input }) ?: return failed("임베딩 실패")
+            currentCoroutineContext().ensureActive()
             if (vectors.size != batch.size) return failed("임베딩 수 불일치")
             if (repository.saveVectors(embedder.modelId, batch.zip(vectors) { input, v -> input to Int8Vector.quantize(v) }) is AppResult.Failure) {
                 return failed("벡터 저장 실패")
@@ -134,7 +150,6 @@ class LibraryEmbedder @Inject constructor(
             done += batch.size
             _state.value = State.Running(done, maxOf(total, done))
         }
-        return true
     }
 
     private suspend fun remainingFor(embedder: TextEmbedder, documentId: String?): Int {

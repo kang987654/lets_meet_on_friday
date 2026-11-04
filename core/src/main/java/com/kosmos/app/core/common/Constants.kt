@@ -149,6 +149,13 @@ object Constants {
      */
     const val PREWARM_QUIET_MS = 5_000L
 
+    /**
+     * 채팅으로 멈춘 뜻 검색 준비(LibraryEmbedder)를 답이 끝난 뒤 이어 가기까지 기다리는 시간입니다.
+     *
+     * [WHY] 임베딩 엔진도 GPU 다(0.41.2 Q3 사용자 결정) — [PREWARM_QUIET_MS] 뒤 몇 초 걸리는 미리 준비와 겹치지 않게 그보다 넉넉히 늦춘다.
+     */
+    const val EMBED_RESUME_DELAY_MS = 15_000L
+
     // [WHY] **프롬프트 슬라이딩 윈도우 후보 수(ContextBuilder 전용).** 화면 타임라인은 [CHAT_TIMELINE_PAGE_SIZE] 로
     // 따로 간다 — UI 페이지 크기를 조정하려고 이 값을 만지면 프롬프트 예산이 함께 흔들린다.
     const val MAX_RECENT_CONVERSATIONS = 150
