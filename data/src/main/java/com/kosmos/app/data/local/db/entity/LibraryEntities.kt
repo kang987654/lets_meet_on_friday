@@ -55,3 +55,25 @@ data class LibraryFtsEntity(
     val rowId: Long,
     val tokens: String
 )
+
+/**
+ * 보관함 조각의 뜻 벡터 (0.41.2) — EmbeddingGemma 2 768차원을 int8 + 척도로(`Int8Vector.toBytes`). [chunkRowId] 가 [LibraryChunkEntity.rowId].
+ *
+ * [WHY] [modelId] 를 함께 둔다 — 모델이 바뀌면 옛 벡터는 다른 좌표계라 섞으면 순위가 무의미하다. [documentId] 는 문서 단위 삭제·남은 문서 세기용.
+ * [WHY] 외래 키를 걸지 않는다 — 조각·색인과 같은 이유(저장소가 한 트랜잭션에서 지운다).
+ */
+@Entity(
+    tableName = "library_vector",
+    indices = [Index(value = ["documentId"]), Index(value = ["modelId"])]
+)
+data class LibraryVectorEntity(
+    @PrimaryKey
+    val chunkRowId: Long,
+    val documentId: String,
+    val modelId: String,
+    val vector: ByteArray
+) {
+    // [WHY] ByteArray 는 내용 비교가 아니다 — 행 식별은 조각 id 로 충분하다.
+    override fun equals(other: Any?): Boolean = other is LibraryVectorEntity && other.chunkRowId == chunkRowId && other.modelId == modelId
+    override fun hashCode(): Int = chunkRowId.hashCode() * 31 + modelId.hashCode()
+}

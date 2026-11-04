@@ -203,6 +203,15 @@ object Constants {
     const val DEFAULT_MODEL_FILENAME = "gemma-4-E4B-it.litertlm"
     const val DEFAULT_MODEL_DOWNLOAD_URL = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
 
+    // --- 임베딩 모델 (선택 설치, 0.41.2) ---
+    // [WHY] 채팅 모델 폴더(MODEL_DIR_NAME)와 따로 둔다 — 채팅 모델은 그 폴더의 가장 최근 `.litertlm` 을 고르므로 같은 폴더에 두면
+    // 임베딩 모델을 채팅 모델로 올린다(GemmaRuntimeManager.findLatestModelFile).
+    const val EMBEDDING_DIR_NAME = "embedding"
+    const val EMBEDDING_MODEL_FILENAME = "embeddinggemma-2-740m.litertlm"
+
+    /** 벡터에 함께 저장하는 모델 표지 — 바뀌면 옛 벡터를 버린다. */
+    const val EMBEDDING_MODEL_ID = "embeddinggemma-2-740m"
+
     // --- 모델 다운로드 (WorkManager 전경 작업, ADR-006) ---
     const val MODEL_DOWNLOAD_WORK_NAME = "model_download"
 

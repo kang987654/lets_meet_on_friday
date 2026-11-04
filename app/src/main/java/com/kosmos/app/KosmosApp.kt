@@ -15,6 +15,10 @@ import com.kosmos.app.assistant.orchestrator.ConversationPrewarmer
 import com.kosmos.app.core.config.AppLanguageHolder
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.platform.speech.SpeechOutput
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
+import com.kosmos.app.runtime.embedding.EmbeddingGemmaRunner
 
 @HiltAndroidApp
 class KosmosApp : Application(), Configuration.Provider {
@@ -52,6 +56,9 @@ class KosmosApp : Application(), Configuration.Provider {
     @Inject
     lateinit var appLanguageHolder: AppLanguageHolder
 
+    @Inject
+    lateinit var embeddingRunner: EmbeddingGemmaRunner
+
     /**
      * [WHY] @HiltWorker 로 만든 Worker 에 의존성을 주입하려면 WorkManager 의 기본 초기화를
      * 매니페스트에서 제거하고(WorkManagerInitializer node:remove) HiltWorkerFactory 를 물려야 한다.
@@ -85,6 +92,7 @@ class KosmosApp : Application(), Configuration.Provider {
                 speechOutput.release()
                 // [WHY] 엔진이 방금 해제됐다 — 정리를 이어 가면 3.6GB 를 백그라운드에서 다시 올린다(§2-⑥). 다음 버튼이 처음부터.
                 memoryCleanupRunner.cancel()
+                releaseEmbedding()
             }
         })
     }
@@ -93,7 +101,13 @@ class KosmosApp : Application(), Configuration.Provider {
         super.onTrimMemory(level)
         if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) {
             modelRunner.close()
+            releaseEmbedding()
         }
+    }
+
+    // [WHY] 임베딩 엔진도 백그라운드에서 들고 있지 않는다(§2-⑥, 0.41.2) — 진행 중 호출이 끝나면 닫히도록 뮤텍스 뒤에서.
+    private fun releaseEmbedding() {
+        CoroutineScope(Dispatchers.IO).launch { embeddingRunner.release() }
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {

@@ -81,6 +81,24 @@ interface LibraryRepository {
     /** [excludeId] 를 뺀 보관함 전체 본문 글자 수 — 전체 상한 판정용. */
     suspend fun totalChars(excludeId: String? = null): AppResult<Int>
 
-    /** 질의와 맞는 조각 상위 [limit] 개 — 색인 후보 → 재순위([LibrarySearch]) + 조문 번호 구조 조회. */
-    suspend fun search(query: String, limit: Int): AppResult<List<LibraryHit>>
+    /**
+     * 질의와 맞는 조각 상위 [limit] 개 — 색인 후보 → 재순위([LibrarySearch]) + 조문 번호 구조 조회.
+     * [embedder] 가 있고 보관함 전부에 그 모델의 벡터가 있으면([SemanticStatus.semanticReady]) 뜻 점수와 결합한다([LibraryFusion], 0.41.2).
+     */
+    suspend fun search(query: String, limit: Int, embedder: TextEmbedder? = null): AppResult<List<LibraryHit>>
+
+    /** 뜻 검색 준비 상태 — [modelId] 가 null 이면 미설치(준비 0). */
+    suspend fun semanticStatus(modelId: String?): AppResult<SemanticStatus>
+
+    /** [modelId] 벡터가 없는 READY 조각 최대 [limit] 개 — [documentId] 가 있으면 그 문서만. 조각 id 순(이어서 하기). */
+    suspend fun chunksNeedingVectors(modelId: String, documentId: String? = null, limit: Int): AppResult<List<LibraryVectorInput>>
+
+    /** 벡터를 저장한다(같은 조각이면 덮어쓴다). */
+    suspend fun saveVectors(modelId: String, vectors: List<Pair<LibraryVectorInput, Int8Vector>>): AppResult<Unit>
+
+    /** 모든 벡터를 지운다 — 임베딩 모델을 지울 때. */
+    suspend fun clearVectors(): AppResult<Unit>
 }
+
+/** 벡터를 만들 조각 — [input] 은 [LibraryEmbedding.documentInput] 으로 만든 임베딩 글자. */
+data class LibraryVectorInput(val chunkRowId: Long, val documentId: String, val input: String)

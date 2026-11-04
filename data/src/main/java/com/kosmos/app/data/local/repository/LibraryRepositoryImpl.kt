@@ -6,13 +6,20 @@ import com.kosmos.app.data.local.db.KosmosDatabase
 import com.kosmos.app.data.local.db.entity.LibraryChunkEntity
 import com.kosmos.app.data.local.db.entity.LibraryDocumentEntity
 import com.kosmos.app.data.local.db.entity.LibraryFtsEntity
+import com.kosmos.app.data.local.db.entity.LibraryVectorEntity
+import com.kosmos.app.domain.library.Int8Vector
 import com.kosmos.app.domain.library.LibraryCandidate
 import com.kosmos.app.domain.library.LibraryChunk
 import com.kosmos.app.domain.library.LibraryDocument
+import com.kosmos.app.domain.library.LibraryEmbedding
+import com.kosmos.app.domain.library.LibraryFusion
 import com.kosmos.app.domain.library.LibraryHit
 import com.kosmos.app.domain.library.LibraryRepository
 import com.kosmos.app.domain.library.LibrarySearch
 import com.kosmos.app.domain.library.LibraryStatus
+import com.kosmos.app.domain.library.LibraryVectorInput
+import com.kosmos.app.domain.library.SemanticStatus
+import com.kosmos.app.domain.library.TextEmbedder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -48,6 +55,7 @@ class LibraryRepositoryImpl @Inject constructor(
     override suspend fun replaceChunks(documentId: String, chunks: List<LibraryChunk>, charCount: Int): AppResult<Unit> =
         dbWrite(TABLE, "replaceChunks") {
             db.withTransaction {
+                dao.deleteVectorsOf(documentId)
                 dao.deleteFtsOf(documentId)
                 dao.deleteChunksOf(documentId)
                 val rowIds = dao.insertChunks(
@@ -67,6 +75,7 @@ class LibraryRepositoryImpl @Inject constructor(
     override suspend fun remove(documentId: String): AppResult<Unit> =
         dbWrite(TABLE, "remove") {
             db.withTransaction {
+                dao.deleteVectorsOf(documentId)
                 dao.deleteFtsOf(documentId)
                 dao.deleteChunksOf(documentId)
                 dao.deleteDocument(documentId)
@@ -76,7 +85,7 @@ class LibraryRepositoryImpl @Inject constructor(
     override suspend fun totalChars(excludeId: String?): AppResult<Int> =
         dbRead(TABLE, "totalChars") { dao.totalChars(excludeId.orEmpty()) }
 
-    override suspend fun search(query: String, limit: Int): AppResult<List<LibraryHit>> = dbRead(TABLE, "search") {
+    override suspend fun search(query: String, limit: Int, embedder: TextEmbedder?): AppResult<List<LibraryHit>> = dbRead(TABLE, "search") {
         val total = dao.chunkCount()
         if (total == 0 || query.isBlank()) return@dbRead emptyList()
         val df = LibrarySearch.tokens(query).associateWith { dao.documentFrequency(it) }
@@ -91,12 +100,71 @@ class LibraryRepositoryImpl @Inject constructor(
         }
         val byArticle = LibrarySearch.articleOf(query)?.let { dao.chunksByArticle(it) }.orEmpty()
         val chunks = (dao.chunksByRowId(ftsRowIds) + byArticle).distinctBy { it.rowId }
-        if (chunks.isEmpty()) return@dbRead emptyList()
         val names = dao.documents().associate { it.id to it.name }
-        val candidates = chunks.mapNotNull { e -> names[e.documentId]?.let { LibraryCandidate(it, e.toDomain(), e.documentId) } }
-        LibrarySearch.rank(query, candidates)
-            .take(limit)
-            .map { LibraryHit(it.documentId, it.documentName, it.chunk) }
+        // 후보와 행 id 를 짝으로 — 결합 점수의 키는 행 id 다.
+        val pairs = chunks.mapNotNull { e -> names[e.documentId]?.let { e.rowId to LibraryCandidate(it, e.toDomain(), e.documentId) } }
+        val queryVector = embedder?.takeIf { semanticReadyFor(it.modelId) }?.embedQuery(LibraryEmbedding.queryInput(query))
+        if (embedder == null || queryVector == null) {
+            return@dbRead LibrarySearch.rank(query, pairs.map { it.second })
+                .take(limit)
+                .map { LibraryHit(it.documentId, it.documentName, it.chunk) }
+        }
+        // [WHY] 뜻 점수는 전 조각, 바이그램 점수는 색인 후보만(나머지 0) — exp78 의 결합과 같은 모양(sparse 는 질의의 최고점으로 나눈다).
+        val sparse = LibrarySearch.scored(query, pairs.map { it.second }).mapIndexed { i, (_, score) -> pairs[i].first to score }.toMap()
+        // [WHY] 조문 번호를 직접 물었으면 그 조(법령 이름이 맞는 것부터)를 결합 순위보다 앞에 고정한다 — 뜻 점수가 다른 조를 강하게 밀면 0.05 배 sparse
+        // (조문 번호 가산 포함)로는 뒤집지 못한다(0.41.2 M2 테스트에서 발견). 0.41.0 의 "조문 번호는 구조 열로" 원칙과 같다.
+        val wantArticle = LibrarySearch.articleOf(query)
+        val pinned = if (wantArticle == null) emptyList() else
+            pairs.filter { it.second.chunk.article == wantArticle }.map { it.first }.sortedByDescending { sparse[it] ?: 0.0 }
+        val fused = LibraryFusion.fuse(denseScores(embedder.modelId, queryVector), sparse).map { it.first }
+        val top = (pinned + fused).distinct().take(limit)
+        val known = chunks.associateBy { it.rowId }
+        val byRow = known + dao.chunksByRowId(top.filterNot { it in known }).associateBy { it.rowId }
+        top.mapNotNull { id -> byRow[id]?.let { e -> names[e.documentId]?.let { LibraryHit(e.documentId, it, e.toDomain()) } } }
+    }
+
+    override suspend fun semanticStatus(modelId: String?): AppResult<SemanticStatus> = dbRead(TABLE, "semanticStatus") {
+        val ready = LibraryStatus.READY.name
+        val readyChunks = dao.readyChunkCount(ready)
+        if (modelId == null) return@dbRead SemanticStatus(null, readyChunks, 0, 0)
+        SemanticStatus(modelId, readyChunks, dao.embeddedChunkCount(modelId, ready), dao.pendingDocumentCount(modelId, ready))
+    }
+
+    override suspend fun chunksNeedingVectors(modelId: String, documentId: String?, limit: Int): AppResult<List<LibraryVectorInput>> =
+        dbRead(TABLE, "chunksNeedingVectors") {
+            val names = dao.documents().associate { it.id to it.name }
+            dao.chunksWithoutVector(modelId, documentId, LibraryStatus.READY.name, limit).mapNotNull { e ->
+                names[e.documentId]?.let { LibraryVectorInput(e.rowId, e.documentId, LibraryEmbedding.documentInput(it, e.toDomain())) }
+            }
+        }
+
+    override suspend fun saveVectors(modelId: String, vectors: List<Pair<LibraryVectorInput, Int8Vector>>): AppResult<Unit> =
+        dbWrite(TABLE, "saveVectors") {
+            db.withTransaction {
+                // [WHY] 모델이 바뀌었으면 옛 좌표계 벡터를 먼저 버린다 — 섞이면 순위가 무의미하다.
+                dao.deleteVectorsNotOf(modelId)
+                dao.insertVectors(vectors.map { (input, v) -> LibraryVectorEntity(input.chunkRowId, input.documentId, modelId, v.toBytes()) })
+            }
+        }
+
+    override suspend fun clearVectors(): AppResult<Unit> = dbWrite(TABLE, "clearVectors") { dao.deleteAllVectors() }
+
+    private suspend fun semanticReadyFor(modelId: String): Boolean {
+        val ready = LibraryStatus.READY.name
+        return SemanticStatus(modelId, dao.readyChunkCount(ready), dao.embeddedChunkCount(modelId, ready), 0).semanticReady
+    }
+
+    /** 전 조각 뜻 점수 — 쪽 단위로 읽어 메모리에 벡터 전체를 들지 않는다. */
+    private suspend fun denseScores(modelId: String, query: FloatArray): Map<Long, Double> {
+        val out = HashMap<Long, Double>()
+        var after = Long.MIN_VALUE
+        while (true) {
+            val page = dao.vectorsAfter(modelId, after, VECTOR_PAGE)
+            if (page.isEmpty()) break
+            for (row in page) Int8Vector.fromBytes(row.vector)?.let { out[row.chunkRowId] = it.dot(query).toDouble() }
+            after = page.last().chunkRowId
+        }
+        return out
     }
 
     private fun LibraryDocumentEntity.toDomain() = LibraryDocument(
@@ -114,5 +182,6 @@ class LibraryRepositoryImpl @Inject constructor(
 
     internal companion object {
         const val TABLE = "library"
+        const val VECTOR_PAGE = 2_000
     }
 }

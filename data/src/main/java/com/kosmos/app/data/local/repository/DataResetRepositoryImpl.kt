@@ -36,7 +36,7 @@ class DataResetRepositoryImpl @Inject constructor(
             ResetTarget.KNOWLEDGE -> listOf("knowledge_note")
             ResetTarget.PROFILE -> listOf("profile", "profile_suggestion")
             // [WHY] 보관함은 문서·조각·색인을 함께 지운다 — 하나만 남으면 색인이 없는 조각을 가리킨다(0.41.0).
-            ResetTarget.LIBRARY -> listOf("library_document", "library_chunk", "library_fts")
+            ResetTarget.LIBRARY -> listOf("library_document", "library_chunk", "library_fts", "library_vector")
         }
     }
 }

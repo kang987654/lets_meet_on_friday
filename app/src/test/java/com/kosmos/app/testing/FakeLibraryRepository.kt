@@ -1,11 +1,15 @@
 package com.kosmos.app.testing
 
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.domain.library.Int8Vector
 import com.kosmos.app.domain.library.LibraryChunk
 import com.kosmos.app.domain.library.LibraryDocument
 import com.kosmos.app.domain.library.LibraryHit
 import com.kosmos.app.domain.library.LibraryRepository
 import com.kosmos.app.domain.library.LibraryStatus
+import com.kosmos.app.domain.library.LibraryVectorInput
+import com.kosmos.app.domain.library.SemanticStatus
+import com.kosmos.app.domain.library.TextEmbedder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -55,7 +59,35 @@ class FakeLibraryRepository(initial: List<LibraryDocument> = emptyList()) : Libr
     override suspend fun totalChars(excludeId: String?): AppResult<Int> =
         AppResult.Success(documents.value.filter { it.id != excludeId }.sumOf { it.charCount })
 
-    override suspend fun search(query: String, limit: Int): AppResult<List<LibraryHit>> = AppResult.Success(emptyList())
+    override suspend fun search(query: String, limit: Int, embedder: TextEmbedder?): AppResult<List<LibraryHit>> = AppResult.Success(emptyList())
+
+    /** 저장된 벡터 — 조각 id → (모델, 벡터). */
+    val vectors = mutableMapOf<Long, Pair<String, Int8Vector>>()
+
+    /** 벡터를 만들 조각 — 테스트가 채운다. */
+    val pendingInputs = mutableListOf<LibraryVectorInput>()
+
+    override suspend fun semanticStatus(modelId: String?): AppResult<SemanticStatus> {
+        val ready = documents.value.filter { it.status == LibraryStatus.READY }.sumOf { it.chunkCount }
+        val embedded = vectors.values.count { it.first == modelId }
+        val pending = pendingInputs.filter { i -> vectors[i.chunkRowId]?.first != modelId }.map { it.documentId }.distinct().size
+        return AppResult.Success(SemanticStatus(modelId, ready, if (modelId == null) 0 else embedded, if (modelId == null) 0 else pending))
+    }
+
+    override suspend fun chunksNeedingVectors(modelId: String, documentId: String?, limit: Int): AppResult<List<LibraryVectorInput>> =
+        AppResult.Success(
+            pendingInputs.filter { (documentId == null || it.documentId == documentId) && vectors[it.chunkRowId]?.first != modelId }.take(limit)
+        )
+
+    override suspend fun saveVectors(modelId: String, vectors: List<Pair<LibraryVectorInput, Int8Vector>>): AppResult<Unit> {
+        vectors.forEach { (input, v) -> this.vectors[input.chunkRowId] = modelId to v }
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun clearVectors(): AppResult<Unit> {
+        vectors.clear()
+        return AppResult.Success(Unit)
+    }
 
     private fun edit(id: String, change: (LibraryDocument) -> LibraryDocument) {
         documents.update { list -> list.map { if (it.id == id) change(it) else it } }
