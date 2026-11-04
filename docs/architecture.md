@@ -2152,3 +2152,22 @@ zip(`ZipFile`, 캐시 복사) + SAX + `PdfRenderer` — 전부 플랫폼 내장�
 - **Status**: Accepted (0.40.3 M2 — 계획서 `docs/plans/0.40.3-structure-cleanup.md`, 사용자 결정)
 - **Context**: `SendChatMessageUseCase` 가 하는 일(빈 줄·길이 검사, 이미지 리사이즈, 오케스트레이터 위임, 예외 때 사용자 문구 말풍선 저장)은 모두 `:domain` 의 책임인데, `:app` 의 `AssistantOrchestrator` 와 `ChatRequest` 를 직접 참조해 유스케이스 18개 중 혼자 `:app/domain/usecase/` 에 남아 있었다. 한편 `:domain/model/ChatRequest.kt` 에는 초기 스캐폴딩의 동명 죽은 모델이 남아 있었다.
 - **결정**: `:domain/model/ChatRequest.kt` 를 삭제하고, 실제로 쓰이는 `ChatRequest`·`StreamUpdate` 를 `:domain/agent/` 로 옮기며, 메서드 하나짜리 `AssistantGateway` 인터페이스를 `:domain/agent/` 에 두어 `AssistantOrchestrator` 가 구현하고 Hilt `@Binds` 로 연결한다. 이로써 `SendChatMessageUseCase` 가 `:domain/usecase/` 로 이관되어 모든 유스케이스가 `:domain` 에 모인다.
+
+### ADR-035. 문서 검색은 기억 검색과 엔진·저장소를 나누고, 등록 문서를 FTS4 바이그램으로 색인한다 (2026-11-04)
+- **Status**: Accepted (0.41.0 — 계획서 `docs/plans/0.41.0-document-library.md`, 사용자 결정 2026-11-03)
+- **Context**: 기관·기업·학생이 등록한 규정·법령·교재를 채팅에서 근거와 함께 찾고 싶다. 규모는 전공서적 한 권(50만~100만 자, 조각 수천) 이상이라
+  기억 검색의 인메모리 바이그램 전수 스캔(ADR-025 — 2,000건 게이트)을 처음부터 넘고, 조각마다 바이그램 집합을 들고 있으면 메모리가 먼저 무너진다.
+  채팅 첨부(300자)를 질문 맞춤으로 바꾸는 안(argon)은 "지금 붙인 파일 하나"에 머물러 목적과 달랐다.
+- **결정**:
+  1. **저장소 분리** — `library_document`·`library_chunk`·`library_fts`(Room v11). 기억(`knowledge_note`·에피소드)과 섞지 않는다 — 기억 합치기·메모 화면이
+     문서 조각으로 오염되지 않고, 출처를 "문서 > 편 > 장 > 조"로 보일 수 있다. 원본 파일은 제자리(지속 열람 권한), 글자·조각·색인만 DB.
+  2. **조각** — 조(條) 하나가 한 조각(본문 상한 500, 줄 경계 분할, 위치 머리말 유지). 조문 번호는 `article` 구조 열로 따로 찾는다.
+  3. **색인** — 바이그램을 미리 잘라 공백으로 이은 글자를 FTS4(`simple`)에 넣는다. 문서빈도 20% 초과 토큰을 뺀 `OR` 질의 → `matchinfo` idf 합 후보 100 →
+     `BigramMatcher.score` 재순위(기억 검색과 같은 점수 함수 — exp33·exp74 측정과 같은 기준).
+  4. **모델 없음** — 등록·색인은 CPU 파싱뿐이라 백그라운드 모델 금지(ADR-010)와 무관하다. 채팅 연결(`search_documents`)·dense 임베딩은 0.41.1 에서 실측과 함께.
+- **근거** (등급 2 — 우리 실측, PC): exp74 공개 법령 64만 자 — FTS4 바이그램 4.7MB·질의 2~5ms, 포스팅 테이블 5.9MB·17~19ms. 회수율 @1 조문 번호 10/10(구조 열),
+  같은 용어 7/10, 바꿔 말한 질문 1/10. Robolectric·Room 에서 FTS4 `matchinfo` 실동작 확인(LibraryMigrationTest).
+- **기각**: (a) FTS5 — 프레임워크 SQLite 가용성·Room `@Fts5` 부재·한국어 토크나이저 없음. (b) 포스팅 테이블 — 크고 느림(위 수치). (c) 문서를 4B 모델로 요약해
+  색인 — 조항 번호·수치가 사라지고 수천 번 추론(발열·백그라운드 금지). (d) 기억 저장소에 조각 넣기 — 기억 오염.
+- **한계**: 어휘 검색이라 바꿔 말한 질문을 놓친다(1/10) — 모델 검색어 재작성(exp75 5/10)·EmbeddingGemma 2 dense(exp76 @3 8/10)가 0.41.1 후보. 스캔 PDF·
+  안드로이드 15 미만 PDF·HWP(바이너리)는 글자를 못 뽑는다. 휴대폰 색인 시간은 0.41.1 에서 잰다.
