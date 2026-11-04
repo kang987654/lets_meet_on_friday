@@ -31,6 +31,11 @@ class MtpModeTest {
     }
 
     @Test
+    fun `릴리스 기본값은 ADAPTIVE 다(0·41·1 M2 휴대폰 실측, ADR-036)`() {
+        assertEquals(MtpMode.ADAPTIVE, MtpMode.DEFAULT)
+    }
+
+    @Test
     fun `파일 글자는 대소문자·공백을 무시하고 모르는 값은 null`() {
         assertEquals(MtpMode.ON, MtpMode.parse(" on\n"))
         assertEquals(MtpMode.ADAPTIVE, MtpMode.parse("Adaptive"))

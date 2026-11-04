@@ -16,7 +16,7 @@ import java.io.File
  * 2. 디버그 빌드는 앱 외부 파일 폴더의 [DEBUG_FILE_NAME] 으로 덮어쓴다 — 휴대폰에서 모드별 속도를 재기 위해(`adb push` 후 앱 재시작).
  *
  * [WHY] 0.18.0 까지는 켜지 않았다 — 툴 선언 + 제약 디코딩과 드래프터 제안이 충돌한다고 봤다(ADR-011). 0.19.0 에서 PC 회귀 세트·깊은 문맥 숫자(exp77c)가
- * MTP 켜짐에서도 무회귀였다. 기본값은 휴대폰 실측 전까지 [OFF](0.41.1 M2).
+ * MTP 켜짐에서도 무회귀였다. 기본값 [ADAPTIVE] 는 휴대폰 실측(0.41.1 M2, ADR-036)으로 정했다.
  */
 enum class MtpMode {
     OFF,
@@ -33,8 +33,13 @@ enum class MtpMode {
     )
 
     companion object {
-        /** 릴리스 기본값 — 휴대폰 실측(0.41.1 M2)으로 정한다. */
-        val DEFAULT: MtpMode = OFF
+        /**
+         * 릴리스 기본값.
+         *
+         * [WHY] 휴대폰(SM8750) 디코드가 OFF 약 17 → ON 약 31 → ADAPTIVE 약 33 토큰/초였고, 긴 답에서는 ADAPTIVE 가 꾸준히 가장 빨랐다.
+         * 추측이 손해인 구간에서 스스로 끄는 쪽이라 안전하다(ADR-036, CHANGELOG 0.41.1).
+         */
+        val DEFAULT: MtpMode = ADAPTIVE
 
         const val DEBUG_FILE_NAME = "debug_mtp.txt"
 

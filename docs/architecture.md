@@ -1345,6 +1345,9 @@ GemmaModelRunner → {새모델}ModelRunner
 - **`EngineConfig.maxNumTokens` 는 계속 넘기지 않는다**: 그 값은 엔진 KV 캐시 크기를 정하고 초기화 시점에만 읽히므로 설정 슬라이더로 바꾸려면 엔진 재적재(7~11초)가 필요하다. 더 중요한 것은 우리가 임의로 정한 값이 지금 동작하는 런타임 기본값보다 **작을** 위험이다(gallery 의 기본값은 1024 다). 히스토리 윈도우와 재설정 임계값이 KV 성장의 실질적 지배 요인이므로 그 둘을 통제하는 편이 안전하다.
 
 ### ADR-011. 샘플링 파라미터를 사용자에게 노출하지 않고, thinking·speculative decoding 도 채용하지 않는다 (2026-08-07)
+
+> **부분 대체 (0.41.1, ADR-036)**: speculative decoding(MTP) 부분은 LiteRT-LM 0.19.0 에서 툴 선언·제약 디코딩과 함께 무회귀로 확인돼 **채용**(기본 ADAPTIVE)으로 바뀌었다. 샘플링 비노출·greedy·thinking 꺼짐은 그대로.
+
 - **결정**: `topK`/`topP`/`temperature` 를 설정 화면에 (이름을 바꿔서라도) 노출하지 않는다. `enable_thinking` 은 계속 false 로 고정한다. `ExperimentalFlags.enableSpeculativeDecoding` 도 켜지 않는다.
 - **greedy 는 장식이 아니라 하중을 받는 부품이다**: `SamplerConfig(topK = 1)` 은 0.8.4 에서 툴 호출을 성립시킨 조건이고 숫자 왜곡 완화에도 기여한다. gallery 자신도 agent chat 진입 시 `AgentChatSamplingParamsManager` 로 `topK = 1` 을 **강제**하며 그 태스크에서는 이 설정들을 사용자에게 보여주지 않는다. 노출은 8회의 실기기 왕복으로 막아 놓은 실패 모드를 사용자가 슬라이더 한 번으로 되살릴 수 있게 만드는 것이다. 응답의 성격을 바꾸는 손잡이는 **샘플러가 아니라 응답 스타일 지시문**으로 제공한다(ADR-010).
 - **thinking·speculative decoding 은 구글 자신이 우리 태스크에서 배제한다**: gallery 의 모델 허용 목록(`model_allowlists/1_0_17.json`)에서 `Gemma-4-E4B-it`(우리 모델)의 `capabilityToTaskTypes` 는 `llm_thinking: [llm_chat, llm_ask_image, llm_ask_audio]`, `speculative_decoding: [llm_chat, llm_ask_image, llm_ask_audio, llm_prompt_lab]` 이다. **둘 다 `llm_agent_chat` 만 빠져 있다.** speculative decoding 은 단순 태스크인 `llm_prompt_lab` 에도 허용되므로, agent chat 만 제외되는 차이는 툴 선언 + constrained decoding 뿐이다 — 드래프터가 제안한 토큰과 FST 문법 마스크가 충돌한다는 해석과 일치한다. 우리 앱은 모든 턴이 agent chat 이다(툴이 항상 선언된다).
@@ -2171,3 +2174,22 @@ zip(`ZipFile`, 캐시 복사) + SAX + `PdfRenderer` — 전부 플랫폼 내장�
   색인 — 조항 번호·수치가 사라지고 수천 번 추론(발열·백그라운드 금지). (d) 기억 저장소에 조각 넣기 — 기억 오염.
 - **한계**: 어휘 검색이라 바꿔 말한 질문을 놓친다(1/10) — 모델 검색어 재작성(exp75 5/10)·EmbeddingGemma 2 dense(exp76 @3 8/10)가 0.41.1 후보. 스캔 PDF·
   안드로이드 15 미만 PDF·HWP(바이너리)는 글자를 못 뽑는다. 휴대폰 색인 시간은 0.41.1 에서 잰다.
+
+### ADR-036. 추측 디코딩(MTP)을 ADAPTIVE 로 켠다 — LiteRT-LM 0.19.0 (2026-11-04)
+- **Status**: Accepted (0.41.1 — 계획서 `docs/plans/0.41.1-litertlm-019-mtp.md`, 사용자 결정 2026-11-04). ADR-011 의 speculative decoding 부분을 대체한다.
+- **Context**: 모델 파일에는 MTP 드래프터(`tf_lite_mtp_drafter`)가 처음부터 들어 있었고 0.14.0 부터 전역 플래그 한 줄로 켤 수 있었다. 켜지 않은 이유는 품질 위험 —
+  gallery 가 툴을 쓰는 에이전트 채팅에서만 MTP 를 빼 두었고(드래프터 제안과 제약 디코딩 문법 마스크의 충돌로 해석), PC 하네스에 대응 설정이 없어 검증할 수 없었다(ADR-011).
+  0.19.0(2026-11-02)은 "GPU 로짓 마스킹 — MTP 디코딩 완전 지원"을 내걸고 `SpeculativeDecodingConfig`(OFF·ON·ADAPTIVE)를 Kotlin·파이썬 양쪽에 열었다.
+- **결정**:
+  1. LiteRT-LM 0.18.0 → 0.19.0. 제거된 API 0, 앱 코드 무수정 컴파일.
+  2. **GPU 엔진의 채팅·oneShot 대화에 `SpeculativeDecodingConfig(ADAPTIVE)`** (`MtpMode`). CPU 엔진(에뮬레이터·GPU 실패 폴백)에는 싣지 않는다 — PC CPU 에서 이득이 없었고 검증하지 않은 경로다.
+  3. FP32 활성화(ADR-029)는 그대로 — MTP 는 그 위에서 검증했다.
+  4. 디버그 빌드는 `debug_mtp.txt`(앱 외부 파일 폴더)로 모드를 덮어쓰고, 턴마다 벤치마크 한 줄(첫 토큰·프리필·디코드 속도)을 남긴다 — 다음 런타임 상향의 비교 장치.
+- **근거**:
+  - 등급 2(PC 실측, exp77·회귀 세트): 임베딩 0.18.0 과 비트 동일. 회귀 세트 MTP 꺼짐/켜짐 모두 기준 대비 흔들림 범위(만점 세트 동일 — 툴 호출·제약 디코딩 충돌 없음).
+    깊은 문맥(2,200~3,800) 숫자: FP16 대조군 8/8 깨짐(ADR-021 재현), FP32 × OFF/ON/ADAPTIVE 각 8/8 온전. PC GPU 디코드 52 → 65~72 토큰/초.
+  - 등급 1(실기기 SM-S938N, 디버그 벤치마크 로그, 질문 4종 × 2회): 디코드 **OFF 약 17 / ON 약 31 / ADAPTIVE 약 33 토큰/초**, 긴 답(약 400토큰)은 ADAPTIVE 37.5~38.1
+    (ON 21~23). 프리필 속도는 모드와 무관(약 160~200/s). ADAPTIVE 에서 문맥 2,841 토큰의 숫자 따라 쓰기 온전, 일정 추가 툴 인자(8월 17일 10:00~11:00) 정확.
+- **기각**: (a) ON — 평균은 비슷하나 긴 답에서 ADAPTIVE 보다 느린 경우가 있었다(21~23 vs 38). (b) 계속 OFF — 품질 위험이 실측으로 해소됐고 생성이 약 2배 빠르다.
+- **한계**: greedy 인데도 MTP 를 켜면 답 글자가 조금 달라진다(검증 경로의 수치 차 — 내용·형식은 같은 수준). 휴대폰 실측은 질문 4종·한 기기, 발열은 연속 측정 중 33.8→37.5°C(배터리)로
+  체감 문제는 사용 중 확인(사용자). `Conversation.clone()`(부수 추론이 채팅 KV 를 지우지 않게)은 후속 후보.

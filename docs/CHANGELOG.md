@@ -1,3 +1,26 @@
+## [0.41.1] - 2026-11-04
+> **LiteRT-LM 0.19.0 상향과 추측 디코딩(MTP) 채용 — 휴대폰 답 생성 약 2배** (계획서 `docs/plans/0.41.1-litertlm-019-mtp.md`, ADR-036 — ADR-011 의 MTP 부분 대체).
+- **[Note] 회차 배치 (사용자 결정)** — 0.41.2(문서 검색·EmbeddingGemma 2)가 임베딩 엔진·NPU 에 기대므로 엔진 버전을 먼저 정한다. 뒤 회차 번호를 한 칸씩 밀었다:
+  0.41.2 문서 검색, 0.41.3 기억 검색, 0.41.4 감사 해시 체인, 그 뒤 의존성 최신화. 휴대폰 칩 SM8750 확인 — 0.41.2 의 EmbeddingGemma NPU 판 조건 충족.
+- **[Note] 실측 (M0, PC — `exp77_litertlm019.py`·`exp77b_spec_gpu.py`·`exp77c_deep_digits.py`, 회귀 세트)** — AAR javap 전수 비교: 제거 0, 추가 `SpeculativeDecodingConfig`·
+  `Conversation.clone()`·`enableYnnpack`, `EmbeddingEngine` 무변화. 임베딩 5문장 0.18.0 과 비트 동일. 회귀 세트(GPU FP32, 기준 0.18.0): MTP 꺼짐 drift 10/12(−1 "회사 동료
+  생일 선물", 흔들림 범위)·overlap 20/20(+2), **MTP 켜짐도 같은 수준**(drift 10/12·overlap 19/20, smoke·save·iso 만점 — 툴 호출·제약 디코딩 충돌 없음, 드래프터 적중 0.57).
+  깊은 문맥(2,200~3,800) 숫자: **FP16 대조군 8/8 깨짐**(ADR-021 재현) · FP32 × OFF/ON/ADAPTIVE 각 8/8 온전. PC GPU 디코드 52 → 65~72 토큰/초, CPU 는 이득 없음.
+- **[Changed] 상향과 MTP 장치 (M1, `958c2ca`)** — `litertlm` 0.18.0 → 0.19.0(앱 코드 무수정 컴파일). `MtpMode`(OFF·ON·ADAPTIVE) → `chatConversationConfig`·
+  `oneShotConversationConfig` 의 `speculativeDecodingConfig` — GPU 엔진만(에뮬레이터·CPU 폴백은 미지정). 디버그 빌드: 앱 외부 파일 폴더 `debug_mtp.txt` 로 모드 덮어쓰기,
+  `ExperimentalFlags.enableBenchmark` + 턴마다 `bench:` 로그(첫 토큰·프리필·디코드 속도). 실험실 `kosmos_lab.py` 에 `KOSMOS_LAB_SPEC` 스위치, 파이썬 환경 `friday` 를 0.19.0 으로.
+- **[Note] 휴대폰 실측 (M2, SM-S938N 디버그 빌드 — 질문 4종 × 2회, 모드마다 앱 재시작)** — 디코드 토큰/초 평균 **OFF 약 17 / ON 약 31 / ADAPTIVE 약 33**. 긴 답(약 400토큰)
+  ADAPTIVE 37.5~38.1 · ON 21~23 · OFF 17.2~17.6. 툴 호출(형식 강제) 16.9 → 30~33. 프리필(약 160~200/s)은 모드 무관 — MTP 는 생성 단계만 빠르게 한다. 배터리 온도 연속 측정 중
+  33.8 → 37.5°C. ADAPTIVE 에서 민법 본문으로 문맥 2,841 토큰을 만든 뒤 숫자 따라 쓰기 온전(ISO 시각은 앱 표시 변환 `humanizeInText` 이 성공한 모양으로 나옴), 일정 추가
+  툴 인자 "8월 17일 (월) 10:00~11:00" 정확(승인 창에서 취소 — 일정 미추가).
+- **[Changed] 기본 MTP = ADAPTIVE (M3, 사용자 결정)** — `MtpMode.DEFAULT`. ON 은 긴 답에서 느린 경우가 있었고, ADAPTIVE 는 추측이 손해인 구간에서 스스로 끈다.
+  발열·답 직후 버벅임 체감은 사용 중 확인(사용자).
+- **[Note] 남긴 후보** — `Conversation.clone()` 으로 부수 추론(요약·브리핑·전사)이 채팅 KV 를 지우지 않게(ADR-010·014 재검토, 프리워밍과 함께 설계), `enableYnnpack`(CPU 경로).
+  벤치마크의 `ttft` 는 대화가 아니라 엔진 단위 값처럼 턴마다 갱신되지 않았다 — 첫 토큰 시간 비교에는 쓰지 않는다.
+- **[QA/Test]** 마일스톤마다 게이트 녹색, 테스트 **866 → 873건**(`MtpModeTest` 7), 기존 단언 불변, 모델 입력 바이트 불변(시스템 지시·툴 선언·리마인더·`MEASURED_OVERHEAD` 그대로).
+- **[Docs]** ADR-036 + ADR-011 머리 부분 대체 표시, `.agents/04_MODEL_EVIDENCE.md`("gallery 는 근거가 아니다" 세 번째 사례), README 기술 표·배지(LiteRT-LM 0.19 · MTP),
+  `0.41.2-semantic-document-search.md`(번호·엔진 버전 갱신). 사용 안내는 기능·요구 사양 변화가 없어 그대로(속도만 바뀜).
+
 ## [0.41.0] - 2026-11-04
 > **문서 보관함과 색인 — 등록한 문서(규정·법령·교재)를 조각으로 나눠 FTS4 바이그램 색인에 넣는다. 모델 추론 없음, 채팅 검색은 0.41.1** (계획서 `docs/plans/0.41.0-document-library.md`, 상위 방향 `docs/plans/0.39.x-roadmap.md` "0.4x — 문서 검색").
 - **[Note] 방향 (사용자 결정, 2026-11-03)** — argon 의 0.41.0 안(채팅 첨부 300자를 질문 맞춤 300자로)은 쓰지 않았다(결함 부분은 0.40.8). 기관·기업·학생 사용을 겨냥해 **사용자가 직접 등록한 문서를 채팅에서 찾는** 보관함으로 — 묻는 곳은 채팅(문서 화면 검색창 없음), 범위는 등록한 문서만, 규모는 전공서적 한 권 이상, 검색은 새 툴 `search_documents`(0.41.1), 원본은 제자리(지속 열람 권한)·글자·조각·색인만 DB.
