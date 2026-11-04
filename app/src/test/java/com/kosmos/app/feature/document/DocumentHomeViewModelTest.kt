@@ -28,6 +28,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import com.kosmos.app.platform.document.LibraryEmbedder
 
 /**
  * [DocumentHomeViewModelTest]
@@ -71,7 +72,7 @@ class DocumentHomeViewModelTest {
     fun setUp() {
         Dispatchers.setMain(Dispatchers.Unconfined)
         store = RecentDocumentsStore(InMemoryPreferences())
-        viewModel = DocumentHomeViewModel(store, access, library, indexer)
+        viewModel = DocumentHomeViewModel(store, access, library, indexer, LibraryEmbedder(library) { null }, { null })
     }
 
     @After

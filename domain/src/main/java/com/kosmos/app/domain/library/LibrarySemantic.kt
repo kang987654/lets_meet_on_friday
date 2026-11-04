@@ -25,6 +25,16 @@ interface TextEmbedder {
 }
 
 /**
+ * [EmbedderProvider]
+ * 지금 쓸 수 있는 임베더 — 임베딩 모델이 설치되지 않았으면 null(호출하는 쪽은 바이그램만, 0.41.2).
+ *
+ * [WHY] 모델은 선택 설치라 [TextEmbedder] 를 바로 주입하면 "없음"을 표현할 수 없다. 설치 여부를 매번 물어 받기·지우기에 바로 따른다.
+ */
+fun interface EmbedderProvider {
+    fun current(): TextEmbedder?
+}
+
+/**
  * [LibraryEmbedding]
  * EmbeddingGemma 2 의 입력 형식과 문서 조각의 임베딩 글자입니다.
  *

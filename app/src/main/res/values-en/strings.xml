@@ -337,6 +337,11 @@
     <string name="doc_library_removed_snackbar">Removed \'%1$s\' from the library</string>
     <string name="doc_library_access_failed_snackbar">Couldn\'t keep access to \'%1$s\', so it wasn\'t added to the library.</string>
     <string name="doc_library_footnote">Removing from the library deletes only the index. The file stays.</string>
+    <string name="doc_library_semantic_pending">%1$d documents aren\'t ready for meaning search. Prepare them to find passages worded differently.</string>
+    <string name="doc_library_semantic_running">Preparing meaning search %1$d/%2$d</string>
+    <string name="doc_library_semantic_paused">Meaning search %1$d/%2$d. Continues after the reply.</string>
+    <string name="doc_library_semantic_failed">Preparing meaning search stopped.</string>
+    <string name="doc_library_semantic_prepare">Prepare meaning search</string>
     <string name="doc_viewer_default_title">Document</string>
     <string name="doc_viewer_to_chat_button">To chat</string>
     <string name="doc_viewer_zoom_cd">Zoom %1$d%%, tap to change</string>
@@ -467,6 +472,15 @@
     <string name="model_mgmt_default_section">Default Model</string>
     <string name="model_mgmt_default_spec">LiteRT-LM optimized, approx. 3.6GB</string>
     <string name="model_mgmt_custom_url_section">Download from Custom URL</string>
+    <string name="model_mgmt_embedding_section">Meaning Search Model (Optional)</string>
+    <string name="model_mgmt_embedding_desc">Finds passages in your document library that mean the same thing even when worded differently. About %1$d MB, downloaded over Wi-Fi.</string>
+    <string name="model_mgmt_embedding_installed">Installed. Prepare meaning search from the library on the Documents screen.</string>
+    <string name="model_mgmt_embedding_downloading">Downloading %1$d%%</string>
+    <string name="model_mgmt_embedding_waiting">Waiting for Wi-Fi.</string>
+    <string name="model_mgmt_embedding_failed">Download failed. Please try again.</string>
+    <string name="model_mgmt_embedding_delete">Delete</string>
+    <string name="model_mgmt_embedding_delete_title">Delete the meaning search model?</string>
+    <string name="model_mgmt_embedding_delete_body">Library search goes back to text matching and the prepared meaning data is deleted. If you download it again, you\'ll need to prepare again.</string>
     <string name="model_mgmt_custom_url_label">URL (.litertlm file)</string>
     <string name="model_mgmt_download_custom_url">Download from This URL</string>
     <string name="model_mgmt_done_title">Download Complete</string>

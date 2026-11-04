@@ -23,6 +23,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.flow.mapLatest
+import com.kosmos.app.platform.document.LibraryEmbedder
+import com.kosmos.app.domain.library.EmbedderProvider
+import com.kosmos.app.core.common.AppResult
 
 /**
  * [DocumentHomeViewModel]
@@ -38,13 +42,16 @@ import javax.inject.Inject
  * 3. 목록에서 밀려나거나 지운 문서는 권한도 돌려준다 — 단 보관함에 있는 문서는 쥐고 있는다(보관함 원문 열기·다시 색인에 필요).
  * 4. [onLibraryPicked]: 영구 권한을 받아 보관함에 넣고 색인을 띄운다. 권한을 못 받으면 넣지 않는다(다시 색인할 수 없다).
  * 5. 보관함에서 빼기는 휴지통+되돌리기 — [hideLibrary] 로 목록에서 숨기고, 되돌리기가 끝나면 [removeLibrary] 가 색인을 지운다.
+ * 6. 뜻 검색 준비([semantic], 0.41.2) — 임베딩 모델이 있으면 벡터가 모자란 문서 수와 진행을 보이고, [prepareSemantic] 이 사용자가 시작하는 일괄 생성.
  */
 @HiltViewModel
 class DocumentHomeViewModel @Inject constructor(
     private val store: RecentDocumentsStore,
     private val access: DocumentAccess,
     private val library: LibraryRepository,
-    private val indexer: LibraryIndexer
+    private val indexer: LibraryIndexer,
+    private val embedder: LibraryEmbedder,
+    private val embedders: EmbedderProvider
 ) : ViewModel() {
 
     sealed interface Event {
@@ -65,6 +72,20 @@ class DocumentHomeViewModel @Inject constructor(
         combine(library.observeDocuments(), indexer.progress, hiddenLibrary) { documents, progress, hidden ->
             documents.filter { it.id !in hidden }.map { LibraryItem(it, progress[it.id]) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 뜻 검색 준비 표시 — 모델이 없으면 [installed] false 이고 화면은 아무것도 보이지 않는다. */
+    data class SemanticUi(val installed: Boolean, val pendingDocuments: Int, val work: LibraryEmbedder.State)
+
+    // [WHY] 문서 목록·벡터 만들기 상태가 바뀔 때마다 남은 문서 수를 다시 센다 — 둘 다 드물게 바뀌므로 DB 질의 한 번이 싸다.
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val semantic: StateFlow<SemanticUi> =
+        combine(library.observeDocuments(), embedder.state) { _, work -> work }
+            .mapLatest { work ->
+                val model = embedders.current()?.modelId
+                val pending = (library.semanticStatus(model) as? AppResult.Success)?.data?.pendingDocuments ?: 0
+                SemanticUi(model != null, pending, work)
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SemanticUi(false, 0, LibraryEmbedder.State.Idle))
 
     private val _events = Channel<Event>(Channel.BUFFERED)
     val events: Flow<Event> = _events.receiveAsFlow()
@@ -160,6 +181,9 @@ class DocumentHomeViewModel @Inject constructor(
             if (store.recentFlow.first().none { it.uri == item.document.uri }) access.release(item.document.uri)
         }
     }
+
+    /** "준비하기" — 벡터가 없는 조각 전부를 만든다(채팅 중이면 멈췄다가 이어 간다). */
+    fun prepareSemantic() = embedder.prepareAll()
 
     private suspend fun remember(document: RecentDocument) {
         store.add(document).forEach { releaseUnlessInLibrary(it) }

@@ -44,7 +44,7 @@ class LibraryIndexerTest {
     private fun indexer(result: DocumentResult<OpenedDocument>) =
         LibraryIndexer(object : DocumentOpener {
             override suspend fun open(uri: Uri, mimeTypeHint: String?) = result
-        }, repo)
+        }, repo, LibraryEmbedder(repo) { null })
 
     private fun addAndWait(indexer: LibraryIndexer): LibraryDocument = runBlocking {
         withTimeout(5_000) { indexer.add(Uri.parse("content://doc/1"), "규정", "text/plain", now = 1).join() }

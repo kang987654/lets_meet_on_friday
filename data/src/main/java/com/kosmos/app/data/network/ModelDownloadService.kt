@@ -282,10 +282,15 @@ class ModelDownloadService @Inject constructor(
             ModelDownloadException.Permanent("HTTP $code")
         }
 
+    /**
+     * 받을 위치 — 기본은 채팅 모델 폴더. [fileName] 에 폴더가 있으면(`embedding/x.litertlm`) 앱 내부 저장소 기준 그 경로다(0.41.2 임베딩 모델).
+     *
+     * [WHY] 임베딩 모델을 채팅 모델 폴더에 받으면 채팅 엔진이 그 폴더의 가장 최근 `.litertlm` 을 골라 임베딩 모델을 채팅 모델로 올린다.
+     */
     private fun targetFile(url: String, fileName: String?): File {
         val actual = fileName
             ?: url.substringAfterLast("/").substringBefore("?").substringBefore("#")
-        return File(File(context.filesDir, Constants.MODEL_DIR_NAME), actual)
+        return if ('/' in actual) File(context.filesDir, actual) else File(File(context.filesDir, Constants.MODEL_DIR_NAME), actual)
     }
 
     private fun partFile(target: File) =

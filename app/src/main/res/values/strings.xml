@@ -340,6 +340,11 @@
     <string name="doc_library_removed_snackbar">\'%1$s\'을(를) 보관함에서 뺐어요</string>
     <string name="doc_library_access_failed_snackbar">\'%1$s\'을(를) 계속 읽을 권한을 받지 못해 보관함에 넣지 못했어요.</string>
     <string name="doc_library_footnote">보관함에서 빼면 색인만 지우고 파일은 그대로예요.</string>
+    <string name="doc_library_semantic_pending">뜻 검색 준비가 안 된 문서 %1$d개 — 준비하면 표현이 달라도 찾아요.</string>
+    <string name="doc_library_semantic_running">뜻 검색 준비 중 %1$d/%2$d</string>
+    <string name="doc_library_semantic_paused">뜻 검색 준비 %1$d/%2$d — 답이 끝나면 이어서 해요.</string>
+    <string name="doc_library_semantic_failed">뜻 검색 준비가 멈췄어요.</string>
+    <string name="doc_library_semantic_prepare">뜻 검색 준비하기</string>
     <string name="doc_viewer_default_title">문서</string>
     <string name="doc_viewer_to_chat_button">채팅으로</string>
     <string name="doc_viewer_zoom_cd">확대 %1$d%%, 누르면 바꾸기</string>
@@ -470,6 +475,15 @@
     <string name="model_mgmt_default_section">기본 모델</string>
     <string name="model_mgmt_default_spec">LiteRT-LM 최적화, 크기 약 3.6GB</string>
     <string name="model_mgmt_custom_url_section">직접 URL로 내려받기</string>
+    <string name="model_mgmt_embedding_section">뜻 검색 모델 (선택)</string>
+    <string name="model_mgmt_embedding_desc">문서 보관함에서 표현이 달라도 뜻이 같은 내용을 찾아요. 약 %1$dMB, Wi-Fi에서 받아요.</string>
+    <string name="model_mgmt_embedding_installed">설치됨 — 문서 화면의 보관함에서 뜻 검색을 준비해요.</string>
+    <string name="model_mgmt_embedding_downloading">받는 중 %1$d%%</string>
+    <string name="model_mgmt_embedding_waiting">Wi-Fi를 기다리는 중이에요.</string>
+    <string name="model_mgmt_embedding_failed">받지 못했어요. 다시 시도해 주세요.</string>
+    <string name="model_mgmt_embedding_delete">지우기</string>
+    <string name="model_mgmt_embedding_delete_title">뜻 검색 모델을 지울까요?</string>
+    <string name="model_mgmt_embedding_delete_body">보관함 검색이 글자 검색으로 돌아가고, 만들어 둔 뜻 정보도 지워져요. 다시 받으면 다시 준비해야 해요.</string>
     <string name="model_mgmt_custom_url_label">URL (.litertlm 파일)</string>
     <string name="model_mgmt_download_custom_url">이 URL로 내려받기</string>
     <string name="model_mgmt_done_title">내려받기 완료</string>

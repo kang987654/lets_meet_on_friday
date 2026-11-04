@@ -47,7 +47,8 @@ import javax.inject.Singleton
 @Singleton
 class LibraryIndexer @Inject constructor(
     private val opener: DocumentOpener,
-    private val repository: LibraryRepository
+    private val repository: LibraryRepository,
+    private val embedder: LibraryEmbedder
 ) {
     /** 색인 중인 문서의 진행률 — 문서 id → (읽은 단위, 전체 단위). PDF 는 쪽, 시트는 시트 수, 그 외는 (0, 1) → (1, 1). */
     data class Progress(val done: Int, val total: Int)
@@ -114,7 +115,10 @@ class LibraryIndexer @Inject constructor(
         val chunks = LibraryChunker.chunk(document.name, lines)
         if (repository.replaceChunks(document.id, chunks, chars) is AppResult.Failure) {
             repository.markFailed(document.id, LibraryFailure.OPEN_FAILED.name)
+            return
         }
+        // [WHY] 등록은 사용자가 시작한 일 — 임베딩 모델이 있으면 이 문서의 뜻 벡터를 이어서 만든다(없으면 아무것도 안 함, 0.41.2 Q4).
+        embedder.prepare(document.id)
     }
 
     private sealed interface Read {

@@ -47,8 +47,27 @@ import javax.inject.Singleton
  */
 @Singleton
 class WorkManagerModelDownloadScheduler @Inject constructor(
-    @param:ApplicationContext private val context: Context,
-    private val downloader: ModelDownloader
+    @ApplicationContext context: Context,
+    downloader: ModelDownloader
+) : WorkManagerDownloadScheduler(context, downloader, Constants.MODEL_DOWNLOAD_WORK_NAME)
+
+/**
+ * [EmbeddingModelDownloadScheduler]
+ * 임베딩 모델(선택 설치, 0.41.2) 다운로드 — 채팅 모델과 같은 전경 작업·Wi-Fi 제약·이어받기, 유니크 작업 이름만 다르다.
+ *
+ * [WHY] 같은 유니크 이름을 쓰면 KEEP 정책 때문에 채팅 모델을 받는 동안 임베딩 모델 요청이 버려지고, 상태 Flow 도 섞인다.
+ */
+@Singleton
+class EmbeddingModelDownloadScheduler @Inject constructor(
+    @ApplicationContext context: Context,
+    downloader: ModelDownloader
+) : WorkManagerDownloadScheduler(context, downloader, Constants.EMBEDDING_DOWNLOAD_WORK_NAME)
+
+/** 유니크 작업 이름 하나에 묶인 다운로드 예약 — [WorkManagerModelDownloadScheduler]·[EmbeddingModelDownloadScheduler] 의 공통 몸체. */
+abstract class WorkManagerDownloadScheduler(
+    private val context: Context,
+    private val downloader: ModelDownloader,
+    private val workName: String
 ) : ModelDownloadScheduler {
 
     private val workManager get() = WorkManager.getInstance(context)
@@ -66,7 +85,7 @@ class WorkManagerModelDownloadScheduler @Inject constructor(
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override val status: Flow<ModelDownloadStatus> =
-        workManager.getWorkInfosForUniqueWorkFlow(Constants.MODEL_DOWNLOAD_WORK_NAME)
+        workManager.getWorkInfosForUniqueWorkFlow(workName)
             .combine(ackedWorkId) { infos, acked ->
                 toDownloadStatus(infos.lastOrNull(), acked) { resumableBytes() }
             }
@@ -97,14 +116,14 @@ class WorkManagerModelDownloadScheduler @Inject constructor(
         // 두 번 받지 않는다. 이전 작업이 이미 종료된 경우엔 KEEP 도 새 작업을 넣으므로
         // 재시도·이어받기 경로는 막히지 않는다.
         workManager.enqueueUniqueWork(
-            Constants.MODEL_DOWNLOAD_WORK_NAME,
+            workName,
             ExistingWorkPolicy.KEEP,
             request
         )
     }
 
     override fun cancel(deletePartial: Boolean) {
-        workManager.cancelUniqueWork(Constants.MODEL_DOWNLOAD_WORK_NAME)
+        workManager.cancelUniqueWork(workName)
         if (deletePartial) {
             val request = lastRequest.value ?: return
             ioScope.launch { downloader.clearPartial(request.first, request.second) }
@@ -120,7 +139,7 @@ class WorkManagerModelDownloadScheduler @Inject constructor(
     override fun acknowledge() {
         ioScope.launch {
             val terminalId = runCatching {
-                workManager.getWorkInfosForUniqueWork(Constants.MODEL_DOWNLOAD_WORK_NAME)
+                workManager.getWorkInfosForUniqueWork(workName)
                     .get()
                     ?.lastOrNull()
                     ?.takeIf { it.state.isFinished }

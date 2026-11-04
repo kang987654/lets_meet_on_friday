@@ -665,7 +665,7 @@ class ScreenCatalogTest {
     )
 
     @Test fun documentHome() {
-        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess, FakeLibraryRepository(), io.mockk.mockk<LibraryIndexer>(relaxed = true) { io.mockk.every { progress } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap()) })
+        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess, FakeLibraryRepository(), io.mockk.mockk<LibraryIndexer>(relaxed = true) { io.mockk.every { progress } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap()) }, com.kosmos.app.platform.document.LibraryEmbedder(FakeLibraryRepository()) { null }, { null })
         shoot("08-documents") { DocumentHomeScreen(viewModel = vm, onBack = {}) }
     }
 
@@ -679,7 +679,7 @@ class ScreenCatalogTest {
                 RecentDocument("content://d/1", "가계부.xlsx", null, NOW - 1_200_000L)
             ).forEach { recentDocumentsStore.add(it) }
         }
-        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess, FakeLibraryRepository(), io.mockk.mockk<LibraryIndexer>(relaxed = true) { io.mockk.every { progress } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap()) })
+        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess, FakeLibraryRepository(), io.mockk.mockk<LibraryIndexer>(relaxed = true) { io.mockk.every { progress } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap()) }, com.kosmos.app.platform.document.LibraryEmbedder(FakeLibraryRepository()) { null }, { null })
         shoot("31-documents-recent") { DocumentHomeScreen(viewModel = vm, onBack = {}) }
     }
 
@@ -695,8 +695,24 @@ class ScreenCatalogTest {
         val indexer = io.mockk.mockk<LibraryIndexer>(relaxed = true) {
             io.mockk.every { progress } returns kotlinx.coroutines.flow.MutableStateFlow(mapOf("l2" to LibraryIndexer.Progress(11, 40)))
         }
-        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess, library, indexer)
+        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess, library, indexer, com.kosmos.app.platform.document.LibraryEmbedder(library) { null }, { null })
         shoot("34-documents-library") { DocumentHomeScreen(viewModel = vm, onBack = {}) }
+    }
+
+    /** 문서 보관함 뜻 검색 준비 줄 — 모델이 있고 벡터가 모자란 문서가 있을 때(0.41.2). */
+    @Test fun documentHomeSemanticPending() {
+        val library = FakeLibraryRepository(
+            listOf(LibraryDocument("l1", "content://l/1", "민법.pdf", "application/pdf", NOW - 3, LibraryStatus.READY, chunkCount = 1115, charCount = 155806))
+        ).apply { pendingInputs += com.kosmos.app.domain.library.LibraryVectorInput(1, "l1", "title: 민법 | text: 1") }
+        val embedder = object : com.kosmos.app.domain.library.TextEmbedder {
+            override val modelId = "eg2"
+            override suspend fun embedQuery(query: String): FloatArray? = null
+            override suspend fun embedDocuments(inputs: List<String>): List<FloatArray>? = null
+        }
+        val indexer = io.mockk.mockk<LibraryIndexer>(relaxed = true) { io.mockk.every { progress } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap()) }
+        // [WHY] 준비 버튼을 누르지 않은 상태 — 실행기에는 모델이 없는 것처럼 둬 촬영 중 일이 시작되지 않게 한다.
+        val vm = DocumentHomeViewModel(recentDocumentsStore, documentAccess, library, indexer, com.kosmos.app.platform.document.LibraryEmbedder(library) { null }, { embedder })
+        shoot("38-documents-semantic-pending") { DocumentHomeScreen(viewModel = vm, onBack = {}) }
     }
 
     @Test fun settings() {
@@ -840,6 +856,16 @@ class ScreenCatalogTest {
         }
         val vm = ModelManagementViewModel(useCase)
         shoot("24-model-management") { ModelManagementScreen(viewModel = vm, onBack = {}) }
+    }
+
+    /** 모델 관리의 뜻 검색 모델(선택) 항목 — 받기 전·설치됨 두 상태(0.41.2). */
+    @Test fun modelManagementEmbedding() {
+        shoot("39-model-embedding") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(16.dp)) {
+                com.kosmos.app.feature.settings.EmbeddingModelSection(com.kosmos.app.feature.settings.EmbeddingModelUi.NotInstalled, {}, {}, {}, {})
+                com.kosmos.app.feature.settings.EmbeddingModelSection(com.kosmos.app.feature.settings.EmbeddingModelUi.Installed, {}, {}, {}, {})
+            }
+        }
     }
 
     /** 문서 뷰어 — 스프레드시트(0.38.3 M0 — 카탈로그에 없던 화면). */

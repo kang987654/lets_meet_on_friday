@@ -9,6 +9,7 @@ import com.google.ai.edge.litertlm.EmbeddingOptions
 import com.google.ai.edge.litertlm.InputData
 import com.kosmos.app.BuildConfig
 import com.kosmos.app.core.common.Constants
+import com.kosmos.app.domain.library.EmbedderProvider
 import com.kosmos.app.domain.library.TextEmbedder
 import com.kosmos.app.domain.library.normalized
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -39,9 +40,12 @@ import javax.inject.Singleton
 @Singleton
 class EmbeddingGemmaRunner @Inject constructor(
     @param:ApplicationContext private val context: Context
-) : TextEmbedder {
+) : TextEmbedder, EmbedderProvider {
 
     override val modelId: String = Constants.EMBEDDING_MODEL_ID
+
+    /** 모델 파일이 있을 때만 자기 자신 — 없으면 검색·벡터 만들기가 바이그램으로 남는다. */
+    override fun current(): TextEmbedder? = takeIf { installed }
 
     private val mutex = Mutex()
     @Volatile private var engine: EmbeddingEngine? = null

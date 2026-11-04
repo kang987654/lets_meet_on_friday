@@ -51,6 +51,10 @@ import com.kosmos.app.ui.component.KosmosListRow
 import com.kosmos.app.ui.component.KosmosTopBar
 import com.kosmos.app.ui.component.SectionHeader
 import com.kosmos.app.ui.component.rememberToday
+import com.kosmos.app.platform.document.LibraryEmbedder
+import com.kosmos.app.ui.component.KosmosListGroup
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 
 /**
  * 문서 홈 (0.34.0) — 드로어 "문서"의 목적지. 파일 열기 + 최근 문서 목록. 문서는 [DocumentViewerActivity] 가 연다.
@@ -68,6 +72,7 @@ fun DocumentHomeScreen(
     val resources = LocalResources.current
     val recent by viewModel.recent.collectAsStateWithLifecycle()
     val libraryItems by viewModel.libraryItems.collectAsStateWithLifecycle()
+    val semantic by viewModel.semantic.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -159,9 +164,11 @@ fun DocumentHomeScreen(
             }
             libraryItems(
                 items = libraryItems,
+                semantic = semantic,
                 onAdd = { libraryPicker.launch(DocumentType.PICKER_MIME_TYPES.toTypedArray()) },
                 onClick = viewModel::openLibrary,
-                onRemove = hideLibrary
+                onRemove = hideLibrary,
+                onPrepareSemantic = viewModel::prepareSemantic
             )
             if (recent.isEmpty()) {
                 item {
@@ -196,9 +203,11 @@ fun DocumentHomeScreen(
 /** 보관함 구역 — 제목·안내, 문서 줄(상태·진행률), 추가 버튼, 각주(0.41.0). */
 private fun androidx.compose.foundation.lazy.LazyListScope.libraryItems(
     items: List<DocumentHomeViewModel.LibraryItem>,
+    semantic: DocumentHomeViewModel.SemanticUi,
     onAdd: () -> Unit,
     onClick: (DocumentHomeViewModel.LibraryItem) -> Unit,
-    onRemove: (DocumentHomeViewModel.LibraryItem) -> Unit
+    onRemove: (DocumentHomeViewModel.LibraryItem) -> Unit,
+    onPrepareSemantic: () -> Unit
 ) {
     item { SectionHeader(stringResource(R.string.doc_home_section_library), Modifier.padding(top = 16.dp)) }
     item {
@@ -211,6 +220,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.libraryItems(
     }
     itemsIndexed(items, key = { _, item -> "library:" + item.document.id }) { index, item ->
         LibraryRow(item, groupPosition(index, items.size), onClick = { onClick(item) }, onRemove = { onRemove(item) })
+    }
+    if (semantic.installed && (semantic.work != LibraryEmbedder.State.Idle || semantic.pendingDocuments > 0)) {
+        item(key = "library:semantic") {
+            semanticText(semantic)?.let { (text, showButton) -> SemanticPrepareRow(text, showButton, onPrepareSemantic) }
+        }
     }
     item {
         KosmosButton(stringResource(R.string.doc_home_library_add), onAdd, Modifier.fillMaxWidth().padding(top = 8.dp))
@@ -239,6 +253,34 @@ private fun LibraryRow(item: DocumentHomeViewModel.LibraryItem, position: GroupP
         modifier = Modifier.groupItem(position),
         trailing = { DeleteIconButton(onRemove, contentDescription = stringResource(R.string.doc_library_remove_cd)) }
     )
+}
+
+/**
+ * 뜻 검색 준비 줄의 문구와 "준비하기" 버튼 여부 — 모델이 없거나 할 일이 없으면 null(줄을 그리지 않는다, 0.41.2).
+ */
+@Composable
+private fun semanticText(ui: DocumentHomeViewModel.SemanticUi): Pair<String, Boolean>? {
+    if (!ui.installed) return null
+    return when (val work = ui.work) {
+        is LibraryEmbedder.State.Running -> stringResource(R.string.doc_library_semantic_running, work.done, work.total) to false
+        is LibraryEmbedder.State.Paused -> stringResource(R.string.doc_library_semantic_paused, work.done, work.total) to false
+        LibraryEmbedder.State.Failed -> stringResource(R.string.doc_library_semantic_failed) to true
+        LibraryEmbedder.State.Idle ->
+            if (ui.pendingDocuments > 0) stringResource(R.string.doc_library_semantic_pending, ui.pendingDocuments) to true else null
+    }
+}
+
+/** 뜻 검색 준비 줄 — 상태 문구 + "준비하기". */
+@Composable
+private fun SemanticPrepareRow(text: String, showButton: Boolean, onPrepare: () -> Unit) {
+    KosmosListGroup(Modifier.padding(top = 8.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(text, color = KosmosTheme.colors.textSecondary, style = MaterialTheme.typography.bodyMedium)
+            if (showButton) {
+                KosmosButton(stringResource(R.string.doc_library_semantic_prepare), onPrepare, Modifier.fillMaxWidth())
+            }
+        }
+    }
 }
 
 /** 보관함 줄의 상태 문구 — 실패 사유는 저장한 코드([LibraryFailure])를 지금 언어로 바꾼다. */

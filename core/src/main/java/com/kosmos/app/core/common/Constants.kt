@@ -208,12 +208,18 @@ object Constants {
     // 임베딩 모델을 채팅 모델로 올린다(GemmaRuntimeManager.findLatestModelFile).
     const val EMBEDDING_DIR_NAME = "embedding"
     const val EMBEDDING_MODEL_FILENAME = "embeddinggemma-2-740m.litertlm"
+    const val EMBEDDING_MODEL_DOWNLOAD_URL =
+        "https://huggingface.co/litert-community/embeddinggemma-2-740m-litert-lm/resolve/main/embeddinggemma-2-740m.litertlm"
+
+    /** 받기 전 안내용 크기(모델 카드) — 실제 크기는 다운로드가 서버에서 읽는다. */
+    const val EMBEDDING_MODEL_SIZE_MB = 485
 
     /** 벡터에 함께 저장하는 모델 표지 — 바뀌면 옛 벡터를 버린다. */
     const val EMBEDDING_MODEL_ID = "embeddinggemma-2-740m"
 
     // --- 모델 다운로드 (WorkManager 전경 작업, ADR-006) ---
     const val MODEL_DOWNLOAD_WORK_NAME = "model_download"
+    const val EMBEDDING_DOWNLOAD_WORK_NAME = "embedding_model_download"
 
     // --- 아침 브리핑 알림 (WorkManager 자기 재예약, A4) ---
     const val BRIEFING_WORK_NAME = "morning_briefing_notification"

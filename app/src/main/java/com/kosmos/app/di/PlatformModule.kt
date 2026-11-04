@@ -37,6 +37,12 @@ abstract class PlatformModule {
         impl: WorkManagerModelDownloadScheduler
     ): ModelDownloadScheduler
 
+    // [WHY] 임베딩 모델은 선택 설치 — 쓰는 쪽은 "지금 있는 임베더"를 묻는다(없으면 바이그램, 0.41.2).
+    @Binds
+    abstract fun bindEmbedderProvider(
+        impl: com.kosmos.app.runtime.embedding.EmbeddingGemmaRunner
+    ): com.kosmos.app.domain.library.EmbedderProvider
+
     @Binds
     abstract fun bindDocumentOpener(
         impl: AndroidDocumentOpener

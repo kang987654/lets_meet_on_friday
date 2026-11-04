@@ -38,7 +38,7 @@ class DocumentHomeScreenTest {
     }
 
     private fun show() {
-        composeRule.setContent { KosmosTheme { DocumentHomeScreen(viewModel = DocumentHomeViewModel(store, access, FakeLibraryRepository(), io.mockk.mockk<LibraryIndexer>(relaxed = true) { io.mockk.every { progress } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap()) }), onBack = {}) } }
+        composeRule.setContent { KosmosTheme { DocumentHomeScreen(viewModel = DocumentHomeViewModel(store, access, FakeLibraryRepository(), io.mockk.mockk<LibraryIndexer>(relaxed = true) { io.mockk.every { progress } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap()) }, com.kosmos.app.platform.document.LibraryEmbedder(FakeLibraryRepository()) { null }, { null }), onBack = {}) } }
         composeRule.waitForIdle()
     }
 

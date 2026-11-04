@@ -28,6 +28,7 @@ import com.kosmos.app.ui.component.rememberReducedMotion
 import com.kosmos.app.ui.component.rememberToday
 import com.kosmos.app.ui.theme.Motion
 import com.kosmos.app.ui.theme.SplashStyle
+import com.kosmos.app.feature.settings.EmbeddingModelSectionRoute
 
 @Composable
 fun AppNavHost(
@@ -182,7 +183,8 @@ fun AppNavHost(
 
         composable(route = AppDestination.ModelManagement.route) {
             ModelManagementScreen(
-                onBack = { navigateBack() }
+                onBack = { navigateBack() },
+                embeddingSection = { EmbeddingModelSectionRoute() }
             )
         }
 

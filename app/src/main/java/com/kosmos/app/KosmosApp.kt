@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import com.kosmos.app.runtime.embedding.EmbeddingGemmaRunner
+import com.kosmos.app.platform.document.LibraryEmbedder
 
 @HiltAndroidApp
 class KosmosApp : Application(), Configuration.Provider {
@@ -59,6 +60,9 @@ class KosmosApp : Application(), Configuration.Provider {
     @Inject
     lateinit var embeddingRunner: EmbeddingGemmaRunner
 
+    @Inject
+    lateinit var libraryEmbedder: LibraryEmbedder
+
     /**
      * [WHY] @HiltWorker 로 만든 Worker 에 의존성을 주입하려면 WorkManager 의 기본 초기화를
      * 매니페스트에서 제거하고(WorkManagerInitializer node:remove) HiltWorkerFactory 를 물려야 한다.
@@ -92,6 +96,8 @@ class KosmosApp : Application(), Configuration.Provider {
                 speechOutput.release()
                 // [WHY] 엔진이 방금 해제됐다 — 정리를 이어 가면 3.6GB 를 백그라운드에서 다시 올린다(§2-⑥). 다음 버튼이 처음부터.
                 memoryCleanupRunner.cancel()
+                // [WHY] 뜻 벡터 만들기도 백그라운드에서 잇지 않는다(§2-⑥) — 남은 조각은 보관함의 "준비하기"가 다시.
+                libraryEmbedder.cancel()
                 releaseEmbedding()
             }
         })
