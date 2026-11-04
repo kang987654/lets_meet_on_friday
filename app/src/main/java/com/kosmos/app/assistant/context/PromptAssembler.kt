@@ -62,7 +62,7 @@ class PromptAssembler @Inject constructor() {
                 appendLine(context.profileText)
             }
             appendLine(buildDateBlock(today, context.language))
-            append(buildFormatBlock(availableTools, context.language))
+            append(buildFormatBlock(availableTools, context.language, context.libraryNames))
         }
 
         return ChatPrompt(
@@ -106,6 +106,16 @@ class PromptAssembler @Inject constructor() {
 
         // exp49 실측 원문(조건 NC).
         const val TURN_AFFIRM_CLAUSE = " If the user is answering your previous question, carry out what you proposed."
+
+        // exp78 B + exp79 NO_ASK 원문 — 언어와 무관하게 같은 줄(트리거 예시가 없는 일반 규칙이다).
+        const val DOC_SEARCH_TRIGGER =
+            "- Document search is ON (the user turned it on): for questions about facts, rules, laws, procedures, or anything their " +
+                "registered documents might cover, call `search_documents` first and answer only from what it returns, naming the document and article or page." +
+                " Never ask which document or whether they have one — search all of them yourself."
+
+        /** 트리거 줄 + 등록 문서 이름(exp79 a1 형식). 이름이 없으면 줄만. */
+        fun docSearchTrigger(names: List<String>): String =
+            if (names.isEmpty()) DOC_SEARCH_TRIGGER else "$DOC_SEARCH_TRIGGER Registered documents: ${names.joinToString(", ")}."
 
         val CLOCK: java.time.format.DateTimeFormatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
 
@@ -205,7 +215,8 @@ class PromptAssembler @Inject constructor() {
      */
     private fun buildFormatBlock(
         availableTools: List<String>?,
-        language: AppLanguage = AppLanguage.KO
+        language: AppLanguage = AppLanguage.KO,
+        libraryNames: List<String> = emptyList()
     ): String = buildString {
         val en = language == AppLanguage.EN
         appendLine("[Tool Usage Guidelines]")
@@ -272,6 +283,12 @@ class PromptAssembler @Inject constructor() {
                 } else {
                     appendLine("- The user asks which reminders are set: \"알림 뭐 있어\", \"리마인더 목록\": you MUST call `list_reminders`.")
                 }
+            }
+            // [WHY] 문서 검색 토글이 켜졌을 때만 붙는 강한 트리거(0.41.2 Q1 = B). exp79 Bn+a1: 되묻기 금지 + 등록 문서 이름이 바꿔 말한 질문 호출 16/20 → 19/20,
+            // 무관 오호출 0/10. 이름만·자문 아님·검색어 여러 개·다시 찾기는 효과가 없거나 해로웠다(CHANGELOG 0.41.2).
+            // 토글·문서 목록이 바뀌면 시스템 지시가 바뀌어 대화를 한 번 다시 만든다(턴마다가 아니다).
+            if (availableTools.contains(ToolNames.SEARCH_DOCUMENTS)) {
+                appendLine(docSearchTrigger(libraryNames))
             }
         }
         // [WHY] "above" 는 [System Data] 날짜 블록을 가리킨다 — 블록을 옮기면 이 문구도 옮겨야 한다. 마지막 문장은 직전

@@ -144,6 +144,8 @@ class ChatExtrasViewModel @Inject constructor(
         MessageResult.Kind.SCHEDULE -> taskRepository.observeById(result.ref).map { ResultCardMapper.schedule(context, it, today, lang = currentLang) }
         MessageResult.Kind.MEMORY_NOTE -> flow { emit(ResultCardMapper.note(context, noteOf(result.ref))) }
         MessageResult.Kind.MEMORY_RECALL -> flow { emit(ResultCardMapper.recall(context, result.ref.takeIf { it.isNotEmpty() }?.let { noteOf(it) }, result.meta, lang = currentLang)) }
+        // [WHY] 출처는 찾은 순간의 기록이다 — 문서가 지워졌는지는 누를 때 DocSourceViewModel 이 확인한다.
+        MessageResult.Kind.DOC_SOURCE -> flow { emit(ResultCardMapper.docSource(context, result.meta)) }
     }
 
     private suspend fun noteOf(id: String) = (knowledgeRepository.getById(id) as? AppResult.Success)?.data

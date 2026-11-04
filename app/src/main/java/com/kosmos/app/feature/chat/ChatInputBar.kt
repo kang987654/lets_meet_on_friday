@@ -69,6 +69,10 @@ fun ChatInputBar(
     // 기본 인자 단독 compose) 때문에 필수다.
     webSearchEnabled: Boolean = false,
     onToggleWebSearch: (Boolean) -> Unit = {},
+    // 문서 검색 토글과 보관함에 쓸 문서가 있는지(0.41.2) — 기본값은 E2E 계약(단독 compose) 때문에 필수다.
+    docSearchEnabled: Boolean = false,
+    onToggleDocSearch: (Boolean) -> Unit = {},
+    docSearchAvailable: Boolean = false,
     // 문서 파일(xlsx·docx·hwpx·PDF)을 읽는 중 — 기본값은 E2E 계약(단독 compose) 때문에 필수다(0.35.0 M4).
     attachmentExtracting: Boolean = false,
     // 녹음 중 소리 크기(0..1) — 파형(0.38.4 M5). 기본값은 E2E 계약(단독 compose) 때문에.
@@ -150,23 +154,14 @@ fun ChatInputBar(
                 )
             }
 
-            // 웹 검색 허용 토글 — ON: 승인 없이 검색 허용 / OFF(기본): 모델에 툴 미노출 + 실행 차단
-            // [WHY] 켜짐·꺼짐을 색으로만 보였다 — 토글 역할과 상태 설명(0.38.3 점검 P2). 설명 "웹 검색"은 그대로.
-            val searchStateDesc = stringResource(if (webSearchEnabled) R.string.chat_state_on else R.string.chat_state_off)
-            IconButton(
-                onClick = { onToggleWebSearch(!webSearchEnabled) },
-                modifier = Modifier.size(width = 40.dp, height = 48.dp)
-                    .semantics {
-                        stateDescription = searchStateDesc
-                    }
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_ph_globe),
-                    contentDescription = stringResource(R.string.chat_web_search_cd),
-                    tint = if (webSearchEnabled) KosmosTheme.colors.brandText else KosmosTheme.colors.textMuted,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+            // 검색 팝업 — 웹 검색(ON: 승인 없이 위키 허용 / OFF 기본: 툴 미노출 + 실행 차단)·문서 검색(ON: 보관함 툴 선언) 토글(0.41.2).
+            ChatSearchMenu(
+                webSearchEnabled = webSearchEnabled,
+                onToggleWebSearch = onToggleWebSearch,
+                docSearchEnabled = docSearchEnabled,
+                onToggleDocSearch = onToggleDocSearch,
+                docSearchAvailable = docSearchAvailable
+            )
 
             Box(
                 modifier = Modifier

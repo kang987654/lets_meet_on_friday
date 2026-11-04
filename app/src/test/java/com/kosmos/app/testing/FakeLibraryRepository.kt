@@ -59,7 +59,14 @@ class FakeLibraryRepository(initial: List<LibraryDocument> = emptyList()) : Libr
     override suspend fun totalChars(excludeId: String?): AppResult<Int> =
         AppResult.Success(documents.value.filter { it.id != excludeId }.sumOf { it.charCount })
 
-    override suspend fun search(query: String, limit: Int, embedder: TextEmbedder?): AppResult<List<LibraryHit>> = AppResult.Success(emptyList())
+    /** 검색어별 결과 — 테스트가 채운다. 받은 검색어와 임베더는 [searched] 에 남는다. */
+    val searchResults = mutableMapOf<String, List<LibraryHit>>()
+    val searched = mutableListOf<Pair<String, TextEmbedder?>>()
+
+    override suspend fun search(query: String, limit: Int, embedder: TextEmbedder?): AppResult<List<LibraryHit>> {
+        searched += query to embedder
+        return AppResult.Success(searchResults[query].orEmpty().take(limit))
+    }
 
     /** 저장된 벡터 — 조각 id → (모델, 벡터). */
     val vectors = mutableMapOf<Long, Pair<String, Int8Vector>>()

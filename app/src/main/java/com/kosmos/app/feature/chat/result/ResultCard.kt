@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.luminance
 import com.kosmos.app.R
+import com.kosmos.app.assistant.tool.SearchDocumentsToolExecutor
 import com.kosmos.app.domain.memory.RecallConflict
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.model.MessageResult
@@ -61,7 +62,7 @@ data class ResultCardState(
  * 기억 답의 근거 한 줄 — [kind] 가 아이콘과 강조(충돌은 주의 면)를 정한다.
  */
 data class Evidence(val kind: Kind, val text: String) {
-    enum class Kind { NOTE, CONVERSATION, CONFLICT }
+    enum class Kind { NOTE, CONVERSATION, CONFLICT, DOCUMENT }
 }
 
 /** 채팅 상단 요약 타일(0.38.2) — 다음 알림·오늘 일정 수·남은 할 일 수. */
@@ -185,6 +186,30 @@ object ResultCardMapper {
             // [WHY] 큰 값을 따로 두지 않는다 — 메모 문장에 값이 이미 있어 "…는 134 / 134"로 겹쳐 보였다(0.38.2 M3 렌더).
             title = note?.content ?: context.getString(R.string.result_memory_found_in_chats),
             evidence = evidence
+        )
+    }
+
+    /**
+     * 문서 검색의 출처(0.41.2 M4) — 첫 출처를 제목·위치로, 나머지는 근거 줄로. 누르면 첫 출처를 뷰어의 그 위치로 연다.
+     */
+    fun docSource(context: Context, meta: String?): ResultCardState {
+        val sources = meta?.let { runCatching { JSONObject(it) }.getOrNull() }
+            ?.optJSONArray(SearchDocumentsToolExecutor.META_SOURCES)
+            ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it) } }
+            .orEmpty()
+        fun line(source: JSONObject): String = listOf(
+            source.optString(SearchDocumentsToolExecutor.META_DOC_NAME),
+            source.optString(SearchDocumentsToolExecutor.META_SECTION)
+        ).filter { it.isNotEmpty() }.distinct().joinToString(" > ")
+        val first = sources.firstOrNull()
+        return ResultCardState(
+            kind = MessageResult.Kind.DOC_SOURCE,
+            icon = R.drawable.ic_ph_file_text,
+            label = context.getString(R.string.result_doc_source_label),
+            title = first?.optString(SearchDocumentsToolExecutor.META_SECTION)?.takeIf { it.isNotEmpty() }
+                ?: first?.optString(SearchDocumentsToolExecutor.META_DOC_NAME).orEmpty(),
+            sub = first?.optString(SearchDocumentsToolExecutor.META_DOC_NAME)?.takeIf { it.isNotEmpty() },
+            evidence = sources.drop(1).map { Evidence(Evidence.Kind.DOCUMENT, line(it)) }
         )
     }
 

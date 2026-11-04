@@ -489,6 +489,46 @@ class ScreenCatalogTest {
         shoot("35-chat-recall-episode") { ChatWithExtras(vm, extras) }
     }
 
+    /** 문서 검색 답의 출처 카드(0.41.2 M4) — 첫 출처는 제목·문서, 나머지는 근거 줄. 누르면 뷰어를 그 위치로 연다. */
+    @Test fun chatDocSource() {
+        kotlinx.coroutines.runBlocking {
+            conversationRepository.save(msg("m8", ChatMessage.Role.USER, "돈을 빌려주고 오래 안 받으면 언제 못 받게 돼?", NOW - 60_000))
+            conversationRepository.save(
+                msg("m9", ChatMessage.Role.ASSISTANT, "민법 제162조에 따르면 빌려준 돈(채권)은 10년 동안 청구하지 않으면 소멸시효가 완성돼 받을 수 없게 돼요.", NOW - 50_000,
+                    result = MessageResult(
+                        MessageResult.Kind.DOC_SOURCE, "d-civil",
+                        """{"sources":[{"d":"d-civil","n":"민법","s":"제162조(채권, 재산권의 소멸시효)","i":161},""" +
+                            """{"d":"d-civil","n":"민법","s":"제163조(3년의 단기소멸시효)","i":162},{"d":"d-civil","n":"민법","s":"제164조(1년의 단기소멸시효)","i":163}]}"""
+                    ))
+            )
+        }
+        val vm = chatViewModel()
+        val extras = extras()
+        shoot("41-chat-doc-source") { ChatWithExtras(vm, extras) }
+    }
+
+    /** 입력바 검색 팝업(0.41.2 M4) — 웹 검색 꺼짐·문서 검색 켜짐, 그리고 보관함이 빈 때의 비활성 줄. */
+    @Test fun chatSearchMenu() {
+        shoot("40-chat-search-menu", before = {
+            rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("검색 설정"))[0].performClick()
+        }) {
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier.fillMaxSize(),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.Bottom
+            ) {
+                ChatInputBar(
+                    isLoading = false, isRecording = false, sharedInput = null, onClearSharedInput = {},
+                    onSend = {}, onMicClick = {}, onAttachClick = {},
+                    docSearchEnabled = true, docSearchAvailable = true
+                )
+                ChatInputBar(
+                    isLoading = false, isRecording = false, sharedInput = null, onClearSharedInput = {},
+                    onSend = {}, onMicClick = {}, onAttachClick = {}
+                )
+            }
+        }
+    }
+
     /** 채팅 상태 표시 모음(0.38.2 M7) — 응답 대기·답 쓰는 중·입력바 네 상태(마이크·보내기·답 멈추기·녹음 중). 부품만 쌓아 한 장에. */
     @Test fun chatStates() {
         shoot("21-chat-states") {

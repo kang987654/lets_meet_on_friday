@@ -99,6 +99,10 @@ fun ChatScreen(
     onMenuClick: () -> Unit = {},
     webSearchEnabled: Boolean = false,
     onToggleWebSearch: (Boolean) -> Unit = {},
+    // 문서 검색 토글·보관함에 쓸 문서가 있는지(0.41.2). 기본값은 E2E 계약(단독 compose) 때문에 필수.
+    docSearchEnabled: Boolean = false,
+    onToggleDocSearch: (Boolean) -> Unit = {},
+    docSearchAvailable: Boolean = false,
     // [WHY] 드로어의 에피소드 시트 → "원문 대화 보기" (M2-5). 셸(MainScreen)이 요청 시각을
     // 내려주고, 소비 후 [onJumpConsumed]로 지운다. 기본값은 E2E 계약(단독 compose) 때문에 필수.
     jumpToTimestamp: Long? = null,
@@ -376,6 +380,16 @@ fun ChatScreen(
                     notify(
                         resources.getString(
                             if (enabled) R.string.chat_web_search_enabled_notice else R.string.chat_web_search_disabled_notice
+                        )
+                    )
+                },
+                docSearchEnabled = docSearchEnabled,
+                docSearchAvailable = docSearchAvailable,
+                onToggleDocSearch = { enabled ->
+                    onToggleDocSearch(enabled)
+                    notify(
+                        resources.getString(
+                            if (enabled) R.string.chat_doc_search_enabled_notice else R.string.chat_doc_search_disabled_notice
                         )
                     )
                 }

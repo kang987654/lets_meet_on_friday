@@ -21,6 +21,7 @@ class SettingsDataStore @Inject constructor(
         private val RESPONSE_STYLE_KEY = stringPreferencesKey("response_style")
         private val MAX_TOKENS_KEY = intPreferencesKey("max_tokens")
         private val WEB_SEARCH_ENABLED_KEY = booleanPreferencesKey("web_search_enabled")
+        private val DOC_SEARCH_ENABLED_KEY = booleanPreferencesKey("doc_search_enabled")
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         private val FONT_MODE_KEY = stringPreferencesKey("font_mode")
         private val CHAT_TEXT_SIZE_KEY = stringPreferencesKey("chat_text_size")
@@ -150,6 +151,17 @@ class SettingsDataStore @Inject constructor(
     suspend fun saveWebSearchEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[WEB_SEARCH_ENABLED_KEY] = enabled
+        }
+    }
+
+    // [WHY] 문서 검색(보관함)도 웹 검색처럼 앱을 다시 켜도 유지하고 기본은 꺼짐이다(0.41.2 Q2 사용자 결정) — 켜진 동안만 선언·트리거가 붙는다.
+    val docSearchEnabledFlow: Flow<Boolean> = dataStore.data.map {
+        it[DOC_SEARCH_ENABLED_KEY] ?: false
+    }
+
+    suspend fun saveDocSearchEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[DOC_SEARCH_ENABLED_KEY] = enabled
         }
     }
 

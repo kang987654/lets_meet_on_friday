@@ -56,6 +56,10 @@ class DocumentViewerActivity : ComponentActivity() {
             finish()
             return
         }
+        val target = ViewerTarget(
+            page = intent?.getIntExtra(EXTRA_PAGE, 0)?.takeIf { it > 0 },
+            find = intent?.getStringExtra(EXTRA_FIND)
+        ).takeIf { it.page != null || it.find != null }
         setContent {
             val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
             val fontMode by themeViewModel.fontMode.collectAsStateWithLifecycle()
@@ -71,6 +75,7 @@ class DocumentViewerActivity : ComponentActivity() {
                     textScaleStep = textScaleStep,
                     onTextScale = viewModel::changeTextScale,
                     selection = selection,
+                    target = target,
                     selectionActions = SelectionActions(
                         start = viewModel::startSelection,
                         cancel = viewModel::cancelSelection,
@@ -95,12 +100,20 @@ class DocumentViewerActivity : ComponentActivity() {
     }
 
     companion object {
-        /** 앱 안에서 문서를 연다(문서 홈). 읽기 권한을 함께 넘긴다. */
-        fun intent(context: Context, uri: Uri, mimeType: String? = null): Intent =
+        /** PDF 쪽(1부터) — 출처 카드가 그 쪽으로 연다(0.41.2). */
+        const val EXTRA_PAGE = "com.kosmos.app.extra.PAGE"
+
+        /** 흐름 문서에서 찾아 스크롤할 머리말(조문 제목 등) — 출처 카드(0.41.2). */
+        const val EXTRA_FIND = "com.kosmos.app.extra.FIND"
+
+        /** 앱 안에서 문서를 연다(문서 홈·출처 카드). 읽기 권한을 함께 넘긴다. [page]·[find] 가 있으면 그 위치로. */
+        fun intent(context: Context, uri: Uri, mimeType: String? = null, page: Int? = null, find: String? = null): Intent =
             Intent(context, DocumentViewerActivity::class.java).apply {
                 action = Intent.ACTION_VIEW
                 setDataAndType(uri, mimeType)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                page?.let { putExtra(EXTRA_PAGE, it) }
+                find?.let { putExtra(EXTRA_FIND, it) }
             }
     }
 }

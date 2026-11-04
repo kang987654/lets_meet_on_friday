@@ -14,6 +14,7 @@ import com.kosmos.app.feature.chat.ChatScreen
 import com.kosmos.app.domain.model.MessageResult
 import com.kosmos.app.feature.chat.ChatViewModel
 import com.kosmos.app.feature.chat.WebSearchViewModel
+import com.kosmos.app.feature.chat.result.DocSourceViewModel
 import com.kosmos.app.feature.chat.result.ChatExtrasViewModel
 import com.kosmos.app.feature.chat.result.ReminderEditSheetHost
 import com.kosmos.app.feature.cleanup.MemoryCleanupScreen
@@ -92,6 +93,8 @@ fun AppNavHost(
             val webSearchViewModel: WebSearchViewModel =
                 androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
             val webSearchEnabled by webSearchViewModel.webSearchEnabled.collectAsStateWithLifecycle()
+            val docSearchEnabled by webSearchViewModel.docSearchEnabled.collectAsStateWithLifecycle()
+            val docSearchAvailable by webSearchViewModel.docSearchAvailable.collectAsStateWithLifecycle()
             // [WHY] 결과 카드·요약 타일(0.38.2 M3) — ChatViewModel 과 나눠 E2E 의 단독 compose 계약을 지킨다.
             val extras: ChatExtrasViewModel =
                 androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
@@ -99,6 +102,8 @@ fun AppNavHost(
             val summary by extras.summary.collectAsStateWithLifecycle()
             // [WHY] ChatScreen 의 기본 hiltViewModel() 과 같은 인스턴스(같은 내비게이션 항목) — 수정 결과 한 줄을 대화 끝에 붙이려고 꺼낸다.
             val chatViewModel: ChatViewModel = androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
+            // [WHY] 출처 카드(0.41.2) — 누르면 문서를 뷰어의 그 위치로 연다.
+            val docSources: DocSourceViewModel = androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
             val context = androidx.compose.ui.platform.LocalContext.current
             val today = rememberToday()
             androidx.compose.runtime.LaunchedEffect(today) { extras.setToday(today) }
@@ -108,6 +113,9 @@ fun AppNavHost(
                 onMenuClick = onOpenDrawer,
                 webSearchEnabled = webSearchEnabled,
                 onToggleWebSearch = webSearchViewModel::setWebSearchEnabled,
+                docSearchEnabled = docSearchEnabled,
+                onToggleDocSearch = webSearchViewModel::setDocSearchEnabled,
+                docSearchAvailable = docSearchAvailable,
                 jumpToTimestamp = jumpToTimestamp,
                 onJumpConsumed = onJumpConsumed,
                 resultStates = resultStates,
@@ -126,6 +134,7 @@ fun AppNavHost(
                         MessageResult.Kind.MEMORY_NOTE,
                         MessageResult.Kind.MEMORY_RECALL ->
                             navController.navigate(AppDestination.Memory.route) { launchSingleTop = true }
+                        MessageResult.Kind.DOC_SOURCE -> docSources.open(context, result)
                     }
                 },
                 overlay = { ReminderEditSheetHost(extras, onSaved = chatViewModel::appendLocalMessage) }

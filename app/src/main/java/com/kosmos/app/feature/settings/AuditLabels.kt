@@ -42,6 +42,7 @@ object AuditLabels {
         ToolNames.SEARCH_WIKIPEDIA to R.string.audit_tool_search_wikipedia,
         ToolNames.ADD_REMINDER to R.string.audit_tool_add_reminder,
         ToolNames.LIST_REMINDERS to R.string.audit_tool_list_reminders,
+        ToolNames.SEARCH_DOCUMENTS to R.string.audit_tool_search_documents,
         AuditTrailService.ACTION_REMINDER_EDIT_UI to R.string.audit_tool_reminder_edit,
         // 기억 정리 실행기(0.30.0) — 모델 툴이 아니라 정리 화면이 남긴다.
         AuditTrailService.ACTION_MEMORY_MERGE to R.string.audit_tool_memory_merge,
@@ -232,6 +233,7 @@ object AuditLabels {
         ToolNames.ADD_MEMORY, AuditTrailService.ACTION_MEMORY_MERGE -> R.drawable.ic_ph_note
         ToolNames.SEARCH_MEMORY -> R.drawable.ic_ph_magnifying_glass
         ToolNames.SEARCH_WIKIPEDIA -> R.drawable.ic_ph_globe
+        ToolNames.SEARCH_DOCUMENTS -> R.drawable.ic_ph_file_text
         AuditTrailService.ACTION_EPISODE_MERGE -> R.drawable.ic_ph_chat_text
         else -> R.drawable.ic_ph_lightbulb
     }

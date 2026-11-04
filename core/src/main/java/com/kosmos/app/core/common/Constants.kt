@@ -156,6 +156,21 @@ object Constants {
      */
     const val EMBED_RESUME_DELAY_MS = 15_000L
 
+    /** 문서 검색 툴이 돌려주는 조각 수와 조각당 본문 글자 수 — exp78 결과 묶음(상위 3 · 300자 ≈ 418토큰). */
+    const val LIBRARY_RESULT_COUNT = 3
+    const val LIBRARY_RESULT_CHARS = 300
+
+    /**
+     * 문서 검색이 켜진 턴에만 더하는 오버헤드 예약 — `search_documents` 선언 + 트리거 줄(0.41.2 예산 ① 사용자 결정).
+     * 실측은 `TokenBudgetInvariantTest.MEASURED_DOC_SEARCH_OVERHEAD` 가 진실이다.
+     */
+    // [WHY] 선언 + 트리거 실측 202(exp79d) + 문서 이름 꼬리 몫 약 100(법령 6개 32토큰, 상한 [LIBRARY_NAMES_MAX_CHARS]). 드문 음절만 쓴 이름은
+    // 이보다 클 수 있다(120자 최악 294) — 최종 방어선은 런타임의 실토큰 재설정 판정이다(ADR-020).
+    const val DOC_SEARCH_OVERHEAD_TOKENS = 300
+
+    /** 문서 검색 트리거 줄에 넣는 등록 문서 이름의 글자 상한(0.41.2, exp79 a1) — 켜짐 예약이 이 상한까지 덮는다(TokenBudgetInvariantTest). */
+    const val LIBRARY_NAMES_MAX_CHARS = 60
+
     // [WHY] **프롬프트 슬라이딩 윈도우 후보 수(ContextBuilder 전용).** 화면 타임라인은 [CHAT_TIMELINE_PAGE_SIZE] 로
     // 따로 간다 — UI 페이지 크기를 조정하려고 이 값을 만지면 프롬프트 예산이 함께 흔들린다.
     const val MAX_RECENT_CONVERSATIONS = 150

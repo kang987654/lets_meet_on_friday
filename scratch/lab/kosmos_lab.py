@@ -109,6 +109,20 @@ def list_reminders() -> dict:
 ALL_TOOLS = [add_schedule, get_schedule, add_memory, search_memory, search_wikipedia, add_reminder, list_reminders]
 
 
+def search_documents(query: str) -> dict:
+    """사용자가 등록한 문서 보관함(규정·법령·교재)에서 관련 부분을 찾는다.
+
+    Args:
+        query: 사용자 말 그대로가 아니라 법령·규정·교재 본문에 쓰였을 법한 용어로 바꾼 짧은 검색어. 예: '몰래 가져가면' → '절도', '물어줘야' → '손해배상', '민법 제750조'
+    """
+    raise NotImplementedError("툴 실행은 하네스 밖에서 주입한다")
+
+
+# 0.41.2 M4: 문서 검색 토글 툴 — 켜졌을 때만 선언(앱 KosmosAgent). 시스템 지시는 fixture("system_instruction_docsearch.txt").
+# ALL_TOOLS 에 넣지 않는다 — 기본 픽스처·회귀 세트는 꺼짐 기준이다.
+DOC_TOOLS = ALL_TOOLS + [search_documents]
+
+
 def create_engine(backend=None) -> "llm.Engine":
     """기본은 CPU. exp28(백엔드 A/B)만 GPU 를 명시한다 — 앱의 실기기 기본은 GPU 다."""
     return llm.Engine(

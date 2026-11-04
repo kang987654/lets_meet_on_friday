@@ -375,6 +375,7 @@ private fun EvidenceLine(line: Evidence) {
             Evidence.Kind.NOTE -> R.drawable.ic_ph_note
             Evidence.Kind.CONVERSATION -> R.drawable.ic_ph_chat_text
             Evidence.Kind.CONFLICT -> R.drawable.ic_ph_warning_circle
+            Evidence.Kind.DOCUMENT -> R.drawable.ic_ph_file_text
         }
         KosmosIcon(icon, contentDescription = null, size = 16.dp, tint = if (conflict) colors.warningText else colors.textMuted, modifier = Modifier.padding(end = 8.dp))
         Text(line.text, style = MaterialTheme.typography.labelMedium, color = if (conflict) colors.textPrimary else colors.textSecondary)

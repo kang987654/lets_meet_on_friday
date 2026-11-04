@@ -15,6 +15,9 @@ import javax.inject.Inject
 import com.kosmos.app.domain.agent.RefusalTurns
 import com.kosmos.app.domain.agent.RepeatedQuestions
 import com.kosmos.app.domain.memory.ProfileRepository
+import com.kosmos.app.domain.library.LibraryRepository
+import com.kosmos.app.domain.library.LibraryDocument
+import com.kosmos.app.domain.library.LibraryStatus
 
 /**
  * [ContextBuilder]
@@ -39,6 +42,7 @@ class ContextBuilder @Inject constructor(
     private val tokenizer: Tokenizer,
     private val settingsDataStore: SettingsDataStore,
     private val profileRepository: ProfileRepository,
+    private val libraryRepository: LibraryRepository,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) {
     data class Context(
@@ -46,6 +50,12 @@ class ContextBuilder @Inject constructor(
         val sessionId: String,
         val responseStyle: String,
         val webSearchEnabled: Boolean = false,
+        /**
+         * 문서 검색 토글이 켜져 있고 보관함에 쓸 수 있는 문서가 있는가(0.41.2) — 참이면 `search_documents` 선언·트리거가 붙고 그만큼 대화 기록 예산이 준다.
+         */
+        val docSearchEnabled: Boolean = false,
+        /** 문서 검색 트리거 줄에 넣을 등록 문서 이름(0.41.2, exp79 a1) — 켜졌을 때만 채운다. [libraryNamesForPrompt] 참조. */
+        val libraryNames: List<String> = emptyList(),
         /**
          * 렌더된 `[User Profile]` 블록(C′1) — 비어 있으면 시스템 지시에서 블록째 생략된다.
          *
@@ -90,6 +100,11 @@ class ContextBuilder @Inject constructor(
         val webSearchEnabled = runCatchingCancellable { settingsDataStore.webSearchEnabledFlow.first() }
             .getOrDefault(false)
 
+        // [WHY] 보관함이 비면 토글이 켜져 있어도 선언하지 않는다(0.41.2 Q2) — 찾을 문서가 없는데 비용만 낸다. 읽기 실패는 꺼짐.
+        val docToggle = runCatchingCancellable { settingsDataStore.docSearchEnabledFlow.first() }.getOrDefault(false)
+        val libraryNames = if (!docToggle) emptyList() else runCatchingCancellable { libraryNamesForPrompt(libraryRepository.observeDocuments().first()) }.getOrDefault(emptyList())
+        val docSearchEnabled = libraryNames.isNotEmpty()
+
         // [WHY] 읽기 실패는 "프로필 없음"으로 강등 — 프로필 배선 문제가 채팅을 막지 않는다.
         val profileText = when (val entries = profileRepository.getEntries()) {
             is AppResult.Success -> renderProfileBlock(entries.data)
@@ -108,13 +123,15 @@ class ContextBuilder @Inject constructor(
                 val refusalKept = RefusalTurns.forModel(conversationsResult.data)
                 // [WHY] 같은 질문의 앞 답을 뺀다 — 모델이 자기 앞 답을 되풀이했다(0.39.3 M4d, RepeatedQuestions [WHY]).
                 val forModel = RepeatedQuestions.forModel(refusalKept)
-                val slidingWindow = applyTokenSlidingWindow(forModel, maxTokens)
+                val slidingWindow = applyTokenSlidingWindow(forModel, maxTokens, docSearchEnabled)
                 AppResult.Success(
                     Context(
                         recentConversations = slidingWindow,
                         sessionId = sessionId,
                         responseStyle = responseStyle,
                         webSearchEnabled = webSearchEnabled,
+                        docSearchEnabled = docSearchEnabled,
+                        libraryNames = libraryNames,
                         profileText = profileText,
                         maxTokens = maxTokens,
                         repeatDropped = forModel.size != refusalKept.size,
@@ -142,8 +159,10 @@ class ContextBuilder @Inject constructor(
      * [WHY] 예약 후 예산이 바닥나도 [Constants.MIN_HISTORY_TOKENS] 는 남긴다. 사용자가 슬라이더를
      * 최소로 내렸을 때 히스토리가 0이 되면 대화가 아예 성립하지 않는다.
      */
-    private fun applyTokenSlidingWindow(messages: List<ChatMessage>, maxTokens: Int): List<ChatMessage> {
-        val historyBudget = (maxTokens - Constants.PREFILL_OVERHEAD_TOKENS)
+    private fun applyTokenSlidingWindow(messages: List<ChatMessage>, maxTokens: Int, docSearchEnabled: Boolean): List<ChatMessage> {
+        // [WHY] 문서 검색이 켜진 턴만 그 선언·트리거 몫을 더 예약한다(0.41.2 예산 ① 사용자 결정) — 꺼짐 사용자의 대화 예산은 그대로다.
+        val reserve = Constants.PREFILL_OVERHEAD_TOKENS + if (docSearchEnabled) Constants.DOC_SEARCH_OVERHEAD_TOKENS else 0
+        val historyBudget = (maxTokens - reserve)
             .coerceAtLeast(Constants.MIN_HISTORY_TOKENS)
 
         var currentTokens = 0
@@ -162,4 +181,29 @@ class ContextBuilder @Inject constructor(
         // Restore chronological order
         return selectedMessages.reversed()
     }
+}
+
+/**
+ * 문서 검색 트리거 줄의 등록 문서 이름(0.41.2, exp79 a1) — 색인이 끝난 문서만, 등록 순, 확장자 없이.
+ *
+ * [WHY] 등록 순으로 고정한다 — 시스템 지시가 바이트 단위로 같아야 대화 KV 를 다시 쓴다(ADR-010). 문서가 늘거나 줄 때만 한 번 바뀐다.
+ * [WHY] 글자 상한([Constants.LIBRARY_NAMES_MAX_CHARS])에서 끊는다 — 켜짐 예약([Constants.DOC_SEARCH_OVERHEAD_TOKENS])이 이 상한까지 덮는다.
+ * 넘치면 들어간 이름 뒤에 "…" 하나를 붙인다(모델에게 목록이 더 있다는 표시).
+ */
+internal fun libraryNamesForPrompt(documents: List<LibraryDocument>): List<String> {
+    val names = documents.filter { it.status == LibraryStatus.READY }
+        .sortedWith(compareBy({ it.addedAt }, { it.id }))
+        .map { doc -> doc.name.substringBeforeLast('.', doc.name).trim().ifEmpty { doc.name } }
+    val out = mutableListOf<String>()
+    var used = 0
+    for (name in names) {
+        val cost = name.length + if (out.isEmpty()) 0 else 2
+        if (used + cost > Constants.LIBRARY_NAMES_MAX_CHARS) {
+            out += if (out.isEmpty()) name.take(Constants.LIBRARY_NAMES_MAX_CHARS) + "…" else "…"
+            break
+        }
+        out += name
+        used += cost
+    }
+    return out
 }

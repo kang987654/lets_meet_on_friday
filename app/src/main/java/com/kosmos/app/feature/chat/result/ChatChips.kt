@@ -69,7 +69,7 @@ object ChatChipRules {
         result: MessageResult?
     ): List<ChatChip> = when (result?.kind) {
         MessageResult.Kind.MEMORY_RECALL -> listOfNotNull(conflictChip(context, result.meta))
-        MessageResult.Kind.MEMORY_NOTE, MessageResult.Kind.SCHEDULE, MessageResult.Kind.REMINDER, null -> emptyList()
+        MessageResult.Kind.MEMORY_NOTE, MessageResult.Kind.SCHEDULE, MessageResult.Kind.REMINDER, MessageResult.Kind.DOC_SOURCE, null -> emptyList()
     }
 
     /**

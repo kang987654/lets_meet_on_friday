@@ -17,6 +17,7 @@ import org.junit.Test
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.memory.ProfileRepository
 import com.kosmos.app.domain.model.InputType
+import com.kosmos.app.testing.FakeLibraryRepository
 
 class ContextBuilderTest {
 
@@ -30,7 +31,7 @@ class ContextBuilderTest {
 
     @Before
     fun setup() {
-        contextBuilder = ContextBuilder(conversationRepository, tokenizer, settingsDataStore, profileRepository)
+        contextBuilder = ContextBuilder(conversationRepository, tokenizer, settingsDataStore, profileRepository, FakeLibraryRepository())
     }
 
     @Test

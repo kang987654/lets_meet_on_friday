@@ -58,10 +58,12 @@ fun PdfView(
     zoom: Float,
     onZoomChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
-    onPageChange: (Int) -> Unit = {}
+    onPageChange: (Int) -> Unit = {},
+    // 처음 열 쪽(1부터) — 출처 카드(0.41.2).
+    initialPage: Int? = null
 ) {
     val colors = KosmosTheme.colors
-    val listState = rememberLazyListState()
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = ((initialPage ?: 1) - 1).coerceIn(0, (pages.pageCount - 1).coerceAtLeast(0)))
     val currentPage by remember { derivedStateOf { listState.firstVisibleItemIndex + 1 } }
     // [WHY] pointerInput(Unit) 블록은 한 번만 만들어진다 — 배율은 최신 값을 따로 읽어야 버튼으로 바꾼 배율에서 이어 확대된다.
     val latestZoom by rememberUpdatedState(zoom)

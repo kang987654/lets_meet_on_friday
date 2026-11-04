@@ -15,6 +15,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import com.kosmos.app.assistant.tool.ListRemindersToolExecutor
+import com.kosmos.app.assistant.tool.SearchDocumentsToolExecutor
 
 /**
  * 툴 실행기 멀티바인딩 — [com.kosmos.app.assistant.tool.ToolRegistry] 가 `Set<ToolExecutor>` 로 받는다.
@@ -36,4 +37,5 @@ abstract class AgentModule {
     @Binds @IntoSet abstract fun searchWikipedia(executor: SearchWikipediaToolExecutor): ToolExecutor
     @Binds @IntoSet abstract fun addReminder(executor: AddReminderToolExecutor): ToolExecutor
     @Binds @IntoSet abstract fun listReminders(executor: ListRemindersToolExecutor): ToolExecutor
+    @Binds @IntoSet abstract fun searchDocuments(executor: SearchDocumentsToolExecutor): ToolExecutor
 }

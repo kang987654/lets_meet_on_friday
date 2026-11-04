@@ -108,5 +108,9 @@ class KosmosAgent @Inject constructor(
         if (context.webSearchEnabled) {
             add(ToolNames.SEARCH_WIKIPEDIA)
         }
+        // [WHY] 문서 검색도 토글로 게이트한다(0.41.2 Q1 = B) — 켜졌을 때만 선언해 꺼짐 사용자의 오버헤드는 0, 켜짐이면 트리거 줄이 함께 붙는다.
+        if (context.docSearchEnabled) {
+            add(ToolNames.SEARCH_DOCUMENTS)
+        }
     }
 }

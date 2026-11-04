@@ -23,6 +23,8 @@ data class MessageResult(
         /** AddMemory 가 저장한 메모 */
         MEMORY_NOTE,
         /** SearchMemory 로 답한 기억(근거 메모·과거 대화) */
-        MEMORY_RECALL
+        MEMORY_RECALL,
+        /** SearchDocuments 로 찾은 보관함 문서 — ref 는 첫 문서 id, meta 는 출처 목록(0.41.2) */
+        DOC_SOURCE
     }
 }

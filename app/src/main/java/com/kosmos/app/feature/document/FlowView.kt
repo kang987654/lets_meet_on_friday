@@ -71,14 +71,20 @@ fun FlowView(
     scale: Float,
     modifier: Modifier = Modifier,
     selectedBlocks: Set<Int>? = null,
-    onBlockClick: (Int) -> Unit = {}
+    onBlockClick: (Int) -> Unit = {},
+    // 처음 보일 블록 — 출처 카드가 찾은 머리말(0.41.2). 잘림 안내 줄이 있으면 그만큼 밀린다.
+    initialBlock: Int? = null
 ) {
     val colors = KosmosTheme.colors
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState(
+        initialFirstVisibleItemIndex = initialBlock?.let { it + if (document.truncated) 1 else 0 } ?: 0
+    )
     BoxWithConstraints(modifier.fillMaxSize().background(colors.surface)) {
         val widthPx = with(LocalDensity.current) { maxWidth.roundToPx() }
         // [WHY] 고르는 중에는 글자 선택을 끈다 — 길게 눌러 선택과 탭으로 블록 고르기가 같은 제스처를 다툰다.
         OptionalSelection(enabled = selectedBlocks == null) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize().testTag(FLOW_LIST_TAG),
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)

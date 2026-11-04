@@ -97,6 +97,13 @@
     <string name="chat_web_search_failed_notice">Web search failed. Answered using only on-device information.</string>
     <string name="chat_web_search_enabled_notice">Web search turned on. Can search Wikipedia.</string>
     <string name="chat_web_search_disabled_notice">Web search turned off. Answering on-device only.</string>
+    <string name="chat_search_menu_cd">Search options</string>
+    <string name="chat_search_web_sub">Looks things up on Wikipedia</string>
+    <string name="chat_search_docs">Document search</string>
+    <string name="chat_search_docs_sub">Searches your library</string>
+    <string name="chat_search_docs_empty">Your library is empty</string>
+    <string name="chat_doc_search_enabled_notice">Document search turned on. Answers from your library documents.</string>
+    <string name="chat_doc_search_disabled_notice">Document search turned off.</string>
     <string name="chat_Scroll_to_bottom_cd">Scroll to latest</string>
     <string name="chat_voice_placeholder">(Voice message)</string>
     <string name="chat_empty_title">What can I help with today?</string>
@@ -150,6 +157,8 @@
     <string name="result_note_deleted">Deleted note</string>
     <string name="result_note_status_saved">Saved</string>
     <string name="result_memory_label">Memory</string>
+    <string name="result_doc_source_label">Found in documents</string>
+    <string name="result_doc_source_missing">Can\'t find the original document.</string>
     <string name="result_memory_note_saved_on">Note saved on %1$s</string>
     <string name="result_memory_found_in_chats">Found in past chats</string>
     <string name="result_memory_conflict_single">Past chat had %1$s; followed your saved note</string>
@@ -511,6 +520,7 @@
     <string name="audit_tool_search_wikipedia">Search Wikipedia</string>
     <string name="audit_tool_add_reminder">Add reminder</string>
     <string name="audit_tool_list_reminders">List reminders</string>
+    <string name="audit_tool_search_documents">Search documents</string>
     <string name="audit_tool_reminder_edit">Edit reminder</string>
     <string name="audit_tool_memory_merge">Merge memories</string>
     <string name="audit_tool_episode_merge">Merge conversations</string>

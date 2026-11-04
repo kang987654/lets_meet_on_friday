@@ -69,7 +69,8 @@ class PromptFixtureExportTest {
         }
         assertTrue(
             "선언 이름 매핑이 실험실 툴 목록과 어긋나면 안 된다",
-            KosmosToolDeclarations.CANONICAL_NAMES.values.toSet() == ALL_TOOLS.toSet()
+            // [WHY] 문서 검색(0.41.2)은 토글 툴이라 기본 픽스처에서 빼고 켜짐 픽스처로 따로 내보낸다 — 비교는 둘을 합친 목록(사용자 결정 2026-11-04).
+            KosmosToolDeclarations.CANONICAL_NAMES.values.toSet() == (ALL_TOOLS + DOC_TOOL).toSet()
         )
 
         // [WHY] 턴 지침은 `currentInput` 에 붙으므로 시스템 지시만 내보내면 실험실이 앱과 다른
@@ -110,6 +111,25 @@ class PromptFixtureExportTest {
         File(dir, "tools.txt").writeText(
             ALL_SNAKE_NAMES.joinToString("\n", postfix = "\n")
         )
+    }
+
+    @Test
+    fun `문서 검색 켜짐 시스템 지시를 따로 내보낸다`() {
+        // [WHY] 기본 픽스처는 문서 검색 꺼짐 그대로다 — 회귀 세트의 꺼짐 기준선을 흔들지 않고, 켜짐은 이 파일로 잰다(0.41.2).
+        val context = ContextBuilder.Context(
+            recentConversations = emptyList(),
+            sessionId = "lab-fixture",
+            responseStyle = "DEFAULT",
+            webSearchEnabled = true,
+            docSearchEnabled = true
+        )
+        val prompt = PromptAssembler().assembleWithTools(context, USER_INPUT, ALL_TOOLS + DOC_TOOL, SYSTEM_ROLE)
+        assertTrue("문서 검색 트리거가 `search_documents` 를 지목해야 한다", prompt.systemInstruction.contains("`search_documents`"))
+        val base = PromptAssembler().assembleWithTools(context.copy(docSearchEnabled = false), USER_INPUT, ALL_TOOLS, SYSTEM_ROLE)
+        assertTrue("꺼짐 지시에는 문서 검색이 없어야 한다", !base.systemInstruction.contains("search_documents"))
+
+        val dir = File(FIXTURE_DIR)
+        if (dir.isDirectory) File(dir, "system_instruction_docsearch.txt").writeText(prompt.systemInstruction)
     }
 
     @Test
@@ -303,6 +323,8 @@ class PromptFixtureExportTest {
         val ALL_TOOLS = listOf(
             "AddSchedule", "GetSchedule", "AddMemory", "SearchMemory", "SearchWikipedia", "AddReminder", "ListReminders"
         )
+        // 문서 검색 토글 툴(0.41.2) — 켜짐 픽스처에만.
+        const val DOC_TOOL = "SearchDocuments"
         val ALL_SNAKE_NAMES = listOf(
             "add_schedule", "get_schedule", "add_memory", "search_memory", "search_wikipedia", "add_reminder", "list_reminders"
         )

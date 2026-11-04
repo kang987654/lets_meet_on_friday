@@ -176,7 +176,37 @@ class TokenBudgetInvariantTest {
         )
     }
 
+    @Test
+    fun `문서 검색 켜짐 예약이 선언·트리거 실측과 이름 꼬리 상한을 덮는다`() {
+        // [WHY] 켜진 턴만 더 예약한다(0.41.2 예산 ① 사용자 결정). 이름 꼬리는 글자 상한까지 한글로 꽉 찬 경우를 추정기로 센다.
+        val tail = GemmaTokenizer().sizeInTokens(" Registered documents: " + "가".repeat(Constants.LIBRARY_NAMES_MAX_CHARS) + ", ….")
+        assertTrue(
+            "켜짐 예약 ${Constants.DOC_SEARCH_OVERHEAD_TOKENS} < 실측 $MEASURED_DOC_SEARCH_OVERHEAD + 이름 꼬리 $tail",
+            Constants.DOC_SEARCH_OVERHEAD_TOKENS >= MEASURED_DOC_SEARCH_OVERHEAD + tail
+        )
+    }
+
+    @Test
+    fun `문서 검색이 켜져도 하한 예산에서 히스토리가 남고 재생성 루프가 없다`() {
+        val reserve = Constants.PREFILL_OVERHEAD_TOKENS + Constants.DOC_SEARCH_OVERHEAD_TOKENS
+        assertTrue(
+            "하한 ${Constants.MIN_CONTEXT_TOKENS} 에서 켜짐 예약 $reserve 뒤 히스토리가 최소치 아래다",
+            Constants.MIN_CONTEXT_TOKENS - reserve >= Constants.MIN_HISTORY_TOKENS
+        )
+        // [WHY] 재설정 임계값은 max(예산, 재설정 하한)이고 예산은 슬라이더 하한 이상이다 — 갓 만든 대화가 그 임계값을 넘지 않아야 한다.
+        assertTrue(
+            "켜짐 재생성 직후 ${reserve + Constants.MIN_HISTORY_TOKENS} 가 하한 예산 ${Constants.MIN_CONTEXT_TOKENS} 을 넘는다",
+            reserve + Constants.MIN_HISTORY_TOKENS <= maxOf(Constants.MIN_CONTEXT_TOKENS, Constants.MIN_CONVERSATION_RESET_TOKENS)
+        )
+    }
+
     private companion object {
+        /**
+         * 문서 검색 켜짐의 더 붙는 몫 — `search_documents` 선언 + 트리거 줄(되묻기 금지 포함, 이름 꼬리 제외).
+         * `scratch/lab/exp79d_overhead.py` 2026-11-04: 첫 턴 KV(출력 상한 1) 꺼짐 1,323 → 켜짐 1,525(+202), tokenize 트리거 71 + 선언 98 = 169 → 큰 값 **202**.
+         */
+        const val MEASURED_DOC_SEARCH_OVERHEAD = 202
+
         /**
          * `Conversation.token_count` 실측 — 시스템 지시 + 툴 6종 선언 합계. 이력:
          * 1,329(5종+few-shot) → +52(add_reminder 다이어트 후, exp34b) → −104(few-shot 제거,

@@ -44,7 +44,8 @@ object KosmosToolDeclarations {
         "search_memory" to ToolNames.SEARCH_MEMORY,
         "search_wikipedia" to ToolNames.SEARCH_WIKIPEDIA,
         "add_reminder" to ToolNames.ADD_REMINDER,
-        "list_reminders" to ToolNames.LIST_REMINDERS
+        "list_reminders" to ToolNames.LIST_REMINDERS,
+        "search_documents" to ToolNames.SEARCH_DOCUMENTS
     )
 
     private val PROVIDERS: Map<String, () -> ToolProvider> = mapOf(
@@ -54,7 +55,8 @@ object KosmosToolDeclarations {
         ToolNames.SEARCH_MEMORY to { tool(SearchMemoryDeclaration()) },
         ToolNames.SEARCH_WIKIPEDIA to { tool(SearchWikipediaDeclaration()) },
         ToolNames.ADD_REMINDER to { tool(AddReminderDeclaration()) },
-        ToolNames.LIST_REMINDERS to { tool(ListRemindersDeclaration()) }
+        ToolNames.LIST_REMINDERS to { tool(ListRemindersDeclaration()) },
+        ToolNames.SEARCH_DOCUMENTS to { tool(SearchDocumentsDeclaration()) }
     )
 
     /** 활성화된 툴만 선언 목록으로 만듭니다. 알 수 없는 이름은 무시합니다. */
@@ -172,5 +174,17 @@ object KosmosToolDeclarations {
     private class ListRemindersDeclaration : ToolSet {
         @Tool(description = "등록해 둔 알림 목록을 시각순으로 조회한다.")
         fun listReminders(): Map<String, Any> = notExecutedHere()
+    }
+
+    // [WHY] exp75 "R"·exp78 원문 — 사용자 말이 아니라 문서에 쓰였을 용어로 바꾸게 한다(바꿔 말한 질문의 바이그램 @1 1/10 → 5/10).
+    // 문서 검색 토글이 켜졌을 때만 선언된다(KosmosAgent, 0.41.2 Q1 = B).
+    private class SearchDocumentsDeclaration : ToolSet {
+        @Tool(description = "사용자가 등록한 문서 보관함(규정·법령·교재)에서 관련 부분을 찾는다.")
+        fun searchDocuments(
+            @ToolParam(
+                description = "사용자 말 그대로가 아니라 법령·규정·교재 본문에 쓰였을 법한 용어로 바꾼 짧은 검색어. " +
+                    "예: '몰래 가져가면' → '절도', '물어줘야' → '손해배상', '민법 제750조'"
+            ) query: String
+        ): Map<String, Any> = notExecutedHere()
     }
 }

@@ -74,7 +74,9 @@ fun DocumentViewerScreen(
     textScaleStep: Int = 1,
     onTextScale: (delta: Int) -> Unit = {},
     selection: ChatSelection? = null,
-    selectionActions: SelectionActions = SelectionActions()
+    selectionActions: SelectionActions = SelectionActions(),
+    // 출처 카드가 연 위치(0.41.2) — 처음 그릴 때 한 번만 그리로 스크롤한다.
+    target: ViewerTarget? = null
 ) {
     val colors = KosmosTheme.colors
     val context = LocalContext.current
@@ -130,7 +132,7 @@ fun DocumentViewerScreen(
             when (state) {
                 DocumentViewerState.Loading -> Centered { Loading(stringResource(R.string.doc_viewer_loading)) }
                 is DocumentViewerState.Failed -> Centered { Message(documentErrorMessage(context, state.error)) }
-                is DocumentViewerState.Pdf -> PdfView(state.pages, zoom, onZoomChange = { zoom = it }, onPageChange = selectionActions.pdfPage)
+                is DocumentViewerState.Pdf -> PdfView(state.pages, zoom, onZoomChange = { zoom = it }, onPageChange = selectionActions.pdfPage, initialPage = target?.page)
                 is DocumentViewerState.Flow -> when {
                     state.document.blocks.isEmpty() -> Centered { Message(stringResource(R.string.doc_flow_empty)) }
                     else -> FlowView(
@@ -138,7 +140,8 @@ fun DocumentViewerScreen(
                         state.images,
                         textScaleOf(textScaleStep),
                         selectedBlocks = (selection as? ChatSelection.Blocks)?.indices,
-                        onBlockClick = selectionActions.block
+                        onBlockClick = selectionActions.block,
+                        initialBlock = remember(state.document) { ViewerTarget.blockIndexOf(state.document.blocks, target?.find) }
                     )
                 }
                 is DocumentViewerState.Spreadsheet -> when {

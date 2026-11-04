@@ -15,4 +15,5 @@ object ToolNames {
     const val SEARCH_WIKIPEDIA = "SearchWikipedia"
     const val ADD_REMINDER = "AddReminder"
     const val LIST_REMINDERS = "ListReminders"
+    const val SEARCH_DOCUMENTS = "SearchDocuments"
 }
