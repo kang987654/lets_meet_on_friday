@@ -86,18 +86,19 @@ object LibrarySearch {
     }
 
     /** 후보를 점수 내림차순으로 — 같은 점수면 들어온 순서(색인 후보 순위)를 지킨다. */
-    fun rank(query: String, candidates: List<LibraryCandidate>): List<LibraryCandidate> {
+    fun rank(query: String, candidates: List<LibraryCandidate>): List<LibraryCandidate> =
+        scored(query, candidates).sortedByDescending { it.second }.map { it.first }
+
+    /** 후보마다 바이그램(sparse) 점수 — 들어온 순서 그대로. 결합 검색([LibraryFusion])의 sparse 항이기도 하다(0.41.2). */
+    fun scored(query: String, candidates: List<LibraryCandidate>): List<Pair<LibraryCandidate, Double>> {
         val terms = query.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
         val wantArticle = articleOf(query)
         val compactQuery = query.replace(" ", "")
-        return candidates
-            .map { c ->
-                var s = PATH_WEIGHT * BigramMatcher.score(terms, c.chunk.sectionPath) + BigramMatcher.score(terms, c.chunk.text)
-                if (wantArticle != null && c.chunk.article == wantArticle) s += ARTICLE_BONUS
-                if (c.documentName.replace(" ", "").let { it.isNotEmpty() && compactQuery.contains(it) }) s += NAME_BONUS
-                c to s
-            }
-            .sortedByDescending { it.second }
-            .map { it.first }
+        return candidates.map { c ->
+            var s = PATH_WEIGHT * BigramMatcher.score(terms, c.chunk.sectionPath) + BigramMatcher.score(terms, c.chunk.text)
+            if (wantArticle != null && c.chunk.article == wantArticle) s += ARTICLE_BONUS
+            if (c.documentName.replace(" ", "").let { it.isNotEmpty() && compactQuery.contains(it) }) s += NAME_BONUS
+            c to s
+        }
     }
 }
