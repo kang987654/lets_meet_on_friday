@@ -1,8 +1,8 @@
 [versions]
-agp = "9.3.1"
-kotlin = "2.4.10"
+agp = "9.5.0"
+kotlin = "2.4.21"
 # [WHY] KSP 는 독립 버저닝 — 2.3.10 부터 Kotlin 2.4 의 기본 모듈명 형식을 지원한다(릴리스 노트).
-ksp = "2.3.11"
+ksp = "2.3.13"
 # [WHY] kotlin 2.4 와 한 몸 — 2.59 는 kotlin 2.4 메타데이터를 못 읽어 KSP 가 죽는다
 # ("maximum supported version is 2.3.0", 2026-08-14 실측). kotlin 을 되돌리면 hilt 도 함께 볼 것.
 hilt = "2.60.1"
