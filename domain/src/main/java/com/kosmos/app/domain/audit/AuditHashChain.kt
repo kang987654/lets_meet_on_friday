@@ -37,8 +37,19 @@ object AuditHashChain {
         return digest.joinToString("") { "%02x".format(it) }
     }
 
-    fun entryHashOf(event: AuditEvent): String =
-        entryHash(event.chainSeq, event.prevHash, event.id, event.timestamp, event.type.name, event.sessionId, event.details)
+    fun entryHashOf(event: AuditEvent): String = rowOf(event).let { entryHash(it) }
+
+    /**
+     * 검증할 한 행 — 저장된 글자 그대로. [type] 이 문자열인 이유: 사건 종류를 enum 으로 바꾸면 모르는 종류가 다른 이름으로 읽혀 멀쩡한 행의 지문이 달라진다.
+     */
+    data class ChainRow(
+        val chainSeq: Long, val prevHash: String, val entryHash: String,
+        val id: String, val timestamp: Long, val type: String, val sessionId: String, val details: String
+    )
+
+    fun rowOf(event: AuditEvent) = ChainRow(event.chainSeq, event.prevHash, event.entryHash, event.id, event.timestamp, event.type.name, event.sessionId, event.details)
+
+    private fun entryHash(r: ChainRow) = entryHash(r.chainSeq, r.prevHash, r.id, r.timestamp, r.type, r.sessionId, r.details)
 
     sealed interface Result {
         /**
@@ -72,10 +83,18 @@ object AuditHashChain {
         private var lastHash: String? = null
         private var broken: Result.Tampered? = null
 
+        /** 체인 전 행을 개수로만 더한다 — 저장소는 그 행들을 읽지 않고 센다(체인 행보다 먼저 부를 것). */
+        fun addLegacy(count: Int) {
+            legacy += count
+        }
+
         /** 이 쪽을 검사한다 — 깨졌으면 그 지점을 돌려준다(이후 쪽은 보지 않는다). */
-        fun accept(events: List<AuditEvent>): Result.Tampered? {
+        fun accept(events: List<AuditEvent>): Result.Tampered? = acceptRows(events.map { rowOf(it) })
+
+        /** [accept] 와 같되 저장된 글자 그대로의 행으로 — 저장소가 쓴다. */
+        fun acceptRows(rows: List<ChainRow>): Result.Tampered? {
             broken?.let { return it }
-            for (e in events) {
+            for (e in rows) {
                 if (e.chainSeq == 0L) {
                     // [WHY] 체인 행 뒤에 번호 0 이 다시 나오면 번호가 거꾸로다 — 정렬은 오름차순이라 정상이면 체인 전 행이 먼저 온다.
                     if (lastHash != null) return fail(e, Reason.SEQUENCE_GAP)
@@ -85,7 +104,7 @@ object AuditHashChain {
                 val expectedPrev = lastHash ?: GENESIS
                 if (e.chainSeq != lastSeq + 1) return fail(e, Reason.SEQUENCE_GAP)
                 if (e.prevHash != expectedPrev) return fail(e, Reason.LINK_BROKEN)
-                if (entryHashOf(e) != e.entryHash) return fail(e, Reason.HASH_MISMATCH)
+                if (entryHash(e) != e.entryHash) return fail(e, Reason.HASH_MISMATCH)
                 lastSeq = e.chainSeq
                 lastHash = e.entryHash
                 verified++
@@ -95,7 +114,7 @@ object AuditHashChain {
 
         fun result(): Result = broken ?: Result.Valid(verified, legacy, lastSeq.takeIf { lastHash != null }, lastHash)
 
-        private fun fail(e: AuditEvent, reason: Reason): Result.Tampered = Result.Tampered(e.chainSeq, e.id, reason).also { broken = it }
+        private fun fail(e: ChainRow, reason: Reason): Result.Tampered = Result.Tampered(e.chainSeq, e.id, reason).also { broken = it }
     }
 
     /** 한 번에 검증 — 테스트·작은 목록용. */

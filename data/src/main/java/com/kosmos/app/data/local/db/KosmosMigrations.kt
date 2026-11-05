@@ -252,8 +252,20 @@ object KosmosMigrations {
         }
     }
 
+    /**
+     * 0.41.4 — 활동 기록 해시 체인 열. 기존 행은 기본값(번호 0·`LEGACY`·빈 지문)으로 "체인 시작 전"이 된다(Q2 — 그 이전 변경은 알 수 없으므로 검증된 것처럼 잇지 않는다).
+     */
+    val MIGRATION_13_14 = object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `audit_log` ADD COLUMN `chainSeq` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `audit_log` ADD COLUMN `prevHash` TEXT NOT NULL DEFAULT 'LEGACY'")
+            db.execSQL("ALTER TABLE `audit_log` ADD COLUMN `entryHash` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_audit_log_chainSeq` ON `audit_log` (`chainSeq`)")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
-        MIGRATION_11_12, MIGRATION_12_13
+        MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14
     )
 }

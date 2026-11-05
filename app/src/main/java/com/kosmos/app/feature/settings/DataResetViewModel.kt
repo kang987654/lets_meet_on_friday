@@ -1,5 +1,6 @@
 package com.kosmos.app.feature.settings
 
+import com.kosmos.app.domain.audit.AuditTrailService
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kosmos.app.core.common.AppResult
@@ -52,7 +53,9 @@ class DataResetViewModel @Inject constructor(
     private val reminderAlarmScheduler: ReminderAlarmScheduler,
     private val widgetRefresher: WidgetRefresher,
     private val sessionStore: SessionStore,
-    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO,
+    // 초기화 사실을 활동 기록에 — 없으면 남기지 않는다(단위 테스트 생성부 호환, 0.41.4).
+    private val auditTrailService: AuditTrailService? = null
 ) : ViewModel() {
 
     private val currentLang: AppLanguage
@@ -71,6 +74,8 @@ class DataResetViewModel @Inject constructor(
             }
             when (val result = dataResetRepository.reset(targets)) {
                 is AppResult.Success -> {
+                    // [WHY] 대화 초기화로 활동 기록을 지웠으면 이것이 새 체인의 첫 줄이다 — 기록이 비어 있는 이유가 남는다(0.41.4 Q3).
+                    auditTrailService?.logReset(targets.map { it.name })
                     if (ResetTarget.TASKS in targets) widgetRefresher.refresh()
                     val conversations = ResetTarget.CONVERSATIONS in targets
                     if (conversations) sessionStore.clearActiveSessionId()

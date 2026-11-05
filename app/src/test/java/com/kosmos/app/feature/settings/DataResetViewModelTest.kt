@@ -25,6 +25,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import com.kosmos.app.domain.audit.AuditTrailService
 
 /**
  * [DataResetViewModelTest]
@@ -99,5 +100,21 @@ class DataResetViewModelTest {
         coVerify(exactly = 0) { session.clearActiveSessionId() }
         vm.dismiss()
         assertEquals(DataResetState.Idle, vm.state.value)
+    }
+
+    @Test
+    fun `초기화에 성공했을 때만 활동 기록에 초기화 사건을 남긴다`() = runTest(dispatcher.scheduler) {
+        val audit: AuditTrailService = mockk(relaxed = true)
+        val vm = DataResetViewModel(repository, tasks, scheduler, widget, session, auditTrailService = audit)
+
+        vm.reset(setOf(ResetTarget.CONVERSATIONS, ResetTarget.KNOWLEDGE))
+        dispatcher.scheduler.advanceUntilIdle()
+        coVerify(exactly = 1) { audit.logReset(listOf("CONVERSATIONS", "KNOWLEDGE")) }
+
+        coEvery { repository.reset(any()) } returns AppResult.Failure(AppError.DbWriteError("reset"))
+        val failing = DataResetViewModel(repository, tasks, scheduler, widget, session, auditTrailService = audit)
+        failing.reset(setOf(ResetTarget.PROFILE))
+        dispatcher.scheduler.advanceUntilIdle()
+        coVerify(exactly = 0) { audit.logReset(listOf("PROFILE")) }
     }
 }

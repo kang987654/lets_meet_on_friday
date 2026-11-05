@@ -15,6 +15,9 @@ class AuditTrailService @Inject constructor(
     companion object {
         private const val TAG = "AuditTrailService"
 
+        /** 데이터 초기화 기록의 세션 — 대화와 무관한 사건(백업의 `system_export` 와 같은 결). */
+        const val RESET_SESSION = "system_reset"
+
         const val KEY_PROMPT = "Prompt"
         const val KEY_OUTPUT = "Output"
         const val KEY_TOOLS_DECLARED = "Tools declared"
@@ -97,6 +100,16 @@ class AuditTrailService @Inject constructor(
     suspend fun logBackupEvent(sessionId: String, action: String, status: String) {
         val type = if (action.equals("export", ignoreCase = true)) AuditEventType.EXPORT else AuditEventType.IMPORT
         saveEvent(sessionId, type, "$KEY_STATUS: $status")
+    }
+
+    /**
+     * 데이터 초기화(0.41.4 Q3) — 대화 초기화로 활동 기록을 지웠다면 이것이 새 체인의 첫 줄이 되어, 기록이 비어 있는 이유가 체인 안에 남는다.
+     *
+     * [WHY] 초기화 저장소의 트랜잭션 안이 아니라 지운 **뒤** 여기서 남긴다 — 모든 활동 기록이 이 서비스를 거치는 구조를 지키고, 초기화 저장소의 계약
+     * ("고른 표를 비운다")을 바꾸지 않는다. 대가로 지움과 기록 사이에 짧은 틈이 있다(그 사이 앱이 죽으면 첫 줄 없이 빈 체인에서 시작).
+     */
+    suspend fun logReset(targets: Collection<String>) {
+        saveEvent(RESET_SESSION, AuditEventType.RESET, "$KEY_STATUS: ${targets.sorted().joinToString(", ")}")
     }
 
     suspend fun logThermalEvent(sessionId: String, type: String, temperature: Float) {
