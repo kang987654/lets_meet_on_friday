@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.41.2 · 2026-11-05. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.41.3 · 2026-11-05. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 KOSMOS is an AI assistant that runs entirely on your phone, with no server. Ask in plain language (Korean or English) and it creates calendar events,
 reminders and notes, and answers by searching your past conversations, notes and the documents you registered. It always asks for your confirmation before saving.
@@ -79,7 +79,7 @@ Requested only when needed. Everything else keeps working if you decline.
 
 ## 7. Good to know
 - **Short conversational memory** — it directly remembers only the last few turns and finds the rest by searching past conversations and notes. Ask it to remember important things.
-- **Memory search follows the language of the note** — Korean notes and summaries are matched by Korean queries, and English notes by English queries (except when they share common English abbreviations or codes).
+- **Memory search matches the same words by default** — without the meaning search model, Korean notes are found with Korean queries and English notes with the same English words. Download it in **Settings › Meaning search model** and tap "Prepare meaning search for memories" once: notes and past chats are then found even when worded differently or asked in another language. New memories are prepared automatically shortly after each reply.
 - **Right after switching languages, a few replies may follow the previous language** — if you switch from Korean to English mid-conversation, replies or event titles can stay in Korean until the earlier turns drop out of the recent history. Keep talking in the new language and it settles.
 - **It can be wrong** — it is a small model. A confirmation sheet always appears before saving, so check the content.
 - **When the device is hot** (battery around 43°C or more) background work such as memory cleanup and briefings is postponed.
