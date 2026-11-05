@@ -1,16 +1,16 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.40.7 · 2026-11-03. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.41.2 · 2026-11-05. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 KOSMOS is an AI assistant that runs entirely on your phone, with no server. Ask in plain language (Korean or English) and it creates calendar events,
-reminders and notes, and answers by searching your past conversations and notes. It always asks for your confirmation before saving.
+reminders and notes, and answers by searching your past conversations, notes and the documents you registered. It always asks for your confirmation before saving.
 
 ## 1. Requirements
 | Item | Details |
 |---|---|
 | Device | Android 8.0 (API 26)+, 64-bit (arm64). **About 12 GB of RAM recommended** — it uses about 5 GB while running. Verified only on a Galaxy S25 Ultra |
-| Storage | The model is about 3.6 GB — keep about 4 GB free before downloading |
+| Storage | The model is about 3.6 GB — keep about 4 GB free before downloading. The optional meaning search model adds about 485 MB |
 | Network | Only for the first model download (Wi-Fi). Conversations work offline afterwards |
 | Language | **Korean & English** (switch in **Settings › Display › Language** or Android system per-app language settings) |
 
@@ -51,11 +51,14 @@ Requested only when needed. Everything else keeps working if you decline.
 | "My locker number is 214" (stating a fact, no request to save) | It does not save; it asks "Would you like me to save this as a note?" → reply "Yes" to get the confirmation sheet; say anything else and nothing is saved |
 | "What was my bike PIN?" / "자전거 비밀번호 뭐였지?" | It searches notes and past conversations and shows the source as a card. A new value you just said in this conversation wins over a saved note |
 | "What's on my schedule today?" / "오늘 일정 뭐 있어?" | Shows both app events and device calendar events |
+| (with document search on) "돈을 빌려주고 오래 안 받으면 언제 못 받게 돼?" | Searches your library documents, answers, and attaches the document and article it found as a **source card**. Tap the card to open the document at that spot |
 
 - **Confirmation sheets** cancel themselves after one minute. If cancelled, it briefly says nothing was saved.
 - **Voice**: tap the microphone in the input bar and speak (up to 30 seconds). The model transcribes, then answers.
 - **Attachments**: the paperclip attaches an image or a document. Only the beginning of a document goes into the conversation.
-- **Web search**: Wikipedia is searched only while the globe toggle in the input bar is on. Off by default.
+- **Search pop-up**: tap the magnifying glass in the input bar to see two switches. The glass turns blue while either is on. Both are off by default and stay as you set them.
+  - **Web search**: Wikipedia is searched only while it is on.
+  - **Document search**: answers from the documents you added to the **library** on the Documents screen, only while it is on. It can't be turned on while the library is empty.
 - **Read aloud**: the speaker icon under an answer.
 - **Header star**: the star next to KOSMOS shows the AI engine state (blue ready · grey starting · yellow hot · red error). When it is yellow or red, the box on the right says "발열 주의" (running hot), "엔진 오류" (engine error) or "모델 없음" (no model); tap it for the reason and **Retry**.
 
@@ -63,13 +66,14 @@ Requested only when needed. Everything else keeps working if you decline.
 - **Past conversations (지난 대화)**: memories by topic — search, edit or delete summaries, jump back to the original messages.
 - **Schedule (일정)**: today and upcoming events, a month calendar with Korean holidays, and to-dos.
 - **Documents (문서)**: opens PDF, Excel, CSV, Word and Hangul (hwpx) files without the AI (Excel keeps its original formatting). "채팅으로" sends the document to the chat to ask about it.
+  Add documents to the **library (보관함)** and the chat's document search looks inside them (for long documents such as rules, laws and textbooks; the original file stays where it is). With the meaning search model installed, **Prepare meaning search** lets it find passages worded differently.
 - **Profile (프로필)**: what the assistant knows about you; pick suggestions drawn from conversations to save.
-- **Settings (설정)**: language (System / 한국어 / English), theme, font, chat text size, splash scene, morning briefing time, memory cleanup (weekly review and merging duplicate notes),
+- **Settings (설정)**: language (System / 한국어 / English), theme, font, chat text size, splash scene, morning briefing time, memory cleanup (weekly review and merging duplicate notes), **meaning search model (optional)** download and delete,
   activity log, data reset. Backup export/import is in the menu of the notes screen.
 - **Home widget and Quick Settings tile**: today's events and to-dos; the tile starts voice input directly.
 
 ## 6. Privacy
-- Conversations, notes, events and voice **never leave the device**. The only network use is the model download and Wikipedia search when you turn it on.
+- Conversations, notes, events and voice **never leave the device**. The only network use is the model downloads (chat model and meaning search model) and Wikipedia search when you turn it on. Document search runs on the device only.
 - Everything the assistant did (adding events, saving notes, searching) is recorded in Settings › Activity log (활동 기록).
 - Data lives in the app's private storage (other apps cannot read it) and is not separately encrypted. Keep backup files somewhere safe.
 
@@ -81,6 +85,10 @@ Requested only when needed. Everything else keeps working if you decline.
 - **When the device is hot** (battery around 43°C or more) background work such as memory cleanup and briefings is postponed.
 - **Sending a chat message during memory cleanup cancels the cleanup** — so your answer does not wait behind it, cleanup stops if it is still preparing its results (an already open review screen stays). Start it again from Settings.
 - **Some turns are slow** — after the model wakes and after each answer, the assistant prepares the next conversation once you have stopped typing for 5 seconds (about 5–10 seconds; it waits so typing stays smooth). If you send before that, or when a turn has to rebuild the conversation on the spot, the first answer can take around 10 seconds.
+
+- **Document search cites sources but can be wrong** — the first source on the card is not always the best-matching article; check the other sources below it too. Rephrasing with the document's own terms helps. Without the meaning search model it needs a matching word.
+- **The first answer right after turning on document search or changing library documents is slow** — the assistant re-reads the conversation. Scanned PDFs (image-only pages) can't be searched.
+- **Preparing meaning search pauses while you chat** and resumes shortly after the answer. It stops when you leave the app; tap **Prepare meaning search** again to continue from where it left off.
 
 ## 8. Running on the emulator (developers)
 - Copy the model file to the path in section 3 on an x86_64 AVD. The app detects the emulator and runs the model **on CPU only** (the GPU path looks for OpenCL, which emulators lack, and fails at generation).
