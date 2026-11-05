@@ -1755,6 +1755,7 @@ components:
         - THERMAL_WARNING
         - THERMAL_SHUTDOWN
         - ERROR
+        - RESET
       x-kotlin-type: AuditEventType (enum class)
       x-file-path: domain/model/AuditEvent.kt
 

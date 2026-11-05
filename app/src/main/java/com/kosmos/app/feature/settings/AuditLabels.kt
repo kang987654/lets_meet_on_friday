@@ -97,6 +97,8 @@ object AuditLabels {
             AuditEventType.SEARCH_USED -> simple(R.drawable.ic_ph_globe, context.getString(R.string.audit_type_search), context.getString(R.string.audit_field_query), field(details, AuditTrailService.KEY_QUERY) ?: details)
             AuditEventType.THERMAL_WARNING -> simple(R.drawable.ic_ph_thermometer, context.getString(R.string.audit_type_thermal_warning), context.getString(R.string.audit_field_temp), field(details, AuditTrailService.KEY_TEMPERATURE) ?: details)
             AuditEventType.THERMAL_SHUTDOWN -> simple(R.drawable.ic_ph_thermometer, context.getString(R.string.audit_type_thermal_shutdown), context.getString(R.string.audit_field_temp), field(details, AuditTrailService.KEY_TEMPERATURE) ?: details)
+            // [WHY] 대화 초기화로 기록을 지운 뒤 새 체인의 첫 줄(0.41.4 Q3) — 기록이 비어 있는 이유를 보여 준다. 대상은 저장 형식 그대로("CONVERSATIONS, KNOWLEDGE").
+            AuditEventType.RESET -> simple(R.drawable.ic_ph_trash, context.getString(R.string.audit_type_reset), context.getString(R.string.audit_field_reset_targets), field(details, AuditTrailService.KEY_STATUS) ?: details)
         }
     }
 

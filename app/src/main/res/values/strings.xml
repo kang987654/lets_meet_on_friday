@@ -539,6 +539,8 @@
     <string name="audit_type_error">오류</string>
     <string name="audit_type_export">백업 내보내기</string>
     <string name="audit_type_import">백업 가져오기</string>
+    <string name="audit_type_reset">기록 초기화</string>
+    <string name="audit_field_reset_targets">초기화한 항목</string>
     <string name="audit_type_search">웹 검색</string>
     <string name="audit_type_thermal_warning">발열 경고</string>
     <string name="audit_type_thermal_shutdown">발열로 멈춤</string>

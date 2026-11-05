@@ -536,6 +536,8 @@
     <string name="audit_type_error">Error</string>
     <string name="audit_type_export">Export backup</string>
     <string name="audit_type_import">Import backup</string>
+    <string name="audit_type_reset">Data reset</string>
+    <string name="audit_field_reset_targets">Reset items</string>
     <string name="audit_type_search">Web search</string>
     <string name="audit_type_thermal_warning">Heat warning</string>
     <string name="audit_type_thermal_shutdown">Paused due to heat</string>
