@@ -113,7 +113,7 @@ class SearchMemoryToolExecutor internal constructor(
         // [WHY] 뜻 검색 모델이 있고 기억 전부의 벡터가 준비됐을 때만 — 후보·순위만 바꾸고 결과 문구는 아래와 같다(exp80b: 교차 언어 7→9/11,
         // 영어 바꿔 말함 6→8/10, 답 없는 질문의 지어내기 2=2). 늘 상위 3 이 차므로 태그 목록 폴백은 이 경로에서 나오지 않는다.
         semanticHits(keyword, tokens, en)?.takeIf { it.isNotEmpty() }?.let { hits ->
-            return formatHits(tokens, hits, current = head.isNotEmpty(), en = en).let {
+            return formatHits(tokens, hits, current = head.isNotEmpty(), en = en, semantic = true).let {
                 successJson(head + it.text, episodeIds = it.episodeIds, recall = it.recall)
             }
         }
@@ -283,7 +283,7 @@ class SearchMemoryToolExecutor internal constructor(
     //
     // [WHY] 맨 위에 "(방금 이 대화)" 줄이 있으면 안내를 [CURRENT_FIRST_GUIDE] 로 바꾼다 — 메모를 믿으라는 안내가 방금 말한 새 값까지 이겨,
     // 저장을 거절한 직후 "비밀번호 뭐였지?"에 옛 메모 값(134)을 답했다(실기기 0.39.3 M4). exp69: 1/8 → 7/8, 방금 줄이 없을 때는 그대로.
-    private fun formatHits(terms: List<String>, hits: List<Hit>, current: Boolean, en: Boolean): Formatted {
+    private fun formatHits(terms: List<String>, hits: List<Hit>, current: Boolean, en: Boolean, semantic: Boolean = false): Formatted {
         val notes = hits.filter { it.episodeId == null }.map { it.text }
         val (contradicting, kept) = hits.partition { it.episodeId != null && RecallConflict.contradicts(it.text, notes) }
         val lines = kept.sortedBy { it.episodeId != null }.map { hit ->
@@ -313,7 +313,14 @@ class SearchMemoryToolExecutor internal constructor(
             en -> MIXED_SOURCE_GUIDE_EN
             else -> MIXED_SOURCE_GUIDE
         }
-        return Formatted(if (mixed) "$guide\n$body" else body, shown.mapNotNull { it.episodeId }, recallOf(hits, shown, contradicting, notes))
+        // [WHY] 뜻 검색은 늘 상위 3 을 준다 — 근거가 없으면(1위가 메모가 아니고 낱말이 충분히 겹친 지난 대화도 없음) 카드를 붙이지 않는다.
+        // 기억에 없는 것을 물어 모델이 "저장돼 있지 않아요"라고 답했는데 "지난 대화에서 찾았어요" 카드가 붙었다(0.41.3 실기기). 모델 입력은 그대로다.
+        val evidence = !semantic || hits.firstOrNull()?.episodeId == null || shown.any { it.episodeId != null }
+        return Formatted(
+            if (mixed) "$guide\n$body" else body,
+            shown.mapNotNull { it.episodeId },
+            recallOf(hits, shown, contradicting, notes).takeIf { evidence }
+        )
     }
 
     /**
@@ -335,7 +342,7 @@ class SearchMemoryToolExecutor internal constructor(
         return JSONObject().put("ref", topNote?.key.orEmpty()).put("meta", meta)
     }
 
-    private data class Formatted(val text: String, val episodeIds: List<String>, val recall: JSONObject)
+    private data class Formatted(val text: String, val episodeIds: List<String>, val recall: JSONObject?)
 
     private fun KnowledgeNote.toHit() = Hit(
         key = id, text = content, scoreText = searchText(), tags = tags, createdAt = createdAt, episodeId = null,

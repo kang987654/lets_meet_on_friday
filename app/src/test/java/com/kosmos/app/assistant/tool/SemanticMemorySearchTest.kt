@@ -122,6 +122,16 @@ class SemanticMemorySearchTest {
     }
 
     @Test
+    fun `근거 카드는 1위가 메모이거나 낱말이 겹친 대화가 있을 때만`() = runBlocking {
+        suspend fun card(keyword: String) = JSONObject(executor(ranker()).execute(ToolArguments.of(mapOf("keyword" to keyword)), "s1"))
+            .optJSONObject("meta")?.optJSONObject("result")
+
+        assertTrue("영어로 물어 찾은 메모는 카드가 붙는다", card("notebook password") != null)
+        // 1위가 낱말이 안 겹치는 대화뿐 — 모델이 "없다"고 답할 수 있는데 "지난 대화에서 찾았어요" 카드가 붙으면 안 된다(실기기).
+        assertNull(card("teeth"))
+    }
+
+    @Test
     fun `대화 요약도 같은 순위에 든다`() = runBlocking {
         val result = data(executor(ranker()).execute(ToolArguments.of(mapOf("keyword" to "dentist")), "s1"))
 
