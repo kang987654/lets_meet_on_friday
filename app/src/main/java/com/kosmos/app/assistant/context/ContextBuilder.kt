@@ -18,6 +18,7 @@ import com.kosmos.app.domain.memory.ProfileRepository
 import com.kosmos.app.domain.library.LibraryRepository
 import com.kosmos.app.domain.library.LibraryDocument
 import com.kosmos.app.domain.library.LibraryStatus
+import com.kosmos.app.domain.library.libraryDisplayName
 
 /**
  * [ContextBuilder]
@@ -193,7 +194,7 @@ class ContextBuilder @Inject constructor(
 internal fun libraryNamesForPrompt(documents: List<LibraryDocument>): List<String> {
     val names = documents.filter { it.status == LibraryStatus.READY }
         .sortedWith(compareBy({ it.addedAt }, { it.id }))
-        .map { doc -> doc.name.substringBeforeLast('.', doc.name).trim().ifEmpty { doc.name } }
+        .map { libraryDisplayName(it.name) }
     val out = mutableListOf<String>()
     var used = 0
     for (name in names) {

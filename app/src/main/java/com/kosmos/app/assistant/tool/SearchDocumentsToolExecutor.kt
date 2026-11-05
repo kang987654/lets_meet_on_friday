@@ -7,6 +7,7 @@ import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.domain.library.EmbedderProvider
 import com.kosmos.app.domain.library.LibraryHit
 import com.kosmos.app.domain.library.LibraryRepository
+import com.kosmos.app.domain.library.libraryDisplayName
 import com.kosmos.app.domain.model.MessageResult
 import com.kosmos.app.domain.tool.Tokenizer
 import com.kosmos.app.domain.tool.ToolNames
@@ -106,7 +107,7 @@ class SearchDocumentsToolExecutor @Inject constructor(
         internal fun render(hits: List<LibraryHit>, en: Boolean): String = buildString {
             append(if (en) HEADER_EN else HEADER_KO)
             hits.forEachIndexed { n, hit ->
-                append("\n${n + 1}) ${hit.documentName} > ${locationOf(hit)}\n")
+                append("\n${n + 1}) ${libraryDisplayName(hit.documentName)} > ${locationOf(hit)}\n")
                 append(hit.chunk.text.take(Constants.LIBRARY_RESULT_CHARS))
             }
         }
@@ -115,9 +116,9 @@ class SearchDocumentsToolExecutor @Inject constructor(
         internal fun locationOf(hit: LibraryHit): String {
             val last = hit.chunk.sectionPath.split(" > ").last().trim()
             return when {
-                last.isNotEmpty() && last != hit.documentName -> last
+                last.isNotEmpty() && last != hit.documentName && last != libraryDisplayName(hit.documentName) -> last
                 hit.chunk.page != null -> "p.${hit.chunk.page}"
-                else -> hit.documentName
+                else -> libraryDisplayName(hit.documentName)
             }
         }
 
@@ -126,7 +127,7 @@ class SearchDocumentsToolExecutor @Inject constructor(
             JSONArray(hits.map { hit ->
                 JSONObject()
                     .put(META_DOC_ID, hit.documentId)
-                    .put(META_DOC_NAME, hit.documentName)
+                    .put(META_DOC_NAME, libraryDisplayName(hit.documentName))
                     .put(META_SECTION, locationOf(hit))
                     .put(META_INDEX, hit.chunk.index)
                     .apply { hit.chunk.page?.let { put(META_PAGE, it) } }

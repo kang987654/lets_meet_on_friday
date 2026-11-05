@@ -76,6 +76,17 @@ class SearchDocumentsTest {
     }
 
     @Test
+    fun `문서 이름은 확장자 없이 묶음과 출처에 쓴다`() = runBlocking {
+        val repo = FakeLibraryRepository().apply { searchResults["시효"] = listOf(hit("민법.docx", 1, "제162조(채권, 재산권의 소멸시효)", "채권은 10년간")) }
+
+        val json = JSONObject(executor(repo).execute(ToolArguments.of(mapOf("query" to "시효")), "s1"))
+
+        assertTrue(json.getString("data").contains("1) 민법 > 제162조"))
+        val meta = JSONObject(json.getJSONObject("meta").getJSONObject("result").getString("meta"))
+        assertEquals("민법", meta.getJSONArray(SearchDocumentsToolExecutor.META_SOURCES).getJSONObject(0).getString(SearchDocumentsToolExecutor.META_DOC_NAME))
+    }
+
+    @Test
     fun `조각 본문은 정해진 글자까지만 보낸다`() = runBlocking {
         val repo = FakeLibraryRepository().apply { searchResults["긴"] = listOf(hit("교재", 0, "1장", "가".repeat(1_000))) }
 

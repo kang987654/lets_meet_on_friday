@@ -47,6 +47,13 @@ data class LibraryDocument(
     val error: String? = null
 )
 
+/**
+ * 모델·화면에 보일 문서 이름 — 확장자를 뗀다(`민법.docx` → `민법`). 떼고 비면 원래 이름.
+ *
+ * [WHY] 트리거 줄·결과 묶음·출처 카드가 같은 이름을 써야 모델이 "민법"과 "민법.docx"를 다른 문서로 보지 않는다(0.41.2 실기기).
+ */
+fun libraryDisplayName(name: String): String = name.substringBeforeLast('.', name).trim().ifEmpty { name }
+
 /** 검색 결과 한 건 — 조각과 그 문서. */
 data class LibraryHit(val documentId: String, val documentName: String, val chunk: LibraryChunk)
 
