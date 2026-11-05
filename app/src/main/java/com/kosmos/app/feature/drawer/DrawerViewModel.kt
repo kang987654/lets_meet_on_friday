@@ -110,9 +110,11 @@ class DrawerViewModel @Inject constructor(
         val ranker = semantic ?: return lexical
         val candidates = all().filter { it.title != null }
         val sparse = candidates.associate { MemoryVectorKey.episode(it.id) to BigramMatcher.score(terms, it.searchText()) }
-        val top = ranker.rank(q.trim(), sparse, SEMANTIC_TOP) ?: return lexical
+        val top = ranker.rankScored(q.trim(), sparse, SEMANTIC_TOP) ?: return lexical
+        // [WHY] 1위 점수 근처만 — 대화가 몇 건뿐이면 상위 5 의 빈자리를 무관한 대화가 채웠다(0.41.3 실기기, 사용자 결정).
+        val best = top.firstOrNull()?.second ?: return lexical
         val byId = candidates.associateBy { it.id }
-        val head = top.mapNotNull { byId[it.refId] }
+        val head = top.filter { it.second >= best - SEMANTIC_MARGIN }.mapNotNull { byId[it.first.refId] }
         return head + lexical.filter { e -> head.none { it.id == e.id } }
     }
 
@@ -132,5 +134,11 @@ class DrawerViewModel @Inject constructor(
 
         /** 뜻 검색 결과를 앞에 몇 개 둘지 — 툴(3)보다 넉넉히, 화면이 무관한 대화로 차지 않게 작게. */
         const val SEMANTIC_TOP = 5
+
+        /**
+         * 뜻 결과를 남길 1위와의 결합 점수 차 — exp80c: 0.04 에서 정답이 남는 비율 82/94, 남는 수 답 있음 평균 1.6 · 답 없음 5 → 3.0.
+         * 넓히면(0.10) 정답 +6 에 목록이 거의 다시 3 개가 된다. 빠진 정답도 글자로 찾았으면 뒤에 붙는다.
+         */
+        const val SEMANTIC_MARGIN = 0.04
     }
 }

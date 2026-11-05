@@ -62,6 +62,10 @@ class SemanticMemorySearchTest {
         Episode(
             id = "e1", sessionId = "s", status = EpisodeStatus.SUMMARIZED, title = "치과 정기 검진", summary = "강남역 미소치과에서 검진을 받기로 했다",
             tags = listOf("치과"), startAt = 0, endAt = 1, messageCount = 2, retryCount = 0, createdAt = 4, updatedAt = 4
+        ),
+        Episode(
+            id = "e2", sessionId = "s", status = EpisodeStatus.SUMMARIZED, title = "주말 캠핑 계획", summary = "토요일에 가평으로 캠핑을 가기로 했다",
+            tags = listOf("캠핑"), startAt = 0, endAt = 1, messageCount = 2, retryCount = 0, createdAt = 5, updatedAt = 5
         )
     )
 
@@ -164,6 +168,6 @@ class SemanticMemorySearchTest {
 
         val result = DrawerViewModel(episodeRepo, suggestions, ranker()).search("teeth checkup")
 
-        assertEquals("e1", result!!.first().id)
+        assertEquals("1위 근처만 — 무관한 캠핑 대화는 빈자리를 채우지 않는다", listOf("e1"), result!!.map { it.id })
     }
 }

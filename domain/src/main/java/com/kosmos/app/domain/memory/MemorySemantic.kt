@@ -55,7 +55,11 @@ object MemoryEmbedding {
  */
 object MemoryFusion {
     fun rank(dense: Map<MemoryVectorKey, Double>, sparse: Map<MemoryVectorKey, Double>, limit: Int): List<MemoryVectorKey> =
-        LibraryFusion.fuse(dense, sparse).take(limit).map { it.first }
+        scored(dense, sparse, limit).map { it.first }
+
+    /** [rank] 과 같되 결합 점수를 함께 — 서랍이 1위 근처만 남길 때 쓴다(0.41.3, exp80c). */
+    fun scored(dense: Map<MemoryVectorKey, Double>, sparse: Map<MemoryVectorKey, Double>, limit: Int): List<Pair<MemoryVectorKey, Double>> =
+        LibraryFusion.fuse(dense, sparse).take(limit)
 }
 
 /**
