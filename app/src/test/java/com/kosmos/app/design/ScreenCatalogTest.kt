@@ -804,6 +804,17 @@ class ScreenCatalogTest {
         shoot("13-audit") { AuditScreen(viewModel = vm, onNavigateBack = {}) }
     }
 
+    /** 활동 기록 체인이 깨졌을 때(0.41.4) — 목록 위 경고 띠. 목록은 그대로, 검증 결과만 "3번에서 내용 바뀜"으로 돌려준다. */
+    @Test fun auditChainBroken() {
+        val broken = object : AuditRepository by auditRepository {
+            override suspend fun verifyChain() = AppResult.Success(
+                com.kosmos.app.domain.audit.AuditHashChain.Result.Tampered(3, "a1", com.kosmos.app.domain.audit.AuditHashChain.Reason.HASH_MISMATCH)
+            )
+        }
+        val vm = AuditViewModel(broken)
+        shoot("42-audit-chain-broken") { AuditScreen(viewModel = vm, onNavigateBack = {}) }
+    }
+
     /** 녹음 중 입력바 — 소리 크기가 흐르는 파형(0.38.4 M5, 사용자 선택 B). 크기는 고정 값을 시간에 따라 바꿔 넣는다. */
     @Test fun chatRecording() {
         var t = 0

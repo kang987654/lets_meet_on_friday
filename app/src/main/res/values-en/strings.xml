@@ -518,6 +518,15 @@
     <string name="audit_empty">No activity recorded yet.\nModel replies, tool runs, and approvals appear here.</string>
     <string name="audit_available_tools">Available tools</string>
     <string name="audit_raw_toggle_hide">Hide raw</string>
+    <string name="audit_chain_broken">Records from #%1$d show signs of change.</string>
+    <string name="audit_chain_reason_changed">A record\'s content changed after it was saved.</string>
+    <string name="audit_chain_reason_link">It doesn\'t link to the previous record. A record may have been inserted or replaced.</string>
+    <string name="audit_chain_reason_gap">A record is missing or out of order.</string>
+    <string name="audit_chain_head">Chain head #%1$d · %2$s</string>
+    <string name="audit_chain_head_hint">Note this value to check later whether the whole log was recalculated.</string>
+    <string name="audit_chain_legacy">%1$d records from before the chain aren\'t checked.</string>
+    <string name="audit_raw_chain">#%1$d · SHA-256 %2$s · prev %3$s</string>
+    <string name="audit_raw_chain_legacy">Recorded before the chain, so there is no fingerprint.</string>
     <string name="audit_raw_toggle_show">View raw</string>
     <string name="audit_tool_add_schedule">Add event</string>
     <string name="audit_tool_get_schedule">View events</string>
