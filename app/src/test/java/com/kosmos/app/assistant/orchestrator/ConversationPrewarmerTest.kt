@@ -117,6 +117,33 @@ class ConversationPrewarmerTest {
     }
 
     @Test
+    fun `준비 중 예외는 스레드 처리기로 새지 않고 다음 턴 준비는 이어진다`() {
+        val uncaught = mutableListOf<Throwable>()
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { _, e -> synchronized(uncaught) { uncaught += e } }
+        try {
+            val done = CompletableDeferred<ChatPrompt>()
+            val builder: ContextBuilder = mockk { coEvery { build("s1") } returns AppResult.Success(context(history.take(2))) }
+            val runner: ModelRunner = mockk(relaxed = true) {
+                coEvery { prepareConversation(any()) } coAnswers { done.complete(firstArg()); Unit }
+            }
+            val calls = java.util.concurrent.atomic.AtomicInteger()
+            val prewarmer = ConversationPrewarmer(builder, runner, defaultSessionStore) {
+                if (calls.getAndIncrement() == 0) error("테스트 인스턴스가 사라짐") else agent(runner)
+            }.apply { quietMs = 0 }
+
+            prewarmer.afterTurn("s1")
+            Thread.sleep(300)
+            prewarmer.afterTurn("s1")
+
+            runBlocking { withTimeout(5_000) { done.await() } }
+            assertTrue("새어 나간 예외: $uncaught", synchronized(uncaught) { uncaught.isEmpty() })
+        } finally {
+            Thread.setDefaultUncaughtExceptionHandler(previous)
+        }
+    }
+
+    @Test
     fun `엔진이 준비되면 활성 대화방의 대화를 미리 준비하고 복귀로 다시 Ready 가 돼도 매번 준비한다`() {
         val loadState = MutableStateFlow<ModelLoadState>(ModelLoadState.Loading)
         val prepared = java.util.concurrent.CopyOnWriteArrayList<ChatPrompt>()

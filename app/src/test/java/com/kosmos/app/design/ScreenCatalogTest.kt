@@ -383,7 +383,11 @@ class ScreenCatalogTest {
                     androidx.compose.material3.Surface(
                         modifier = androidx.compose.ui.Modifier.fillMaxSize(),
                         color = if (onSurface) KosmosTheme.colors.surface else androidx.compose.material3.MaterialTheme.colorScheme.background
-                    ) { content() }
+                    ) {
+                        // [WHY] 물결(ripple)을 끈다 — 누른 뒤 사라지는 효과라 정지 화면에 남을 이유가 없고, 남으면 찍는 순간에 따라 그림이 흔들린다
+                        // (Robolectric 4.17 에서 누른 장면의 다크 그림이 실행마다 2~4개 달랐다, 0.41.5). 시계를 앞당기는 것으로는 다 잡히지 않았다.
+                        CompositionLocalProvider(androidx.compose.material3.LocalRippleConfiguration provides null) { content() }
+                    }
                 }
             }
         }

@@ -7,6 +7,8 @@ import com.kosmos.app.core.common.Constants
 import com.kosmos.app.data.local.prefs.SessionStore
 import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
+import com.kosmos.app.core.logging.AppLogger
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,7 +46,11 @@ class ConversationPrewarmer @Inject constructor(
     private val sessionStore: SessionStore,
     private val agent: Provider<KosmosAgent>
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    // [WHY] 미리 준비는 최선 노력이다 — 처리기가 없으면 준비 중 예외 하나가 기본 스레드 처리기로 가 앱을 죽인다.
+    // 테스트에서는 앞 테스트의 준비가 다음 테스트 도중 끝난 Hilt 컴포넌트를 건드려 그 테스트를 실패시켰다(0.41.5, Robolectric 4.17).
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, e -> AppLogger.e(TAG, "대화 미리 준비 실패", e) }
+    )
     private val started = java.util.concurrent.atomic.AtomicBoolean(false)
     private val lock = Any()
     private var job: Job? = null
@@ -110,6 +116,10 @@ class ConversationPrewarmer @Inject constructor(
             if (remaining <= 0) return
             delay(remaining)
         }
+    }
+
+    private companion object {
+        const val TAG = "ConversationPrewarmer"
     }
 }
 

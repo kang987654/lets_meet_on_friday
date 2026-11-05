@@ -52,15 +52,14 @@ core-ktx = "1.19.1"
 # 무효화하지 않고 올릴 수 있는 유일한 범주다. 게이트는 전체 단위 테스트 + lint 통과.
 espressoCore = "3.7.0"
 androidxTestExtJunit = "1.3.0"
-# [WHY] robolectric 4.16.1 은 VoiceChatIntegrationTest 를 **단독 실행에서도 2/2 결정적으로**
-# 깨뜨린다(2026-08-14 실측; 전체 실행에서는 간헐 통과 — ShadowLooper 타이밍 의존 테스트라
-# 스케줄러 변화에 민감). 4.14 로 되돌리면 소멸. 상향은 테스트의 대기 구조를 손보는 회차에서
-# 재시도할 것 — 테스트 단언을 완화해서 맞추는 것은 금지 규칙이다.
-robolectric = "4.14"
+# [WHY] 4.14 → 4.17(0.41.5). 4.16.1 에서 단독 실행 2/2 로 깨지던 VoiceChatIntegrationTest 는 4.17 에서 손대지 않고 통과했다.
+# 대신 4.17 은 테스트가 끝난 뒤 돌던 백그라운드 작업의 예외를 다음 테스트 실패로 드러냈고(ConversationPrewarmer — 제품 코드에
+# 예외 처리기를 달아 고침), 화면 카탈로그의 누른 장면에 물결이 찍히는 순간이 흔들렸다(카탈로그에서 물결을 끔).
+robolectric = "4.17"
 junit = "4.13.2"
 mockk = "1.14.11"
 # [WHY] 화면 기준 이미지(0.38.1 M0) — 테스트 스코프 전용이라 런타임에 실리지 않는다. Robolectric NATIVE 그래픽 위에서 찍는다.
-roborazzi = "1.76.0"
+roborazzi = "1.77.0"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
