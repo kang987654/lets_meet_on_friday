@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.41.3 · 2026-11-05. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.41.4 · 2026-11-05. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 KOSMOS is an AI assistant that runs entirely on your phone, with no server. Ask in plain language (Korean or English) and it creates calendar events,
 reminders and notes, and answers by searching your past conversations, notes and the documents you registered. It always asks for your confirmation before saving.
@@ -75,6 +75,7 @@ Requested only when needed. Everything else keeps working if you decline.
 ## 6. Privacy
 - Conversations, notes, events and voice **never leave the device**. The only network use is the model downloads (chat model and meaning search model) and Wikipedia search when you turn it on. Document search runs on the device only.
 - Everything the assistant did (adding events, saving notes, searching) is recorded in Settings › Activity log (활동 기록).
+  Each record is chained to the one before it, so if someone deletes or edits a record, a warning appears at the top of the screen (nothing appears when all is well). Write the **chain head** at the bottom of the list (number and first/last 8 characters) somewhere off the phone (paper, another device) to later catch even a log that was rebuilt from scratch. Records from before this update are shown as "before the chain" and are not checked. Resetting conversation history also clears the activity log, and "Data reset" becomes the first record of the new chain.
 - Data lives in the app's private storage (other apps cannot read it) and is not separately encrypted. Keep backup files somewhere safe.
 
 ## 7. Good to know

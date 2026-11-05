@@ -5,6 +5,7 @@ import androidx.annotation.DrawableRes
 import com.kosmos.app.R
 import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.domain.audit.AuditTrailService
+import com.kosmos.app.domain.memory.ResetTarget
 import com.kosmos.app.domain.model.AuditEvent
 import com.kosmos.app.domain.model.AuditEventType
 import com.kosmos.app.domain.tool.ToolNames
@@ -97,10 +98,23 @@ object AuditLabels {
             AuditEventType.SEARCH_USED -> simple(R.drawable.ic_ph_globe, context.getString(R.string.audit_type_search), context.getString(R.string.audit_field_query), field(details, AuditTrailService.KEY_QUERY) ?: details)
             AuditEventType.THERMAL_WARNING -> simple(R.drawable.ic_ph_thermometer, context.getString(R.string.audit_type_thermal_warning), context.getString(R.string.audit_field_temp), field(details, AuditTrailService.KEY_TEMPERATURE) ?: details)
             AuditEventType.THERMAL_SHUTDOWN -> simple(R.drawable.ic_ph_thermometer, context.getString(R.string.audit_type_thermal_shutdown), context.getString(R.string.audit_field_temp), field(details, AuditTrailService.KEY_TEMPERATURE) ?: details)
-            // [WHY] 대화 초기화로 기록을 지운 뒤 새 체인의 첫 줄(0.41.4 Q3) — 기록이 비어 있는 이유를 보여 준다. 대상은 저장 형식 그대로("CONVERSATIONS, KNOWLEDGE").
-            AuditEventType.RESET -> simple(R.drawable.ic_ph_trash, context.getString(R.string.audit_type_reset), context.getString(R.string.audit_field_reset_targets), field(details, AuditTrailService.KEY_STATUS) ?: details)
+            // [WHY] 대화 초기화로 기록을 지운 뒤 새 체인의 첫 줄(0.41.4 Q3) — 기록이 비어 있는 이유를 보여 준다. 저장은 enum 이름("CONVERSATIONS, KNOWLEDGE"), 화면은 초기화 화면의 항목 이름.
+            AuditEventType.RESET -> simple(R.drawable.ic_ph_trash, context.getString(R.string.audit_type_reset), context.getString(R.string.audit_field_reset_targets), resetTargets(field(details, AuditTrailService.KEY_STATUS) ?: details, context))
         }
     }
+
+    private val RESET_TARGET_RES = mapOf(
+        ResetTarget.CONVERSATIONS.name to R.string.settings_reset_opt_conversations_title,
+        ResetTarget.TASKS.name to R.string.settings_reset_opt_tasks_title,
+        ResetTarget.KNOWLEDGE.name to R.string.settings_reset_opt_knowledge_title,
+        ResetTarget.PROFILE.name to R.string.settings_reset_opt_profile_title,
+        ResetTarget.LIBRARY.name to R.string.settings_reset_opt_library_title
+    )
+
+    /** "CONVERSATIONS, KNOWLEDGE" → "대화 기록, 메모" — 모르는 이름은 그대로. */
+    private fun resetTargets(raw: String, context: Context): String =
+        raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+            .joinToString(", ") { name -> RESET_TARGET_RES[name]?.let(context::getString) ?: name }
 
     private fun simple(@DrawableRes icon: Int, title: String, label: String, value: String) =
         AuditDisplay(icon, title, summarize(value), listOf(AuditField(label, value)))

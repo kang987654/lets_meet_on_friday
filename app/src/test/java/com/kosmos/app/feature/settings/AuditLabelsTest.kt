@@ -168,4 +168,12 @@ class AuditLabelsTest {
         assertEquals("Error", err.title)
         assertEquals("Attempted disallowed tool: Search Wikipedia", err.summary)
     }
+
+    @Test
+    fun `초기화 기록은 저장된 enum 이름 대신 초기화 화면의 항목 이름`() {
+        val display = AuditLabels.of(event(AuditEventType.RESET, "Status: CONVERSATIONS, KNOWLEDGE"), context)
+        assertEquals("기록 초기화", display.title)
+        assertEquals("대화 기록, 메모", display.summary)
+        assertEquals("모르는 이름은 그대로", "대화 기록, FUTURE", AuditLabels.of(event(AuditEventType.RESET, "Status: CONVERSATIONS, FUTURE"), context).summary)
+    }
 }
