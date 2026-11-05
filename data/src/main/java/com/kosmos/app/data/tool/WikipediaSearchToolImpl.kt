@@ -80,7 +80,7 @@ class WikipediaSearchToolImpl @Inject constructor(
                     return@withContext AppResult.Failure(AppError.NetworkUnavailable("Wikipedia API HTTP error: ${searchResponse.code}"))
                 }
 
-                val searchBody = searchResponse.body?.string() ?: ""
+                val searchBody = searchResponse.body.string()
                 val searchJson = JSONObject(searchBody)
 
                 if (!searchJson.has("query") || !searchJson.getJSONObject("query").has("pages")) {

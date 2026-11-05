@@ -103,7 +103,7 @@ android {
         ignoreTestSources = true
         // [WHY] 버전 승격은 lint 알림이 아니라 검증 회차에서 수동 결정한다 — 이 프로젝트에서
         // 런타임 버전은 그 자체가 검증 대상이었다(0.14.0→0.16.0 가설 기각, ADR-016~021).
-        // 특히 litertlm·play-services-tflite 계열은 승격 = 실기기 재검증 필수.
+        // 특히 litertlm(모델 런타임)은 승격 = 실기기 재검증 필수.
         // 대가: 새 버전(보안 패치 포함) 알림이 꺼지므로 확인은 최신화 회차에서 수동으로 한다.
         disable += setOf(
             "GradleDependency",
@@ -174,12 +174,10 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.collections.immutable)
 
-    // LiteRT-LM & TFLite
+    // LiteRT-LM
+    // [WHY] play-services-tflite 는 두지 않는다 — 앱에 TFLite 호출이 없고 채팅·임베딩 GPU 는 LiteRT-LM 자체 경로다(0.41.5).
     implementation(libs.litertlm.android)
     implementation(libs.kotlin.reflect)
-    implementation(libs.play.services.tflite.java)
-    implementation(libs.play.services.tflite.gpu)
-    implementation(libs.play.services.tflite.support)
 
     // Network
     implementation(libs.okhttp)

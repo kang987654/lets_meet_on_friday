@@ -27,14 +27,9 @@ coroutines = "1.11.0"
 # 0.18.0 → 0.19.0(0.41.1): 제거 0, 추가는 추측 디코딩 설정(`SpeculativeDecodingConfig`)·`Conversation.clone()`. PC 실측 exp77 — 임베딩 비트 동일,
 # 회귀 세트 무회귀(MTP 켜짐 포함), 깊은 문맥 FP32 숫자 온전(FP16 대조군은 깨짐 재현). 계획서 docs/plans/0.41.1-litertlm-019-mtp.md.
 litertlm = "0.19.0"
-# [WHY] 5.x 는 메이저 상향(API 변경 가능) — 4.12 에 문제가 없고, 메이저는 필요가 생길 때
-# 별도 회차로 한다 (0.16.0 최신화 회차 판정, mockwebserver 도 같은 키를 쓴다).
-okhttp = "4.12.0"
-# [WHY] GPU 델리게이트 = 모델 런타임 인접 — 승격은 반드시 실기기 숫자 온전성 재검증과 짝이다
-# (GPU 연산 계층이 바뀌면 FP16 발병점 실측(exp30)의 전제가 흔들린다, ADR-021). 16.5.0 상향은
-# litertlm 0.17 을 기다리지 않고 지금 검증하기로 한 사용자 결정(2026-08-14).
-playServicesTfliteJava = "16.5.0"
-playServicesTfliteGpu = "16.5.0"
+# [WHY] 4.12 → 5.5.1(0.41.5, 사용자 결정). 4.12 는 2023년 마지막 4.x 라 5.x 의 보안 강화(HTTP/2 응답 헤더 상한·호스트 이름 검증·
+# 유출 인증서 차단)가 없다. mockwebserver 는 옛 `okhttp3.mockwebserver` 판이 계속 배포되어 같은 키로 둔다(새 판은 mockwebserver3).
+okhttp = "5.5.1"
 commonmark = "1.0.0-alpha05"
 richtext = "1.0.0-alpha05"
 lifecycleProcess = "2.11.0"
@@ -140,11 +135,6 @@ kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref =
 # OkHttp
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "okhttp" }
-
-# TFLite GPU Delegate
-play-services-tflite-java = { module = "com.google.android.gms:play-services-tflite-java", version.ref = "playServicesTfliteJava" }
-play-services-tflite-gpu = { module = "com.google.android.gms:play-services-tflite-gpu", version.ref = "playServicesTfliteGpu" }
-play-services-tflite-support = { module = "com.google.android.gms:play-services-tflite-support", version.ref = "playServicesTfliteJava" }
 
 # Compose RichText (Markdown)
 compose-richtext-commonmark = { module = "com.halilibo.compose-richtext:richtext-commonmark", version.ref = "commonmark" }

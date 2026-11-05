@@ -168,7 +168,7 @@ class ModelDownloadService @Inject constructor(
 
                 val isPartial = response.code == 206
                 downloaded = if (isPartial) resumeFrom else 0L
-                val body = response.body ?: throw ModelDownloadException.Transient("Empty body")
+                val body = response.body
                 val total = if (isPartial) {
                     response.header("Content-Range")?.substringAfter('/', "")?.toLongOrNull()
                         ?: probe.totalBytes
