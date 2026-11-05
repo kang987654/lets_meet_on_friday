@@ -3,6 +3,7 @@ package com.kosmos.app.runtime.embedding
 import android.content.Context
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.library.LibraryRepository
+import com.kosmos.app.domain.memory.MemoryVectorRepository
 import com.kosmos.app.domain.tool.ModelDownloadStatus
 import com.kosmos.app.work.EmbeddingModelDownloadScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,7 +36,8 @@ class EmbeddingModelManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val scheduler: EmbeddingModelDownloadScheduler,
     private val runner: EmbeddingGemmaRunner,
-    private val library: LibraryRepository
+    private val library: LibraryRepository,
+    private val memoryVectors: MemoryVectorRepository
 ) {
     private val _installed = MutableStateFlow(runner.installed)
     val installed: StateFlow<Boolean> = _installed.asStateFlow()
@@ -60,6 +62,8 @@ class EmbeddingModelManager @Inject constructor(
                 .forEach { dir -> File(dir, Constants.EMBEDDING_MODEL_FILENAME).delete() }
         }
         library.clearVectors()
+        // [WHY] 기억 벡터도 함께 지운다 — 다시 받으면 기억 뜻 검색은 버튼부터 다시(0.41.3 Q2).
+        memoryVectors.clear()
         refresh()
     }
 }

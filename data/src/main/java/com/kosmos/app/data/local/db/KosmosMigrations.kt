@@ -225,8 +225,35 @@ object KosmosMigrations {
         }
     }
 
+    /**
+     * 0.41.3 — 기억 뜻 벡터 표 `memory_vector` 를 만들고, `knowledge_note` 의 옛 `embedding` 열(늘 null)을 뺀다.
+     *
+     * [WHY] 열 빼기는 표를 다시 만든다 — `ALTER TABLE … DROP COLUMN` 은 SQLite 3.35 부터라 minSdk 26 기기에 없다. 새 표를 만들고 옮긴 뒤 이름을 바꾸고
+     * 인덱스를 다시 만든다(v12 스키마 DDL 에서 `embedding` 만 뺀 형태 — 13.json 과 같아야 Room 검증이 통과한다).
+     */
+    val MIGRATION_12_13 = object : Migration(12, 13) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `memory_vector` (`kind` TEXT NOT NULL, `refId` TEXT NOT NULL, `modelId` TEXT NOT NULL, " +
+                    "`vector` BLOB NOT NULL, PRIMARY KEY(`kind`, `refId`))"
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_memory_vector_modelId` ON `memory_vector` (`modelId`)")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `knowledge_note_new` (`id` TEXT NOT NULL, `content` TEXT NOT NULL, `sourceSessionId` TEXT, " +
+                    "`tags` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `source` TEXT NOT NULL DEFAULT 'manual', PRIMARY KEY(`id`))"
+            )
+            db.execSQL(
+                "INSERT INTO `knowledge_note_new` (`id`, `content`, `sourceSessionId`, `tags`, `createdAt`, `updatedAt`, `source`) " +
+                    "SELECT `id`, `content`, `sourceSessionId`, `tags`, `createdAt`, `updatedAt`, `source` FROM `knowledge_note`"
+            )
+            db.execSQL("DROP TABLE `knowledge_note`")
+            db.execSQL("ALTER TABLE `knowledge_note_new` RENAME TO `knowledge_note`")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_knowledge_note_createdAt` ON `knowledge_note` (`createdAt`)")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
-        MIGRATION_11_12
+        MIGRATION_11_12, MIGRATION_12_13
     )
 }

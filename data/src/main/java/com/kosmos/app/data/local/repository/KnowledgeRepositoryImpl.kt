@@ -6,12 +6,21 @@ import com.kosmos.app.data.local.db.entity.KnowledgeEntity
 import com.kosmos.app.domain.memory.KnowledgeRepository
 import com.kosmos.app.domain.model.KnowledgeNote
 import javax.inject.Inject
-import com.kosmos.app.core.common.FloatBytes
+import com.kosmos.app.data.local.db.dao.MemoryVectorDao
+import com.kosmos.app.domain.memory.MemoryVectorKey
 import com.kosmos.app.core.common.SqlLike
 import com.kosmos.app.core.common.Tags
 
+/**
+ * [KnowledgeRepositoryImpl]
+ * 메모 저장소 Room 구현입니다.
+ *
+ * [WHY] 저장·삭제에서 그 메모의 뜻 벡터(`memory_vector`)를 지운다 — 내용이 바뀐 메모에 옛 벡터가 남으면 엉뚱한 뜻으로 찾힌다.
+ * 지워진 벡터는 `MemoryEmbedder` 가 다음 조용한 때 다시 만든다(0.41.3).
+ */
 class KnowledgeRepositoryImpl @Inject constructor(
-    private val dao: KnowledgeDao
+    private val dao: KnowledgeDao,
+    private val vectors: MemoryVectorDao
 ) : KnowledgeRepository {
 
     override suspend fun save(note: KnowledgeNote): AppResult<Unit> = dbWrite(TABLE, "save") {
@@ -23,12 +32,12 @@ class KnowledgeRepositoryImpl @Inject constructor(
                 // [WHY] 태그에 콤마가 들어오면 이 칼럼 형식이 표현할 수 없다. CSV 인코딩을
                 // 소유한 계층이 그 불변식도 지킨다 (Tags KDoc 참조).
                 tags = Tags.encode(note.tags),
-                embedding = note.embedding?.let { FloatBytes.encode(it) },
                 createdAt = note.createdAt,
                 updatedAt = note.updatedAt,
                 source = note.source
             )
         )
+        vectors.delete(MemoryVectorKey.Kind.NOTE.code, note.id)
     }
 
     override suspend fun getById(noteId: String): AppResult<KnowledgeNote?> = dbRead(TABLE, "getById") {
@@ -37,6 +46,7 @@ class KnowledgeRepositoryImpl @Inject constructor(
 
     override suspend fun delete(noteId: String): AppResult<Unit> = dbWrite(TABLE, "delete") {
         dao.delete(noteId)
+        vectors.delete(MemoryVectorKey.Kind.NOTE.code, noteId)
     }
 
     override suspend fun search(query: String, limit: Int): AppResult<List<KnowledgeNote>> = dbRead(TABLE, "search") {
@@ -54,10 +64,7 @@ class KnowledgeRepositoryImpl @Inject constructor(
     }
 
     override suspend fun searchByTags(tags: List<String>, limit: Int): AppResult<List<KnowledgeNote>> = dbRead(TABLE, "searchByTags") {
-        // SQLite의 LIKE 검색을 위해 각 태그별로 검색 결과를 모은 후 중복을 제거 (간이 구현)
-        // [WHY] Set 이 아니라 List + distinctBy(id) 다 — KnowledgeEntity 는 ByteArray 필드를
-        // 가지므로 data class 의 equals 가 참조 비교가 되고, Set 으로는 같은 노트가 태그마다
-        // 중복 반환된다. 문자열 임베딩 시절에는 값 비교라 우연히 동작했다.
+        // SQLite의 LIKE 검색을 위해 각 태그별로 검색 결과를 모은 후 id 기준으로 중복을 제거 (간이 구현)
         val results = mutableListOf<KnowledgeEntity>()
         for (tag in tags) {
             // [WHY] 저장 시와 같은 정규화를 적용해야 저장된 값과 형태가 맞는다. 콤마가 든
@@ -70,57 +77,15 @@ class KnowledgeRepositoryImpl @Inject constructor(
         results.distinctBy { it.id }.map { it.toDomain() }.take(limit)
     }
 
-    // 코사인 유사도 계산 지원 (RAG)
-    // [WHY] DB 실패는 DbReadError 다 — 예전에는 SearchError 로 분류해 "검색이 지연되고 있어요"가
-    // 떴다. SearchError 는 임베더 부재(DisabledTextEmbedder) 같은 진짜 검색 실패에만 쓴다.
-    // [WHY] 최대 1000행의 CSV 파싱+코사인 연산이 호출자 디스패처(메인 가능)에서 돌지 않도록 Default로 이동한다.
-    override suspend fun searchByVector(queryEmbedding: FloatArray, limit: Int): AppResult<List<KnowledgeNote>> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-      dbRead(TABLE, "searchByVector") {
-        val allEntities = dao.searchRecent(1000) // 모두 가져옴 (모바일 특성상 데이터가 많지 않음)
-
-        val scoredList = allEntities.mapNotNull { entity ->
-            val blob = entity.embedding ?: return@mapNotNull null
-            val entityEmbedding = FloatBytes.decode(blob)
-
-            if (entityEmbedding.size == queryEmbedding.size && entityEmbedding.isNotEmpty()) {
-                val score = cosineSimilarity(queryEmbedding, entityEmbedding)
-                Pair(entity.toDomain(), score)
-            } else {
-                null
-            }
-        }
-        
-        // 코사인 유사도가 높은 순으로 정렬 후 limit 반환 (유사도 0.3 이상 필터링 가능, 일단 모두)
-        scoredList
-            .sortedByDescending { it.second }
-            .take(limit)
-            .map { it.first }
-      }
-    }
-    
-    private fun cosineSimilarity(v1: FloatArray, v2: FloatArray): Float {
-        var dotProduct = 0f
-        var normA = 0f
-        var normB = 0f
-        for (i in v1.indices) {
-            dotProduct += v1[i] * v2[i]
-            normA += v1[i] * v1[i]
-            normB += v2[i] * v2[i]
-        }
-        return if (normA == 0f || normB == 0f) 0f else (dotProduct / (Math.sqrt(normA.toDouble()) * Math.sqrt(normB.toDouble()))).toFloat()
-    }
-
     override suspend fun getNotes(offset: Int, limit: Int): AppResult<List<KnowledgeNote>> = dbRead(TABLE, "getNotes") {
             dao.getNotes(offset, limit).map { it.toDomain() }
     }
 
     private fun KnowledgeEntity.toDomain(): KnowledgeNote {
-        val floatArr = embedding?.let { FloatBytes.decode(it) } ?: FloatArray(0)
         return KnowledgeNote(
             id = id,
             content = content,
             tags = Tags.decode(tags),
-            embedding = if (floatArr.isNotEmpty()) floatArr else null,
             createdAt = createdAt,
             updatedAt = updatedAt,
             source = source

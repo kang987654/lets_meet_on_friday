@@ -39,7 +39,7 @@ class EpisodeRepositoryTest {
     @Before
     fun setUp() {
         db = dbRule.db
-        episodes = EpisodeRepositoryImpl(db.episodeDao())
+        episodes = EpisodeRepositoryImpl(db.episodeDao(), db.memoryVectorDao())
         conversations = ConversationRepositoryImpl(db.conversationDao())
     }
 

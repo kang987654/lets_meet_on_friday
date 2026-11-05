@@ -34,7 +34,7 @@ class KnowledgeTagRoundTripTest {
     @Before
     fun setUp() {
         db = dbRule.db
-        repository = KnowledgeRepositoryImpl(db.knowledgeDao())
+        repository = KnowledgeRepositoryImpl(db.knowledgeDao(), db.memoryVectorDao())
     }
 
 
@@ -44,7 +44,6 @@ class KnowledgeTagRoundTripTest {
                 id = "n1",
                 content = "노트",
                 tags = tags.toList(),
-                embedding = null,
                 createdAt = 1L,
                 updatedAt = 1L
             )

@@ -41,7 +41,7 @@ class ProfileSuggestionRepositoryTest {
     fun setUp() {
         db = dbRule.db
         suggestions = ProfileSuggestionRepositoryImpl(db.profileSuggestionDao())
-        knowledge = KnowledgeRepositoryImpl(db.knowledgeDao())
+        knowledge = KnowledgeRepositoryImpl(db.knowledgeDao(), db.memoryVectorDao())
     }
 
 

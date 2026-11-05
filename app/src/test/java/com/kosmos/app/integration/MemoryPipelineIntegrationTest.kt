@@ -5,7 +5,6 @@ import com.kosmos.app.assistant.tool.ToolArguments
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.memory.KnowledgeRepository
-import com.kosmos.app.domain.memory.TextEmbedder
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.usecase.SaveKnowledgeUseCase
 import io.mockk.coEvery
@@ -35,7 +34,6 @@ import com.kosmos.app.domain.tool.Tokenizer
 class MemoryPipelineIntegrationTest {
 
     private val repository: KnowledgeRepository = mockk()
-    private val embedder: TextEmbedder = mockk()
 
     // [WHY] 에피소드 저장소·토크나이저가 executor 에 추가됐다(ADR-022 회수 통합).
     // 이 테스트의 관심사는 메모 파이프라인이므로 에피소드 쪽은 빈 결과로 고정한다.
@@ -55,7 +53,6 @@ class MemoryPipelineIntegrationTest {
         id = UUID.randomUUID().toString(),
         content = content,
         tags = tags,
-        embedding = null,
         createdAt = System.currentTimeMillis(),
         updatedAt = System.currentTimeMillis()
     )
@@ -63,10 +60,9 @@ class MemoryPipelineIntegrationTest {
     @Test
     fun `저장한 기억이 키워드 조회로 되돌아온다`() = runBlocking {
         val saved = slot<KnowledgeNote>()
-        coEvery { embedder.embed(any()) } returns AppResult.Success(floatArrayOf(0.1f, 0.2f))
         coEvery { repository.save(capture(saved)) } returns AppResult.Success(Unit)
 
-        val saveResult = SaveKnowledgeUseCase(repository, embedder)("나 매운 거 못 먹어", listOf("food"))
+        val saveResult = SaveKnowledgeUseCase(repository)("나 매운 거 못 먹어", listOf("food"))
         assertTrue(saveResult is AppResult.Success)
         assertEquals("나 매운 거 못 먹어", saved.captured.content)
 
@@ -80,19 +76,6 @@ class MemoryPipelineIntegrationTest {
         assertTrue("저장한 내용이 담겨야 한다: $json", json.contains("나 매운 거 못 먹어"))
     }
 
-    @Test
-    fun `임베딩이 실패해도 저장은 성공한다`() = runBlocking {
-        // [WHY] 예전에는 임베딩 실패가 저장 자체를 실패시켰다. 지금 임베딩은 어떤 조회
-        // 경로에서도 읽히지 않으므로, 그 이유로 사용자의 "기억해줘"를 버리면 안 된다.
-        coEvery { embedder.embed(any()) } returns AppResult.Failure(AppError.SearchError("모델 없음"))
-        val saved = slot<KnowledgeNote>()
-        coEvery { repository.save(capture(saved)) } returns AppResult.Success(Unit)
-
-        val result = SaveKnowledgeUseCase(repository, embedder)("자전거 비밀번호는 1234", emptyList())
-
-        assertTrue("저장은 성공해야 한다", result is AppResult.Success)
-        assertEquals(null, saved.captured.embedding)
-    }
 
     // --- SearchMemory 툴 계약 ---
 

@@ -35,7 +35,7 @@ class KnowledgeSearchEscapeTest {
     @Before
     fun setUp() {
         db = dbRule.db
-        repository = KnowledgeRepositoryImpl(db.knowledgeDao())
+        repository = KnowledgeRepositoryImpl(db.knowledgeDao(), db.memoryVectorDao())
     }
 
 
@@ -44,7 +44,6 @@ class KnowledgeSearchEscapeTest {
         content = content,
         sourceSessionId = null,
         tags = tags,
-        embedding = null,
         createdAt = id.hashCode().toLong(),
         updatedAt = 0L
     )

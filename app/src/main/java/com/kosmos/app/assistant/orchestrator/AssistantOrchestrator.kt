@@ -18,6 +18,7 @@ import com.kosmos.app.assistant.episode.EpisodeBoundaryManager
 import com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
 import com.kosmos.app.domain.usecase.TranscribeAudioUseCase
 import com.kosmos.app.platform.document.LibraryEmbedder
+import com.kosmos.app.platform.memory.MemoryEmbedder
 
 /**
  * [AssistantOrchestrator]
@@ -45,6 +46,7 @@ class AssistantOrchestrator @Inject constructor(
     private val conversationPrewarmer: ConversationPrewarmer,
     private val memoryCleanupRunner: MemoryCleanupRunner,
     private val libraryEmbedder: LibraryEmbedder,
+    private val memoryEmbedder: MemoryEmbedder,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : AssistantGateway {
     private val messageWriter = AssistantMessageWriter(conversationRepository, auditTrailService)
@@ -58,6 +60,7 @@ class AssistantOrchestrator @Inject constructor(
         conversationPrewarmer.onUserActivity()
         // [WHY] 보관함 뜻 벡터 만들기가 돌고 있으면 멈춘다 — 답이 끝나면 이어 간다(0.41.2, 채팅 중 연산 경합 방지).
         libraryEmbedder.onUserActivity()
+        memoryEmbedder.onUserActivity()
         // 1. 음성이면 먼저 전사한다.
         //
         // [WHY] 예전에는 사용자 메시지를 `"(음성 메시지)"` 로 저장하고 오디오를 그대로 대화에
@@ -149,6 +152,7 @@ class AssistantOrchestrator @Inject constructor(
         // [WHY] 다시 만들어야 할 대화면(거절·고친 답·예산 초과 등) 답을 읽는 동안 미리 만든다(0.39.2 M3, ConversationPrewarmer).
         conversationPrewarmer.afterTurn(request.sessionId)
         libraryEmbedder.onTurnFinished()
+        memoryEmbedder.onTurnFinished()
         return result
     }
 

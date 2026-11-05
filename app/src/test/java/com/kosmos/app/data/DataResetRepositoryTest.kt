@@ -50,7 +50,7 @@ class DataResetRepositoryTest {
         ConversationRepositoryImpl(db.conversationDao()).save(
             ChatMessage(id = "m1", sessionId = "s1", role = ChatMessage.Role.USER, content = "안녕", inputType = InputType.TEXT, createdAt = 1)
         ).ok()
-        EpisodeRepositoryImpl(db.episodeDao()).insert(
+        EpisodeRepositoryImpl(db.episodeDao(), db.memoryVectorDao()).insert(
             Episode(id = "e1", sessionId = "s1", status = EpisodeStatus.SUMMARIZED, title = "t", summary = "s", tags = emptyList(),
                 startAt = 1, endAt = 2, messageCount = 1, retryCount = 0, createdAt = 1, updatedAt = 1)
         ).ok()
@@ -59,7 +59,7 @@ class DataResetRepositoryTest {
             ProfileSuggestion("p1", "호칭", "진우님", "e1", ProfileSuggestionStatus.PENDING, 1, 1)
         ).ok()
         TaskRepositoryImpl(db.taskDao()).save(TaskItem(id = "t1", title = "장보기", isCompleted = false, createdAt = 1)).ok()
-        KnowledgeRepositoryImpl(db.knowledgeDao()).save(KnowledgeNote(id = "k1", content = "메모", createdAt = 1, updatedAt = 1)).ok()
+        KnowledgeRepositoryImpl(db.knowledgeDao(), db.memoryVectorDao()).save(KnowledgeNote(id = "k1", content = "메모", createdAt = 1, updatedAt = 1)).ok()
         ProfileRepositoryImpl(db.profileDao()).upsert("호칭", "진우님", "manual").ok()
         tables.forEach { assertEquals("$it 시드", 1, count(it)) }
     }

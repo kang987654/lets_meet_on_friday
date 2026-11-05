@@ -5,6 +5,8 @@ import com.kosmos.app.core.common.SqlLike
 import com.kosmos.app.core.common.Tags
 import com.kosmos.app.core.common.enumOrDefault
 import com.kosmos.app.data.local.db.dao.EpisodeDao
+import com.kosmos.app.data.local.db.dao.MemoryVectorDao
+import com.kosmos.app.domain.memory.MemoryVectorKey
 import com.kosmos.app.data.local.db.entity.EpisodeEntity
 import com.kosmos.app.domain.memory.EpisodeRepository
 import com.kosmos.app.domain.model.Episode
@@ -22,22 +24,28 @@ import javax.inject.Inject
  * ### Key Flow
  * 1. 도메인 [Episode] ↔ [EpisodeEntity] 매핑 (status enum ↔ 문자열, tags List ↔ CSV).
  * 2. 검색어는 여기서 `SqlLike.escape`, 태그는 `Tags.normalize` 를 적용해 DAO 계약을 지킨다.
+ * 3. 쓰기(저장·갱신·통합·삭제)마다 그 대화의 뜻 벡터를 지운다 — 요약·제목이 바뀌면 옛 벡터는 틀린 뜻이다(0.41.3, `MemoryEmbedder` 가 다시 만든다).
  */
 class EpisodeRepositoryImpl @Inject constructor(
-    private val episodeDao: EpisodeDao
+    private val episodeDao: EpisodeDao,
+    private val vectors: MemoryVectorDao
 ) : EpisodeRepository {
 
     override suspend fun insert(episode: Episode): AppResult<Unit> = write("에피소드 저장") {
         episodeDao.insert(episode.toEntity())
+        invalidate(episode.id)
     }
 
     override suspend fun mergeInto(fromId: String, into: Episode): AppResult<Unit> = write("에피소드 통합") {
         episodeDao.mergeInto(fromId, into.toEntity())
+        invalidate(fromId)
+        invalidate(into.id)
     }
 
     override suspend fun update(episode: Episode): AppResult<Unit> = write("에피소드 갱신") {
         // [WHY] REPLACE insert 라 update 와 같다 — id 가 PK 이므로 별도 UPDATE 쿼리가 필요 없다.
         episodeDao.insert(episode.toEntity())
+        invalidate(episode.id)
     }
 
     override suspend fun getById(id: String): AppResult<Episode?> = read("에피소드 조회") {
@@ -68,7 +76,10 @@ class EpisodeRepositoryImpl @Inject constructor(
 
     override suspend fun delete(id: String): AppResult<Unit> = write("에피소드 삭제") {
         episodeDao.delete(id)
+        invalidate(id)
     }
+
+    private suspend fun invalidate(id: String) = vectors.delete(MemoryVectorKey.Kind.EPISODE.code, id)
 
     private inline fun <T> read(what: String, block: () -> T): AppResult<T> = dbRead(TABLE, what, block)
 

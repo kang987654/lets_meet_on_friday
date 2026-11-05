@@ -2,55 +2,37 @@ package com.kosmos.app.domain.usecase
 
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.memory.KnowledgeRepository
-import com.kosmos.app.domain.memory.TextEmbedder
 import com.kosmos.app.domain.model.KnowledgeNote
 import java.util.UUID
 import javax.inject.Inject
 
 /**
  * [SaveKnowledgeUseCase]
- * 사용자의 기억이나 중요 정보(Memory)를 로컬 RAG 파이프라인에 저장하기 위한 핵심 유즈케이스입니다.
+ * 사용자의 기억이나 중요 정보(Memory)를 메모로 저장하는 핵심 유즈케이스입니다.
  *
  * ### Architecture Context
  * - **Layer**: Domain (UseCase)
- * - **Dependencies**: [KnowledgeRepository], [TextEmbedder]
+ * - **Dependencies**: [KnowledgeRepository]
  *
  * ### Key Flow
- * 1. 입력된 텍스트와 태그를 받습니다.
- * 2. [TextEmbedder]를 호출하여 텍스트를 고차원 부동소수점 배열(Vector)로 임베딩 변환합니다.
- * 3. 변환된 임베딩과 함께 UUID 기반의 새로운 [KnowledgeNote]를 생성하고 [KnowledgeRepository]를 통해 DB에 저장합니다.
+ * 1. 입력된 텍스트와 태그로 UUID 기반의 새 [KnowledgeNote] 를 만든다. 2. [KnowledgeRepository] 로 저장한다.
+ *
+ * [WHY] 저장 때 임베딩을 만들지 않는다 — 옛 영어 전용 임베더 호출(항상 실패하던 자리)은 0.41.3 에서 지웠다. 뜻 검색 벡터는 저장 뒤
+ * 앱의 `MemoryEmbedder` 가 채팅이 끝나고 조용할 때 만든다(임베딩 엔진은 GPU 를 쓰므로 저장 경로에서 기다리지 않는다, ADR-038).
  */
 class SaveKnowledgeUseCase @Inject constructor(
-    private val repository: KnowledgeRepository,
-    private val textEmbedder: TextEmbedder
+    private val repository: KnowledgeRepository
 ) {
-    /**
-     * [WHY] 임베딩 실패가 더 이상 **저장 자체를 막지 않는다.** 예전에는 실패 시 곧바로
-     * Failure 를 반환했다("For RAG, embedding is crucial"). 그런데 지금 임베딩은 어떤 조회
-     * 경로에서도 읽히지 않는다 — 임베더가 영어 전용이라 한국어 의미 검색이 무작위여서
-     * 벡터 검색을 프로덕션에서 뺐기 때문이다(ADR-013). 읽히지 않는 값을 만들지 못했다는
-     * 이유로 사용자의 "기억해줘"를 통째로 실패시키는 것은 명백히 잘못이다.
-     *
-     * [WHY] 호출은 그대로 둔다. 0.26.0(C2)부터 바인딩된 구현은 `DisabledTextEmbedder`(항상 실패)라
-     * 임베딩은 늘 null 이지만, 한국어를 다루는 임베더(C3)를 바인딩하는 순간 이 자리에서 다시
-     * 채워져야 한다 — 여기서 배선을 끊어 두면 그때 조용히 썩어 있을 것이다.
-     */
     suspend operator fun invoke(
         content: String,
         tags: List<String>,
         source: String = KnowledgeNote.SOURCE_MANUAL
     ): AppResult<KnowledgeNote> {
-        val embedding = when (val embeddingResult = textEmbedder.embed(content)) {
-            is AppResult.Success -> embeddingResult.data
-            is AppResult.Failure -> null
-        }
-
         val currentTime = System.currentTimeMillis()
         val note = KnowledgeNote(
             id = UUID.randomUUID().toString(),
             content = content,
             tags = tags,
-            embedding = embedding,
             createdAt = currentTime,
             updatedAt = currentTime,
             source = source

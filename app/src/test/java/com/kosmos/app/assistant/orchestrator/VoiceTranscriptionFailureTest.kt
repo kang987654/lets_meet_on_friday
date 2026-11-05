@@ -65,7 +65,8 @@ class VoiceTranscriptionFailureTest {
             episodeSummarizeScheduler = mockk(relaxed = true),
             conversationPrewarmer = mockk(relaxed = true),
             memoryCleanupRunner = mockk(relaxed = true),
-            libraryEmbedder = mockk(relaxed = true)
+            libraryEmbedder = mockk(relaxed = true),
+            memoryEmbedder = mockk(relaxed = true)
         )
     }
 

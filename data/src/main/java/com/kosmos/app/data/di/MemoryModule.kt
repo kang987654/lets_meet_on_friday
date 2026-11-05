@@ -5,6 +5,8 @@ import com.kosmos.app.domain.memory.MemoryBackupManager
 
 import com.kosmos.app.data.local.repository.KnowledgeRepositoryImpl
 import com.kosmos.app.data.local.repository.TaskRepositoryImpl
+import com.kosmos.app.data.local.repository.MemoryVectorRepositoryImpl
+import com.kosmos.app.domain.memory.MemoryVectorRepository
 import com.kosmos.app.domain.memory.KnowledgeRepository
 import com.kosmos.app.domain.memory.TaskRepository
 import dagger.Binds
@@ -12,7 +14,6 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-import com.kosmos.app.data.embedder.DisabledTextEmbedder
 import com.kosmos.app.data.local.repository.AuditRepositoryImpl
 import com.kosmos.app.data.local.repository.ConversationRepositoryImpl
 import com.kosmos.app.data.local.repository.DataResetRepositoryImpl
@@ -27,7 +28,6 @@ import com.kosmos.app.domain.memory.DataResetRepository
 import com.kosmos.app.domain.memory.EpisodeRepository
 import com.kosmos.app.domain.memory.ProfileRepository
 import com.kosmos.app.domain.memory.ProfileSuggestionRepository
-import com.kosmos.app.domain.memory.TextEmbedder
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -41,9 +41,9 @@ abstract class MemoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindTextEmbedder(
-        impl: DisabledTextEmbedder
-    ): TextEmbedder
+    abstract fun bindMemoryVectorRepository(
+        impl: MemoryVectorRepositoryImpl
+    ): MemoryVectorRepository
 
     @Binds
     @Singleton

@@ -7,6 +7,8 @@ import com.kosmos.app.data.local.db.entity.LibraryChunkEntity
 import com.kosmos.app.data.local.db.entity.LibraryDocumentEntity
 import com.kosmos.app.data.local.db.entity.LibraryFtsEntity
 import com.kosmos.app.data.local.db.entity.LibraryVectorEntity
+import com.kosmos.app.data.local.db.entity.MemoryVectorEntity
+import com.kosmos.app.data.local.db.dao.MemoryVectorDao
 import com.kosmos.app.data.local.db.dao.AuditDao
 import com.kosmos.app.data.local.db.dao.ConversationDao
 import com.kosmos.app.data.local.db.dao.KnowledgeDao
@@ -34,7 +36,8 @@ import com.kosmos.app.data.local.db.entity.ProfileSuggestionEntity
         LibraryDocumentEntity::class,
         LibraryChunkEntity::class,
         LibraryFtsEntity::class,
-        LibraryVectorEntity::class
+        LibraryVectorEntity::class,
+        MemoryVectorEntity::class
     ],
     version = KosmosDatabase.SCHEMA_VERSION,
     exportSchema = true
@@ -48,12 +51,13 @@ abstract class KosmosDatabase : RoomDatabase() {
     abstract fun episodeDao(): EpisodeDao
     abstract fun profileSuggestionDao(): ProfileSuggestionDao
     abstract fun libraryDao(): LibraryDao
+    abstract fun memoryVectorDao(): MemoryVectorDao
 
     companion object {
         /**
          * 현재 스키마 버전 — `@Database(version)` 과 백업 가져오기 검증의 단일 출처.
          * 올릴 때는 KosmosMigrations 에 경로를 추가하고 `data/schemas/` 에 JSON 이 생기는지 확인한다.
          */
-        const val SCHEMA_VERSION = 12
+        const val SCHEMA_VERSION = 13
     }
 }

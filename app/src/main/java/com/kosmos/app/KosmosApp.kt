@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import com.kosmos.app.runtime.embedding.EmbeddingGemmaRunner
 import com.kosmos.app.platform.document.LibraryEmbedder
+import com.kosmos.app.platform.memory.MemoryEmbedder
 
 @HiltAndroidApp
 class KosmosApp : Application(), Configuration.Provider {
@@ -63,6 +64,9 @@ class KosmosApp : Application(), Configuration.Provider {
     @Inject
     lateinit var libraryEmbedder: LibraryEmbedder
 
+    @Inject
+    lateinit var memoryEmbedder: MemoryEmbedder
+
     /**
      * [WHY] @HiltWorker 로 만든 Worker 에 의존성을 주입하려면 WorkManager 의 기본 초기화를
      * 매니페스트에서 제거하고(WorkManagerInitializer node:remove) HiltWorkerFactory 를 물려야 한다.
@@ -87,6 +91,12 @@ class KosmosApp : Application(), Configuration.Provider {
             // [WHY] 전경 진입 warmUp 은 0.34.0 에서 MainActivity 단위(ModelWarmUpObserver)로 옮겼다 —
             // 문서 뷰어(별도 Activity)만 열 때 모델을 올리지 않기 위해서다. 해제는 앱 전체가 백그라운드일
             // 때만이라 여기 프로세스 단위에 남는다.
+            // [WHY] 기억 뜻 벡터의 자동 준비는 전경에서만 돈다(0.41.3, §2-⑥) — 화면에 오면 모자란 것이 있는지 본다.
+            override fun onStart(owner: androidx.lifecycle.LifecycleOwner) {
+                super.onStart(owner)
+                memoryEmbedder.onForeground()
+            }
+
             override fun onStop(owner: androidx.lifecycle.LifecycleOwner) {
                 super.onStop(owner)
                 // 앱 백그라운드 전환 시 즉시 모델 리소스를 해제하여 메모리(RAM) 및 GPU 반환
@@ -98,6 +108,7 @@ class KosmosApp : Application(), Configuration.Provider {
                 memoryCleanupRunner.cancel()
                 // [WHY] 뜻 벡터 만들기도 백그라운드에서 잇지 않는다(§2-⑥) — 남은 조각은 보관함의 "준비하기"가 다시.
                 libraryEmbedder.cancel()
+                memoryEmbedder.onBackground()
                 releaseEmbedding()
             }
         })

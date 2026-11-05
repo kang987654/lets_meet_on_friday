@@ -66,7 +66,6 @@ class SemanticRecallBenchmarkTest {
                     .sortedByDescending { it.createdAt }
                     .take(limit)
             )
-            override suspend fun searchByVector(queryEmbedding: FloatArray, limit: Int) = AppResult.Success(emptyList<KnowledgeNote>())
             override suspend fun getNotes(offset: Int, limit: Int) = AppResult.Success(
                 notes.sortedByDescending { it.createdAt }.drop(offset).take(limit)
             )

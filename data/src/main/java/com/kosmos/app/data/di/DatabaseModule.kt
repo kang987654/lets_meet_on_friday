@@ -19,6 +19,7 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 import com.kosmos.app.data.local.db.dao.EpisodeDao
 import com.kosmos.app.data.local.db.dao.ProfileSuggestionDao
+import com.kosmos.app.data.local.db.dao.MemoryVectorDao
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -65,4 +66,7 @@ object DatabaseModule {
     @Provides
     fun provideProfileSuggestionDao(database: KosmosDatabase): ProfileSuggestionDao =
         database.profileSuggestionDao()
+
+    @Provides
+    fun provideMemoryVectorDao(database: KosmosDatabase): MemoryVectorDao = database.memoryVectorDao()
 }

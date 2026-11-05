@@ -36,17 +36,16 @@ class KnowledgeEmbeddingBlobTest {
     @Before
     fun setUp() {
         db = dbRule.db
-        repository = KnowledgeRepositoryImpl(db.knowledgeDao())
+        repository = KnowledgeRepositoryImpl(db.knowledgeDao(), db.memoryVectorDao())
     }
 
 
-    private fun save(id: String, embedding: FloatArray?, tags: List<String> = emptyList()) = runBlocking {
+    private fun save(id: String, tags: List<String> = emptyList()) = runBlocking {
         val result = repository.save(
             KnowledgeNote(
                 id = id,
                 content = "내용-$id",
                 tags = tags,
-                embedding = embedding,
                 createdAt = id.hashCode().toLong(),
                 updatedAt = 0L
             )
@@ -59,54 +58,16 @@ class KnowledgeEmbeddingBlobTest {
         return (result as AppResult.Success).data
     }
 
-    @Test
-    fun `임베딩이 BLOB 왕복에서 값을 유지한다`() {
-        val embedding = floatArrayOf(0.5f, -0.25f, 1.75f)
-        save("n1", embedding)
 
-        val note = unwrap(runBlocking { repository.searchRecent(10) }).single()
 
-        assertArrayEquals(embedding, note.embedding!!, 0f)
-    }
 
-    @Test
-    fun `벡터 검색이 가장 가까운 노트를 먼저 준다`() {
-        save("near", floatArrayOf(1f, 0f, 0f))
-        save("far", floatArrayOf(0f, 1f, 0f))
-
-        val results = unwrap(runBlocking { repository.searchByVector(floatArrayOf(1f, 0f, 0f), 2) })
-
-        assertEquals("내용-near", results.first().content)
-    }
-
-    @Test
-    fun `임베딩이 없는 노트는 벡터 검색에서 제외되고 최근 목록에는 남는다`() {
-        save("withVector", floatArrayOf(1f, 0f))
-        save("noVector", null)
-
-        val vectorResults = unwrap(runBlocking { repository.searchByVector(floatArrayOf(1f, 0f), 10) })
-        val recent = unwrap(runBlocking { repository.searchRecent(10) })
-
-        assertEquals(listOf("내용-withVector"), vectorResults.map { it.content })
-        assertEquals(2, recent.size)
-        assertNull(recent.single { it.content == "내용-noVector" }.embedding)
-    }
-
-    @Test
-    fun `길이가 다른 임베딩은 벡터 검색에서 건너뛴다`() {
-        save("wrongSize", floatArrayOf(1f, 0f, 0f))
-
-        val results = unwrap(runBlocking { repository.searchByVector(floatArrayOf(1f, 0f), 10) })
-
-        assertEquals(emptyList<String>(), results.map { it.content })
-    }
 
     @Test
     fun `여러 태그로 검색해도 같은 노트가 중복되지 않는다`() {
         // [WHY] KnowledgeEntity 는 ByteArray 필드를 가지므로 data class 의 equals 가 참조
         // 비교가 된다. 중복 제거를 Set 으로 하면 같은 노트가 태그마다 중복 반환된다 —
         // 문자열 임베딩 시절에는 값 비교라 우연히 동작했다.
-        save("n1", floatArrayOf(1f, 2f), tags = listOf("work", "urgent"))
+        save("n1", tags = listOf("work", "urgent"))
 
         val results = unwrap(runBlocking { repository.searchByTags(listOf("work", "urgent"), 10) })
 
@@ -117,7 +78,7 @@ class KnowledgeEmbeddingBlobTest {
     fun `offset limit 조회가 페이지 경계를 지킨다`() {
         // [WHY] getPagedData() 의 PagingSource 를 offset/limit 계약으로 바꿨으므로
         // 경계 동작을 여기서 고정한다.
-        (1..5).forEach { save("n$it", null) }
+        (1..5).forEach { save("n$it") }
 
         val firstPage = unwrap(runBlocking { repository.getNotes(0, 2) })
         val secondPage = unwrap(runBlocking { repository.getNotes(2, 2) })
