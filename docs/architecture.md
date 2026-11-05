@@ -1793,6 +1793,7 @@ PC 결정적 재현 케이스가 확보됐다(같은 파일·같은 버전·같�
 #### 부수 — 오염 히스토리는 위생 결함으로 강등
 
 원시 `<|tool_call>` 조각이 말풍선으로 저장·재생되는 것은 실측상 숫자 깨짐의 원인이 아니지만(exp27·29·31 — 오염 문맥에서도 CPU·GPU변형·FLOAT32 는 온전) 템플릿 구조를 오염시키는 실재 결함이다. 저장·재생 시 소독은 별건으로 처리한다.
+- **보충 (0.41.5)**: 이 ADR 의 실측(FP16 발병점·FP32 처방)과 ADR-036 의 MTP 속도는 휴대폰에서 **OpenCL** 경로로 쟀다. 그 경로는 매니페스트의 `uses-native-library libOpenCL.so`(`-car`·`-pixel`, `required=false`) 선언에 기대는데, 그동안 쓰지 않던 play-services-tflite 가 합쳐 넣어 주고 있었다 — 라이브러리를 빼자 LiteRT-LM 이 조용히 WebGPU(Vulkan)로 내려갔다. 선언을 `AndroidManifest.xml` 에 직접 두고 `OpenClManifestTest` 로 고정했다. WebGPU 경로의 숫자 온전성은 휴대폰에서 잰 적이 없다.
 
 ### ADR-022. 세션은 저장 개념이다 — 에피소드 기억과 시안 A′ 채택 (2026-08-15)
 

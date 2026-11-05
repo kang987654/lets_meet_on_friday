@@ -4,8 +4,8 @@
 
 **사용 안내**: [한국어](docs/guide/USER_GUIDE.md) | [English](docs/guide/USER_GUIDE.en.md)
 
-![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?style=flat-square&logo=kotlin)
-![AGP](https://img.shields.io/badge/AGP-9.3-3DDC84?style=flat-square&logo=android)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.4.21-7F52FF?style=flat-square&logo=kotlin)
+![AGP](https://img.shields.io/badge/AGP-9.5-3DDC84?style=flat-square&logo=android)
 ![Compose](https://img.shields.io/badge/Jetpack_Compose-Material_3-4285F4?style=flat-square&logo=jetpackcompose)
 ![LiteRT-LM](https://img.shields.io/badge/On--Device_AI-LiteRT--LM_0.19_·_Gemma_4_E4B-FF6F00?style=flat-square&logo=google)
 ![Hilt](https://img.shields.io/badge/DI-Hilt-0052CC?style=flat-square&logo=dagger)
@@ -117,7 +117,7 @@ sequenceDiagram
 
 | 분류 | 기술 |
 | :--- | :--- |
-| 언어·빌드 | Kotlin 2.4, AGP 9.3, Gradle KTS, KSP |
+| 언어·빌드 | Kotlin 2.4, AGP 9.5, Gradle KTS, KSP |
 | UI | Jetpack Compose(Material 3), 라이트/다크 시맨틱 토큰, Phosphor 아이콘, 하다 라운드 글꼴 |
 | 구조 | 4 모듈, Coroutines·Flow, Paging 3, Hilt |
 | 온디바이스 AI | LiteRT-LM 0.19, Gemma 4 E4B INT4 (GPU FP32 활성화 + 추측 디코딩(MTP), CPU 폴백), 네이티브 함수 호출·제약 디코딩 |
