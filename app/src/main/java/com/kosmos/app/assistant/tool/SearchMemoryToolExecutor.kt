@@ -5,6 +5,7 @@ import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.domain.memory.KnowledgeRepository
+import com.kosmos.app.domain.memory.MemoryVectorKey
 import com.kosmos.app.domain.memory.RecallConflict
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.search.BigramMatcher
@@ -36,8 +37,11 @@ import com.kosmos.app.domain.util.SentenceTruncator
  *    항의 겹침이 [Constants.BIGRAM_MIN_TERM_OVERLAP] 이상인 문서만 결과로 인정한다("자물쇠번호" ↔ "자물쇠 비밀번호").
  * 4. **그래도 0건 → 태그 목록 폴백**: 저장된 분류를 돌려주고 `search_memory` 재호출을 유도한다.
  *
- * [WHY] 벡터 검색이 아니라 **모델이 뽑은 키워드 + 어휘 검색**이다 — 쓸 수 있던 임베더는 영어 전용이라 한국어 문장을
- * 전혀 분별하지 못했고(ADR-013), 온디바이스 LLM 이 이미 한국어를 이해하므로 질의어 추출을 맡기는 것이 가장 싸다.
+ * 0. **뜻 검색(0.41.3, 선택)**: 뜻 검색 모델이 있고 기억 전부의 벡터가 준비됐으면 위 단계 대신 [MemorySemanticRanker] 의 결합 순위
+ *    (뜻 + 바이그램) 상위 3 — 결과 문구는 같다. 준비 전·모델 없음이면 아래 어휘 경로 그대로(ADR-038).
+ *
+ * [WHY] 기본은 **모델이 뽑은 키워드 + 어휘 검색**이다 — 옛 임베더는 영어 전용이라 한국어 문장을 전혀 분별하지 못했고(ADR-013),
+ * 온디바이스 LLM 이 이미 한국어를 이해하므로 질의어 추출을 맡기는 것이 가장 싸다. 다국어 임베더는 선택 설치라 그 위에 얹는다.
  *
  * [WHY] 정밀 LIKE 단계를 **그대로 두고** 바이그램을 뒤에 얹는다 — LIKE 는 정확할 때 가장 싸고
  * (인덱스 없이도 수백 건), 바이그램은 글자가 어긋난 미스를 건지는 2차 통로다. 인메모리 스코어러인
@@ -49,7 +53,9 @@ class SearchMemoryToolExecutor internal constructor(
     private val tokenizer: Tokenizer,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO,
     // 지금 대화의 사용자 말(결과 맨 위 "방금 이 대화" 줄) — 없으면 그 줄을 싣지 않는다(단위 테스트 생성부 호환).
-    private val conversations: ConversationRepository? = null
+    private val conversations: ConversationRepository? = null,
+    // 뜻 검색(0.41.3) — 없거나 준비 전이면 지금의 어휘 경로 그대로(단위 테스트 생성부 호환).
+    private val semantic: MemorySemanticRanker? = null
 ) : ToolExecutor {
 
     @Inject constructor(
@@ -57,8 +63,9 @@ class SearchMemoryToolExecutor internal constructor(
         episodeRepository: EpisodeRepository,
         tokenizer: Tokenizer,
         conversations: ConversationRepository,
-        currentLanguage: CurrentLanguage
-    ) : this(repository, episodeRepository, tokenizer, currentLanguage, conversations)
+        currentLanguage: CurrentLanguage,
+        semantic: MemorySemanticRanker
+    ) : this(repository, episodeRepository, tokenizer, currentLanguage, conversations, semantic)
 
     constructor(
         repository: KnowledgeRepository,
@@ -101,6 +108,15 @@ class SearchMemoryToolExecutor internal constructor(
 
         // [WHY] 지금 대화에서 사용자가 방금 말한 값을 맨 위에 — 검색된 옛 값보다 최신이다(0.38.8 결정 2, [com.kosmos.app.domain.memory.CurrentConversationLines]).
         val head = currentHead(sessionId, tokens, en)
+
+        // ── 0. 뜻 검색(0.41.3) ───────────────────────────────────────────────────
+        // [WHY] 뜻 검색 모델이 있고 기억 전부의 벡터가 준비됐을 때만 — 후보·순위만 바꾸고 결과 문구는 아래와 같다(exp80b: 교차 언어 7→9/11,
+        // 영어 바꿔 말함 6→8/10, 답 없는 질문의 지어내기 2=2). 늘 상위 3 이 차므로 태그 목록 폴백은 이 경로에서 나오지 않는다.
+        semanticHits(keyword, tokens, en)?.takeIf { it.isNotEmpty() }?.let { hits ->
+            return formatHits(tokens, hits, current = head.isNotEmpty(), en = en).let {
+                successJson(head + it.text, episodeIds = it.episodeIds, recall = it.recall)
+            }
+        }
 
         // ── 1. 정밀 후보 ─────────────────────────────────────────────────────────
         // [WHY] 토큰마다 따로 조회한 뒤 합친다. SQLite LIKE 는 `%자전거 비밀번호%` 처럼
@@ -238,6 +254,18 @@ class SearchMemoryToolExecutor internal constructor(
             .take(Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS)
             .map { it.first }
             .toList()
+
+    /** 뜻 검색 경로의 상위 기억 — 준비 전·실패면 null(어휘 경로로). 후보 묶음은 전수 스캔과 같다(최근 메모·대화 각 [Constants.MEMORY_SCAN_LIMIT]). */
+    private suspend fun semanticHits(keyword: String, tokens: List<String>, en: Boolean): List<Hit>? {
+        val ranker = semantic ?: return null
+        val notes = (repository.searchRecent(Constants.MEMORY_SCAN_LIMIT) as? AppResult.Success)?.data ?: return null
+        val episodes = (episodeRepository.getEpisodes(0, Constants.MEMORY_SCAN_LIMIT) as? AppResult.Success)?.data ?: return null
+        val pool = notes.associate { MemoryVectorKey.note(it.id) to it.toHit() } +
+            episodes.filter { it.title != null }.associate { MemoryVectorKey.episode(it.id) to it.toHit(en) }
+        val sparse = pool.mapValues { (_, hit) -> BigramMatcher.score(tokens, BigramMatcher.bigrams(hit.scoreText)) }
+        val keys = ranker.rank(keyword, sparse, Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS) ?: return null
+        return keys.mapNotNull { pool[it] }
+    }
 
     private fun format(notes: List<KnowledgeNote>): String = notes.joinToString("\n") { note ->
         val tagPart = if (note.tags.isEmpty()) "" else " [${note.tags.joinToString(", ")}]"

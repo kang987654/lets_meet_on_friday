@@ -8,7 +8,9 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
+import com.kosmos.app.assistant.tool.MemorySemanticRanker
 import com.kosmos.app.domain.memory.EpisodeRepository
+import com.kosmos.app.domain.memory.MemoryVectorKey
 import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.domain.search.BigramMatcher
 import com.kosmos.app.domain.search.searchText
@@ -42,7 +44,9 @@ import com.kosmos.app.domain.memory.ProfileSuggestionRepository
 @HiltViewModel
 class DrawerViewModel @Inject constructor(
     private val episodeRepository: EpisodeRepository,
-    suggestionRepository: ProfileSuggestionRepository
+    suggestionRepository: ProfileSuggestionRepository,
+    // 뜻 검색(0.41.3) — 없거나 준비 전이면 어휘 검색만(단위 테스트 생성부 호환).
+    private val semantic: MemorySemanticRanker? = null
 ) : ViewModel() {
 
     /** 대기 중 프로필 제안 수(C′2) — 프로필 카드 부제에 "제안 N건"으로 표시. 종결은 채팅 카드에서. */
@@ -83,20 +87,33 @@ class DrawerViewModel @Inject constructor(
 
     internal suspend fun search(q: String): List<Episode>? {
         if (q.isBlank()) return null
-        val terms = q.trim().split(WHITESPACE).filter { it.isNotEmpty() }.take(MAX_TERMS)
-        val byContent = (episodeRepository.search(q) as? AppResult.Success)?.data.orEmpty()
-        val byTag = (episodeRepository.searchByTags(q) as? AppResult.Success)?.data.orEmpty()
-        val precise = (byContent + byTag).distinctBy { it.id }
-        val pool = if (precise.isNotEmpty()) {
-            precise
-        } else {
-            (episodeRepository.getEpisodes(0, Constants.MEMORY_SCAN_LIMIT) as? AppResult.Success)?.data.orEmpty()
-                .filter { BigramMatcher.bestTermOverlap(terms, it.searchText()) >= Constants.BIGRAM_MIN_TERM_OVERLAP }
+        val terms = q.trim().split(WHITESPACE).filter { it.isNotEmpty() }.distinct().take(MAX_TERMS)
+        // [WHY] 질의 전체에 더해 낱말마다도 찾는다(0.41.3) — 전체 LIKE 는 "치과 예약 변경" 처럼 붙은 글자가 그대로 있어야만 맞아 두 낱말 이상이면
+        // 거의 비었다. SearchMemory 툴은 처음부터 낱말별이었다 — 드로어와 툴이 같은 기억을 보게 한다.
+        val queries = (listOf(q.trim()) + terms).distinct()
+        val precise = queries.flatMap { term ->
+            (episodeRepository.search(term) as? AppResult.Success)?.data.orEmpty() +
+                (episodeRepository.searchByTags(term) as? AppResult.Success)?.data.orEmpty()
+        }.distinctBy { it.id }
+        var scanned: List<Episode>? = null
+        suspend fun all(): List<Episode> = scanned
+            ?: (episodeRepository.getEpisodes(0, Constants.MEMORY_SCAN_LIMIT) as? AppResult.Success)?.data.orEmpty().also { scanned = it }
+        val pool = precise.ifEmpty {
+            all().filter { BigramMatcher.bestTermOverlap(terms, it.searchText()) >= Constants.BIGRAM_MIN_TERM_OVERLAP }
         }
-        return pool.sortedWith(
+        val lexical = pool.sortedWith(
             compareByDescending<Episode> { BigramMatcher.score(terms, it.searchText()) }
                 .thenByDescending { it.createdAt }
         )
+        // [WHY] 뜻 검색이 준비됐으면 결합 순위 상위 [SEMANTIC_TOP] 를 맨 앞에, 그 뒤에 글자로 찾은 나머지 — 화면 목록이라 전부를 뜻 순서로 늘어놓으면
+        // 무관한 대화가 줄줄이 보인다. 준비 전·모델 없음이면 글자 검색 그대로.
+        val ranker = semantic ?: return lexical
+        val candidates = all().filter { it.title != null }
+        val sparse = candidates.associate { MemoryVectorKey.episode(it.id) to BigramMatcher.score(terms, it.searchText()) }
+        val top = ranker.rank(q.trim(), sparse, SEMANTIC_TOP) ?: return lexical
+        val byId = candidates.associateBy { it.id }
+        val head = top.mapNotNull { byId[it.refId] }
+        return head + lexical.filter { e -> head.none { it.id == e.id } }
     }
 
     fun onQueryChanged(value: String) {
@@ -112,5 +129,8 @@ class DrawerViewModel @Inject constructor(
         val WHITESPACE = Regex("\\s+")
         /** SearchMemoryToolExecutor.MAX_TOKENS 와 같은 상한 — 문장을 통째로 넣어도 항이 폭주하지 않게. */
         const val MAX_TERMS = 4
+
+        /** 뜻 검색 결과를 앞에 몇 개 둘지 — 툴(3)보다 넉넉히, 화면이 무관한 대화로 차지 않게 작게. */
+        const val SEMANTIC_TOP = 5
     }
 }

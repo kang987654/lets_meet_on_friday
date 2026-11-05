@@ -26,6 +26,11 @@ import com.kosmos.app.R
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.tool.ModelDownloadStatus
 import com.kosmos.app.runtime.embedding.EmbeddingModelManager
+import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.domain.library.EmbedderProvider
+import com.kosmos.app.domain.memory.MemoryVectorRepository
+import com.kosmos.app.platform.memory.MemoryEmbedder
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.component.KosmosListGroup
 import com.kosmos.app.ui.component.SectionHeader
@@ -48,6 +53,13 @@ sealed interface EmbeddingModelUi {
 }
 
 /**
+ * 기억 뜻 검색 준비 줄(0.41.3) — 모델이 설치됐고 기억이 하나라도 있을 때만 보인다.
+ *
+ * @property pending 지금 모델의 벡터가 없는 기억 수 @property total 대상(메모 + 요약된 대화) 수
+ */
+data class MemorySemanticUi(val pending: Int, val total: Int, val work: MemoryEmbedder.State)
+
+/**
  * [EmbeddingModelViewModel]
  * 뜻 검색 모델(EmbeddingGemma 2, 선택 설치)의 받기·지우기 — 설정 > 모델 관리 (0.41.2 M3).
  *
@@ -59,8 +71,23 @@ sealed interface EmbeddingModelUi {
  */
 @HiltViewModel
 class EmbeddingModelViewModel @Inject constructor(
-    private val manager: EmbeddingModelManager
+    private val manager: EmbeddingModelManager,
+    private val memoryEmbedder: MemoryEmbedder,
+    private val memoryVectors: MemoryVectorRepository,
+    private val embedders: EmbedderProvider
 ) : ViewModel() {
+
+    private val memoryTick = MutableStateFlow(0)
+
+    /** 기억 뜻 검색 준비 상태 — 설치 여부·준비 작업 상태가 바뀌거나 화면에 들어올 때 다시 센다. */
+    val memory: StateFlow<MemorySemanticUi?> = combine(manager.installed, memoryEmbedder.state, memoryTick) { installed, work, _ ->
+        val model = embedders.current()?.modelId
+        if (!installed || model == null) return@combine null
+        val status = (memoryVectors.status(model) as? AppResult.Success)?.data ?: return@combine null
+        if (status.targets == 0) null else MemorySemanticUi(status.pending, status.targets, work)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun prepareMemory() = memoryEmbedder.prepareAll()
 
     val ui: StateFlow<EmbeddingModelUi> = combine(manager.installed, manager.downloadStatus) { installed, status ->
         when (status) {
@@ -77,7 +104,10 @@ class EmbeddingModelViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), EmbeddingModelUi.NotInstalled)
 
-    fun refresh() = manager.refresh()
+    fun refresh() {
+        manager.refresh()
+        memoryTick.value += 1
+    }
 
     fun download() = manager.download()
 
@@ -99,7 +129,8 @@ fun EmbeddingModelSectionRoute(viewModel: EmbeddingModelViewModel = hiltViewMode
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     // [WHY] adb 로 넣거나 다른 화면에서 지운 경우도 화면에 들어올 때 맞춘다.
     LaunchedEffect(Unit) { viewModel.refresh() }
-    EmbeddingModelSection(ui, viewModel::download, viewModel::cancel, viewModel::retry, viewModel::delete)
+    val memory by viewModel.memory.collectAsStateWithLifecycle()
+    EmbeddingModelSection(ui, viewModel::download, viewModel::cancel, viewModel::retry, viewModel::delete, memory = memory, onPrepareMemory = viewModel::prepareMemory)
 }
 
 /**
@@ -111,7 +142,10 @@ fun EmbeddingModelSection(
     onDownload: () -> Unit,
     onCancel: () -> Unit,
     onRetry: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    // 기억 뜻 검색 준비(0.41.3) — null 이면 줄을 그리지 않는다.
+    memory: MemorySemanticUi? = null,
+    onPrepareMemory: () -> Unit = {}
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
     val colors = KosmosTheme.colors
@@ -139,6 +173,8 @@ fun EmbeddingModelSection(
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
+            // [WHY] 준비 줄을 지우기 버튼 위에 — 되돌릴 수 없는 동작은 항목의 맨 끝에 둔다.
+            if (ui == EmbeddingModelUi.Installed && memory != null) MemorySemanticRow(memory, onPrepareMemory)
             Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
                 when (ui) {
                     EmbeddingModelUi.NotInstalled ->
@@ -169,5 +205,29 @@ fun EmbeddingModelSection(
                 }
             }
         )
+    }
+}
+
+/**
+ * 기억 뜻 검색 준비 줄(0.41.3) — 준비 안 된 기억 수와 버튼, 준비 중 진행률, 다 되면 "새 기억은 자동".
+ *
+ * [WHY] 처음 한 번만 버튼이다(0.41.3 Q2) — 그 뒤 새 기억은 답이 끝나고 조용할 때 자동으로 준비된다(MemoryEmbedder).
+ */
+@Composable
+private fun MemorySemanticRow(memory: MemorySemanticUi, onPrepare: () -> Unit) {
+    val colors = KosmosTheme.colors
+    val work = memory.work
+    val text = when {
+        work is MemoryEmbedder.State.Running -> stringResource(R.string.model_mgmt_embedding_memory_running, work.done, work.total)
+        work == MemoryEmbedder.State.Failed -> stringResource(R.string.model_mgmt_embedding_memory_failed)
+        memory.pending == 0 -> stringResource(R.string.model_mgmt_embedding_memory_ready)
+        else -> stringResource(R.string.model_mgmt_embedding_memory_pending, memory.pending)
+    }
+    Column(Modifier.fillMaxWidth().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(R.string.model_mgmt_embedding_memory_title), style = MaterialTheme.typography.titleSmall, color = colors.textPrimary)
+        Text(text, style = MaterialTheme.typography.bodySmall, color = if (work == MemoryEmbedder.State.Failed) colors.dangerText else colors.textSecondary)
+        if (work !is MemoryEmbedder.State.Running && memory.pending > 0) {
+            KosmosButton(stringResource(R.string.model_mgmt_embedding_memory_prepare), onPrepare, Modifier.fillMaxWidth())
+        }
     }
 }

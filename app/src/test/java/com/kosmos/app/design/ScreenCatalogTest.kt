@@ -903,7 +903,11 @@ class ScreenCatalogTest {
         shoot("39-model-embedding") {
             androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(16.dp)) {
                 com.kosmos.app.feature.settings.EmbeddingModelSection(com.kosmos.app.feature.settings.EmbeddingModelUi.NotInstalled, {}, {}, {}, {})
-                com.kosmos.app.feature.settings.EmbeddingModelSection(com.kosmos.app.feature.settings.EmbeddingModelUi.Installed, {}, {}, {}, {})
+                // 기억 뜻 검색 준비 줄(0.41.3) — 준비 안 된 기억 42개
+                com.kosmos.app.feature.settings.EmbeddingModelSection(
+                    com.kosmos.app.feature.settings.EmbeddingModelUi.Installed, {}, {}, {}, {},
+                    memory = com.kosmos.app.feature.settings.MemorySemanticUi(pending = 42, total = 42, work = com.kosmos.app.platform.memory.MemoryEmbedder.State.Idle)
+                )
             }
         }
     }
