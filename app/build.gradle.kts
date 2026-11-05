@@ -175,7 +175,8 @@ dependencies {
     implementation(libs.kotlinx.collections.immutable)
 
     // LiteRT-LM
-    // [WHY] play-services-tflite 는 두지 않는다 — 앱에 TFLite 호출이 없고 채팅·임베딩 GPU 는 LiteRT-LM 자체 경로다(0.41.5).
+    // [WHY] play-services-tflite 는 두지 않는다 — 앱에 TFLite 호출이 없다. 그것이 매니페스트에 합쳐 넣던 OpenCL 사용 선언은
+    // AndroidManifest.xml 에 직접 둔다(빼면 GPU 가 OpenCL 대신 WebGPU 로 내려간다, 0.41.5).
     implementation(libs.litertlm.android)
     implementation(libs.kotlin.reflect)
 

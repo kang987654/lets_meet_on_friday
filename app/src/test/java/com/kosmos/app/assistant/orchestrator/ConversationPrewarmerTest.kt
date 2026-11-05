@@ -195,11 +195,14 @@ class ConversationPrewarmerTest {
         prewarmer.afterTurn("s1")
         // 조용한 시간(1초)보다 훨씬 짧은 간격(100ms)으로 1.2초 동안 친다 — 간격을 넉넉히 둬 GC 멈춤에도 흔들리지 않게.
         val typingEnd = System.currentTimeMillis() + 1_200
+        // [WHY] 마지막 입력 시각은 실제로 onTyping 을 부른 순간이다 — 반복이 끝난 뒤에 재면 부하로 sleep 이 늘어난 만큼 늦게 찍혀,
+        // 제때 시작한 준비가 "너무 이르다"로 보였다(0.41.5 전체 게이트에서 2/2, 단독 4/4 통과).
+        var lastTyping = 0L
         while (System.currentTimeMillis() < typingEnd) {
-            prewarmer.onTyping()
+            lastTyping = System.currentTimeMillis()
+            prewarmer.onTyping(lastTyping)
             Thread.sleep(100)
         }
-        val lastTyping = System.currentTimeMillis()
         assertTrue("입력 중에는 준비가 시작되지 않아야 한다", !done.isCompleted)
 
         val preparedAt = runBlocking { withTimeout(5_000) { done.await() } }

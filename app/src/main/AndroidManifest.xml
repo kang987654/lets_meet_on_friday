@@ -158,5 +158,12 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+
+        <!-- [WHY] 안드로이드 12+ 는 이 선언이 있어야 벤더 OpenCL 을 열 수 있다 — 없으면 LiteRT-LM 이 WebGPU(Vulkan)로 내려간다.
+             숫자 온전성 실측(ADR-021)은 OpenCL 경로에서 했다. 예전엔 play-services-tflite 가 합쳐 넣어 주던 것을 직접 둔다(0.41.5).
+             required=false — OpenCL 이 없는 기기(에뮬레이터)도 설치된다. -->
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL-car.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL-pixel.so" android:required="false" />
     </application>
 </manifest>
