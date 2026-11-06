@@ -158,7 +158,8 @@ def model_history(history):
     return repeated_drop([m for i, m in enumerate(history) if i not in drop])
 
 
-QUESTION = re.compile(r"뭐|어디|몇|언제|누구|무슨|어떤|기억나|\?")
+# 원문: domain/agent/RepeatedQuestions.QUESTION — 영어 의문사까지(0.41.6 M5, 빠져 있었다).
+QUESTION = re.compile(r"뭐|어디|몇|언제|누구|무슨|어떤|기억나|\?|\b(what|where|when|who|which|how|do\s+you\s+remember)\b", re.I)
 
 
 def letter_bigrams(s):

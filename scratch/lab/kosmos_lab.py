@@ -151,15 +151,16 @@ def few_shot_messages():
 
 
 def speculative_kwargs() -> dict:
-    """환경 변수 KOSMOS_LAB_SPEC=off|on|adaptive 로 추측 디코딩(MTP)을 켠다 — 비우면 지정하지 않음(앱 현행과 같다).
+    """추측 디코딩(MTP) — 기본은 앱과 같은 ADAPTIVE(`MtpMode.DEFAULT`, 0.41.1). 환경 변수 KOSMOS_LAB_SPEC=off|on|adaptive 로 바꾸고,
+    `none` 이면 지정하지 않는다(0.41.0 이전 앱과 같다). 0.41.6 M5 — 비우면 "지정 안 함"이던 것이 앱 현행과 어긋나 있었다(§2-⑤).
 
     [WHY] LiteRT-LM 0.19.0 에서 MTP 가 제약 디코딩과 함께 지원된다 — ADR-011 의 "툴 호출과 충돌" 판단을 회귀 세트로 다시 재기 위해(exp77).
     0.18.0 패키지에는 이 설정이 없으므로 켜려면 0.19.0 이 필요하다.
     """
     import os
 
-    mode = os.environ.get("KOSMOS_LAB_SPEC", "").strip().upper()
-    if not mode:
+    mode = os.environ.get("KOSMOS_LAB_SPEC", "").strip().upper() or "ADAPTIVE"
+    if mode == "NONE":
         return {}
     return {"speculative_decoding_config": llm.SpeculativeDecodingConfig(mode=llm.SpeculativeDecodingMode[mode])}
 
