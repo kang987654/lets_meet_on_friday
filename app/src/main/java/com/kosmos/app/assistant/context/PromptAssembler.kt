@@ -63,6 +63,12 @@ class PromptAssembler @Inject constructor() {
             }
             appendLine(buildDateBlock(today, context.language))
             append(buildFormatBlock(availableTools, context.language, context.libraryNames))
+            // [WHY] 오래 쉬었다 돌아온 대화의 지난 대화 요약 한 줄은 시스템 지시 **맨 끝**(0.41.7 M4, exp81 SYS 5/5 — 지난 대화 첫 model 메시지는
+            // 요약 속 "비서가 물어봤어요"를 자기 직전 질문으로 읽어 4/5). 다음 간격까지 같은 줄이라 그동안 대화 KV 는 그대로 다시 쓴다.
+            if (context.pastEpisodeLine.isNotEmpty()) {
+                append("\n\n")
+                append(context.pastEpisodeLine)
+            }
         }
 
         return ChatPrompt(

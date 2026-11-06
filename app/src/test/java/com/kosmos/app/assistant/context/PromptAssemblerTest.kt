@@ -65,6 +65,20 @@ class PromptAssemblerTest {
         createdAt = 0L
     )
 
+    // --- 오래 쉰 뒤 지난 대화 요약 줄 (0.41.7 M4) ---
+
+    @Test
+    fun `지난 대화 요약 줄은 시스템 지시 맨 끝에 붙고 없으면 지금과 같다`() {
+        val today = java.time.LocalDate.of(2026, 11, 6)
+        val plain = promptAssembler.assembleWithTools(context(), "아아 테스트", listOf("AddMemory"), "personal assistant named Kosmos", today)
+        val withLine = promptAssembler.assembleWithTools(
+            context().copy(pastEpisodeLine = "(과거 대화) 노트북 비밀번호 문의: 요약"), "아아 테스트", listOf("AddMemory"),
+            "personal assistant named Kosmos", today
+        )
+
+        assertEquals(plain.systemInstruction + "\n\n(과거 대화) 노트북 비밀번호 문의: 요약", withLine.systemInstruction)
+    }
+
     // --- 시스템 지시는 하루 동안 고정된다 (프리필 재사용의 전제) ---
 
     @Test

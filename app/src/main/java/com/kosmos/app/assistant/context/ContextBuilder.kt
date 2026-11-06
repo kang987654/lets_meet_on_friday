@@ -19,6 +19,10 @@ import com.kosmos.app.domain.library.LibraryRepository
 import com.kosmos.app.domain.library.LibraryDocument
 import com.kosmos.app.domain.library.LibraryStatus
 import com.kosmos.app.domain.library.libraryDisplayName
+import com.kosmos.app.assistant.episode.EpisodeBoundaryManager
+import com.kosmos.app.domain.agent.IdleGapHistory
+import com.kosmos.app.domain.memory.EpisodeRepository
+import com.kosmos.app.domain.model.EpisodeStatus
 
 /**
  * [ContextBuilder]
@@ -44,7 +48,9 @@ class ContextBuilder @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val profileRepository: ProfileRepository,
     private val libraryRepository: LibraryRepository,
-    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO,
+    // [WHY] 오래 쉬었다 돌아오면 지난 대화를 요약 한 줄로 싣는다(0.41.7 M4) — 요약을 읽는다. null 이면(테스트) 지금처럼 원문.
+    private val episodeRepository: EpisodeRepository? = null
 ) {
     data class Context(
         val recentConversations: List<ChatMessage>,
@@ -79,10 +85,26 @@ class ContextBuilder @Inject constructor(
          */
         val repeatDropped: Boolean = false,
         /** 현재 앱 표시/비서 언어(0.40.0). */
-        val language: AppLanguage = AppLanguage.KO
+        val language: AppLanguage = AppLanguage.KO,
+        /**
+         * 오래 쉬었다 돌아왔을 때 지난 대화의 요약 한 줄(`(과거 대화) 제목: 요약`, 0.41.7 M4) — 비어 있으면 붙이지 않는다.
+         * 시스템 지시 끝에 붙고, 그 원문은 [recentConversations] 에서 빠진다([IdleGapHistory]).
+         */
+        val pastEpisodeLine: String = ""
     )
 
-    suspend fun build(sessionId: String): AppResult<Context> {
+    /**
+     * 지금 시각으로 [build] 합니다.
+     *
+     * [WHY] 기본값 인자(`now = …`)로 두지 않고 따로 둔다 — 목(mockk)이 `build("s1")` 을 기록하는 순간의 기본 시각까지 고정해 실제 호출과
+     * 어긋났다(0.41.7 M4 게이트에서 미리 준비 테스트 4건). 한 인자 호출은 그대로 이 함수다.
+     */
+    suspend fun build(sessionId: String): AppResult<Context> = build(sessionId, System.currentTimeMillis())
+
+    /**
+     * @param now 지금 — 오래 쉰 간격을 가르는 기준(AGENTS §2-④).
+     */
+    suspend fun build(sessionId: String, now: Long): AppResult<Context> {
         // 슬라이딩 윈도우에 넣을 후보를 넉넉히 가져온다.
         val conversationsResult = conversationRepository.getRecentBySession(
             sessionId,
@@ -121,10 +143,14 @@ class ContextBuilder @Inject constructor(
                 // top-1 정확도 1/7 = 무작위 1/8 수준). 그래서 실제로 하던 일은 "무관한 메모
                 // 3건을 매 턴 질문 앞에 붙이는 것"이었다 — 프리필을 축내고 환각의 재료가 됐다.
                 // 기억 조회는 이제 모델이 필요할 때 부르는 `SearchMemory` 툴이 맡는다.
-                val refusalKept = RefusalTurns.forModel(conversationsResult.data)
+                // [WHY] 오래 쉬었다 돌아왔으면 지난 대화를 요약 한 줄로 바꾼다(0.41.7 M4, IdleGapHistory [WHY]) — 거절·반복 걸러내기보다 먼저
+                // 나눠, 지금 대화 안에서만 걸러낸다. 요약이 아직 없으면 지금처럼 원문을 싣는다(F1 — 시작 단계가 대부분 미리 요약해 둔다).
+                val (kept, pastEpisodeLine) = splitIdleGap(conversationsResult.data, now)
+                val refusalKept = RefusalTurns.forModel(kept)
                 // [WHY] 같은 질문의 앞 답을 뺀다 — 모델이 자기 앞 답을 되풀이했다(0.39.3 M4d, RepeatedQuestions [WHY]).
                 val forModel = RepeatedQuestions.forModel(refusalKept)
-                val slidingWindow = applyTokenSlidingWindow(forModel, maxTokens, docSearchEnabled)
+                val lineTokens = if (pastEpisodeLine.isEmpty()) 0 else tokenizer.sizeInTokens(pastEpisodeLine)
+                val slidingWindow = applyTokenSlidingWindow(forModel, maxTokens, docSearchEnabled, lineTokens)
                 AppResult.Success(
                     Context(
                         recentConversations = slidingWindow,
@@ -136,12 +162,24 @@ class ContextBuilder @Inject constructor(
                         profileText = profileText,
                         maxTokens = maxTokens,
                         repeatDropped = forModel.size != refusalKept.size,
-                        language = currentLanguage.current
+                        language = currentLanguage.current,
+                        pastEpisodeLine = pastEpisodeLine
                     )
                 )
             }
             is AppResult.Failure -> AppResult.Failure(conversationsResult.error)
         }
+    }
+
+    /** 오래 쉰 간격 앞을 요약 한 줄로 — (모델에 실을 메시지, 요약 줄). 요약을 못 읽으면 (전부, ""). */
+    private suspend fun splitIdleGap(messages: List<ChatMessage>, now: Long): Pair<List<ChatMessage>, String> {
+        val repo = episodeRepository ?: return messages to ""
+        val split = IdleGapHistory.split(messages, now, EpisodeBoundaryManager.IDLE_BOUNDARY_MS)
+        val lastPast = split.previous.lastOrNull() ?: return messages to ""
+        val episode = lastPast.episodeId?.let { (repo.getById(it) as? AppResult.Success)?.data }
+        val summary = episode?.summary?.takeIf { episode.status == EpisodeStatus.SUMMARIZED && it.isNotBlank() }
+            ?: return messages to ""
+        return split.current to IdleGapHistory.line(episode.title, summary, currentLanguage.current)
     }
 
     /**
@@ -160,9 +198,10 @@ class ContextBuilder @Inject constructor(
      * [WHY] 예약 후 예산이 바닥나도 [Constants.MIN_HISTORY_TOKENS] 는 남긴다. 사용자가 슬라이더를
      * 최소로 내렸을 때 히스토리가 0이 되면 대화가 아예 성립하지 않는다.
      */
-    private fun applyTokenSlidingWindow(messages: List<ChatMessage>, maxTokens: Int, docSearchEnabled: Boolean): List<ChatMessage> {
+    private fun applyTokenSlidingWindow(messages: List<ChatMessage>, maxTokens: Int, docSearchEnabled: Boolean, pastLineTokens: Int = 0): List<ChatMessage> {
         // [WHY] 문서 검색이 켜진 턴만 그 선언·트리거 몫을 더 예약한다(0.41.2 예산 ① 사용자 결정) — 꺼짐 사용자의 대화 예산은 그대로다.
-        val reserve = Constants.PREFILL_OVERHEAD_TOKENS + if (docSearchEnabled) Constants.DOC_SEARCH_OVERHEAD_TOKENS else 0
+        // [WHY] 지난 대화 요약 줄은 시스템 지시에 붙지만 예약([Constants.PREFILL_OVERHEAD_TOKENS])에는 없다 — 그만큼 대화 예산에서 뺀다(0.41.7 M4).
+        val reserve = Constants.PREFILL_OVERHEAD_TOKENS + pastLineTokens + if (docSearchEnabled) Constants.DOC_SEARCH_OVERHEAD_TOKENS else 0
         val historyBudget = (maxTokens - reserve)
             .coerceAtLeast(Constants.MIN_HISTORY_TOKENS)
 

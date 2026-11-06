@@ -138,9 +138,91 @@ class ContextBuilderTest {
         every { tokenizer.sizeInTokens(any<String>()) } returns 10
         
         val result = contextBuilder.build(testSessionId)
-        
+
         assertTrue(result is AppResult.Success)
         val context = (result as AppResult.Success).data
         assertEquals("DEFAULT", context.responseStyle)
+    }
+
+    // --- 오래 쉰 뒤 지난 대화 (0.41.7 M4) ---
+
+    private val minute = 60_000L
+
+    private fun msg(id: String, role: ChatMessage.Role, at: Long, episode: String) =
+        ChatMessage(id = id, sessionId = "s1", role = role, content = id, inputType = InputType.TEXT, createdAt = at, episodeId = episode)
+
+    private fun episode(id: String, status: com.kosmos.app.domain.model.EpisodeStatus, summary: String?) = com.kosmos.app.domain.model.Episode(
+        id = id, sessionId = "s1", status = status, title = "노트북 비밀번호 문의", summary = summary,
+        tags = emptyList(), startAt = 0, endAt = 0, messageCount = 2, retryCount = 0, createdAt = 0, updatedAt = 0
+    )
+
+    private fun gapBuilder(epStatus: com.kosmos.app.domain.model.EpisodeStatus, summary: String?): ContextBuilder {
+        every { settingsDataStore.responseStyleFlow } returns flowOf("DEFAULT")
+        every { settingsDataStore.maxTokensFlow } returns flowOf(Constants.DEFAULT_CONTEXT_TOKENS)
+        every { settingsDataStore.webSearchEnabledFlow } returns flowOf(false)
+        every { tokenizer.sizeInTokens(any<String>()) } returns 5
+        val episodes: com.kosmos.app.domain.memory.EpisodeRepository = mockk {
+            coEvery { getById("old") } returns AppResult.Success(episode("old", epStatus, summary))
+        }
+        return ContextBuilder(conversationRepository, tokenizer, settingsDataStore, profileRepository, FakeLibraryRepository(), episodeRepository = episodes)
+    }
+
+    @Test
+    fun `30분 넘게 쉬었다 돌아오면 지난 대화는 요약 한 줄로 바뀌고 원문은 빠진다`() = runTest {
+        val builder = gapBuilder(com.kosmos.app.domain.model.EpisodeStatus.SUMMARIZED, "사용자가 노트북 비밀번호를 물었어요.")
+        val now = 200 * minute
+        coEvery { conversationRepository.getRecentBySession(any(), any()) } returns AppResult.Success(
+            listOf(
+                msg("q", ChatMessage.Role.USER, 10 * minute, "old"),
+                msg("a", ChatMessage.Role.ASSISTANT, 11 * minute, "old"),
+                msg("아아 테스트", ChatMessage.Role.USER, now, "new")
+            )
+        )
+
+        val context = (builder.build("s1", now) as AppResult.Success).data
+
+        assertEquals(listOf("아아 테스트"), context.recentConversations.map { it.id })
+        assertEquals("(과거 대화) 노트북 비밀번호 문의: 사용자가 노트북 비밀번호를 물었어요.", context.pastEpisodeLine)
+    }
+
+    @Test
+    fun `돌아와서 아직 말하기 전(미리 준비)에도 같은 요약 줄과 빈 기록이 된다`() = runTest {
+        val builder = gapBuilder(com.kosmos.app.domain.model.EpisodeStatus.SUMMARIZED, "요약")
+        coEvery { conversationRepository.getRecentBySession(any(), any()) } returns AppResult.Success(
+            listOf(msg("q", ChatMessage.Role.USER, 10 * minute, "old"), msg("a", ChatMessage.Role.ASSISTANT, 11 * minute, "old"))
+        )
+
+        val context = (builder.build("s1", now = 200 * minute) as AppResult.Success).data
+
+        assertTrue(context.recentConversations.isEmpty())
+        assertTrue(context.pastEpisodeLine.isNotEmpty())
+    }
+
+    @Test
+    fun `지난 대화 요약이 아직 없으면 지금처럼 원문을 싣는다`() = runTest {
+        val builder = gapBuilder(com.kosmos.app.domain.model.EpisodeStatus.CLOSED, null)
+        val now = 200 * minute
+        coEvery { conversationRepository.getRecentBySession(any(), any()) } returns AppResult.Success(
+            listOf(msg("q", ChatMessage.Role.USER, 10 * minute, "old"), msg("새 말", ChatMessage.Role.USER, now, "new"))
+        )
+
+        val context = (builder.build("s1", now) as AppResult.Success).data
+
+        assertEquals(listOf("q", "새 말"), context.recentConversations.map { it.id })
+        assertEquals("", context.pastEpisodeLine)
+    }
+
+    @Test
+    fun `쉬지 않고 이어진 대화는 그대로다`() = runTest {
+        val builder = gapBuilder(com.kosmos.app.domain.model.EpisodeStatus.SUMMARIZED, "요약")
+        val now = 30 * minute
+        coEvery { conversationRepository.getRecentBySession(any(), any()) } returns AppResult.Success(
+            listOf(msg("q", ChatMessage.Role.USER, 10 * minute, "old"), msg("a", ChatMessage.Role.ASSISTANT, 11 * minute, "old"), msg("다음", ChatMessage.Role.USER, now, "old"))
+        )
+
+        val context = (builder.build("s1", now) as AppResult.Success).data
+
+        assertEquals(listOf("q", "a", "다음"), context.recentConversations.map { it.id })
+        assertEquals("", context.pastEpisodeLine)
     }
 }
