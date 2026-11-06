@@ -19,6 +19,7 @@ import com.kosmos.app.platform.share.ShareIntentHandler
 import javax.inject.Inject
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.platform.launch.ModelWarmUpObserver
+import com.kosmos.app.platform.memory.MemoryEmbedder
 import com.kosmos.app.platform.launch.VoiceLaunchHandler
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.ThemeViewModel
@@ -36,6 +37,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var modelRunner: ModelRunner
 
+    @Inject
+    lateinit var memoryEmbedder: MemoryEmbedder
+
     private val themeViewModel: ThemeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,7 +47,7 @@ class MainActivity : ComponentActivity() {
         // [WHY] 시스템 바를 투명하게 두고 앱 바탕이 비치게 한다 — 인셋은 각 화면의 상단 바·입력바가 진다(DESIGN.md "시스템 바").
         enableEdgeToEdge()
         // [WHY] 모델은 채팅 화면이 보일 때만 데운다 — 문서 뷰어는 모델 없이 열린다(0.34.0, ModelWarmUpObserver KDoc).
-        lifecycle.addObserver(ModelWarmUpObserver(modelRunner))
+        lifecycle.addObserver(ModelWarmUpObserver(modelRunner, onForeground = { memoryEmbedder.onForeground() }))
 
         // [WHY] 첫 실행 시 일괄 권한 요청(deprecated API, 결과 미처리)은 제거한다.
         // 권한은 각 기능 진입 시점에 컨텍스트와 함께 요청한다 (예: ChatScreen 마이크 요청 플로우).

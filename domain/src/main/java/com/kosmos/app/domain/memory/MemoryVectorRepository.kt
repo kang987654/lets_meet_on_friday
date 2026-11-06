@@ -27,6 +27,17 @@ interface MemoryVectorRepository {
 
     suspend fun vectors(modelId: String): AppResult<Map<MemoryVectorKey, Int8Vector>>
 
+    /**
+     * [keys] 의 벡터만 — 검색 후보(최근 메모·대화 각 [com.kosmos.app.core.common.Constants.MEMORY_SCAN_LIMIT]건)만 읽는다(0.41.6 M4).
+     *
+     * [WHY] 기본 구현은 전부 읽고 거른다 — 테스트 가짜 저장소가 그대로 컴파일되게. DB 구현은 키로 조회한다.
+     */
+    suspend fun vectorsFor(modelId: String, keys: Collection<MemoryVectorKey>): AppResult<Map<MemoryVectorKey, Int8Vector>> =
+        when (val all = vectors(modelId)) {
+            is AppResult.Success -> AppResult.Success(all.data.filterKeys { it in keys })
+            is AppResult.Failure -> all
+        }
+
     /** 모두 지운다 — 임베딩 모델을 지울 때. */
     suspend fun clear(): AppResult<Unit>
 }

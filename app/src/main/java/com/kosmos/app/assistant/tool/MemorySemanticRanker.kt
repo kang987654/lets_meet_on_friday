@@ -39,7 +39,7 @@ class MemorySemanticRanker @Inject constructor(
         val status = (vectors.status(embedder.modelId) as? AppResult.Success)?.data ?: return null
         if (!status.ready) return null
         val q = embedder.embedQuery(LibraryEmbedding.queryInput(query)) ?: return null
-        val stored = (vectors.vectors(embedder.modelId) as? AppResult.Success)?.data ?: return null
+        val stored = (vectors.vectorsFor(embedder.modelId, sparse.keys) as? AppResult.Success)?.data ?: return null
         val dense = sparse.keys.mapNotNull { key -> stored[key]?.let { key to it.dot(q).toDouble() } }.toMap()
         // [WHY] 준비 판정과 벡터 읽기 사이에 기억이 바뀌었으면(벡터가 모자람) 이번만 어휘로 — 일부만 dense 를 받으면 순위가 왜곡된다.
         if (dense.size < sparse.size) return null

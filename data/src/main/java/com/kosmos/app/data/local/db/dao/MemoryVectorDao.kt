@@ -54,4 +54,7 @@ interface MemoryVectorDao {
 
     @Query("SELECT * FROM memory_vector WHERE modelId = :modelId")
     suspend fun vectorsOf(modelId: String): List<MemoryVectorEntity>
+
+    @Query("SELECT * FROM memory_vector WHERE modelId = :modelId AND kind = :kind AND refId IN (:refIds)")
+    suspend fun vectorsOf(modelId: String, kind: String, refIds: List<String>): List<MemoryVectorEntity>
 }

@@ -53,9 +53,24 @@ class MemoryVectorRepositoryImpl @Inject constructor(
         }.toMap()
     }
 
+    override suspend fun vectorsFor(modelId: String, keys: Collection<MemoryVectorKey>): AppResult<Map<MemoryVectorKey, Int8Vector>> =
+        dbRead(TABLE, "vectorsFor") {
+            // [WHY] SQLite 의 바인딩 변수 상한(오래된 기기 999)을 넘지 않게 묶어서 읽는다 — 후보는 종류별 최대 500건이지만 상한은 바뀔 수 있다.
+            keys.groupBy { it.kind }.flatMap { (kind, ofKind) ->
+                ofKind.map { it.refId }.chunked(IN_CHUNK).flatMap { ids -> dao.vectorsOf(modelId, kind.code, ids) }
+            }.mapNotNull { e ->
+                val kind = MemoryVectorKey.Kind.of(e.kind) ?: return@mapNotNull null
+                val vector = Int8Vector.fromBytes(e.vector) ?: return@mapNotNull null
+                MemoryVectorKey(kind, e.refId) to vector
+            }.toMap()
+        }
+
     override suspend fun clear(): AppResult<Unit> = dbWrite(TABLE, "clear") { dao.deleteAll() }
 
     private companion object {
         const val TABLE = "memory_vector"
+
+        /** 한 번에 넘기는 키 수 — SQLite 바인딩 변수 상한(999)보다 작게. */
+        const val IN_CHUNK = 900
     }
 }

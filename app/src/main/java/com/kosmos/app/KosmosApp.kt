@@ -91,12 +91,7 @@ class KosmosApp : Application(), Configuration.Provider {
             // [WHY] 전경 진입 warmUp 은 0.34.0 에서 MainActivity 단위(ModelWarmUpObserver)로 옮겼다 —
             // 문서 뷰어(별도 Activity)만 열 때 모델을 올리지 않기 위해서다. 해제는 앱 전체가 백그라운드일
             // 때만이라 여기 프로세스 단위에 남는다.
-            // [WHY] 기억 뜻 벡터의 자동 준비는 전경에서만 돈다(0.41.3, §2-⑥) — 화면에 오면 모자란 것이 있는지 본다.
-            override fun onStart(owner: androidx.lifecycle.LifecycleOwner) {
-                super.onStart(owner)
-                memoryEmbedder.onForeground()
-            }
-
+            // [WHY] 기억 뜻 벡터의 자동 준비 시작은 채팅 화면 단위(ModelWarmUpObserver, 0.41.6 M4)라 여기 없다 — 멈춤만 프로세스 단위.
             override fun onStop(owner: androidx.lifecycle.LifecycleOwner) {
                 super.onStop(owner)
                 // 앱 백그라운드 전환 시 즉시 모델 리소스를 해제하여 메모리(RAM) 및 GPU 반환

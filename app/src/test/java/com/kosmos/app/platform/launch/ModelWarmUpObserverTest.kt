@@ -7,6 +7,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
@@ -38,5 +39,18 @@ class ModelWarmUpObserverTest {
 
         coVerify(exactly = 0) { modelRunner.close() }
         coVerify(exactly = 0) { modelRunner.warmUp() }
+    }
+
+    @Test
+    fun `기억 뜻 벡터 준비도 채팅 화면이 보일 때만 알린다(0·41·6 M4)`() {
+        var foregrounds = 0
+        val withEmbedder = ModelWarmUpObserver(modelRunner, onForeground = { foregrounds++ }) { scope }
+
+        withEmbedder.onStart(owner)
+        withEmbedder.onStop(owner)
+        withEmbedder.onStart(owner)
+        scope.advanceUntilIdle()
+
+        assertEquals(2, foregrounds)
     }
 }

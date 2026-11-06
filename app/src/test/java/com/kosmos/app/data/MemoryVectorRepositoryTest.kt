@@ -140,4 +140,16 @@ class MemoryVectorRepositoryTest {
         vectors.clear().ok()
         assertEquals(0, vectors.status("m1").ok().embedded)
     }
+
+    @Test
+    fun `후보 키의 벡터만 읽고 SQLite 변수 상한을 넘는 키 목록도 묶어 읽는다(0·41·6 M4)`() = runBlocking {
+        embedAll()
+        val picked = vectors.vectorsFor("m1", listOf(MemoryVectorKey.note("k1"), MemoryVectorKey.episode("e1"))).ok()
+        assertEquals(setOf(MemoryVectorKey.note("k1"), MemoryVectorKey.episode("e1")), picked.keys)
+
+        // 없는 키 1,200개를 섞어도(변수 상한 999 초과) 있는 것만 돌아온다.
+        val many = (1..1_200).map { MemoryVectorKey.note("missing$it") } + MemoryVectorKey.note("k2")
+        assertEquals(setOf(MemoryVectorKey.note("k2")), vectors.vectorsFor("m1", many).ok().keys)
+        assertTrue("다른 모델 벡터는 읽지 않는다", vectors.vectorsFor("m2", listOf(MemoryVectorKey.note("k1"))).ok().isEmpty())
+    }
 }

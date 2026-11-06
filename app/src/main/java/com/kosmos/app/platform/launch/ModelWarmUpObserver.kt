@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
  * - **Dependencies**: [ModelRunner]
  *
  * ### Key Flow
- * 1. 붙은 LifecycleOwner 의 `onStart` → `scope(owner)` 에서 `warmUp()`.
+ * 1. 붙은 LifecycleOwner 의 `onStart` → `scope(owner)` 에서 `warmUp()`, 그리고 [onForeground](기억 뜻 벡터의 자동 준비 — 0.41.6 M4).
  * 2. 해제는 여기서 하지 않는다 — 앱 전체가 백그라운드일 때 `KosmosApp` 의 프로세스 옵저버가 `close()` 한다.
  *
  * [WHY] 프로세스가 아니라 채팅 화면 단위다 — 프로세스 단위면 문서 뷰어만 열어도 3.6GB 로드가 시작된다. 재진입마다 데우는
@@ -24,10 +24,13 @@ import kotlinx.coroutines.launch
  */
 class ModelWarmUpObserver(
     private val modelRunner: ModelRunner,
+    // [WHY] 기억 뜻 벡터 준비도 채팅 화면 단위다(0.41.6 M4) — 프로세스 단위면 문서 뷰어만 열어도 15초 뒤 임베딩 엔진이 올라왔다.
+    private val onForeground: () -> Unit = {},
     private val scope: (LifecycleOwner) -> CoroutineScope = { it.lifecycleScope }
 ) : DefaultLifecycleObserver {
 
     override fun onStart(owner: LifecycleOwner) {
         scope(owner).launch { modelRunner.warmUp() }
+        onForeground()
     }
 }
