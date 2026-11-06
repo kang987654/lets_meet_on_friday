@@ -111,6 +111,25 @@ class MemoSaveIntentTest {
     }
 
     @Test
+    fun `영어 memo 부탁은 잡고 memo 가 나오는 일상 문장은 잡지 않는다(0·41·7 M5)`() {
+        listOf(
+            "Please save a memo: my locker number is 42",
+            "Make a memo that my gate code is 1234",
+            "Take a memo — dentist on Friday",
+            "Memo this: room 5C",
+            "Add this to my notes: parking B2-17",
+            "Put it in my memos please"
+        ).forEach { assertTrue(it, MemoSaveIntent.hasSaveWord(it)) }
+
+        listOf(
+            "I read the memo from my boss today.",
+            "The memo said the office is closed on Monday.",
+            "Did you see my memo?",
+            "I need to write a memo for work tomorrow."
+        ).forEach { assertFalse(it, MemoSaveIntent.hasSaveWord(it)) }
+    }
+
+    @Test
     fun `영어 저장 물음과 짧은 긍정(yes·sure·go ahead) 및 약속 제거가 동작한다(0·40·0 M2a)`() {
         val askedEn = "Got it, locker 214. Would you like me to save this as a note?"
         assertTrue(MemoSaveIntent.asksSave(askedEn))

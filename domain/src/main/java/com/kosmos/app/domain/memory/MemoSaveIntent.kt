@@ -16,9 +16,13 @@ object MemoSaveIntent {
 
     // [WHY] 영어에서는 "Do you remember my password?"(조회 의문문)나 "I wrote a long note"(일상 서술)가 저장 낱말에 걸리지 않도록
     // 명령·부탁 표현만 인정하고 조회 의문문은 제외한다(0.40.0 M2a).
+    // [WHY] memo 계열(0.41.7 M5) — "Please save a memo: …" 가 저장 부탁인데 막혔다(휴대폰 2026-11-06, 한국어는 "메모"가 이미 들어 있었다).
+    // "write a memo" 는 넣지 않는다 — "I need to write a memo for work" 처럼 일 이야기가 흔하다.
     private val SAVE_WORD_EN = Regex(
         "\\b(please\\s+remember|remember\\s+(that|this|to|my)\\b|save\\s+(this|it|that|my|as\\s+a\\s+note)\\b|" +
             "(make|take|save|keep)\\s+a\\s+note(\\s+(of|that))?\\b|note\\s+(this|that|it)(\\s+down)?\\b|" +
+            "(make|take|save|keep|add)\\s+a\\s+memo\\b|memo\\s+(this|that|it)(\\s+down)?\\b|" +
+            "(add|put)\\s+(this|that|it)\\s+(to|in)\\s+(my\\s+)?(memos?|notes?)\\b|" +
             "write\\s+(it\\s+|this\\s+|that\\s+)?down|jot\\s+(it\\s+|this\\s+|that\\s+)?down|" +
             "don'?t\\s+forget|keep\\s+(this\\s+|that\\s+|it\\s+)?in\\s+mind|memorize\\s+(this|that|it))",
         RegexOption.IGNORE_CASE

@@ -202,8 +202,10 @@ class SearchMemoryToolExecutor internal constructor(
                     append(".\nIf any category might relate to the question, call `search_memory` ")
                     append("once more with that word. Otherwise, say there is no such memory.\n")
                 }
-                append("Most recently saved memories:\n")
-                append(format(allNotes.take(Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS)))
+                if (allNotes.isNotEmpty()) {
+                    append("Most recently saved memories:\n")
+                    append(format(allNotes.take(Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS)))
+                }
                 append("\nIf the answer is not in this list, answer using what the user already said in this conversation. If not there either, say you don't have it. Never make it up.")
             }
         } else {
@@ -215,8 +217,12 @@ class SearchMemoryToolExecutor internal constructor(
                     append(".\n이 중 질문에 해당할 만한 분류가 있으면 그 단어로 `search_memory` 를 ")
                     append("한 번 더 호출하세요. 해당하는 분류가 없으면 그런 기억이 없다고 답하세요.\n")
                 }
-                append("가장 최근에 저장된 기억:\n")
-                append(format(allNotes.take(Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS)))
+                // [WHY] 메모가 0개면 머리말을 뺀다 — 빈 목록 머리말만 갔다(휴대폰 2026-11-06). exp82: 머리말 있음 정직 11/11(판정식이 놓친 1건 포함)·
+                // 뺌 11/11, 두 번째 검색 0·0 — 답이 나빠지지 않는다.
+                if (allNotes.isNotEmpty()) {
+                    append("가장 최근에 저장된 기억:\n")
+                    append(format(allNotes.take(Constants.MAX_KNOWLEDGE_CONTEXT_ITEMS)))
+                }
                 // [WHY] 위 빈 결과와 같은 이유 — 대화 속 답 1/6 → 5/6, 지어냄 0/4(exp58b RES1).
                 append("\n이 목록에 질문의 답이 없으면, 사용자가 이 대화에서 이미 말한 내용으로 답하세요. 거기에도 없으면 없다고 답하세요. 절대 지어내지 마세요.")
             }

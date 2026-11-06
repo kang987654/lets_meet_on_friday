@@ -114,6 +114,21 @@ class SearchMemoryToolExecutorTest {
     }
 
     @Test
+    fun `메모가 0개면 태그 폴백에 빈 최근 메모 머리말을 싣지 않고 메모가 있으면 싣는다(0·41·7 M5)`() = runBlocking {
+        coEvery { episodes.getEpisodes(any(), any()) } returns AppResult.Success(
+            listOf(episode("e1", "물 순환 설명", "물 순환을 설명했어요", listOf("water cycle", "laptop", "password")))
+        )
+
+        val noNotes = run("노트북 비밀번호")
+        assertTrue(noNotes, noNotes.contains("laptop") && noNotes.contains("지어내지 마세요"))
+        assertTrue(noNotes, !noNotes.contains("가장 최근에 저장된 기억"))
+
+        coEvery { repository.searchRecent(any()) } returns AppResult.Success(listOf(note("k1", "커피보다 녹차를 더 좋아함", listOf("음료"))))
+        val withNotes = run("노트북 비밀번호")
+        assertTrue(withNotes, withNotes.contains("가장 최근에 저장된 기억") && withNotes.contains("녹차"))
+    }
+
+    @Test
     fun `스캔 재료 조회 실패는 오류로 되돌린다`() = runBlocking {
         coEvery { repository.searchRecent(any()) } returns AppResult.Failure(AppError.DbReadError("knowledge_note"))
 

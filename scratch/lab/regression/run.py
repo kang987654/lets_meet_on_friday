@@ -57,6 +57,8 @@ SAVE_WORD_KO = re.compile(r"기억|저장|메모|잊지\s*마|잊으면\s*안|�
 SAVE_WORD_EN = re.compile(
     r"\b(please\s+remember|remember\s+(that|this|to|my)\b|save\s+(this|it|that|my|as\s+a\s+note)\b|"
     r"(make|take|save|keep)\s+a\s+note(\s+(of|that))?\b|note\s+(this|that|it)(\s+down)?\b|"
+    r"(make|take|save|keep|add)\s+a\s+memo\b|memo\s+(this|that|it)(\s+down)?\b|"
+    r"(add|put)\s+(this|that|it)\s+(to|in)\s+(my\s+)?(memos?|notes?)\b|"
     r"write\s+(it\s+|this\s+|that\s+)?down|jot\s+(it\s+|this\s+|that\s+)?down|"
     r"don'?t\s+forget|keep\s+(this\s+|that\s+|it\s+)?in\s+mind|memorize\s+(this|that|it))",
     re.I,
