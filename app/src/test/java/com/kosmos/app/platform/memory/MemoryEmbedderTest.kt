@@ -15,6 +15,9 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
+import io.mockk.every
+import io.mockk.mockk
 
 /**
  * [MemoryEmbedderTest]
@@ -146,5 +149,17 @@ class MemoryEmbedderTest {
         embedder.onTurnFinished()
         delay(200)
         assertTrue(repo.vectors.isEmpty())
+    }
+
+    @Test
+    fun `발열이면 묶음 사이에서 쉬고 식으면 이어 간다(0·41·6 M3)`() = runBlocking {
+        val repo = FakeRepo().apply { (1..20).forEach { add("n$it") } }
+        val metrics = mockk<RuntimeMetricsCollector> { every { getCurrentTemp() } returnsMany listOf(99f, 99f) andThen 20f }
+        val embedder = MemoryEmbedder(repo, metrics) { FakeEmbedder() }.apply { resumeDelayMs = 0; thermalRecheckMs = 200 }
+
+        embedder.prepareAll()
+        delay(100)
+        assertTrue("뜨거운 동안은 저장하지 않는다", repo.vectors.isEmpty())
+        waitUntil { repo.vectors.size == 20 }
     }
 }

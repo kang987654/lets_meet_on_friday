@@ -36,4 +36,25 @@ class EmbeddingBackendTest {
         assertEquals(EmbeddingBackend.DEFAULT, EmbeddingBackend.resolve(debug = true, debugDir = temp.root))
         assertEquals(EmbeddingBackend.DEFAULT, EmbeddingBackend.resolve(debug = true, debugDir = null))
     }
+
+    @Test
+    fun `GPU 가 실패하면 CPU 로 한 번 더 열고 CPU 도 실패하면 null`() {
+        val tried = mutableListOf<EmbeddingBackend>()
+        val opened = EmbeddingBackend.openWithFallback(EmbeddingBackend.GPU) { tried += it; if (it == EmbeddingBackend.CPU) "cpu-engine" else null }
+        assertEquals(EmbeddingBackend.CPU to "cpu-engine", opened)
+        assertEquals(listOf(EmbeddingBackend.GPU, EmbeddingBackend.CPU), tried)
+
+        assertNull(EmbeddingBackend.openWithFallback(EmbeddingBackend.GPU) { null as String? })
+    }
+
+    @Test
+    fun `GPU 가 열리면 CPU 를 시도하지 않고 CPU 로 시작했으면 다시 시도하지 않는다`() {
+        val tried = mutableListOf<EmbeddingBackend>()
+        assertEquals(EmbeddingBackend.GPU to "gpu-engine", EmbeddingBackend.openWithFallback(EmbeddingBackend.GPU) { tried += it; "gpu-engine" })
+        assertEquals(listOf(EmbeddingBackend.GPU), tried)
+
+        tried.clear()
+        assertNull(EmbeddingBackend.openWithFallback(EmbeddingBackend.CPU) { tried += it; null as String? })
+        assertEquals(listOf(EmbeddingBackend.CPU), tried)
+    }
 }

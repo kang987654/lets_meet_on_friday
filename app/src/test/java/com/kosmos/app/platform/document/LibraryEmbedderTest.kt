@@ -12,6 +12,9 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
+import io.mockk.every
+import io.mockk.mockk
 
 /**
  * [LibraryEmbedderTest]
@@ -137,6 +140,22 @@ class LibraryEmbedderTest {
 
         broken = false
         embedder.prepareAll()
+        withTimeout(5_000) { while (repo.vectors.size < 23) kotlinx.coroutines.delay(10) }
+        embedder.awaitIdle()
+        assertEquals(23, repo.vectors.size)
+    }
+
+    @Test
+    fun `발열이면 묶음 사이에서 쉬고 식으면 남은 조각부터 이어 간다(0·41·6 M3)`() = runBlocking {
+        val fake = FakeEmbedder()
+        // 첫 판정·쉬는 동안 한 번 더 뜨겁고, 그 뒤로는 식었다.
+        val metrics = mockk<RuntimeMetricsCollector> { every { getCurrentTemp() } returnsMany listOf(99f, 99f) andThen 20f }
+        val embedder = LibraryEmbedder(repo, metrics) { fake }.apply { thermalRecheckMs = 20 }
+
+        embedder.prepareAll()
+        withTimeout(5_000) { embedder.state.first { it is LibraryEmbedder.State.Paused } }
+        assertEquals("뜨거운 동안은 임베딩하지 않는다", 0, fake.calls)
+
         withTimeout(5_000) { while (repo.vectors.size < 23) kotlinx.coroutines.delay(10) }
         embedder.awaitIdle()
         assertEquals(23, repo.vectors.size)

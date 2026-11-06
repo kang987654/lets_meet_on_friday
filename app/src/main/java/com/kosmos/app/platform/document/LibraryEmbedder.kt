@@ -8,6 +8,8 @@ import com.kosmos.app.domain.library.Int8Vector
 import com.kosmos.app.domain.library.LibraryRepository
 import com.kosmos.app.domain.library.LibraryStatus
 import com.kosmos.app.domain.library.TextEmbedder
+import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
+import com.kosmos.app.runtime.metrics.shouldDeferBackgroundInference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,6 +43,10 @@ import javax.inject.Singleton
 @Singleton
 class LibraryEmbedder @Inject constructor(
     private val repository: LibraryRepository,
+    // [WHY] 발열이면 묶음 사이에서 쉰다(0.41.6 M3) — 요약·추출·브리핑·정리와 같은 판정이다. 민법 한 권이면 GPU 를 약 49초 연속으로 쓴다.
+    // 기기 온도 판정이 없으면(null — 테스트·기존 생성부) 쉬지 않는다(지금 동작).
+    private val metrics: RuntimeMetricsCollector? = null,
+    // [WHY] 임베더는 맨 뒤 — 테스트가 끝 람다로 넘긴다.
     private val embedders: EmbedderProvider
 ) {
     sealed interface State {
@@ -70,6 +76,7 @@ class LibraryEmbedder @Inject constructor(
 
     // [WHY] 테스트가 기다림을 줄이는 손잡이 — Hilt 생성자에 Long 을 넣으면 바인딩이 필요해진다(ConversationPrewarmer.quietMs 와 같은 결).
     internal var resumeDelayMs: Long = Constants.EMBED_RESUME_DELAY_MS
+    internal var thermalRecheckMs: Long = THERMAL_RECHECK_MS
 
     /** 채팅이 시작됐다 — 하던 일(이어 가기 대기 포함)을 멈추고 답이 끝나면 이어 간다. */
     @Synchronized
@@ -141,6 +148,12 @@ class LibraryEmbedder @Inject constructor(
             val batch = (repository.chunksNeedingVectors(embedder.modelId, documentId, BATCH) as? AppResult.Success)?.data
                 ?: return failed("조각 읽기 실패")
             if (batch.isEmpty()) return true
+            if (metrics?.shouldDeferBackgroundInference() == true) {
+                AppLogger.w(TAG, "발열로 뜻 검색 준비를 쉼 — ${thermalRecheckMs / 1000}초 뒤 다시 봄")
+                _state.value = State.Paused(done, maxOf(total, done))
+                while (metrics.shouldDeferBackgroundInference()) delay(thermalRecheckMs)
+                _state.value = State.Running(done, maxOf(total, done))
+            }
             val vectors = embedder.embedDocuments(batch.map { it.input }) ?: return failed("임베딩 실패")
             currentCoroutineContext().ensureActive()
             if (vectors.size != batch.size) return failed("임베딩 수 불일치")
@@ -173,5 +186,8 @@ class LibraryEmbedder @Inject constructor(
 
         /** 묶음 크기 — 저장 단위이자 멈춤·취소의 반응 단위. */
         const val BATCH = 16
+
+        /** 발열로 쉬는 동안 다시 보는 간격. */
+        const val THERMAL_RECHECK_MS = 60_000L
     }
 }

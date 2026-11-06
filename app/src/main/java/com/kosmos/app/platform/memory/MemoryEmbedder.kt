@@ -6,6 +6,8 @@ import com.kosmos.app.core.logging.AppLogger
 import com.kosmos.app.domain.library.EmbedderProvider
 import com.kosmos.app.domain.library.Int8Vector
 import com.kosmos.app.domain.memory.MemoryVectorRepository
+import com.kosmos.app.runtime.metrics.RuntimeMetricsCollector
+import com.kosmos.app.runtime.metrics.shouldDeferBackgroundInference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,6 +44,10 @@ import javax.inject.Singleton
 @Singleton
 class MemoryEmbedder @Inject constructor(
     private val repository: MemoryVectorRepository,
+    // [WHY] 발열이면 묶음 사이에서 쉰다(0.41.6 M3) — 요약·추출·브리핑·정리와 같은 판정이다(LibraryEmbedder 와 같은 결).
+    // 기기 온도 판정이 없으면(null — 테스트·기존 생성부) 쉬지 않는다(지금 동작).
+    private val metrics: RuntimeMetricsCollector? = null,
+    // [WHY] 임베더는 맨 뒤 — 테스트가 끝 람다로 넘긴다.
     private val embedders: EmbedderProvider
 ) {
     sealed interface State {
@@ -56,6 +62,7 @@ class MemoryEmbedder @Inject constructor(
 
     // [WHY] 테스트가 기다림을 줄이는 손잡이 — Hilt 생성자에 Long 을 넣으면 바인딩이 필요해진다(LibraryEmbedder 와 같은 결).
     internal var resumeDelayMs: Long = Constants.EMBED_RESUME_DELAY_MS
+    internal var thermalRecheckMs: Long = THERMAL_RECHECK_MS
 
     private var job: Job? = null
     @Volatile private var foreground = false
@@ -127,6 +134,10 @@ class MemoryEmbedder @Inject constructor(
                 _state.value = State.Idle
                 return
             }
+            if (metrics?.shouldDeferBackgroundInference() == true) {
+                AppLogger.w(TAG, "발열로 기억 뜻 검색 준비를 쉼 — ${thermalRecheckMs / 1000}초 뒤 다시 봄")
+                while (metrics.shouldDeferBackgroundInference()) delay(thermalRecheckMs)
+            }
             val vectors = embedder.embedDocuments(batch.map { it.input }) ?: return failed("임베딩 실패")
             currentCoroutineContext().ensureActive()
             if (vectors.size != batch.size) return failed("임베딩 수 불일치")
@@ -148,5 +159,8 @@ class MemoryEmbedder @Inject constructor(
 
         /** 묶음 크기 — 저장 단위이자 멈춤·취소의 반응 단위(LibraryEmbedder 와 같다). */
         const val BATCH = 16
+
+        /** 발열로 쉬는 동안 다시 보는 간격(LibraryEmbedder 와 같다). */
+        const val THERMAL_RECHECK_MS = 60_000L
     }
 }

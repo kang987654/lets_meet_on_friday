@@ -85,24 +85,28 @@ class EmbeddingGemmaRunner @Inject constructor(
 
     private fun load(): EmbeddingEngine? {
         val file = modelFile() ?: return null
-        backend = EmbeddingBackend.resolve(BuildConfig.DEBUG, context.getExternalFilesDir(null))
-        val loaded = runCatching {
-            val start = System.nanoTime()
-            EmbeddingEngine(
-                EmbeddingEngineConfig(
-                    modelPath = file.absolutePath,
-                    backend = if (backend == EmbeddingBackend.GPU) Backend.GPU() else Backend.CPU(),
-                    cacheDir = context.cacheDir.absolutePath,
-                    maxInputLength = MAX_INPUT_TOKENS
-                )
-            ).also {
-                it.initialize()
-                Log.d(TAG, "embedding engine ready: backend=$backend, ${(System.nanoTime() - start) / 1_000_000}ms")
-            }
-        }.onFailure { Log.e(TAG, "임베딩 엔진 초기화 실패(backend=$backend)", it) }.getOrNull()
-        engine = loaded
-        return loaded
+        val primary = EmbeddingBackend.resolve(BuildConfig.DEBUG, context.getExternalFilesDir(null))
+        // [WHY] GPU 가 안 뜨면 CPU 로 한 번 더(0.41.6 M3) — 채팅 엔진과 같은 결. 없으면 GPU 메모리가 모자라거나 에뮬레이터일 때 뜻 검색이 조용히 꺼졌다.
+        val opened = EmbeddingBackend.openWithFallback(primary) { candidate -> open(file, candidate) } ?: return null
+        backend = opened.first
+        engine = opened.second
+        return opened.second
     }
+
+    private fun open(file: File, candidate: EmbeddingBackend): EmbeddingEngine? = runCatching {
+        val start = System.nanoTime()
+        EmbeddingEngine(
+            EmbeddingEngineConfig(
+                modelPath = file.absolutePath,
+                backend = if (candidate == EmbeddingBackend.GPU) Backend.GPU() else Backend.CPU(),
+                cacheDir = context.cacheDir.absolutePath,
+                maxInputLength = MAX_INPUT_TOKENS
+            )
+        ).also {
+            it.initialize()
+            Log.d(TAG, "embedding engine ready: backend=$candidate, ${(System.nanoTime() - start) / 1_000_000}ms")
+        }
+    }.onFailure { Log.e(TAG, "임베딩 엔진 초기화 실패(backend=$candidate)", it) }.getOrNull()
 
     /** 엔진을 내린다 — 앱 백그라운드. 진행 중인 호출이 있으면 그 뒤에 닫힌다. */
     suspend fun release() {
@@ -143,6 +147,13 @@ enum class EmbeddingBackend {
             if (!debug || debugDir == null) return DEFAULT
             val text = runCatching { File(debugDir, DEBUG_FILE_NAME).takeIf { it.isFile }?.readText() }.getOrNull()
             return parse(text) ?: DEFAULT
+        }
+
+        /** [primary] 로 열고, GPU 가 실패하면 CPU 로 한 번 더 — 연 백엔드와 엔진, 둘 다 실패면 null. */
+        fun <T : Any> openWithFallback(primary: EmbeddingBackend, open: (EmbeddingBackend) -> T?): Pair<EmbeddingBackend, T>? {
+            open(primary)?.let { return primary to it }
+            if (primary == CPU) return null
+            return open(CPU)?.let { CPU to it }
         }
     }
 }
