@@ -8,6 +8,7 @@ import com.kosmos.app.assistant.tool.ToolExecutor
 import com.kosmos.app.assistant.tool.ToolRegistry
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.domain.memory.ConversationRepository
@@ -440,6 +441,60 @@ class BaseAgentStreamTest {
         assertTrue(result is AgentResult.Error)
         assertEquals("상한 턴(3번째)의 툴 호출은 실행되지 않아야 한다", 2, executeCount)
         assertTrue("살아 있는 대화 KV 를 비워야 한다", invalidated)
+    }
+
+    /** 두 번째 툴을 앞두고 KV 가 [kv] 인 러너로 GetSchedule 을 두 번 부르는 턴을 돌린다(0.41.6 M2). */
+    private fun runWithKv(kv: Int?): Triple<AgentResult, Int, Boolean> {
+        var executeCount = 0
+        val executor: ToolExecutor = mockk {
+            every { name } returns "GetSchedule"
+            every { actionType } returns null
+            coEvery { execute(any(), any()) } answers {
+                executeCount++
+                """{"status":"success"}"""
+            }
+        }
+        val registry: ToolRegistry = mockk { every { getExecutor("GetSchedule") } returns executor }
+        var invalidated = false
+        val baseRunner = ChunkedModelRunner(
+            listOf(
+                ModelTurn("", listOf(toolCall("GetSchedule"))),
+                ModelTurn("", listOf(toolCall("GetSchedule"))),
+                ModelTurn("두 건 있습니다.")
+            )
+        )
+        val runner = object : ModelRunner by baseRunner {
+            override fun invalidateConversation() {
+                invalidated = true
+            }
+
+            override suspend fun currentKvTokens(): Int? = kv
+        }
+        val agent = TestAgent(
+            modelRunner = runner,
+            toolRegistry = registry,
+            auditTrailService = mockk(relaxed = true),
+            conversationRepository = mockk(relaxed = true) { coEvery { save(any()) } returns AppResult.Success(Unit) },
+            approvalCoordinator = mockk(relaxed = true),
+            allowedTools = listOf("GetSchedule")
+        )
+        val result = runBlocking { agent.execute(ChatRequest(sessionId = "s1", message = "질문"), mockk(relaxed = true)) }
+        return Triple(result, executeCount, invalidated)
+    }
+
+    @Test
+    fun `두 번째 툴 결과를 얹으면 KV 천장을 넘을 때는 실행하지 않고 안내로 끝낸다`() {
+        val (result, executeCount, invalidated) = runWithKv(Constants.PREFILL_CEILING_TOKENS - Constants.TOOL_RESULT_MAX_TOKENS + 1)
+
+        assertEquals("두 번째 툴은 실행되지 않아야 한다", 1, executeCount)
+        assertTrue("회신 없는 툴 호출이 남은 대화를 비워야 한다", invalidated)
+        assertEquals("한 번에 처리하기엔 길어요. 나눠서 부탁해 주세요.", (result as AgentResult.Text).content)
+    }
+
+    @Test
+    fun `KV 여유가 있거나 모르면 두 번째 툴을 실행한다`() {
+        assertEquals(2, runWithKv(Constants.PREFILL_CEILING_TOKENS - Constants.TOOL_RESULT_MAX_TOKENS).second)
+        assertEquals(2, runWithKv(null).second)
     }
 
     @Test

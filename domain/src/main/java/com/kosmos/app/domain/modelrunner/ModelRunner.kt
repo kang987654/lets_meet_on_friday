@@ -75,6 +75,13 @@ interface ModelRunner {
      * 그사이 `oneShot` 추론이 1회 이상 돌았으면(대화가 stale 이 아닐 때) 채팅 대화를 한 번 복원합니다.
      */
     suspend fun endDeferRestore(restore: Boolean = true) {}
+
+    /**
+     * 지금 채팅 대화가 KV 에 쓰고 있는 토큰 수 — 엔진·대화가 없거나 조회에 실패하면 null(0.41.6 M2, [com.kosmos.app.domain.agent.ToolKvBudget]).
+     *
+     * [WHY] 기본 구현은 null — 테스트 가짜 러너는 KV 를 모르므로 가드가 막지 않는다(지금 동작 유지).
+     */
+    suspend fun currentKvTokens(): Int? = null
 }
 
 /**

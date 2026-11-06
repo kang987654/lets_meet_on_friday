@@ -27,6 +27,8 @@ import com.kosmos.app.assistant.tool.ToolArgumentException
 import com.kosmos.app.core.common.runCatchingCancellable
 import com.kosmos.app.core.security.ApprovalRules
 import com.kosmos.app.domain.agent.RefusalTurns
+import com.kosmos.app.core.common.Constants
+import com.kosmos.app.domain.agent.ToolKvBudget
 import com.kosmos.app.domain.memory.MemoSaveIntent
 import com.kosmos.app.domain.model.MessageResult
 import com.kosmos.app.domain.util.IsoDateTimeParser
@@ -180,6 +182,17 @@ abstract class BaseAgent(
                     )
                 }
                 val call = turn.toolCalls.first() // 병렬 처리 방지
+                // [WHY] 두 번째 툴부터는 실제로 찬 KV 를 재서, 결과를 얹으면 천장을 넘을 때 실행 **전에** 멈춘다(0.41.6 M2, ADR-020 보충) —
+                // 첫 툴은 예산 불변식이 보장한다. 부수효과(일정 추가 등)가 일어나기 전이라 "실행됐는데 답이 깨짐"이 없고,
+                // 회신 없는 툴 호출이 남은 대화는 다음 턴에 DB 기록으로 다시 만든다(상한 경로와 같은 처리). 안내는 앱 문장이라 모델 입력이 아니다.
+                if (loopCount >= 2 && !ToolKvBudget.fits(modelRunner.currentKvTokens(), Constants.TOOL_RESULT_MAX_TOKENS, Constants.PREFILL_CEILING_TOKENS)) {
+                    modelRunner.invalidateConversation()
+                    auditTrailService.logError(request.sessionId, "Tool skipped: KV budget (${call.name})")
+                    val reply = if (language == AppLanguage.EN) KV_FULL_REPLY_EN else KV_FULL_REPLY
+                    request.onStream?.invoke(StreamUpdate(reply, null))
+                    parsedResult = ToolParser.parseStream(reply)
+                    break
+                }
                 val args = ToolArguments.of(call.args)
                 val outcome = executeToolInner(
                     ToolParser.ToolCallData(call.name, args),
@@ -498,6 +511,10 @@ abstract class BaseAgent(
         // 앱이 연 메모 저장이 승인됐을 때의 답 — 거절 문장 "메모에는 남기지 않았어요."와 짝.
         const val MEMO_SAVED = "메모에 저장했어요."
         const val MEMO_SAVED_EN = "Saved to your notes."
+
+        /** 툴 결과를 더 얹으면 KV 천장을 넘을 때의 답(0.41.6 M2) — 앱 문장이라 모델 입력이 아니다. */
+        const val KV_FULL_REPLY = "한 번에 처리하기엔 길어요. 나눠서 부탁해 주세요."
+        const val KV_FULL_REPLY_EN = "That's too much to handle in one go. Please split it into smaller requests."
 
         const val ANSWERED_MEMO_NOTE = "저장 물음에 대한 긍정 — 앱이 연 저장"
 

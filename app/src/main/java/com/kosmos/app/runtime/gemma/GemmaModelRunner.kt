@@ -140,6 +140,10 @@ class GemmaModelRunner @Inject constructor(
         pendingConversationRestore = false
     }
 
+    // [WHY] 툴 회신 직전(같은 턴 안)에 부른다 — 턴 사이에 대화가 바뀌지 않으므로 생성 잠금 없이 읽는다. 다시 만들 대화(stale)는 지금 KV 가 아니다.
+    override suspend fun currentKvTokens(): Int? =
+        if (conversationStale) null else conversation?.let { c -> runCatching { c.getTokenCount() }.getOrNull() }
+
     override fun beginDeferRestore() {
         deferRestoreDepth.incrementAndGet()
     }

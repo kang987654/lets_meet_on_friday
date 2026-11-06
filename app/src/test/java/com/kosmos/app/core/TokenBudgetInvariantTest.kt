@@ -1,6 +1,7 @@
 package com.kosmos.app.core
 
 import com.kosmos.app.core.common.Constants
+import com.kosmos.app.domain.agent.ToolKvBudget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -112,6 +113,22 @@ class TokenBudgetInvariantTest {
         assertTrue(
             "예산 상한 ${Constants.MAX_CONTEXT_TOKENS} + 툴 결과 ${Constants.TOOL_RESULT_MAX_TOKENS} > 천장 ${Constants.PREFILL_CEILING_TOKENS}",
             Constants.MAX_CONTEXT_TOKENS + Constants.TOOL_RESULT_MAX_TOKENS <= Constants.PREFILL_CEILING_TOKENS
+        )
+    }
+
+    @Test
+    fun `첫 툴 결과는 불변식이 보장하고 두 번째부터는 런타임 가드가 막는다`() {
+        // [WHY] 한 턴 툴은 최대 2개다(3번째 생성의 호출은 실행 전에 막힌다, BaseAgent). 두 번째 결과까지 미리 계산해 보장하려면
+        // 예산을 그만큼 깎아야 해서, 실제로 찬 KV 로 판정하는 가드(ToolKvBudget, 0.41.6 M2)에 맡긴다 — 그 가드가 최악을 실제로 잡는지 고정.
+        assertTrue(
+            "예산 상한 대화에 첫 툴 결과는 가드에 걸리지 않아야 한다",
+            ToolKvBudget.fits(Constants.MAX_CONTEXT_TOKENS, Constants.TOOL_RESULT_MAX_TOKENS, Constants.PREFILL_CEILING_TOKENS)
+        )
+        assertTrue(
+            "예산 상한 대화 + 결과 1개 뒤의 두 번째 결과는 가드가 막아야 한다",
+            !ToolKvBudget.fits(
+                Constants.MAX_CONTEXT_TOKENS + Constants.TOOL_RESULT_MAX_TOKENS, Constants.TOOL_RESULT_MAX_TOKENS, Constants.PREFILL_CEILING_TOKENS
+            )
         )
     }
 
