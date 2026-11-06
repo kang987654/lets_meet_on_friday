@@ -34,6 +34,8 @@ import com.kosmos.app.ui.component.kosmosSurface
 import com.kosmos.app.feature.splash.splashAnchor
 
 import com.kosmos.app.domain.modelrunner.ModelLoadState
+import com.kosmos.app.domain.startup.StartupStage
+import com.kosmos.app.feature.splash.startupStatusRes
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.mapper.ErrorMessages
 import com.kosmos.app.feature.splash.SplashAnchor
@@ -60,7 +62,8 @@ fun CustomChatHeader(
     deviceStatus: DeviceStatus =
         DeviceStatus(),
     warningMessage: String? = null,
-    onStatusClick: () -> Unit = {}
+    onStatusClick: () -> Unit = {},
+    startupStage: StartupStage = StartupStage.IDLE
 ) {
     val context = LocalContext.current
     Row(
@@ -119,7 +122,7 @@ fun CustomChatHeader(
         Spacer(modifier = Modifier.weight(1f))
 
         // [WHY] 별이 노랑·빨강이면 캡슐 글자가 원인을 말한다 — 별 색만으로는 왜인지 알 수 없었다(0.39.3 M3). 수치는 시트에.
-        val capsule = capsuleContent(context, engineState, deviceStatus, warningMessage != null)
+        val capsule = capsuleContent(context, engineState, deviceStatus, warningMessage != null, startupStage)
         if (capsule != null) {
             val capsuleColor = when (capsule.tone) {
                 CapsuleTone.DANGER -> KosmosTheme.colors.dangerText
@@ -261,15 +264,19 @@ internal enum class CapsuleTone { NORMAL, WARNING, DANGER }
 internal data class CapsuleContent(val text: String, val tone: CapsuleTone, @androidx.annotation.DrawableRes val icon: Int?)
 
 /**
- * 캡슐에 무엇을 쓸까 — 엔진이 멈췄으면 "엔진 오류"/"모델 없음", 발열 경고면 "발열 주의 43°", 아니면 온도·메모리 수치. 쓸 것이 없으면 null.
+ * 캡슐에 무엇을 쓸까 — 엔진이 멈췄으면 "엔진 오류"/"모델 없음", 발열 경고면 "발열 주의 43°", 엔진을 올리거나 시작 단계가 돌면
+ * 그 진행 문구, 아니면 온도·메모리 수치. 쓸 것이 없으면 null.
  *
  * [WHY] 원인이 수치보다 먼저다 — 별이 빨개도 캡슐은 회색 수치 그대로라 이유를 알 수 없었다(0.39.3 M3). 엔진 정지가 발열보다 먼저(답을 못 한다).
+ * [WHY] 복귀하면 스플래시 없이 채팅이 그대로라, 엔진을 다시 올리고 시작 단계를 도는 동안 무엇을 하는지 여기서 보인다(0.41.7 M2).
+ * 시작 단계가 돌지 않으면(IDLE — 시작 전·테스트) 지금처럼 수치를 보인다.
  */
 internal fun capsuleContent(
     context: android.content.Context,
     engineState: ModelLoadState,
     status: DeviceStatus,
-    heatWarning: Boolean
+    heatWarning: Boolean,
+    startupStage: StartupStage = StartupStage.IDLE
 ): CapsuleContent? {
     val stop = R.drawable.ic_ph_warning_circle
     return when {
@@ -290,6 +297,11 @@ internal fun capsuleContent(
             CapsuleTone.WARNING,
             R.drawable.ic_ph_warning
         )
+        startupStage.running && engineState !is ModelLoadState.Ready ->
+            CapsuleContent(context.getString(R.string.startup_waking), CapsuleTone.NORMAL, null)
+        startupStage.running -> startupStatusRes(startupStage)?.let {
+            CapsuleContent(context.getString(it), CapsuleTone.NORMAL, null)
+        }
         else -> formatStatusCapsule(status).takeIf { it.isNotEmpty() }?.let {
             CapsuleContent(it, CapsuleTone.NORMAL, if (status.temperatureCelsius > 0f) R.drawable.ic_ph_thermometer else null)
         }

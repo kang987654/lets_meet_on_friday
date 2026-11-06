@@ -183,17 +183,15 @@ class MorningBriefingGeneratorTest {
     }
 
     @Test
-    fun `Ready 전이에 편승해 생성한다`() = runBlocking {
-        // [WHY] 시각 0분(자정)으로 두면 어떤 벽시계 now 도 통과한다 — start() 경로는 실제
-        // 시각을 쓰므로 이 테스트만 시각 조건을 무력화해 결정적으로 만든다.
-        io.mockk.every { settingsDataStore.briefingTimeMinutesFlow } returns flowOf(0)
-        val g = generator()
-        g.start()
+    fun `만들 때만 시작 단계 문구 신호를 보낸다(0·41·7 M2)`() = runBlocking {
+        var started = 0
+        generator().maybeGenerate(now) { started++ }
+        assertEquals(1, started)
 
-        loadState.value = ModelLoadState.Ready(mockk(relaxed = true))
-        waitUntil { g.briefingSaved.replayCache.isNotEmpty() }
-
-        coVerify(exactly = 1) { generateBriefing(any()) }
+        // 오늘 이미 만들었으면 신호 없음
+        coEvery { conversationRepository.countByInputTypeSince(InputType.BRIEFING, any()) } returns AppResult.Success(1)
+        generator().maybeGenerate(now) { started++ }
+        assertEquals(1, started)
     }
 
     @Test

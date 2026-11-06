@@ -25,6 +25,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kosmos.app.R
 import com.kosmos.app.domain.modelrunner.ModelLoadState
+import com.kosmos.app.domain.startup.StartupStage
 import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.SplashStyle
 import com.kosmos.app.ui.theme.currentAppLanguage
@@ -47,10 +48,14 @@ fun SplashScreen(
     previewTimeMs: Long? = null
 ) {
     val loadState by viewModel.loadState.collectAsStateWithLifecycle()
+    val startupStage by viewModel.startupStage.collectAsStateWithLifecycle()
     val handoff = LocalSplashHandoff.current
     val reduced = rememberReducedMotion()
-    // [WHY] 앱을 열 때 이미 Ready(잠깐 나갔다 온 경우)면 장면 없이 바로 채팅(사용자 결정) — 매번 2초 넘게 기다리지 않게.
-    val readyAtStart = remember { viewModel.loadState.value is ModelLoadState.Ready }
+    // [WHY] 엔진이 Ready 여도 시작 단계(지난 대화 정리·브리핑·대화 준비)가 끝나야 채팅으로 간다(0.41.7 M2) — 채팅이 뜬 뒤 그 일이 GPU 를
+    // 붙잡으면 입력이 0.8~0.9초씩 멈췄다(M0 실기기). 시작 단계가 돌지 않으면(IDLE — 테스트·시작 전) 지금처럼 Ready 만 본다.
+    val chatReady = loadState is ModelLoadState.Ready && !startupStage.running
+    // [WHY] 앱을 열 때 이미 준비가 끝났으면(잠깐 나갔다 온 경우) 장면 없이 바로 채팅(사용자 결정) — 매번 2초 넘게 기다리지 않게.
+    val readyAtStart = remember { viewModel.loadState.value is ModelLoadState.Ready && !viewModel.startupStage.value.running }
     val loading = loadState !is ModelLoadState.Error && loadState !is ModelLoadState.NotFound
     val animate = previewTimeMs == null && !reduced && splashStyle != null
     val clock = remember { SceneClock() }
@@ -71,8 +76,8 @@ fun SplashScreen(
         }
     }
 
-    LaunchedEffect(loadState) {
-        if (loadState is ModelLoadState.Ready) {
+    LaunchedEffect(chatReady) {
+        if (chatReady) {
             val style = splashStyle
             if (handoff != null && previewTimeMs == null && !reduced && style != null && !readyAtStart && started) {
                 handoff.begin(SplashExit(style, clock, clock.time, last.text))
@@ -117,6 +122,7 @@ fun SplashScreen(
                 is ModelLoadState.Loading -> stringResource(R.string.splash_checking_model)
                 is ModelLoadState.FileFound -> stringResource(R.string.splash_file_found)
                 is ModelLoadState.InitializingEngine -> stringResource(R.string.splash_preparing_engine)
+                is ModelLoadState.Ready -> startupStatusRes(startupStage)?.let { stringResource(it) }.orEmpty()
                 else -> ""
             }
             if (statusText.isNotEmpty()) last.text = statusText
@@ -131,4 +137,17 @@ fun SplashScreen(
 
 private class LastStatus {
     var text: String = ""
+}
+
+/**
+ * 엔진 Ready 뒤 시작 단계의 진행 문구 — 스플래시와 채팅 머리글이 같은 문구를 쓴다(0.41.7 M2). 돌고 있지 않으면 null.
+ *
+ * [WHY] 단계를 고르는 찰나(WAITING_ENGINE + Ready)에도 "대화를 준비하는 중"을 보인다 — 엔진 문구가 비었다가 다시 차면 깜빡인다.
+ */
+@androidx.annotation.StringRes
+fun startupStatusRes(stage: StartupStage): Int? = when (stage) {
+    StartupStage.SUMMARIZING -> R.string.startup_summarizing
+    StartupStage.BRIEFING -> R.string.startup_briefing
+    StartupStage.PREPARING, StartupStage.WAITING_ENGINE -> R.string.startup_preparing
+    StartupStage.IDLE, StartupStage.DONE -> null
 }

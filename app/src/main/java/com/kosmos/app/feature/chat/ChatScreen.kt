@@ -351,7 +351,8 @@ fun ChatScreen(
                     engineState = uiState.engineState,
                     deviceStatus = uiState.deviceStatus,
                     warningMessage = uiState.warningMessage,
-                    onStatusClick = { showStatusSheet = true }
+                    onStatusClick = { showStatusSheet = true },
+                    startupStage = uiState.startupStage
                 )
                 summary?.let { SummaryTiles(it, onOpenTasks = onOpenTasks, onOpenCalendar = onOpenCalendar) }
             }

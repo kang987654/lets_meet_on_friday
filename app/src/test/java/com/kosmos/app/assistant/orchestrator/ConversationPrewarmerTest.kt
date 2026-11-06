@@ -4,22 +4,16 @@ import com.kosmos.app.assistant.agent.KosmosAgent
 import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.assistant.context.PromptAssembler
 import com.kosmos.app.core.common.AppResult
-import com.kosmos.app.data.local.prefs.SessionStore
 import com.kosmos.app.domain.agent.AgentResult
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.InputType
 import com.kosmos.app.domain.modelrunner.ChatPrompt
-import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.modelrunner.ModelTurn
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
@@ -47,10 +41,6 @@ class ConversationPrewarmerTest {
 
     private fun context(messages: List<ChatMessage>) =
         ContextBuilder.Context(recentConversations = messages, sessionId = "s1", responseStyle = "DEFAULT")
-
-    private val defaultSessionStore: SessionStore = mockk(relaxed = true) {
-        every { activeSessionIdFlow } returns flowOf("s1")
-    }
 
     private fun agent(runner: ModelRunner) = KosmosAgent(
         modelRunner = runner,
@@ -92,7 +82,7 @@ class ConversationPrewarmerTest {
             }
         }
         val runner: ModelRunner = mockk(relaxed = true)
-        val prewarmer = ConversationPrewarmer(builder, runner, defaultSessionStore) { agent(runner) }
+        val prewarmer = ConversationPrewarmer(builder) { agent(runner) }
 
         prewarmer.afterTurn("s1")
         prewarmer.onUserActivity()
@@ -110,7 +100,7 @@ class ConversationPrewarmerTest {
             coEvery { prepareConversation(any()) } coAnswers { done.complete(firstArg()); Unit }
         }
 
-        ConversationPrewarmer(builder, runner, defaultSessionStore) { agent(runner) }.apply { quietMs = 0 }.afterTurn("s1")
+        ConversationPrewarmer(builder) { agent(runner) }.apply { quietMs = 0 }.afterTurn("s1")
 
         val prompt = runBlocking { withTimeout(5_000) { done.await() } }
         assertEquals("s1", prompt.sessionId)
@@ -128,7 +118,7 @@ class ConversationPrewarmerTest {
                 coEvery { prepareConversation(any()) } coAnswers { done.complete(firstArg()); Unit }
             }
             val calls = java.util.concurrent.atomic.AtomicInteger()
-            val prewarmer = ConversationPrewarmer(builder, runner, defaultSessionStore) {
+            val prewarmer = ConversationPrewarmer(builder) {
                 if (calls.getAndIncrement() == 0) error("테스트 인스턴스가 사라짐") else agent(runner)
             }.apply { quietMs = 0 }
 
@@ -144,35 +134,20 @@ class ConversationPrewarmerTest {
     }
 
     @Test
-    fun `엔진이 준비되면 활성 대화방의 대화를 미리 준비하고 복귀로 다시 Ready 가 돼도 매번 준비한다`() {
-        val loadState = MutableStateFlow<ModelLoadState>(ModelLoadState.Loading)
+    fun `지금 준비는 조용함을 기다리지 않고 끝날 때까지 기다린다(0·41·7 M2)`() {
         val prepared = java.util.concurrent.CopyOnWriteArrayList<ChatPrompt>()
         val builder: ContextBuilder = mockk { coEvery { build("s1") } returns AppResult.Success(context(history.take(2))) }
         val runner: ModelRunner = mockk<ModelRunner>(relaxed = true).also {
-            every { it.loadState } returns (loadState as StateFlow<ModelLoadState>)
             coEvery { it.prepareConversation(any()) } coAnswers { prepared += firstArg<ChatPrompt>() }
         }
-        val prewarmer = ConversationPrewarmer(builder, runner, defaultSessionStore) { agent(runner) }.also {
-            it.quietMs = 0
-            it.start()
-        }
+        // 조용함 대기가 걸리면 5초 안에 못 끝난다.
+        val prewarmer = ConversationPrewarmer(builder) { agent(runner) }.apply { quietMs = 60_000 }
+        prewarmer.onTyping()
 
-        // 첫 실행 Ready
-        loadState.value = ModelLoadState.Ready(mockk(relaxed = true))
-        runBlocking {
-            withTimeout(5_000) { while (prepared.size < 1) kotlinx.coroutines.delay(20) }
-        }
+        runBlocking { withTimeout(5_000) { prewarmer.prepareNow("s1") } }
+
         assertEquals(1, prepared.size)
         assertEquals("s1", prepared[0].sessionId)
-
-        // 백그라운드 해제 후 복귀 Ready
-        loadState.value = ModelLoadState.Loading
-        loadState.value = ModelLoadState.Ready(mockk(relaxed = true))
-        runBlocking {
-            withTimeout(5_000) { while (prepared.size < 2) kotlinx.coroutines.delay(20) }
-        }
-        assertEquals(2, prepared.size)
-        prewarmer.onUserActivity()
     }
 
     @Test
@@ -190,7 +165,7 @@ class ConversationPrewarmerTest {
         val runner: ModelRunner = mockk(relaxed = true) {
             coEvery { prepareConversation(any()) } coAnswers { done.complete(System.currentTimeMillis()); Unit }
         }
-        val prewarmer = ConversationPrewarmer(builder, runner, defaultSessionStore) { agent(runner) }.apply { quietMs = 1_000 }
+        val prewarmer = ConversationPrewarmer(builder) { agent(runner) }.apply { quietMs = 1_000 }
 
         prewarmer.afterTurn("s1")
         // 조용한 시간(1초)보다 훨씬 짧은 간격(100ms)으로 1.2초 동안 친다 — 간격을 넉넉히 둬 GC 멈춤에도 흔들리지 않게.

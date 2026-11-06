@@ -11,7 +11,7 @@ import com.kosmos.app.assistant.briefing.MorningBriefingGenerator
 import com.kosmos.app.assistant.cleanup.MemoryCleanupRunner
 import com.kosmos.app.assistant.episode.EpisodeBoundaryManager
 import com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
-import com.kosmos.app.assistant.orchestrator.ConversationPrewarmer
+import com.kosmos.app.assistant.startup.StartupCoordinator
 import com.kosmos.app.core.config.AppLanguageHolder
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.platform.speech.SpeechOutput
@@ -47,7 +47,7 @@ class KosmosApp : Application(), Configuration.Provider {
     lateinit var episodeSummarizeScheduler: EpisodeSummarizeScheduler
 
     @Inject
-    lateinit var conversationPrewarmer: ConversationPrewarmer
+    lateinit var startupCoordinator: StartupCoordinator
 
     @Inject
     lateinit var speechOutput: SpeechOutput
@@ -83,10 +83,11 @@ class KosmosApp : Application(), Configuration.Provider {
         super.onCreate()
         appLanguageHolder.start()
         NotificationChannels.ensureCreated(this, appLanguageHolder.current)
-        conversationPrewarmer.start()
         briefingGenerator.start()
         episodeBoundaryManager.start()
         episodeSummarizeScheduler.start()
+        // [WHY] 엔진 Ready 뒤의 요약·브리핑·미리 준비는 시작 단계 하나가 순서대로 돌린다(0.41.7 M2) — 각자 Ready 를 구독하면 채팅이 열린 뒤 GPU 를 다퉜다.
+        startupCoordinator.start()
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
             // [WHY] 전경 진입 warmUp 은 0.34.0 에서 MainActivity 단위(ModelWarmUpObserver)로 옮겼다 —
             // 문서 뷰어(별도 Activity)만 열 때 모델을 올리지 않기 위해서다. 해제는 앱 전체가 백그라운드일

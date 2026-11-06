@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.kosmos.app.assistant.cleanup.BackgroundInferenceGate
@@ -102,6 +103,51 @@ class EpisodeSummarizeSchedulerTest {
     private suspend fun waitUntil(timeoutMs: Long = 2_000, cond: () -> Boolean) {
         val start = System.currentTimeMillis()
         while (!cond() && System.currentTimeMillis() - start < timeoutMs) delay(20)
+    }
+
+    // --- 시작 단계의 지난 대화 정리 (0.41.7 M2) ---
+
+    @Test
+    fun `시작 단계는 가장 최근 지난 에피소드 하나만 요약하고 사실 추출은 미룬다`() = runBlocking {
+        val older = closedEpisode("e1")
+        val latest = closedEpisode("e2").copy(startAt = 800, endAt = 900)
+        coEvery { episodeRepository.getByStatus(EpisodeStatus.CLOSED) } returns AppResult.Success(listOf(older, latest))
+        coEvery { episodeRepository.getById("e2") } answers { AppResult.Success(saved.lastOrNull { it.id == "e2" } ?: latest) }
+        coEvery { conversationRepository.getByEpisode("e2") } returns AppResult.Success(messages())
+        coEvery { summarize(any()) } returns AppResult.Success(listOf(doc()))
+        val s = scheduler()
+        var started = 0
+
+        val summarized = s.summarizeLatestStale(now = 10_000_000) { started++ }
+
+        assertTrue(summarized)
+        assertEquals(1, started)
+        assertEquals(listOf("e2"), saved.filter { it.status == EpisodeStatus.SUMMARIZED }.map { it.id })
+        coVerify(exactly = 1) { summarize(any()) }
+        coVerify(exactly = 0) { factExtractor.extract(any(), any()) }
+    }
+
+    @Test
+    fun `방금 닫힌 에피소드는 시작 단계에서 요약하지 않고 조용한 창에 맡긴다`() = runBlocking {
+        val now = 10_000_000L
+        val justClosed = closedEpisode("e3").copy(startAt = now - 5 * 60_000, endAt = now - 2 * 60_000)
+        coEvery { episodeRepository.getByStatus(EpisodeStatus.CLOSED) } returns AppResult.Success(listOf(justClosed))
+        val s = scheduler()
+        var started = 0
+
+        assertFalse(s.summarizeLatestStale(now) { started++ })
+        assertEquals(0, started)
+        coVerify(exactly = 0) { summarize(any()) }
+    }
+
+    @Test
+    fun `시작 단계에 요약할 지난 에피소드가 없으면 문구 신호도 없다`() = runBlocking {
+        val s = scheduler()
+        var started = 0
+
+        assertFalse(s.summarizeLatestStale(now = 10_000_000) { started++ })
+        assertEquals(0, started)
+        coVerify(exactly = 0) { summarize(any()) }
     }
 
     @Test
@@ -308,10 +354,11 @@ class EpisodeSummarizeSchedulerTest {
     }
 
     @Test
-    fun `엔진 준비 직후에는 catch-up 을 바로 돌리지 않고 조용해지면 돌린다`() = runBlocking {
+    fun `시작 단계가 끝난 직후에는 catch-up 을 바로 돌리지 않고 조용해지면 돌린다`() = runBlocking {
         val s = scheduler(quietMs = 400)
 
-        loadStateFlow.value = ModelLoadState.Ready(mockk(relaxed = true))
+        // [WHY] 0.41.7 M2 — 예전의 Ready 편승 자리를 시작 단계가 끝날 때의 요청이 대신한다(사용자 승인으로 트리거만 옮김).
+        s.requestCatchUp()
         delay(150)
         coVerify(exactly = 0) { episodeRepository.getByStatus(any()) }
 

@@ -51,6 +51,10 @@
     <string name="splash_checking_model">Checking model status…</string>
     <string name="splash_file_found">Model file found. Preparing engine…</string>
     <string name="splash_preparing_engine">Waking up AI engine (~10 sec)…</string>
+    <string name="startup_waking">Waking up AI engine…</string>
+    <string name="startup_summarizing">Tidying up your last conversation…</string>
+    <string name="startup_briefing">Preparing today\'s briefing…</string>
+    <string name="startup_preparing">Getting the conversation ready…</string>
     <string name="splash_model_needed_body">AI model file not found. Please download it in Model Management.</string>
     <string name="splash_download_model">Download model</string>
     <string name="splash_engine_error_title">Couldn\'t start AI engine</string>

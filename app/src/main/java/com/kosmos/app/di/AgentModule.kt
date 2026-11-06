@@ -1,6 +1,8 @@
 package com.kosmos.app.di
 
 import com.kosmos.app.assistant.orchestrator.AssistantOrchestrator
+import com.kosmos.app.assistant.startup.StartupCoordinator
+import com.kosmos.app.domain.startup.StartupProgress
 import com.kosmos.app.assistant.tool.AddMemoryToolExecutor
 import com.kosmos.app.assistant.tool.AddReminderToolExecutor
 import com.kosmos.app.assistant.tool.AddScheduleToolExecutor
@@ -29,6 +31,9 @@ import com.kosmos.app.assistant.tool.SearchDocumentsToolExecutor
 abstract class AgentModule {
     // [WHY] SendChatMessageUseCase(:domain) 가 AssistantOrchestrator(:app) 를 AssistantGateway 로 주입받는다 (ADR-034).
     @Binds abstract fun assistantGateway(o: AssistantOrchestrator): AssistantGateway
+
+    // [WHY] 화면·오케스트레이터는 시작 단계를 인터페이스로만 본다 — 단독 compose·수동 주입 테스트는 기본값 NONE (0.41.7 M2).
+    @Binds abstract fun startupProgress(c: StartupCoordinator): StartupProgress
 
     @Binds @IntoSet abstract fun addSchedule(executor: AddScheduleToolExecutor): ToolExecutor
     @Binds @IntoSet abstract fun getSchedule(executor: GetScheduleToolExecutor): ToolExecutor

@@ -8,7 +8,6 @@ import com.kosmos.app.domain.memory.EpisodeRepository
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.domain.model.EpisodeStatus
-import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.modelrunner.deferRestore
 import com.kosmos.app.domain.usecase.SummarizeEpisodeUseCase
@@ -37,9 +36,11 @@ import com.kosmos.app.core.common.AppError
  *
  * ### Key Flow
  * 1. [EpisodeBoundaryManager.closedEpisodes] 를 구독해 지연 큐에 쌓는다.
- * 2. [onTurnCompleted] (오케스트레이터가 턴 종료 후 호출) 와 모델 Ready 뒤, **조용해지면**([SummaryQuietDelay] — 그 사이 [onUserActivity]
- *    가 오면 다시 센다) 큐를 비운다(0.39.1).
- * 3. 모델 Ready 뒤 조용해지면 catch-up — 강제종료로 못 닫은 OPEN·미배정 메시지·미요약 CLOSED 복구.
+ * 2. [onTurnCompleted] (오케스트레이터가 턴 종료 후 호출) 와 시작 단계가 끝난 뒤([requestCatchUp]), **조용해지면**([SummaryQuietDelay] — 그 사이
+ *    [onUserActivity] 가 오면 다시 센다) 큐를 비운다(0.39.1).
+ * 3. 시작 단계([com.kosmos.app.assistant.startup.StartupCoordinator])가 엔진 Ready 뒤 [summarizeLatestStale] 로 **가장 최근** 지난 에피소드 하나를
+ *    바로 요약하고(채팅을 열기 전, 진행 문구를 보이며 — 0.41.7 M2), 끝나면 [requestCatchUp] — 강제종료로 못 닫은 OPEN·미배정 메시지·
+ *    남은 미요약 CLOSED·미뤄 둔 사실 추출을 조용해진 뒤 복구.
  *
  * [WHY] **계획의 "무활동 닫힘 = 즉시 실행"을 버리고 전부 턴 종료 후로 미룬다.** 무활동 경계는
  * 새 유저 메시지가 도착해야 감지되는데, 그 시점에 요약(oneShot 추론)을 바로 던지면
@@ -80,10 +81,11 @@ class EpisodeSummarizeScheduler @Inject constructor(
     private var pendingCatchUp = false
 
     /**
-     * 닫힘 방출과 Ready 편승 구독을 시작합니다 — KosmosApp.onCreate 가 부른다 (멱등).
+     * 닫힘 방출 구독을 시작합니다 — KosmosApp.onCreate 가 부른다 (멱등).
      *
      * [WHY] init 에서 구독하던 것을 옮겼다(AGENTS §2-④) — Orchestrator 를 주입받는 Hilt 테스트가
      * 주입만으로 catch-up·요약 추론을 돌렸다. MorningBriefingGenerator.start() 와 같은 형태.
+     * [WHY] 엔진 Ready 를 직접 구독하지 않는다(0.41.7 M2) — 시작 단계가 순서대로 부른다. 직접 구독하면 브리핑·미리 준비와 겹쳐 GPU 를 다툰다.
      */
     fun start() {
         if (!started.compareAndSet(false, true)) return
@@ -92,11 +94,35 @@ class EpisodeSummarizeScheduler @Inject constructor(
                 synchronized(deferred) { deferred.addLast(closed.episodeId) }
             }
         }
-        scope.launch {
-            modelRunner.loadState.collect { state ->
-                if (state is ModelLoadState.Ready) whenQuiet(catchUp = true)
-            }
+    }
+
+    /** 시작 단계가 끝났다 — 조용해지면 catch-up 과 드레인을 돌린다(예전의 Ready 편승 자리, 0.41.7 M2). */
+    fun requestCatchUp() = whenQuiet(catchUp = true)
+
+    /**
+     * 30분 넘게 쉰 OPEN 을 닫고, 끝난 지 30분 넘은 미요약 에피소드 중 **가장 최근 것 하나**를 지금 요약합니다 — 요약했으면 true.
+     *
+     * [WHY] 쉬었다 돌아온 첫 말 전에 앞 에피소드 요약이 있어야 지난 대화를 요약 한 줄로 실을 수 있다(0.41.7 M1 exp81 — 원문이면 걸린 물음을
+     * 이어받았다). 그래서 시작 단계(채팅을 열기 전, 진행 문구를 보이며)에서 하나만 한다 — 나머지와 사실 추출은 [requestCatchUp] 의 조용한 창으로.
+     * @param onStart 요약 추론 직전에 부른다 — 할 일이 없으면 부르지 않아 진행 문구가 깜빡이지 않는다.
+     */
+    suspend fun summarizeLatestStale(now: Long = System.currentTimeMillis(), onStart: () -> Unit = {}): Boolean = drainMutex.withLock {
+        closeStaleOpen(now)
+        // [WHY] 30분 넘게 지난 것만 — 대화 예산 리셋으로 방금 닫힌 에피소드까지 여기서 하면 잠깐 나갔다 와도 요약을 기다린다.
+        // 그런 것은 지금처럼 조용한 창에서 한다(지난 대화를 요약 한 줄로 바꾸는 것도 30분 기준이다).
+        val latest = (episodeRepository.getByStatus(EpisodeStatus.CLOSED) as? AppResult.Success)
+            ?.data.orEmpty()
+            .filter { now - (it.endAt ?: it.startAt) > EpisodeBoundaryManager.IDLE_BOUNDARY_MS }
+            .maxByOrNull { it.endAt ?: it.startAt }
+            ?: return@withLock false
+        onStart()
+        synchronized(deferred) { deferred.remove(latest.id) }
+        var summarized = false
+        modelRunner.deferRestore {
+            process(latest.id, now, userActivitySeq.get(), extract = false)
+            summarized = (episodeRepository.getById(latest.id) as? AppResult.Success)?.data?.status == EpisodeStatus.SUMMARIZED
         }
+        summarized
     }
 
     /** 오케스트레이터가 사용자 요청을 받자마자 호출 — 기다리던 요약을 미루고, 드레인이 항목 사이면 멈추게 한다. */
@@ -181,7 +207,10 @@ class EpisodeSummarizeScheduler @Inject constructor(
         }
     }
 
-    private suspend fun process(episodeId: String, now: Long, activityAtStart: Long): Boolean {
+    /**
+     * @param extract false 면 요약만 하고 사실 추출은 다음 조용한 창으로 미룬다 — 시작 단계는 채팅을 막고 있으므로 하나만 한다([summarizeLatestStale]).
+     */
+    private suspend fun process(episodeId: String, now: Long, activityAtStart: Long, extract: Boolean = true): Boolean {
         // [WHY] 발열 게이트 — 경고 온도(43°C) 이상이면 미룬다. 요약은 급하지 않은 추론이고,
         // 다음 드레인(턴 종료/Ready)에서 재시도된다.
         if (metricsCollector.shouldDeferBackgroundInference()) {
@@ -217,7 +246,7 @@ class EpisodeSummarizeScheduler @Inject constructor(
                 applyDocs(episode, result.data, now)
                 // [WHY] 요약 도중 사용자 요청이 들어왔으면 자동 추출은 다음 조용한 창으로 미룬다(0.39.4 M1).
                 // 이미 SUMMARIZED 로 바뀌었으므로 pendingExtractions 에 표시해 두어 다음 창에서 재요약 없이 추출만 돈다.
-                if (userActivitySeq.get() != activityAtStart) {
+                if (!extract || userActivitySeq.get() != activityAtStart) {
                     synchronized(deferred) {
                         pendingExtractions.add(episodeId)
                         if (episodeId !in deferred) deferred.addFirst(episodeId)
@@ -280,7 +309,7 @@ class EpisodeSummarizeScheduler @Inject constructor(
     }
 
     /**
-     * 강제종료 복구 — 앱 시작 후 모델 Ready 시 1회씩.
+     * 강제종료 복구 — 시작 단계가 끝난 뒤([requestCatchUp]) 조용해지면 1회씩.
      * ① 마지막 메시지가 30분 이상 과거인 OPEN → CLOSED
      * ② 미배정(episodeId NULL) 메시지 → 시간 간격으로 소급 에피소드 생성·배정
      * ③ 미요약 CLOSED → 큐 투입 (drain 이 이어서 처리)
@@ -288,6 +317,25 @@ class EpisodeSummarizeScheduler @Inject constructor(
     internal suspend fun catchUp(now: Long = System.currentTimeMillis()) {
 
         // ① 낡은 OPEN 닫기
+        closeStaleOpen(now)
+
+        // ② 미배정 메시지 소급 배정 — 최근 30분 이내 분은 건드리지 않는다 (지금 열리는
+        //    에피소드에 배정되는 중일 수 있는 불안정 구간).
+        val unassigned = (conversationRepository.getUnassigned() as? AppResult.Success)
+            ?.data.orEmpty()
+            .filter { now - it.createdAt > EpisodeBoundaryManager.IDLE_BOUNDARY_MS }
+        if (unassigned.isNotEmpty()) backfill(unassigned, now)
+
+        // ③ 미요약 CLOSED 큐 투입
+        val closed = (episodeRepository.getByStatus(EpisodeStatus.CLOSED) as? AppResult.Success)
+            ?.data.orEmpty()
+        synchronized(deferred) {
+            closed.forEach { if (it.id !in deferred) deferred.addLast(it.id) }
+        }
+    }
+
+    /** 마지막 메시지가 30분 넘게 지난 OPEN 을 닫는다(내용 없으면 지운다). */
+    private suspend fun closeStaleOpen(now: Long) {
         val open = (episodeRepository.getByStatus(EpisodeStatus.OPEN) as? AppResult.Success)
             ?.data.orEmpty()
         for (ep in open) {
@@ -307,20 +355,6 @@ class EpisodeSummarizeScheduler @Inject constructor(
                         )
                     )
             }
-        }
-
-        // ② 미배정 메시지 소급 배정 — 최근 30분 이내 분은 건드리지 않는다 (지금 열리는
-        //    에피소드에 배정되는 중일 수 있는 불안정 구간).
-        val unassigned = (conversationRepository.getUnassigned() as? AppResult.Success)
-            ?.data.orEmpty()
-            .filter { now - it.createdAt > EpisodeBoundaryManager.IDLE_BOUNDARY_MS }
-        if (unassigned.isNotEmpty()) backfill(unassigned, now)
-
-        // ③ 미요약 CLOSED 큐 투입
-        val closed = (episodeRepository.getByStatus(EpisodeStatus.CLOSED) as? AppResult.Success)
-            ?.data.orEmpty()
-        synchronized(deferred) {
-            closed.forEach { if (it.id !in deferred) deferred.addLast(it.id) }
         }
     }
 

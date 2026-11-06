@@ -54,6 +54,10 @@
     <string name="splash_checking_model">모델 상태를 확인하고 있어요…</string>
     <string name="splash_file_found">모델 파일을 찾았어요. 엔진을 준비하고 있어요…</string>
     <string name="splash_preparing_engine">AI 엔진을 깨우는 중이에요 (10초 정도)…</string>
+    <string name="startup_waking">AI 엔진을 깨우는 중이에요…</string>
+    <string name="startup_summarizing">지난 대화를 정리하는 중이에요…</string>
+    <string name="startup_briefing">오늘 브리핑을 준비하는 중이에요…</string>
+    <string name="startup_preparing">대화를 준비하는 중이에요…</string>
     <string name="splash_model_needed_body">AI 모델 파일이 없어요. 모델 관리에서 내려받아 주세요.</string>
     <string name="splash_download_model">모델 내려받기</string>
     <string name="splash_engine_error_title">AI 엔진을 올리지 못했어요</string>

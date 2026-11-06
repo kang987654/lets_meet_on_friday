@@ -13,7 +13,6 @@ import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.model.EpisodeStatus
 import com.kosmos.app.domain.model.InputType
 import com.kosmos.app.domain.model.ScheduleData
-import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.modelrunner.deferRestore
 import com.kosmos.app.domain.usecase.GenerateBriefingUseCase
@@ -43,7 +42,7 @@ import com.kosmos.app.work.briefingTriggerMs
 
 /**
  * [MorningBriefingGenerator]
- * 아침 브리핑 본문을 **엔진 Ready 시점에 편승해** 생성하고 타임라인에 비서 메시지로
+ * 아침 브리핑 본문을 **엔진 Ready 뒤 시작 단계에서**(0.41.7 M2) 생성하고 타임라인에 비서 메시지로
  * 저장합니다 (expand.md A4·A4+ — 하이브리드 결정: 정시 알림은 미리보기, 본문은 여기).
  *
  * ### Architecture Context
@@ -95,11 +94,12 @@ class MorningBriefingGenerator @Inject constructor(
         AssistantMessageWriter(conversationRepository, auditTrailService)
 
     /**
-     * Ready 편승 구독을 시작합니다 — KosmosApp.onCreate 가 부른다 (멱등).
+     * 알림 예약을 확인합니다 — KosmosApp.onCreate 가 부른다 (멱등).
      *
-     * [WHY] init 에서 구독하면 Hilt 테스트가 ChatViewModel 에 주입하는 것만으로 백그라운드
-     * 추론이 돌 수 있다 — 테스트 실행 시각(09:17 전/후)에 따라 결과가 갈리는 최악의 플레이크.
+     * [WHY] init 에서 하지 않는다 — Hilt 테스트가 ChatViewModel 에 주입하는 것만으로 백그라운드 일이 돌 수 있다.
      * 명시적 start() 는 HiltTestApplication 에서는 불리지 않아 테스트가 자동으로 격리된다.
+     * [WHY] 생성은 엔진 Ready 를 직접 구독하지 않고 시작 단계([com.kosmos.app.assistant.startup.StartupCoordinator])가 [maybeGenerate] 를
+     * 부른다(0.41.7 M2) — 채팅을 열기 전에 진행 문구를 보이며 하고, 요약·미리 준비와 GPU 를 다투지 않게 순서를 정한다.
      */
     fun start() {
         if (!started.compareAndSet(false, true)) return
@@ -109,19 +109,16 @@ class MorningBriefingGenerator @Inject constructor(
                 notificationScheduler.ensureScheduled(settingsDataStore.briefingTimeMinutesFlow.first())
             }
         }
-        scope.launch {
-            modelRunner.loadState.collect { state ->
-                if (state is ModelLoadState.Ready) {
-                    runCatching { maybeGenerate() }
-                        .onFailure { AppLogger.e(TAG, "브리핑 생성 실패", it) }
-                }
-            }
-        }
     }
 
+    /**
+     * 오늘 브리핑이 아직 없고 시각이 지났으면 만들어 저장합니다.
+     *
+     * @param onStart 생성 추론 직전에 부른다 — 만들 게 없으면 부르지 않아 시작 단계 문구가 깜빡이지 않는다.
+     */
     // [WHY] now 를 인자로 받는다 — 판정이 벽시계에 묶이면 테스트가 실행 시각(09:17 전/후)에
     // 따라 갈리는 플레이크가 된다 (EpisodeBoundaryManager.onUserMessage 의 fake clock 전례).
-    internal suspend fun maybeGenerate(now: Long = System.currentTimeMillis()) = mutex.withLock {
+    internal suspend fun maybeGenerate(now: Long = System.currentTimeMillis(), onStart: () -> Unit = {}) = mutex.withLock {
         val zone = ZoneId.systemDefault()
 
         val enabled = settingsDataStore.briefingEnabledFlow.first()
@@ -142,6 +139,7 @@ class MorningBriefingGenerator @Inject constructor(
         }
 
         val materials = collectMaterials(zone, now)
+        onStart()
         // [WHY] Ready 편승으로 함께 깨어난 ConversationPrewarmer 가 DB 저장 전 기록으로 대화를 미리 만들지 않게 먼저 멈춘다 (0.40.6 M1).
         conversationPrewarmer.onUserActivity()
         // [WHY] 브리핑 추론(oneShot) 직후 어차피 invalidateConversation 으로 대화 캐시를 비우므로,

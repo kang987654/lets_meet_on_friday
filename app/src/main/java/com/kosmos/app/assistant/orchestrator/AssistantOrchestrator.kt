@@ -19,6 +19,7 @@ import com.kosmos.app.assistant.episode.EpisodeSummarizeScheduler
 import com.kosmos.app.domain.usecase.TranscribeAudioUseCase
 import com.kosmos.app.platform.document.LibraryEmbedder
 import com.kosmos.app.platform.memory.MemoryEmbedder
+import com.kosmos.app.domain.startup.StartupProgress
 
 /**
  * [AssistantOrchestrator]
@@ -47,7 +48,8 @@ class AssistantOrchestrator @Inject constructor(
     private val memoryCleanupRunner: MemoryCleanupRunner,
     private val libraryEmbedder: LibraryEmbedder,
     private val memoryEmbedder: MemoryEmbedder,
-    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO,
+    private val startupProgress: StartupProgress = StartupProgress.NONE
 ) : AssistantGateway {
     private val messageWriter = AssistantMessageWriter(conversationRepository, auditTrailService)
 
@@ -61,6 +63,8 @@ class AssistantOrchestrator @Inject constructor(
         // [WHY] 보관함 뜻 벡터 만들기가 돌고 있으면 멈춘다 — 답이 끝나면 이어 간다(0.41.2, 채팅 중 연산 경합 방지).
         libraryEmbedder.onUserActivity()
         memoryEmbedder.onUserActivity()
+        // [WHY] 엔진 Ready 뒤의 시작 단계가 아직 돌고 있으면 남은 단계(브리핑·미리 준비)를 건너뛴다 — 이 턴이 대화를 직접 만든다(0.41.7 M2).
+        startupProgress.onUserActivity()
         // 1. 음성이면 먼저 전사한다.
         //
         // [WHY] 예전에는 사용자 메시지를 `"(음성 메시지)"` 로 저장하고 오디오를 그대로 대화에

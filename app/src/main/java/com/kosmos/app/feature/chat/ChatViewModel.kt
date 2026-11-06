@@ -41,6 +41,7 @@ import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.assistant.briefing.MorningBriefingGenerator
 import com.kosmos.app.assistant.orchestrator.ConversationPrewarmer
 import com.kosmos.app.core.common.CurrentLanguage
+import com.kosmos.app.domain.startup.StartupProgress
 import com.kosmos.app.domain.memory.EpisodeRepository
 import com.kosmos.app.domain.memory.ProfileSuggestionRepository
 import com.kosmos.app.domain.util.IsoDateTimeParser
@@ -82,7 +83,8 @@ class ChatViewModel @Inject constructor(
     private val suggestionResolver: ProfileSuggestionResolver,
     private val speechOutput: SpeechOutput,
     private val conversationPrewarmer: ConversationPrewarmer,
-    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
+    private val currentLanguage: CurrentLanguage = CurrentLanguage.KO,
+    private val startupProgress: StartupProgress = StartupProgress.NONE
 ) : ViewModel() {
 
     /** 녹음 중 소리 크기(0..1) — 입력바 파형(0.38.4 M5). */
@@ -313,6 +315,11 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             modelRunner.loadState.collectLatest { state ->
                 _uiState.update { it.copy(engineState = state) }
+            }
+        }
+        viewModelScope.launch {
+            startupProgress.stage.collectLatest { stage ->
+                _uiState.update { it.copy(startupStage = stage) }
             }
         }
     }

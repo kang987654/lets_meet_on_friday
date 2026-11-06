@@ -4,6 +4,7 @@ import com.kosmos.app.core.common.AppError
 import com.kosmos.app.assistant.approval.ApprovalRequest
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ModelLoadState
+import com.kosmos.app.domain.startup.StartupStage
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import com.kosmos.app.domain.model.ProfileSuggestion
@@ -23,6 +24,8 @@ data class ChatUiState(
     val streamingThinking: String? = null,
     val warningMessage: String? = null,
     val engineState: ModelLoadState = ModelLoadState.Loading,
+    /** 엔진 Ready 뒤 시작 단계(0.41.7 M2) — 돌고 있으면 머리글 캡슐이 진행 문구를 보인다. */
+    val startupStage: StartupStage = StartupStage.IDLE,
     val isRecording: Boolean = false,
     /** 위젯 🎤·QS 타일 진입 — 화면이 권한 게이트를 지나 녹음을 자동 시작한 뒤 소비한다 (A3). */
     val pendingVoiceStart: Boolean = false,
