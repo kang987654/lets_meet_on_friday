@@ -360,6 +360,7 @@ fun ChatScreen(
         bottomBar = {
             val recordingLevel by viewModel.recordingLevel.collectAsStateWithLifecycle()
             ChatInputBar(
+                preparingHint = startupHintRes(uiState.engineState, uiState.startupStage)?.let { stringResource(it) },
                 isLoading = uiState.isInFlight,
                 isRecording = uiState.isRecording,
                 recordingLevel = { recordingLevel },

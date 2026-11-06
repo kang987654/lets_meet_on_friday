@@ -258,6 +258,16 @@ internal fun engineProblem(
     else -> null
 }
 
+/**
+ * 엔진을 올리거나 시작 단계가 도는 동안의 진행 문구 — 머리글 캡슐과 잠긴 입력바가 같은 말을 쓴다(0.41.7 M2). 돌고 있지 않으면 null.
+ */
+@androidx.annotation.StringRes
+internal fun startupHintRes(engineState: ModelLoadState, stage: StartupStage): Int? = when {
+    !stage.running -> null
+    engineState !is ModelLoadState.Ready -> R.string.startup_waking
+    else -> startupStatusRes(stage)
+}
+
 internal enum class CapsuleTone { NORMAL, WARNING, DANGER }
 
 /** 헤더 캡슐의 글자·색·아이콘. */
@@ -297,9 +307,7 @@ internal fun capsuleContent(
             CapsuleTone.WARNING,
             R.drawable.ic_ph_warning
         )
-        startupStage.running && engineState !is ModelLoadState.Ready ->
-            CapsuleContent(context.getString(R.string.startup_waking), CapsuleTone.NORMAL, null)
-        startupStage.running -> startupStatusRes(startupStage)?.let {
+        startupStage.running -> startupHintRes(engineState, startupStage)?.let {
             CapsuleContent(context.getString(it), CapsuleTone.NORMAL, null)
         }
         else -> formatStatusCapsule(status).takeIf { it.isNotEmpty() }?.let {

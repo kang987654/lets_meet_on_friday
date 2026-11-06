@@ -78,9 +78,14 @@ fun ChatInputBar(
     // 녹음 중 소리 크기(0..1) — 파형(0.38.4 M5). 기본값은 E2E 계약(단독 compose) 때문에.
     recordingLevel: () -> Float = { 0f },
     // 글자가 바뀔 때(커서 이동 제외) — 다음 턴 대화 미리 준비를 입력이 멎을 때까지 미룬다(0.40.7). 기본값은 E2E 계약(단독 compose).
-    onTyping: () -> Unit = {}
+    onTyping: () -> Unit = {},
+    // 엔진을 다시 올리거나 시작 단계(정리·브리핑·대화 준비)가 도는 동안의 이유 — 있으면 입력을 잠그고 그 자리에 보인다(0.41.7 M2).
+    // [WHY] 그동안 GPU 가 수 초씩 붙잡혀 입력하면 화면이 0.8~0.9초씩 멈췄다(M0 실기기). 복귀마다 화면 전체를 막지는 않고(사용자 결정 B)
+    // 지난 대화는 읽을 수 있게 입력만 잠근다. 기본값은 E2E 계약(단독 compose) 때문에 필수다.
+    preparingHint: String? = null
 ) {
     var textState by remember { mutableStateOf(TextFieldValue("")) }
+    val locked = isLoading || preparingHint != null
 
     LaunchedEffect(sharedInput) {
         if (sharedInput is SharedInput.Text) {
@@ -143,13 +148,13 @@ fun ChatInputBar(
         ) {
             IconButton(
                 onClick = { onAttachClick() },
-                enabled = !isLoading,
+                enabled = !locked,
                 modifier = Modifier.size(width = 40.dp, height = 48.dp)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_ph_paperclip),
                     contentDescription = "Attach",
-                    tint = if (!isLoading) KosmosTheme.colors.textSecondary else KosmosTheme.colors.textMuted,
+                    tint = if (!locked) KosmosTheme.colors.textSecondary else KosmosTheme.colors.textMuted,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -182,6 +187,7 @@ fun ChatInputBar(
                         text = when {
                             isRecording -> stringResource(R.string.chat_listening_hint)
                             isLoading -> stringResource(R.string.chat_writing_reply_hint)
+                            preparingHint != null -> preparingHint
                             else -> stringResource(R.string.chat_input_hint)
                         },
                         color = if (isRecording) KosmosTheme.colors.textSecondary else KosmosTheme.colors.textMuted,
@@ -200,7 +206,7 @@ fun ChatInputBar(
                     textStyle = MaterialTheme.typography.bodyMedium.copy(color = KosmosTheme.colors.textPrimary),
                     cursorBrush = SolidColor(KosmosTheme.colors.brand),
                     // [WHY] 녹음 중 글자를 입력하면 전송 버튼으로 바뀌어 진행 중인 녹음이 조용히 버려진다 — 녹음 중에는 입력란을 잠근다(0.40.2 M3-9, 결정 D2).
-                    enabled = !isLoading && !isRecording,
+                    enabled = !locked && !isRecording,
                     maxLines = 5
                 )
             }
@@ -246,7 +252,7 @@ fun ChatInputBar(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(androidx.compose.foundation.shape.CircleShape)
-                            .clickable(enabled = !isLoading, role = androidx.compose.ui.semantics.Role.Button) {
+                            .clickable(enabled = !locked, role = androidx.compose.ui.semantics.Role.Button) {
                                 onSend(textState.text)
                                 textState = TextFieldValue("")
                             }
@@ -271,7 +277,7 @@ fun ChatInputBar(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(androidx.compose.foundation.shape.CircleShape)
-                            .clickable(enabled = !isLoading, role = androidx.compose.ui.semantics.Role.Button) { onMicClick() }
+                            .clickable(enabled = !locked, role = androidx.compose.ui.semantics.Role.Button) { onMicClick() }
                             .padding(4.dp)
                             .clip(androidx.compose.foundation.shape.CircleShape)
                             .background(micBg)
