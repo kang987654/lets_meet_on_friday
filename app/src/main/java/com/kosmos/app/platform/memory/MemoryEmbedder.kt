@@ -3,6 +3,7 @@ package com.kosmos.app.platform.memory
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.logging.AppLogger
+import com.kosmos.app.domain.input.InputActivity
 import com.kosmos.app.domain.library.EmbedderProvider
 import com.kosmos.app.domain.library.Int8Vector
 import com.kosmos.app.domain.memory.MemoryVectorRepository
@@ -47,6 +48,8 @@ class MemoryEmbedder @Inject constructor(
     // [WHY] 발열이면 묶음 사이에서 쉰다(0.41.6 M3) — 요약·추출·브리핑·정리와 같은 판정이다(LibraryEmbedder 와 같은 결).
     // 기기 온도 판정이 없으면(null — 테스트·기존 생성부) 쉬지 않는다(지금 동작).
     private val metrics: RuntimeMetricsCollector? = null,
+    // [WHY] 묶음 사이에서 입력이 멎기를 기다린다(0.41.7 M3) — 입력과 GPU 를 다투면 화면이 멈췄다(M0).
+    private val inputActivity: InputActivity = InputActivity(),
     // [WHY] 임베더는 맨 뒤 — 테스트가 끝 람다로 넘긴다.
     private val embedders: EmbedderProvider
 ) {
@@ -87,6 +90,20 @@ class MemoryEmbedder @Inject constructor(
     fun onBackground() {
         foreground = false
         stop()
+    }
+
+    /**
+     * 방금 생긴 기억(요약된 지난 대화)의 벡터를 **지금** 만든다 — 요약 바로 뒤 같은 흐름에서 부른다(0.41.7 M3). 끝날 때까지 기다린다.
+     *
+     * [WHY] 예전에는 다음 답 끝 15초 뒤에야 만들어, 그때 입력하면 임베딩 엔진을 올리는 GPU 일과 다퉜다(M0). 요약은 이미 조용한 때(또는 채팅을 열기 전)
+     * 돌고 있으니 거기에 붙인다. 한 번도 준비하지 않았으면(벡터 0) 하지 않는다 — 처음은 사용자가 버튼으로(0.41.3 Q2). 자동 준비가 돌고 있으면 맡긴다.
+     */
+    suspend fun prepareNewNow() {
+        val embedder = embedders.current() ?: return
+        if (job?.isActive == true) return
+        val status = (repository.status(embedder.modelId) as? AppResult.Success)?.data ?: return
+        if (status.embedded == 0 || status.pending == 0) return
+        drain()
     }
 
     /** 채팅이 시작됐다 — 하던 일과 기다리던 일을 멈춘다. */
@@ -138,6 +155,7 @@ class MemoryEmbedder @Inject constructor(
                 AppLogger.w(TAG, "발열로 기억 뜻 검색 준비를 쉼 — ${thermalRecheckMs / 1000}초 뒤 다시 봄")
                 while (metrics.shouldDeferBackgroundInference()) delay(thermalRecheckMs)
             }
+            inputActivity.awaitQuiet()
             val vectors = embedder.embedDocuments(batch.map { it.input }) ?: return failed("임베딩 실패")
             currentCoroutineContext().ensureActive()
             if (vectors.size != batch.size) return failed("임베딩 수 불일치")

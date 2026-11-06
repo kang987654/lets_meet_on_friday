@@ -16,6 +16,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -34,8 +35,10 @@ import java.util.concurrent.CopyOnWriteArrayList
 class StartupCoordinatorTest {
 
     private val loadState = MutableStateFlow<ModelLoadState>(ModelLoadState.Loading)
+    private val restoreNeeded = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
     private val runner: ModelRunner = mockk<ModelRunner>(relaxed = true).also {
         every { it.loadState } returns (loadState as StateFlow<ModelLoadState>)
+        every { it.conversationRestoreNeeded } returns restoreNeeded
     }
     private val stagesSeen = CopyOnWriteArrayList<StartupStage>()
     private lateinit var coordinator: StartupCoordinator
@@ -136,6 +139,16 @@ class StartupCoordinatorTest {
         awaitStage(StartupStage.DONE)
 
         assertEquals(listOf(StartupStage.PREPARING), stagesSeen.toList())
+    }
+
+    @Test
+    fun `부수 추론 뒤 복원 신호가 오면 대화 미리 준비에 맡긴다(0·41·7 M3)`() = runBlocking {
+        coordinator().start()
+        delay(100)
+
+        restoreNeeded.emit(Unit)
+
+        coVerify(timeout = 2_000) { prewarmer.afterTurn("s1") }
     }
 
     @Test

@@ -39,6 +39,7 @@ import javax.inject.Singleton
  * 1. 엔진을 올리는 중이면 [StartupStage.WAITING_ENGINE], 오류·모델 없음이면 [StartupStage.IDLE](화면은 엔진 상태로 안내).
  * 2. Ready → ① 30분 넘게 쉰 가장 최근 에피소드 하나 요약(있을 때만) ② 오늘 브리핑(아직 없을 때만) ③ 대화 미리 준비 → [StartupStage.DONE].
  * 3. 끝나면 남은 catch-up(밀린 요약·사실 추출)을 조용한 창에 맡긴다([EpisodeSummarizeScheduler.requestCatchUp]).
+ *    부수 추론 뒤 복원 신호([ModelRunner.conversationRestoreNeeded])가 오면 대화 미리 준비를 건다(입력이 멎은 뒤, 0.41.7 M3).
  * 4. 그 사이 사용자가 요청을 보내면([onUserActivity]) 남은 단계를 건너뛴다 — 엔진 안에서 도는 일은 끝까지 간다(0.38.6 결함 경로).
  *
  * [WHY] 셋을 각자 Ready 에 편승시키면 채팅이 열린 뒤 GPU 를 수 초씩 붙잡아 입력이 0.8~0.9초씩 멈췄다(0.41.7 M0 실기기 — 요약 약 7초, 미리 준비 약 7초).
@@ -78,6 +79,14 @@ class StartupCoordinator @Inject constructor(
     fun start() {
         if (!started.compareAndSet(false, true)) return
         scope.launch { modelRunner.loadState.collect { onLoadState(it) } }
+        // [WHY] 부수 추론(요약·추출·정리) 뒤 채팅 대화를 되살리는 일을 대화 미리 준비 하나로 맡긴다(0.41.7 M3) — 입력이 멎은 뒤에만 돌아
+        // 입력과 GPU 를 다투지 않는다. 예전에는 oneShot 직후 엔진이 바로 되살렸다(실기기 3.3~3.5초).
+        scope.launch {
+            modelRunner.conversationRestoreNeeded.collect {
+                val sessionId = sessionStore.activeSessionIdFlow.first() ?: return@collect
+                prewarmer.afterTurn(sessionId)
+            }
+        }
     }
 
     internal fun onLoadState(state: ModelLoadState) {

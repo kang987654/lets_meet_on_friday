@@ -31,6 +31,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -148,20 +149,18 @@ class GemmaModelRunner @Inject constructor(
         deferRestoreDepth.incrementAndGet()
     }
 
+    // [WHY] 복원 자체는 여기서 하지 않는다(0.41.7 M3) — 묶음이 끝까지 돌았으면 신호만 보내 대화 미리 준비가 입력이 멎은 뒤 되살린다.
+    // 취소·중단된 묶음은 신호를 보내지 않지만 표시는 남아, 다음 미리 준비나 다음 채팅 턴이 치른다.
     override suspend fun endDeferRestore(restore: Boolean) {
         val depth = deferRestoreDepth.decrementAndGet().coerceAtLeast(0)
         if (depth > 0) return
-        val needRestore = pendingConversationRestore
-        pendingConversationRestore = false
-        if (!restore || !needRestore || conversationStale || loadState.value !is ModelLoadState.Ready) return
-        withContext(llmDispatcher) {
-            lifecycleMutex.withLock {
-                if (!conversationStale && loadState.value is ModelLoadState.Ready) {
-                    conversation?.let { runCatching { it.getTokenCount() } }
-                }
-            }
+        if (restore && pendingConversationRestore && !conversationStale && loadState.value is ModelLoadState.Ready) {
+            _conversationRestoreNeeded.tryEmit(Unit)
         }
     }
+
+    private val _conversationRestoreNeeded = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    override val conversationRestoreNeeded: Flow<Unit> = _conversationRestoreNeeded
 
     // [WHY] 지금 send 중인 대화(캐시 채팅이든 oneShot 이든)와 사용자 취소. cancel() 은 뮤텍스 밖에서 불린다.
     private val cancellation = TurnCancellation<Conversation> { it.cancelProcess() }
@@ -292,6 +291,8 @@ class GemmaModelRunner @Inject constructor(
                 val startTime = System.currentTimeMillis()
 
                 val currentConversation = getOrCreateConversation(readyEngine, prompt)
+                // [WHY] 채팅 턴의 첫 send 가 대화 상태를 다시 올린다 — 미뤄 둔 복원은 이제 필요 없다(0.41.7 M3).
+                if (!prompt.oneShot) pendingConversationRestore = false
                 val outgoing = buildMessage(prompt, extraContents())
                 cancellation.begin(currentConversation)
                 var userCancelled = false
@@ -407,14 +408,12 @@ class GemmaModelRunner @Inject constructor(
                     if (prompt.oneShot) {
                         runCatching { currentConversation.close() }
                         // [WHY] 부수 대화를 돌리면 엔진이 채팅 대화 상태를 다시 올리는 비용이 그 대화의 첫 호출에 붙는다(exp65: PC 1.1초,
-                        // 실기기 3.3~3.5초 — 0.39.0 M1). 다음 사용자 턴에서 치르지 않게 지금 한 번 불러 되살려 둔다. 단, deferRestore 묶음 안이면
-                        // 중간 복원을 건너뛰고 묶음 끝(endDeferRestore)에서 한 번만 복원한다(0.40.6 M3, exp73 defer).
+                        // 실기기 3.3~3.5초 — 0.39.0 M1). 다음 사용자 턴에서 치르지 않게 미리 되살려 두되, **지금 바로 하지 않는다** —
+                        // 입력과 상관없이 GPU 를 3초 넘게 붙잡아 입력이 멈췄다(0.41.7 M0). 표시만 남기고 신호를 보내면 대화 미리 준비가
+                        // 입력이 멎은 뒤 [prepareConversation] 에서 되살린다(0.41.7 M3). deferRestore 묶음 안이면 묶음 끝에 한 번만 신호.
                         if (!conversationStale && conversation != null) {
-                            if (deferRestoreDepth.get() > 0) {
-                                pendingConversationRestore = true
-                            } else {
-                                conversation?.let { runCatching { it.getTokenCount() } }
-                            }
+                            pendingConversationRestore = true
+                            if (deferRestoreDepth.get() == 0) _conversationRestoreNeeded.tryEmit(Unit)
                         }
                     } else if (turnFailed || userCancelled || watchdog.timedOut) {
                         // [WHY] 취소를 맞은 대화는 이후 send 가 전부 즉시 "Task cancelled" 다(exp57 A, 0.38.6 M0 실기기 결함).
@@ -445,7 +444,18 @@ class GemmaModelRunner @Inject constructor(
                 // [WHY] 마지막 비서 답을 빼고 만든 뒤 모델 메시지로 보낸다 — 대화 생성은 문법 준비뿐이고 히스토리는 첫 send 에서 읽히므로(exp66b),
                 // 이 send 가 프리필을 지금 치른다. 출력 상한 1 이라 한 토큰 쓰고 멈춘다(그 한 토큰은 KV 에 남는다 — 회귀 세트로 확인, exp66d·e).
                 val built = getOrCreateConversation(readyEngine, if (last != null) prompt.copy(history = prompt.history.dropLast(1)) else prompt)
-                if (built === before || last == null) return@withLock
+                if (built === before) {
+                    // [WHY] 그대로 쓸 대화인데 부수 추론(oneShot)이 엔진을 썼으면 지금 대화 상태를 되살린다 — 다음 질문이 3초 넘게 치르지 않게.
+                    // 미리 준비는 입력이 멎은 뒤에만 돌므로 이 GPU 일도 입력과 겹치지 않는다(0.41.7 M3, 예전에는 oneShot 직후 바로 했다).
+                    if (pendingConversationRestore) {
+                        runCatching { built.getTokenCount() }
+                        pendingConversationRestore = false
+                        Log.d("GemmaModelRunner", "대화 복원(미리 준비)")
+                    }
+                    return@withLock
+                }
+                pendingConversationRestore = false
+                if (last == null) return@withLock
                 cancellation.begin(built)
                 val sent = runCatching {
                     built.sendMessage(Message.model(Contents.of(Content.Text(last.content))), thinkingConfig = THINKING_OFF, maxOutputToken = PREFILL_ONLY_TOKENS)

@@ -25,6 +25,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.kosmos.app.assistant.cleanup.BackgroundInferenceGate
 import com.kosmos.app.core.common.AppError
+import com.kosmos.app.domain.input.InputActivity
+import com.kosmos.app.platform.memory.MemoryEmbedder
 
 /**
  * [EpisodeSummarizeScheduler]
@@ -63,7 +65,11 @@ class EpisodeSummarizeScheduler @Inject constructor(
     private val modelRunner: ModelRunner,
     private val factExtractor: EpisodeFactExtractor,
     private val inferenceGate: BackgroundInferenceGate,
-    private val quiet: SummaryQuietDelay
+    private val quiet: SummaryQuietDelay,
+    // [WHY] 드레인 항목(요약·사실 추출)을 시작하기 전에 입력이 멎기를 기다린다(0.41.7 M3) — 조용한 60초가 지나도 입력 중이면 GPU 를 다퉜다(M0).
+    private val inputActivity: InputActivity = InputActivity(),
+    // [WHY] 요약이 끝나면 그 기억의 뜻 벡터를 같은 흐름에서 만든다(0.41.7 M3) — null 이면(테스트) 하지 않는다.
+    private val memoryEmbedder: MemoryEmbedder? = null
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -184,6 +190,7 @@ class EpisodeSummarizeScheduler @Inject constructor(
         // [WHY] 에피소드 요약·사실 추출이 연속으로 돌 때 매 oneShot 마다 채팅 대화를 복원하지 않고 드레인이 끝날 때 한 번만 복원한다 (0.40.6 M3, exp73 defer).
         modelRunner.deferRestore {
             for (i in batch.indices) {
+                inputActivity.awaitQuiet()
                 // [WHY] 드레인이 요약 → 자동 추출 → 다음 에피소드를 연달아 돌아 그사이 들어온 질문이 기다렸다(0.39.1 M3·0.39.4 M0).
                 // 돌고 있는 추론은 취소하지 않되(0.38.6 결함 경로), 항목 사이·추출 전에 새 요청이 있었으면 남은 항목을 큐 앞쪽으로 되돌리고 멈춘다.
                 if (userActivitySeq.get() != activityAtStart) {
@@ -244,6 +251,8 @@ class EpisodeSummarizeScheduler @Inject constructor(
         when (val result = summarizeEpisode(messages)) {
             is AppResult.Success -> {
                 applyDocs(episode, result.data, now)
+                runCatchingCancellable { memoryEmbedder?.prepareNewNow() }
+                    .onFailure { AppLogger.w(TAG, "요약 뒤 기억 벡터 실패(${episode.id}): ${it.message}") }
                 // [WHY] 요약 도중 사용자 요청이 들어왔으면 자동 추출은 다음 조용한 창으로 미룬다(0.39.4 M1).
                 // 이미 SUMMARIZED 로 바뀌었으므로 pendingExtractions 에 표시해 두어 다음 창에서 재요약 없이 추출만 돈다.
                 if (!extract || userActivitySeq.get() != activityAtStart) {
@@ -253,6 +262,7 @@ class EpisodeSummarizeScheduler @Inject constructor(
                     }
                     return true
                 }
+                inputActivity.awaitQuiet()
                 // [WHY] 자동 추출(C′2)은 요약 **성공 직후 같은 드레인**에서 1회 — 발열 게이트를
                 // 이미 지났고 llmDispatcher 경합도 없는 자리다. 실패·재시도 경로에서는 부르지
                 // 않는다(재시도마다 중복 추출 방지). 추출 실패는 요약 상태에 영향을 주지 않는다.

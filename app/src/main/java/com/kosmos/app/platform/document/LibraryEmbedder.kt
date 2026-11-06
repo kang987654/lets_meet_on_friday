@@ -3,6 +3,7 @@ package com.kosmos.app.platform.document
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.logging.AppLogger
+import com.kosmos.app.domain.input.InputActivity
 import com.kosmos.app.domain.library.EmbedderProvider
 import com.kosmos.app.domain.library.Int8Vector
 import com.kosmos.app.domain.library.LibraryRepository
@@ -46,6 +47,8 @@ class LibraryEmbedder @Inject constructor(
     // [WHY] 발열이면 묶음 사이에서 쉰다(0.41.6 M3) — 요약·추출·브리핑·정리와 같은 판정이다. 민법 한 권이면 GPU 를 약 49초 연속으로 쓴다.
     // 기기 온도 판정이 없으면(null — 테스트·기존 생성부) 쉬지 않는다(지금 동작).
     private val metrics: RuntimeMetricsCollector? = null,
+    // [WHY] 묶음 사이에서 입력이 멎기를 기다린다(0.41.7 M3) — 등록하자마자 채팅으로 가 입력하면 GPU 를 다퉈 화면이 멈췄다(M0). 시작은 그대로 바로.
+    private val inputActivity: InputActivity = InputActivity(),
     // [WHY] 임베더는 맨 뒤 — 테스트가 끝 람다로 넘긴다.
     private val embedders: EmbedderProvider
 ) {
@@ -154,6 +157,7 @@ class LibraryEmbedder @Inject constructor(
                 while (metrics.shouldDeferBackgroundInference()) delay(thermalRecheckMs)
                 _state.value = State.Running(done, maxOf(total, done))
             }
+            inputActivity.awaitQuiet()
             val vectors = embedder.embedDocuments(batch.map { it.input }) ?: return failed("임베딩 실패")
             currentCoroutineContext().ensureActive()
             if (vectors.size != batch.size) return failed("임베딩 수 불일치")

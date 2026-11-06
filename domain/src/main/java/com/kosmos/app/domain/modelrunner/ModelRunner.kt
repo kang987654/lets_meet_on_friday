@@ -1,7 +1,9 @@
 package com.kosmos.app.domain.modelrunner
 
 import com.kosmos.app.core.common.AppResult
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -66,15 +68,24 @@ interface ModelRunner {
     suspend fun prepareConversation(prompt: ChatPrompt) {}
 
     /**
-     * 연속된 `oneShot` 부수 추론 묶음 동안 매 호출 끝의 채팅 대화 복원(`getTokenCount`)을 미룹니다 (0.40.6 M3, exp73 defer).
+     * 연속된 `oneShot` 부수 추론 묶음 동안 매 호출 끝의 복원 신호([conversationRestoreNeeded])를 미룹니다 (0.40.6 M3, exp73 defer).
      */
     fun beginDeferRestore() {}
 
     /**
      * [beginDeferRestore] 로 시작한 묶음을 마칩니다. 중첩 깊이가 0 이 되고 [restore] 가 `true` 이며
-     * 그사이 `oneShot` 추론이 1회 이상 돌았으면(대화가 stale 이 아닐 때) 채팅 대화를 한 번 복원합니다.
+     * 그사이 `oneShot` 추론이 1회 이상 돌았으면(대화가 stale 이 아닐 때) [conversationRestoreNeeded] 를 한 번 보냅니다.
      */
     suspend fun endDeferRestore(restore: Boolean = true) {}
+
+    /**
+     * `oneShot` 부수 추론이 엔진을 써서 채팅 대화 상태를 다시 올려야 할 때 한 번씩 나는 신호 (0.41.7 M3).
+     *
+     * [WHY] 예전에는 oneShot 직후 바로 되살렸다(실기기 3.3~3.5초) — 입력과 상관없이 GPU 를 붙잡아 입력이 멈췄다(0.41.7 M0).
+     * 이제 신호만 보내고, 받는 쪽(시작 단계 코디네이터)이 대화 미리 준비를 걸어 입력이 멎은 뒤 [prepareConversation] 이 되살린다.
+     * 기본 구현은 신호가 없다 — 테스트 가짜 러너용.
+     */
+    val conversationRestoreNeeded: Flow<Unit> get() = emptyFlow()
 
     /**
      * 지금 채팅 대화가 KV 에 쓰고 있는 토큰 수 — 엔진·대화가 없거나 조회에 실패하면 null(0.41.6 M2, [com.kosmos.app.domain.agent.ToolKvBudget]).
@@ -85,7 +96,7 @@ interface ModelRunner {
 }
 
 /**
- * [block] 안의 연속된 `oneShot` 추론에서 매번 치르던 채팅 대화 복원(`getTokenCount`)을 묶음 끝 1회로 미룹니다 (0.40.6 M3).
+ * [block] 안의 연속된 `oneShot` 추론에서 매번 보내던 복원 신호를 묶음 끝 1회로 미룹니다 (0.40.6 M3 — 0.41.7 M3 부터 복원 자체는 대화 미리 준비가 한다).
  *
  * [WHY] `PlanMemoryMergeUseCase`·`EpisodeSummarizeScheduler` 처럼 어느 `oneShot` 호출이 마지막인지 미리 알 수 없는 배치에서
  * 유스케이스나 `ChatPrompt` 시그니처를 오염시키지 않고 호출부 스코프만으로 중간 복원을 생략한다 (exp73 defer: 3회 연속 시 복원 9.40s → 3.99s).

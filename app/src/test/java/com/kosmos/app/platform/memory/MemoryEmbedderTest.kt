@@ -3,6 +3,7 @@ package com.kosmos.app.platform.memory
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.library.Int8Vector
 import com.kosmos.app.domain.library.TextEmbedder
+import com.kosmos.app.domain.input.InputActivity
 import com.kosmos.app.domain.memory.MemorySemanticStatus
 import com.kosmos.app.domain.memory.MemoryVectorInput
 import com.kosmos.app.domain.memory.MemoryVectorKey
@@ -160,6 +161,46 @@ class MemoryEmbedderTest {
         embedder.prepareAll()
         delay(100)
         assertTrue("뜨거운 동안은 저장하지 않는다", repo.vectors.isEmpty())
+        waitUntil { repo.vectors.size == 20 }
+    }
+
+    // --- 0.41.7 M3 ---
+
+    @Test
+    fun `요약 바로 뒤에는 새 기억을 지금 만들고 끝날 때까지 기다린다`() = runBlocking {
+        val (repo, _, embedder) = setUp()
+        embedder.prepareAll()
+        waitUntil { repo.vectors.size == 20 }
+        withTimeout(5_000) { embedder.state.first { it == MemoryEmbedder.State.Idle } }
+
+        repo.add("summary")
+        embedder.prepareNewNow()
+
+        assertEquals("돌아올 때 이미 만들어져 있다", 21, repo.vectors.size)
+    }
+
+    @Test
+    fun `한 번도 준비하지 않았으면 요약 뒤에도 만들지 않는다`() = runBlocking {
+        val (repo, _, embedder) = setUp()
+
+        embedder.prepareNewNow()
+
+        assertTrue(repo.vectors.isEmpty())
+    }
+
+    @Test
+    fun `입력 중이면 다음 묶음을 시작하지 않고 입력이 멎으면 이어 간다`() = runBlocking {
+        val repo = FakeRepo().apply { (1..20).forEach { add("n$it") } }
+        val input = InputActivity()
+        val embedder = MemoryEmbedder(repo, null, input) { FakeEmbedder() }.apply { resumeDelayMs = 0 }
+        // 마지막 입력을 미래로 두어 입력 중으로 치고(녹음과 같은 꼴), 확인 뒤 되돌린다.
+        input.mark(System.currentTimeMillis() + 60_000)
+
+        embedder.prepareAll()
+        delay(300)
+        assertTrue("입력 중에는 저장하지 않는다", repo.vectors.isEmpty())
+
+        input.mark(0)
         waitUntil { repo.vectors.size == 20 }
     }
 }

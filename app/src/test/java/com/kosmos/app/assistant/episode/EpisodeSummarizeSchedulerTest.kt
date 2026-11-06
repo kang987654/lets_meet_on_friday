@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
+import com.kosmos.app.domain.input.InputActivity
+import com.kosmos.app.platform.memory.MemoryEmbedder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -125,6 +127,33 @@ class EpisodeSummarizeSchedulerTest {
         assertEquals(listOf("e2"), saved.filter { it.status == EpisodeStatus.SUMMARIZED }.map { it.id })
         coVerify(exactly = 1) { summarize(any()) }
         coVerify(exactly = 0) { factExtractor.extract(any(), any()) }
+    }
+
+    // --- 0.41.7 M3 ---
+
+    @Test
+    fun `드레인은 입력 중이면 요약을 시작하지 않고 입력이 멎으면 돌고 그 기억 벡터를 바로 만든다`() = runBlocking {
+        coEvery { episodeRepository.getById("e1") } returns AppResult.Success(closedEpisode())
+        coEvery { conversationRepository.getByEpisode("e1") } returns AppResult.Success(messages())
+        coEvery { summarize(any()) } returns AppResult.Success(listOf(doc()))
+        val input = InputActivity()
+        val memoryEmbedder: MemoryEmbedder = mockk(relaxed = true)
+        val s = EpisodeSummarizeScheduler(
+            episodeRepository, conversationRepository, summarize,
+            metricsCollector, boundaryManager, modelRunner, factExtractor,
+            BackgroundInferenceGate(), quiet(0), input, memoryEmbedder
+        ).also { it.start() }
+        input.mark(System.currentTimeMillis() + 60_000)
+
+        closed.emit(EpisodeBoundaryManager.ClosedEpisode("e1", EpisodeBoundaryManager.CloseTrigger.RESET))
+        delay(200)
+        s.onTurnCompleted()
+        delay(500)
+        assertTrue("입력 중에 요약이 돌았다", saved.none { it.status == EpisodeStatus.SUMMARIZED })
+
+        input.mark(0)
+        waitUntil { saved.any { it.status == EpisodeStatus.SUMMARIZED } }
+        coVerify(timeout = 2_000) { memoryEmbedder.prepareNewNow() }
     }
 
     @Test

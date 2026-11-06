@@ -5,12 +5,12 @@ import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.core.logging.AppLogger
+import com.kosmos.app.domain.input.InputActivity
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -39,6 +39,8 @@ import javax.inject.Singleton
 @Singleton
 class ConversationPrewarmer @Inject constructor(
     private val contextBuilder: ContextBuilder,
+    // [WHY] 입력 시각은 앱 공용([InputActivity], 0.41.7 M3) — 요약·추출·벡터 준비도 같은 판정을 본다. 에이전트는 맨 뒤(테스트가 끝 람다로 넘긴다).
+    private val inputActivity: InputActivity = InputActivity(),
     private val agent: Provider<KosmosAgent>
 ) {
     // [WHY] 미리 준비는 최선 노력이다 — 처리기가 없으면 준비 중 예외 하나가 기본 스레드 처리기로 가 앱을 죽인다.
@@ -48,7 +50,6 @@ class ConversationPrewarmer @Inject constructor(
     )
     private val lock = Any()
     private var job: Job? = null
-    @Volatile private var lastActivityAt = 0L
 
     // [WHY] 테스트가 기다림을 줄이는 손잡이 — Hilt 생성자에 Long 을 넣으면 바인딩이 필요해진다.
     internal var quietMs: Long = Constants.PREWARM_QUIET_MS
@@ -91,15 +92,11 @@ class ConversationPrewarmer @Inject constructor(
      * @param now 조용한 시간을 세기 시작할 시각. 녹음은 상한이 끝나는 시각을 넘겨 녹음 내내 미룬다.
      */
     fun onTyping(now: Long = System.currentTimeMillis()) {
-        lastActivityAt = now
+        inputActivity.mark(now)
     }
 
     private suspend fun awaitQuiet(turnEndedAt: Long) {
-        while (true) {
-            val remaining = quietRemainingMs(maxOf(turnEndedAt, lastActivityAt), System.currentTimeMillis(), quietMs)
-            if (remaining <= 0) return
-            delay(remaining)
-        }
+        inputActivity.awaitQuiet(quietMs, since = turnEndedAt)
     }
 
     private companion object {
