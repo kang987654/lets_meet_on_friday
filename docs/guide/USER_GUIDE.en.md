@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.41.4 · 2026-11-05. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.41.6 · 2026-11-06. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 KOSMOS is an AI assistant that runs entirely on your phone, with no server. Ask in plain language (Korean or English) and it creates calendar events,
 reminders and notes, and answers by searching your past conversations, notes and the documents you registered. It always asks for your confirmation before saving.
@@ -9,7 +9,7 @@ reminders and notes, and answers by searching your past conversations, notes and
 ## 1. Requirements
 | Item | Details |
 |---|---|
-| Device | Android 8.0 (API 26)+, 64-bit (arm64). **About 12 GB of RAM recommended** — it uses about 5 GB while running. Verified only on a Galaxy S25 Ultra |
+| Device | Android 8.0 (API 26)+, 64-bit (arm64). **About 12 GB of RAM recommended** — it uses about 6.5–7 GB while running. Verified only on a Galaxy S25 Ultra |
 | Storage | The model is about 3.6 GB — keep about 4 GB free before downloading. The optional meaning search model adds about 485 MB |
 | Network | Only for the first model download (Wi-Fi). Conversations work offline afterwards |
 | Language | **Korean & English** (switch in **Settings › Display › Language** or Android system per-app language settings) |

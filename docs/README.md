@@ -1,5 +1,5 @@
 # 문서 색인
-> 최종 수정 2026-10-29. 저장소 소개는 [루트 README](../README.md), 앱 사용법은 [사용 안내](guide/USER_GUIDE.md)([English](guide/USER_GUIDE.en.md)).
+> 최종 수정 2026-11-06. 저장소 소개는 [루트 README](../README.md), 앱 사용법은 [사용 안내](guide/USER_GUIDE.md)([English](guide/USER_GUIDE.en.md)).
 
 | 구분 | 문서 | 내용 |
 | :--- | :--- | :--- |
@@ -15,4 +15,4 @@
 | 문제 해결 | [trouble_shooting.md](trouble_shooting.md) | 빌드·Robolectric·네이티브 문제 |
 | 문서 작성 | [DOCUMENTATION_GUIDE.md](DOCUMENTATION_GUIDE.md) | 문서 형식 규칙 |
 | 내부 계약 | [api_spec.yaml](api_spec.yaml) | 유즈케이스·툴 계약(서버 없음) |
-| 기록용 | [tasks.md](tasks.md) · [ENGINEERING_EVALUATION.md](ENGINEERING_EVALUATION.md) · [INVESTOR_EVALUATION.md](INVESTOR_EVALUATION.md) · [nvidia_skills_analysis.md](nvidia_skills_analysis.md) · [archive/](archive) | 초기 태스크 분해·과거 평가·폐기된 규칙 — 현행 기준이 아니다 |
+| 기록용 | [tasks.md](tasks.md) · [ENGINEERING_EVALUATION.md](archive/evaluations-2026-08/ENGINEERING_EVALUATION.md) · [INVESTOR_EVALUATION.md](archive/evaluations-2026-08/INVESTOR_EVALUATION.md) · [nvidia_skills_analysis.md](nvidia_skills_analysis.md) · [archive/](archive) | 초기 태스크 분해·과거 평가·폐기된 규칙 — 현행 기준이 아니다 |
