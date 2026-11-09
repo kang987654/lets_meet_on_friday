@@ -56,7 +56,7 @@ class RuntimeMetricsCollector @Inject constructor(
      *
      * [WHY] 스스로 타이머를 돌지 않는다. 채팅 화면이 보이지 않는 동안에도 `Debug.getMemoryInfo`
      * (수십 ms)를 계속 부르면 아무도 안 보는 숫자를 위해 배터리를 쓴다. 주기 결정은 화면
-     * 생명주기를 아는 쪽(ViewModel)에 맡긴다.
+     * 생명주기를 아는 쪽에 맡긴다 — 채팅 화면이 보일 때만 `ChatViewModel.onScreenVisible` 로 켠다(0.41.9).
      */
     suspend fun refreshDeviceStatus() {
         val memory = deviceResourceProvider.memorySnapshot()

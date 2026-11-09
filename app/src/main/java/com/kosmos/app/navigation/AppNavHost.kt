@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -48,6 +49,9 @@ fun AppNavHost(
     // 같은 전환 구간에 겹칠 때 **두 번 pop** 될 수 있다 — 루트(chat)까지 뽑혀 NavHost 가
     // 비면 오로라 배경만 남는 빈 화면이 되고, 복구 수단이 없다(2026-08-15 실기기: 화면 이동
     // 중 빈 화면, 시맨틱 트리 노드 0개로 확인). 루트가 마지막 항목이면 pop 하지 않는다.
+    // [WHY] 화면의 뒤로·이동 버튼은 `dropUnlessResumed { }` 로 감싼다 — 전환(250ms) 중 나가는 화면의 ←를 한 번 더 누르면
+    // 루트 가드로는 못 막는 두 단계 pop(모델 관리 → 설정을 건너뛰고 채팅)이, 이동 버튼을 두 번 누르면 같은 화면이 두 겹 쌓였다(0.41.9 외부 분석 C2).
+    // 내비게이션 항목은 전환이 끝나야 RESUMED 라 그 사이 누름을 버린다.
     fun navigateBack() {
         if (navController.previousBackStackEntry != null) {
             navController.popBackStack()
@@ -83,8 +87,8 @@ fun AppNavHost(
                 },
                 // [WHY] 스플래시를 백스택에 남긴다(popUpTo 없음) — 내려받기를 마치고 돌아오면
                 // 스플래시가 Ready 를 보고 자동으로 채팅에 진입한다.
-                onNavigateToModelManagement = {
-                    navController.navigate(AppDestination.ModelManagement.route)
+                onNavigateToModelManagement = dropUnlessResumed {
+                    navController.navigate(AppDestination.ModelManagement.route) { launchSingleTop = true }
                 }
             )
         }
@@ -145,20 +149,20 @@ fun AppNavHost(
         // 여기서 감아 준다(채팅은 자기 헤더·입력바가 인셋을 직접 진다, AGENTS §2-③).
         composable(route = AppDestination.Calendar.route) {
             Box(modifier = Modifier.navigationBarsPadding()) {
-                CalendarScreen(onBack = { navigateBack() })
+                CalendarScreen(onBack = dropUnlessResumed { navigateBack() })
             }
         }
 
         composable(route = AppDestination.Memory.route) {
             Box(modifier = Modifier.navigationBarsPadding()) {
-                MemoryScreen(onBack = { navigateBack() })
+                MemoryScreen(onBack = dropUnlessResumed { navigateBack() })
             }
         }
 
         composable(route = AppDestination.MemoryTasks.route) {
             Box(modifier = Modifier.navigationBarsPadding()) {
                 MemoryScreen(
-                    onBack = { navigateBack() },
+                    onBack = dropUnlessResumed { navigateBack() },
                     initialFilter = MemoryFilterType.TASK
                 )
             }
@@ -167,13 +171,13 @@ fun AppNavHost(
         composable(route = AppDestination.Settings.route) {
             Box(modifier = Modifier.navigationBarsPadding()) {
                 SettingsScreen(
-                    onNavigateToModelManagement = {
-                        navController.navigate(AppDestination.ModelManagement.route)
+                    onNavigateToModelManagement = dropUnlessResumed {
+                        navController.navigate(AppDestination.ModelManagement.route) { launchSingleTop = true }
                     },
-                    onNavigateToMemoryCleanup = {
-                        navController.navigate(AppDestination.MemoryCleanup.route)
+                    onNavigateToMemoryCleanup = dropUnlessResumed {
+                        navController.navigate(AppDestination.MemoryCleanup.route) { launchSingleTop = true }
                     },
-                    onBack = { navigateBack() },
+                    onBack = dropUnlessResumed { navigateBack() },
                     embeddingSection = { EmbeddingModelSectionRoute() }
                 )
             }
@@ -181,25 +185,25 @@ fun AppNavHost(
 
         composable(route = AppDestination.Documents.route) {
             DocumentHomeScreen(
-                onBack = { navigateBack() }
+                onBack = dropUnlessResumed { navigateBack() }
             )
         }
 
         composable(route = AppDestination.MemoryCleanup.route) {
             MemoryCleanupScreen(
-                onBack = { navigateBack() }
+                onBack = dropUnlessResumed { navigateBack() }
             )
         }
 
         composable(route = AppDestination.ModelManagement.route) {
             ModelManagementScreen(
-                onBack = { navigateBack() }
+                onBack = dropUnlessResumed { navigateBack() }
             )
         }
 
         composable(route = AppDestination.Audit.route) {
             AuditScreen(
-                onNavigateBack = { navigateBack() }
+                onNavigateBack = dropUnlessResumed { navigateBack() }
             )
         }
     }

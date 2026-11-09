@@ -6,6 +6,7 @@ import com.kosmos.app.core.common.Constants
 import com.kosmos.app.data.network.ModelDownloadService
 import com.kosmos.app.domain.tool.ModelDownloadException
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -128,6 +129,27 @@ class ModelDownloadResumeTest {
         download()
 
         assertArrayEquals("이어받은 결과가 원본과 같아야 한다", body, target.readBytes())
+    }
+
+    @Test
+    fun `멈춘 연결에서도 취소하면 곧바로 멈추고 부분 파일은 남는다`() = runBlocking {
+        // [WHY] 블로킹 읽기는 코루틴 취소를 보지 않아 읽기 시간 제한까지 기다렸다 — 취소가 요청을 끊어야 한다(0.41.9 O2).
+        server.enqueue(headResponse())
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Length", body.size)
+                .setBody(Buffer().write(body, 0, 1024))
+                .setSocketPolicy(SocketPolicy.NO_RESPONSE)
+        )
+        val slow = ModelDownloadService(context, OkHttpClient.Builder().readTimeout(java.time.Duration.ofSeconds(30)).build())
+        val job = launch(kotlinx.coroutines.Dispatchers.Default) { slow.downloadModel(url, fileName).collect { } }
+        kotlinx.coroutines.delay(500)
+        val startedAt = System.currentTimeMillis()
+        job.cancel()
+        job.join()
+        assertTrue("취소가 읽기 시간 제한을 기다리지 않아야 한다", System.currentTimeMillis() - startedAt < 5_000)
+        assertTrue("취소로 끝나야 한다", job.isCancelled)
     }
 
     @Test

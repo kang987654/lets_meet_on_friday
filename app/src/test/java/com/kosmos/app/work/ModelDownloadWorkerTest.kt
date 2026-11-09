@@ -129,6 +129,39 @@ class ModelDownloadWorkerTest {
     }
 
     @Test
+    fun `받은 양이 늘어난 시도는 재시도 한도에서 빠진다`() = runBlocking {
+        // [WHY] Wi-Fi 끊김 같은 시스템 중단도 runAttemptCount 를 올린다 — 진행하던 다운로드가 한도에 걸려 실패로 끝나면 안 된다(0.41.9 W2).
+        var partial = 0L
+        val growing = object : ModelDownloader {
+            override suspend fun probe(url: String) = DownloadProbe(1000L, "etag", true)
+            override fun downloadModel(url: String, fileName: String?): Flow<DownloadProgress> =
+                flow { throw ModelDownloadException.Transient("connection reset") }
+            override fun clearPartial(url: String, fileName: String?) = Unit
+            override fun partialBytes(url: String, fileName: String?): Long = partial
+        }
+        for (attempt in 0..3) {
+            partial += 100L
+            assertTrue(buildWorker(growing, attempt = attempt).doWork() is ListenableWorker.Result.Retry)
+        }
+        partial += 100L
+        assertTrue(
+            "앞 시도마다 받은 양이 늘었으면 다섯 번째 시도의 일시 실패도 재시도다",
+            buildWorker(growing, attempt = 4).doWork() is ListenableWorker.Result.Retry
+        )
+        verify(exactly = 0) { notifier.notifyFailure(any()) }
+    }
+
+    @Test
+    fun `진행 없는 시도가 한도만큼 쌓이면 실패로 확정된다`() {
+        assertTrue(!shouldGiveUpDownload(runAttemptCount = 4, progressedAttempts = 1))
+        assertTrue(shouldGiveUpDownload(runAttemptCount = 4, progressedAttempts = 0))
+        assertTrue(shouldGiveUpDownload(runAttemptCount = 9, progressedAttempts = 5))
+        assertEquals(1, progressedAttemptsAfterStart(previousStartBytes = 100L, startBytes = 150L, previousCount = 0))
+        assertEquals(0, progressedAttemptsAfterStart(previousStartBytes = 100L, startBytes = 100L, previousCount = 0))
+        assertEquals(0, progressedAttemptsAfterStart(previousStartBytes = null, startBytes = 500L, previousCount = 0))
+    }
+
+    @Test
     fun `영구 실패는 첫 시도에서 곧바로 실패한다`() = runBlocking {
         val worker = buildWorker(
             downloader { throw ModelDownloadException.Permanent("HTTP 404") },

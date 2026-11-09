@@ -135,6 +135,10 @@ abstract class WorkManagerDownloadScheduler(
      * 때마다 완료/실패 안내가 되살아나므로 확인 시점을 기록해 Idle 로 되돌린다.
      * 메모리에만 두는 이유: 프로세스 사망 후 완료 안내가 한 번 더 뜨는 것은 무해하고,
      * DataStore 로 영속화하면 키와 정리 로직이 늘 뿐 얻는 것이 없다.
+     *
+     * [WHY] `pruneWork()` 는 부르지 않는다 — 앱 전체의 끝난 작업을 지워, 임베딩 모델 받기를 확인하면 채팅 모델의 실패 정보까지
+     * 사라져 "이어받기 가능" 카드가 말없이 받기 버튼으로 바뀌었다(두 스케줄러가 같은 WorkManager 를 쓴다, 0.41.9 외부 분석 W3).
+     * 확인은 [ackedWorkId] 로 충분하고, 끝난 정보는 WorkManager 가 기간이 지나면 스스로 지운다.
      */
     override fun acknowledge() {
         ioScope.launch {
@@ -146,7 +150,6 @@ abstract class WorkManagerDownloadScheduler(
                     ?.id
             }.getOrNull()
             ackedWorkId.value = terminalId
-            workManager.pruneWork()
         }
     }
 

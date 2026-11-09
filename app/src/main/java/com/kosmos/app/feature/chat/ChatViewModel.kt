@@ -99,6 +99,9 @@ class ChatViewModel @Inject constructor(
     private var recordingTimeoutJob: kotlinx.coroutines.Job? = null
 
     private val _uiState = MutableStateFlow(ChatUiState())
+
+    // [WHY] init 의 observeDeviceStatus() 가 읽으므로 init 보다 위에 둔다 — 화면이 보일 때만 상태를 갱신한다([onScreenVisible]).
+    private val screenVisible = MutableStateFlow(false)
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     private var sessionId: String = UUID.randomUUID().toString()
@@ -293,7 +296,8 @@ class ChatViewModel @Inject constructor(
      *
      * [WHY] 추론 중에는 2초, 유휴에는 5초다. `Debug.getMemoryInfo` 가 수십 ms 이므로 항상 2초로
      * 돌 이유가 없고, 반대로 생성 중에는 tok/s 와 발열이 실제로 움직이므로 촘촘해야 의미가 있다.
-     * `viewModelScope` 라 화면이 사라지면 함께 멈춘다.
+     * [WHY] 화면이 보일 때([onScreenVisible])만 돈다 — `viewModelScope` 는 앱이 백그라운드로 가도, 설정 같은 다른 화면이 위에 있어도
+     * 살아 있어 아무도 안 보는 값을 5초마다 쟀다(0.41.9 외부 분석 C1).
      */
     private fun observeDeviceStatus() {
         viewModelScope.launch {
@@ -302,13 +306,20 @@ class ChatViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            while (true) {
-                runtimeMetricsCollector.refreshDeviceStatus()
-                kotlinx.coroutines.delay(
-                    if (_uiState.value.isInFlight) STATUS_REFRESH_BUSY_MS else STATUS_REFRESH_IDLE_MS
-                )
+            screenVisible.collectLatest { visible ->
+                while (visible) {
+                    runtimeMetricsCollector.refreshDeviceStatus()
+                    kotlinx.coroutines.delay(
+                        if (_uiState.value.isInFlight) STATUS_REFRESH_BUSY_MS else STATUS_REFRESH_IDLE_MS
+                    )
+                }
             }
         }
+    }
+
+    /** 채팅 화면이 보이기 시작함(true)·가려짐(false) — 상단 상태 갱신을 켜고 끈다. */
+    fun onScreenVisible(visible: Boolean) {
+        screenVisible.value = visible
     }
 
     private fun observeEngineState() {

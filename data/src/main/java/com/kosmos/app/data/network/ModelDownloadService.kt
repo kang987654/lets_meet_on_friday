@@ -10,12 +10,18 @@ import com.kosmos.app.domain.tool.ModelDownloadException
 import com.kosmos.app.domain.tool.ModelDownloader
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -156,45 +162,65 @@ class ModelDownloadService @Inject constructor(
             }.build()
 
             var downloaded: Long
-            execute(request).use { response ->
-                when {
-                    response.code == 416 -> {
-                        // 요청한 범위가 무효 — 부분 파일을 버리고 다음 시도에서 처음부터 받는다.
-                        part.delete()
-                        throw ModelDownloadException.Transient("Range not satisfiable; restarting")
+            val call = okHttpClient.newCall(request)
+            // [WHY] 받기는 블로킹 읽기라 코루틴 취소가 닿지 않는다 — 연결이 멈추면 읽기 시간 제한(60초)이 끝날 때까지 취소가 안 먹었다
+            // (0.41.9 외부 분석 O2). 취소되면 옆 코루틴이 요청 자체를 끊어 읽기를 깨운다.
+            coroutineScope {
+                val canceller = launch {
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        call.cancel()
                     }
-                    !response.isSuccessful -> throw response.toException()
                 }
+                try {
+                    execute(call).use { response ->
+                        when {
+                            response.code == 416 -> {
+                                // 요청한 범위가 무효 — 부분 파일을 버리고 다음 시도에서 처음부터 받는다.
+                                part.delete()
+                                throw ModelDownloadException.Transient("Range not satisfiable; restarting")
+                            }
+                            !response.isSuccessful -> throw response.toException()
+                        }
 
-                val isPartial = response.code == 206
-                downloaded = if (isPartial) resumeFrom else 0L
-                val body = response.body
-                val total = if (isPartial) {
-                    response.header("Content-Range")?.substringAfter('/', "")?.toLongOrNull()
-                        ?: probe.totalBytes
-                } else {
-                    body.contentLength().takeIf { it > 0 } ?: probe.totalBytes
-                }
+                        val isPartial = response.code == 206
+                        downloaded = if (isPartial) resumeFrom else 0L
+                        val body = response.body
+                        val total = if (isPartial) {
+                            response.header("Content-Range")?.substringAfter('/', "")?.toLongOrNull()
+                                ?: probe.totalBytes
+                        } else {
+                            body.contentLength().takeIf { it > 0 } ?: probe.totalBytes
+                        }
 
-                emit(DownloadProgress(downloaded, total))
-                body.source().use { source ->
-                    val sink = if (isPartial) part.appendingSink() else part.sink()
-                    sink.buffer().use { out ->
-                        // [WHY] 64KB 청크마다 방출하면 3.6GB 다운로드에 6만 번 넘게 emit 된다.
-                        // 1MB 단위로 묶어야 상위(Worker)의 스로틀 이전에 불필요한 부하가 생기지 않는다.
-                        var lastReported = downloaded
-                        while (true) {
-                            val read = source.read(out.buffer, STREAM_CHUNK_BYTES)
-                            if (read == -1L) break
-                            downloaded += read
-                            out.emit()
-                            if (downloaded - lastReported >= PROGRESS_REPORT_INTERVAL_BYTES) {
-                                lastReported = downloaded
-                                emit(DownloadProgress(downloaded, total))
+                        emit(DownloadProgress(downloaded, total))
+                        body.source().use { source ->
+                            val sink = if (isPartial) part.appendingSink() else part.sink()
+                            sink.buffer().use { out ->
+                                // [WHY] 64KB 청크마다 방출하면 3.6GB 다운로드에 6만 번 넘게 emit 된다.
+                                // 1MB 단위로 묶어야 상위(Worker)의 스로틀 이전에 불필요한 부하가 생기지 않는다.
+                                var lastReported = downloaded
+                                while (true) {
+                                    val read = source.read(out.buffer, STREAM_CHUNK_BYTES)
+                                    if (read == -1L) break
+                                    downloaded += read
+                                    out.emit()
+                                    if (downloaded - lastReported >= PROGRESS_REPORT_INTERVAL_BYTES) {
+                                        lastReported = downloaded
+                                        emit(DownloadProgress(downloaded, total))
+                                    }
+                                }
+                                out.flush()
                             }
                         }
-                        out.flush()
                     }
+                } catch (e: Exception) {
+                    // [WHY] 끊은 요청은 IOException("Canceled")으로 돌아온다 — 아래에서 일시 실패로 바뀌면 워커가 실패로 셀 수 있으니 취소로 되돌린다.
+                    currentCoroutineContext().ensureActive()
+                    throw e
+                } finally {
+                    canceller.cancel()
                 }
             }
 
@@ -263,9 +289,11 @@ class ModelDownloadService @Inject constructor(
         }
     }
 
-    private fun execute(request: Request): Response =
+    private fun execute(request: Request): Response = execute(okHttpClient.newCall(request))
+
+    private fun execute(call: Call): Response =
         try {
-            okHttpClient.newCall(request).execute()
+            call.execute()
         } catch (e: IOException) {
             throw ModelDownloadException.Transient(e.message ?: "Connection failed", e)
         }

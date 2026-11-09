@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
@@ -124,6 +125,11 @@ fun ChatScreen(
     LifecycleResumeEffect(Unit) {
         onRefreshSummary()
         onPauseOrDispose { }
+    }
+    // [WHY] 상단 상태(메모리·발열) 갱신은 화면이 보일 때만 — 다른 화면이 위에 있거나 앱이 백그라운드면 멈춘다(0.41.9 C1).
+    LifecycleStartEffect(viewModel) {
+        viewModel.onScreenVisible(true)
+        onStopOrDispose { viewModel.onScreenVisible(false) }
     }
     val speakingMessageId by viewModel.speakingMessageId.collectAsStateWithLifecycle()
     val attachmentExtracting by viewModel.attachmentExtracting.collectAsStateWithLifecycle()

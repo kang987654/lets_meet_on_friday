@@ -37,7 +37,8 @@ import dagger.assisted.AssistedInject
  * 1. 전경 서비스로 승격해 진행률 알림을 띄웁니다(실패해도 다운로드는 계속).
  * 2. [ModelDownloader]의 진행 Flow를 수집해 [setProgress]로 UI에 중계합니다.
  * 3. 완료 시 [ModelLoadManager.checkModelFile]로 새 모델 파일을 재탐색시킵니다.
- * 4. 실패는 재시도 가능 여부에 따라 [Result.retry] 또는 [Result.failure]로 나뉩니다.
+ * 4. 실패는 재시도 가능 여부에 따라 [Result.retry] 또는 [Result.failure]로 나뉩니다 — 일시 실패의 한도는 받은 양이 늘지 않은 시도만
+ *    센다([DownloadRetryBudget], 0.41.9).
  *
  * [WHY] 기존에는 ViewModel 스코프에서 다운로드했기 때문에 화면을 벗어나면 3.6GB 전송이
  * 중단됐다. Worker로 옮겨 프로세스 수명과 분리한다. (ADR-006)
@@ -61,6 +62,10 @@ class ModelDownloadWorker @AssistedInject constructor(
         val fileName = inputData.getString(KEY_FILE_NAME)
 
         promoteToForeground(percent = -1, downloaded = 0L, total = -1L)
+
+        val budget = DownloadRetryBudget(applicationContext, url, fileName)
+        val startBytes = downloader.partialBytes(url, fileName)
+        val progressedAttempts = budget.onAttemptStart(runAttemptCount, startBytes)
 
         return try {
             var lastReportAt = 0L
@@ -88,8 +93,10 @@ class ModelDownloadWorker @AssistedInject constructor(
             // ModelLoadManager 는 @Singleton 이라 UI 가 관찰하는 것과 같은 인스턴스다.
             modelLoadManager.checkModelFile()
             notifier.notifySuccess()
+            budget.clear()
             Result.success()
         } catch (e: ModelDownloadException.InsufficientStorage) {
+            budget.clear()
             val error = AppError.InsufficientStorage(e.requiredBytes)
             notifier.notifyFailure(ErrorMessages.userMessage(error, currentLanguage.current))
             Result.failure(
@@ -99,9 +106,12 @@ class ModelDownloadWorker @AssistedInject constructor(
                 )
             )
         } catch (e: ModelDownloadException.Permanent) {
+            budget.clear()
             failWith(AppError.NetworkUnavailable(e.message ?: "Download failed"))
         } catch (e: ModelDownloadException.Transient) {
-            if (runAttemptCount + 1 >= Constants.MODEL_DOWNLOAD_MAX_ATTEMPTS) {
+            val progressedNow = downloader.partialBytes(url, fileName) > startBytes
+            if (shouldGiveUpDownload(runAttemptCount, progressedAttempts + if (progressedNow) 1 else 0)) {
+                budget.clear()
                 failWith(AppError.NetworkUnavailable(e.message ?: "Download failed"))
             } else {
                 Log.w(TAG, "transient failure, retrying (attempt $runAttemptCount): ${e.message}")
