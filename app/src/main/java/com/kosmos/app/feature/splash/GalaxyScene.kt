@@ -48,15 +48,20 @@ internal object GalaxyScene {
             val arm = it % 2
             val t = 0.12f + 0.88f * rnd.nextFloat().pow(0.8f)
             val spread = gauss() * 0.42f * (0.35f + t)
-            list += G(t * (1f + gauss() * 0.06f), arm * PI.toFloat() + t * 3.6f + spread, 0.3f + 0.45f * (1 - t) + rnd.nextFloat() * 0.25f)
+            // [WHY] 팔은 바깥으로 갈수록 각이 **회전 반대쪽**으로 처진다(끌리는 팔) — 회전은 각이 커지는 쪽이고 안쪽이 더 빨리 돌아(omega),
+            // 처음부터 끌리는 모양이어야 돌면서 더 감길 뿐 모양이 뒤집히지 않는다. 예전(+r·3.6)은 꼬리가 회전 방향을 향해 있다가 돌며 뒤집혀 어색했다(사용자 지적).
+            list += G(t * (1f + gauss() * 0.06f), arm * PI.toFloat() - t * ARM_WIND + spread, 0.3f + 0.45f * (1 - t) + rnd.nextFloat() * 0.25f)
         }
         repeat(380) { list += G(abs(gauss()) * 0.16f, rnd.nextFloat() * 2 * PI.toFloat(), 0.7f + rnd.nextFloat() * 0.3f) }
         list
     }
 
-    /** 우리 별 — 두 번째 팔 중간(팔 각도 공식 arm·π + r·3.6 과 같은 자리). */
+    /** 팔이 반지름 1 동안 감기는 각(rad) — 부호는 회전 반대(끌리는 팔). */
+    private const val ARM_WIND = 3.6f
+
+    /** 우리 별 — 두 번째 팔 중간(팔 각도 공식 arm·π − r·[ARM_WIND] 와 같은 자리). */
     private const val STAR_R = 0.5f
-    private val STAR_TH = PI.toFloat() + STAR_R * 3.6f
+    private val STAR_TH = PI.toFloat() - STAR_R * ARM_WIND
 
     /** 안쪽일수록 빨리 돈다(rad/s). */
     private fun omega(r: Float) = 0.35f / (0.25f + r)
