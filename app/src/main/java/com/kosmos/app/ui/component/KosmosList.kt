@@ -54,7 +54,6 @@ fun KosmosListGroup(modifier: Modifier = Modifier, content: @Composable ColumnSc
  *
  * @param divider 아래에 들여쓴 구분선 — 묶음의 마지막 행은 false.
  */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun KosmosListRow(
     title: String,

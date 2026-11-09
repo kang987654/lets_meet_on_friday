@@ -13,7 +13,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -86,7 +85,7 @@ class ExportImportManager @Inject constructor(
             // 4. ZipOutputStream 준비
             ZipOutputStream(FileOutputStream(currentZip)).use { zos ->
                 // 4-1. manifest.json 추가
-                val manifestJson = Json.encodeToString(manifest)
+                val manifestJson = ExportManifest.JSON.encodeToString(manifest)
                 val manifestEntry = ZipEntry("manifest.json")
                 zos.putNextEntry(manifestEntry)
                 zos.write(manifestJson.toByteArray(Charsets.UTF_8))
@@ -144,7 +143,7 @@ class ExportImportManager @Inject constructor(
             }
 
             val manifestContent = manifestFile.readText(Charsets.UTF_8)
-            val manifest = Json.decodeFromString<ExportManifest>(manifestContent)
+            val manifest = ExportManifest.JSON.decodeFromString<ExportManifest>(manifestContent)
             if (manifest.version != "1.0") {
                 return@withContext AppResult.Failure(AppError.ImportManifestMismatch("1.0", manifest.version))
             }

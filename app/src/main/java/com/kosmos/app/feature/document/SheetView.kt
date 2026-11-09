@@ -1,6 +1,5 @@
 package com.kosmos.app.feature.document
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -57,7 +56,6 @@ import com.kosmos.app.domain.document.CellStyle
  * [WHY] 행 높이는 고정이다 — 가변 높이면 틀 고정 열과 스크롤 열이 행마다 높이를 맞춰야 해 측정이 두 번 돈다.
  * 칸 안 줄바꿈은 한 줄로 줄이고 전체는 길게 눌러 본다. 그리는 열은 [MAX_RENDER_COLUMNS] 까지(아주 넓은 시트의 행 구성 비용 상한).
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SheetView(
     sheet: Sheet,
@@ -204,7 +202,6 @@ private fun Segment(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun GridCell(
     text: String,

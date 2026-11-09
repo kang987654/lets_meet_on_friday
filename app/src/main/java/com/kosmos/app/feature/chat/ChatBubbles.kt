@@ -89,7 +89,6 @@ internal fun DateSeparator(label: String) {
         )
     }
 }
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ChatBubbleUser(
     text: String,
@@ -160,7 +159,6 @@ fun ChatBubbleUser(
         }
     }
 }
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ChatBubbleAssistant(
     text: String,
@@ -385,7 +383,6 @@ private fun EvidenceLine(line: Evidence) {
 /**
  * 상황 칩 줄(0.38.2 M6) — 알약 모양 면, 진한 하늘 글자. 넘치면 다음 줄로.
  */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun ChatChipRow(
     chips: List<ChatChip>,

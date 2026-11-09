@@ -177,7 +177,7 @@ fun ChatScreen(
     /**
      * [startAt] 시각의 메시지로 스크롤한다. reverseLayout 인덱스 = [스트리밍/타이핑 헤더]
      * + 라이브 테일 + 히스토리 순이므로, 히스토리 내 인덱스(ViewModel 계산)에 앞 구간을 더한다.
-     * placeholder 덕에 미로드 위치로도 O(1) 점프가 된다 (CountedPagingSource).
+     * placeholder 덕에 미로드 위치로도 점프가 되고, 먼 위치는 Paging 이 그 자리에서 새로 읽는다(ChatViewModel 의 jumpThreshold).
      */
     val jumpToTimeline: suspend (Long) -> Unit = { startAt ->
         val headerCount = (if (uiState.streamingText != null || uiState.streamingThinking != null) 1 else 0) +

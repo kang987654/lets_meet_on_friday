@@ -40,7 +40,6 @@ import com.kosmos.app.ui.theme.KosmosShapes
  * [WHY] ChatBubbleAssistant 를 확장하지 않고 별도 컴포저블이다 — 기존 버블은 E2E 계약
  * 표면이라 건드리지 않고, 브리핑은 말풍선이 아니라 "도착한 카드"라는 다른 시각 문법을 쓴다.
  */
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun BriefingCard(
     text: String,

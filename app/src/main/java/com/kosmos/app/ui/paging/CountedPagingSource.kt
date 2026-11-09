@@ -4,7 +4,7 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 
 /**
- * 전체 개수를 아는 offset/limit 소스 — placeholder 와 O(1) 점프를 지원합니다.
+ * 전체 개수를 아는 offset/limit 소스 — placeholder 와 점프(먼 위치에서 새로 읽기, `PagingConfig.jumpThreshold` 를 함께 줘야 동작)를 지원합니다.
  *
  * ### Architecture Context
  * - **Layer**: UI (Paging)

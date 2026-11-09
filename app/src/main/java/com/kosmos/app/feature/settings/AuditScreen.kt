@@ -110,7 +110,6 @@ fun AuditScreen(
  *
  * [WHY] 세션 id 는 사용자에게 뜻이 없어 숨긴다 — 원문 펼침에도 넣지 않는다.
  */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun AuditEventRow(event: AuditEvent, divider: Boolean, modifier: Modifier = Modifier) {
     val colors = KosmosTheme.colors

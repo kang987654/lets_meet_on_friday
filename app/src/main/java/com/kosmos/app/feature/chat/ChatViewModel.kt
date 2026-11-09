@@ -122,9 +122,11 @@ class ChatViewModel @Inject constructor(
             androidx.paging.PagingConfig(
                 pageSize = Constants.CHAT_TIMELINE_PAGE_SIZE,
                 initialLoadSize = Constants.CHAT_TIMELINE_PAGE_SIZE * 3,
-                // [WHY] placeholder 가 있어야 에피소드 → 원문 점프(scrollToItem 먼 인덱스)가
-                // O(1) 로 된다 (CountedPagingSource [WHY] 참조).
-                enablePlaceholders = true
+                // [WHY] placeholder 가 있어야 에피소드 → 원문 점프(scrollToItem 먼 인덱스)가 된다 (CountedPagingSource [WHY] 참조).
+                enablePlaceholders = true,
+                // [WHY] 점프 문턱이 없으면(기본 COUNT_UNDEFINED) 먼 위치로 스크롤해도 그 사이 페이지를 30개씩 차례로 이어 붙여야 내용이
+                // 왔다 — 기록이 길면 빈 자리가 오래 보이고 원문 앞부분이 잘렸다. 문턱을 넘으면 그 위치에서 새로 읽는다(0.41.9 외부 분석 P2).
+                jumpThreshold = Constants.CHAT_TIMELINE_PAGE_SIZE * 3
             )
         ) {
             CountedPagingSource(
@@ -171,7 +173,7 @@ class ChatViewModel @Inject constructor(
      *
      * [WHY] countNewerThan 은 전체 행 기준이라 앵커 이후 행도 세는데, 그 몫은 라이브 테일이
      * 화면에서 따로 차지한다. 두 카운트의 차로 히스토리 몫만 남기면 낙관적 메시지의 영속
-     * 여부와 무관하게 정확하다. placeholder 덕에 scrollToItem 은 O(1) 이다 (CountedPagingSource).
+     * 여부와 무관하게 정확하다. placeholder 덕에 미로드 위치로도 scrollToItem 이 되고, 점프 문턱(jumpThreshold)을 넘으면 그 위치에서 새로 읽는다.
      */
     suspend fun historyIndexOf(startAt: Long): Int? {
         val total = (conversationRepository.countNewerThan(startAt) as? AppResult.Success)?.data
