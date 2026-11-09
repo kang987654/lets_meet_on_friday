@@ -236,8 +236,13 @@ object Constants {
     /** 받기 전 안내용 크기(모델 카드) — 실제 크기는 다운로드가 서버에서 읽는다. */
     const val EMBEDDING_MODEL_SIZE_MB = 485
 
-    /** 벡터에 함께 저장하는 모델 표지 — 바뀌면 옛 벡터를 버린다. */
-    const val EMBEDDING_MODEL_ID = "embeddinggemma-2-740m"
+    /**
+     * 벡터에 함께 저장하는 모델 표지 — 바뀌면 옛 벡터를 버린다.
+     *
+     * [WHY] `-fp32` (0.41.7 M6) — GPU 를 정밀도 미지정으로 돌리면 FP16 이었다(exp83: 미지정 = FP16 과 숫자가 같음, @1 61/95 대 FP32 64/95·CPU 63/95).
+     * FP32 로 바꾸며 옛(FP16) 벡터를 버리고 새로 만든다(사용자 결정 2026-11-09 — 쓰는 사람이 한 명뿐이라 다시 준비하는 부담이 작다).
+     */
+    const val EMBEDDING_MODEL_ID = "embeddinggemma-2-740m-fp32"
 
     // --- 모델 다운로드 (WorkManager 전경 작업, ADR-006) ---
     const val MODEL_DOWNLOAD_WORK_NAME = "model_download"

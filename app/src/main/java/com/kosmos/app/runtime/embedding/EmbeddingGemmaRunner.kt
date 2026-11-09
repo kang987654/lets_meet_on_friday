@@ -2,6 +2,7 @@ package com.kosmos.app.runtime.embedding
 
 import android.content.Context
 import android.util.Log
+import com.google.ai.edge.litertlm.ActivationDataType
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.EmbeddingEngine
 import com.google.ai.edge.litertlm.EmbeddingEngineConfig
@@ -100,7 +101,10 @@ class EmbeddingGemmaRunner @Inject constructor(
                 modelPath = file.absolutePath,
                 backend = if (candidate == EmbeddingBackend.GPU) Backend.GPU() else Backend.CPU(),
                 cacheDir = context.cacheDir.absolutePath,
-                maxInputLength = MAX_INPUT_TOKENS
+                maxInputLength = MAX_INPUT_TOKENS,
+                // [WHY] GPU 는 FP32 를 명시한다(0.41.7 M6) — 미지정이면 FP16 으로 돌아 검색 품질이 조용히 깎였다(exp83, 모델 카드도 fp16 금지).
+                // 채팅 엔진과 같은 결(ADR-021). CPU 는 기본값(이미 FP32 수준 — exp83 CPU 와 FP32 코사인 평균 0.9995).
+                activationDataType = activationFor(candidate)
             )
         ).also {
             it.initialize()
@@ -125,6 +129,15 @@ class EmbeddingGemmaRunner @Inject constructor(
         val OPTIONS = EmbeddingOptions(normalize = true)
     }
 }
+
+/**
+ * 임베딩 엔진의 활성 정밀도 — GPU 만 FP32 를 명시하고 CPU 는 기본값(0.41.7 M6).
+ *
+ * [WHY] GPU 를 미지정으로 두면 FP16 이었다 — exp83: 미지정·FP16 @1 61/95, FP32 64/95, CPU 63/95(EmbeddingGemma 2 카드도 fp16 금지).
+ * 바꾸면 벡터 좌표가 달라지므로 [Constants.EMBEDDING_MODEL_ID] 도 함께 바꿨다(옛 벡터는 다음 저장 때 지워진다).
+ */
+internal fun activationFor(candidate: EmbeddingBackend): ActivationDataType? =
+    if (candidate == EmbeddingBackend.GPU) ActivationDataType.FLOAT32 else null
 
 /**
  * 임베딩 엔진 백엔드 — 휴대폰 실측(0.41.2 M2)으로 기본값을 정한다.

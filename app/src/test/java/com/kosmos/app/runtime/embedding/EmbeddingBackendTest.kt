@@ -1,5 +1,7 @@
 package com.kosmos.app.runtime.embedding
 
+import com.google.ai.edge.litertlm.ActivationDataType
+import com.kosmos.app.core.common.Constants
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
@@ -56,5 +58,13 @@ class EmbeddingBackendTest {
         tried.clear()
         assertNull(EmbeddingBackend.openWithFallback(EmbeddingBackend.CPU) { tried += it; null as String? })
         assertEquals(listOf(EmbeddingBackend.CPU), tried)
+    }
+
+    @Test
+    fun `GPU 는 FP32 를 명시하고 CPU 는 기본값이며 모델 표지에 정밀도가 들어 있다(0·41·7 M6)`() {
+        assertEquals(ActivationDataType.FLOAT32, activationFor(EmbeddingBackend.GPU))
+        assertNull(activationFor(EmbeddingBackend.CPU))
+        // 표지가 바뀌어야 옛(FP16) 벡터를 버린다.
+        assertEquals("embeddinggemma-2-740m-fp32", Constants.EMBEDDING_MODEL_ID)
     }
 }
