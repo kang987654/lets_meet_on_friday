@@ -63,8 +63,13 @@ internal object GalaxyScene {
     private const val STAR_R = 0.5f
     private val STAR_TH = PI.toFloat() - STAR_R * ARM_WIND
 
-    /** 안쪽일수록 빨리 돈다(rad/s). */
-    private fun omega(r: Float) = 0.35f / (0.25f + r)
+    /**
+     * 안쪽일수록 빨리 돈다(rad/s).
+     *
+     * [WHY] 안팎 속도 차이를 줄였다(0.41.8) — 차이만큼 팔이 감겨, 엔진 로딩에 시작 단계(지난 대화 정리 등)까지 붙으면 나선이 너무 촘촘해졌다(사용자 지적).
+     * 우리 별이 있는 중간(r 0.5)의 속도는 거의 그대로다(0.47 → 0.45), 안(r 0.12)·밖(r 1) 차이는 0.67 → 0.38.
+     */
+    internal fun omega(r: Float) = 0.5f / (0.6f + r)
 
     fun center(size: Size) = Offset(size.width / 2, size.height * 0.36f)
     private fun radius(size: Size) = size.width * 0.46f
@@ -142,7 +147,7 @@ internal class GalaxyPainter {
         starLines.flush(this, color, stroke * 0.6f)
 
         GalaxyScene.points.forEach { g ->
-            val a = g.th + 0.35f / (0.25f + g.r * (0.55f + 0.45f * assemble)) * tSec
+            val a = g.th + GalaxyScene.omega(g.r * (0.55f + 0.45f * assemble)) * tSec
             val rr = g.r * (0.55f + 0.45f * assemble) * rg
             val x = cos(a) * rr
             val y0 = sin(a) * rr * 0.42f
