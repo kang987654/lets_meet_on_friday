@@ -1,6 +1,6 @@
 # Kotlin & Android 프로젝트 전역 AI 에이전트 지침 (AGENTS.md)
 > **적용 레포지토리**: `lets_meet_on_friday` (KOSMOS)
-> **최종 개정일**: 2026-10-06
+> **최종 개정일**: 2026-11-09 (기록 근거 다이어트 — 일반 관례는 빼고, 테스트·화면 요령은 관련 문서로 옮김)
 
 이 문서는 이 저장소에서 작업하는 AI 코딩 에이전트를 위한 전역 지침입니다.
 모든 리팩터링, 신규 기능 구현 및 코드 수정 작업 시작 전 아래 지침을 반드시 준수해야 합니다.
@@ -27,7 +27,7 @@
 ### 커밋 규칙
 - **master 에 직접 커밋한다** — 기본 브랜치라고 새 브랜치·PR 을 만들지 않는다(1인 개인 프로젝트라 브랜치 격리보다 머지
   비용이 크다는 사용자 결정). **푸시는 사용자가 요청할 때만.**
-- **커밋 메시지는 한 줄 제목만** — 본문/불릿 없음 (사용자 결정).
+- **커밋 메시지는 한 줄 제목만** — 본문/불릿 없음, Co-Authored-By 같은 트레일러도 넣지 않는다 (사용자 결정).
 - **`git add -A` 전에 staged 목록을 확인할 것.** `./gradlew test` 가 다시 만드는 프롬프트 픽스처
   (`scratch/lab/fixtures/system_instruction.txt` 등)와 실험 출력(`exp*_out*.txt`·`exp*_err*.txt`)은 `.gitignore`
   대상이다(0.35.1 — 추적하면 테스트마다 "수정됨"이 됐다). 새 클론에서는 테스트를 한 번 돌려야 픽스처가 생긴다.
@@ -69,13 +69,7 @@
   바꿨다가 E2E 가 잡아냈다. (`"Enter message"` 는 제품 코드에 없는 문자열이었다 — 그것을 쓰던
   ChatScreenE2ETest 는 테스트 안에서 만든 가짜 화면만 검증해 0.27.x 에서 삭제했다. 플레이스홀더는
   한국어 "메시지를 입력하세요…"이고 입력란은 `hasSetTextAction()` 으로 찾는다.)
-- **Robolectric + Compose E2E 제약**:
-  - `hiltViewModel()` 크래시 방지를 위해 Compose Screen 테스트 시 ViewModel을 수동으로 인스턴스화하여 주입한다.
-  - `@UninstallModules` 로 모듈을 떼면 빠진 의존성(예: Tokenizer)은 `@BindValue` 로 다시 묶는다.
-  - 테스트 mock 이 오버라이드하는 플랫폼 클래스 메서드(예: `AudioRecorder.stopRecording`)는 프로덕션에서
-    `open suspend fun` 이어야 한다.
-  - Background 코루틴 검증 시 `ShadowLooper.runUiThreadTasksIncludingDelayedTasks()` Polling 루프를 사용한다.
-  - TextField 검색 시 Hint 텍스트(`onNodeWithText`) 대신 `hasSetTextAction()` 또는 `testTag`를 사용하며, 버튼 클릭 시 `onNodeWithContentDescription("Attach")` / `"Send"`를 사용한다.
+- **Robolectric·Compose 테스트를 쓸 때는 `docs/testing-notes.md` 의 요령을 본다** (수동 ViewModel 주입·`@BindValue`·`open suspend fun`·Looper 폴링·셀렉터).
 
 ### ③ JVM 게이트가 구조적으로 못 잡는 결함 (실기기 확인 목록으로 남길 것)
 - **시스템 바 인셋/윈도우 레이아웃**: Robolectric 은 인셋이 전부 0 이다 — M3 Scaffold 는
@@ -85,6 +79,8 @@
 - **색 대비·다크/라이트 렌더**: 테스트가 색을 검증하지 못한다 — UI 회차는 라이트 모드 육안
   확인을 게이트에 포함한다.
 - UI 셸을 바꾼 회차는 CHANGELOG 에 실기기 확인 목록을 반드시 남긴다.
+- **휴대폰에 파일·변경을 남기지 않는다** — adb 로 만든 캡처·덤프·스크립트는 가져온 뒤 지우고, 앱 데이터나 설정을 바꿔야 하면
+  먼저 묻는다(사용자 지시 2026-08-21·10-13, 0.41.7 측정에서 어겨 11-09 정리).
 
 ### ④ 결정성(플레이크 방지) 수칙 — 2026-08-21 브리핑 회차에서 확립
 - **벽시계 금지**: 시각 판정 로직은 `now: Long` 을 인자로 받는다(기본값
@@ -121,8 +117,8 @@
   이중 pop 되어 NavHost 가 비면 복구 불가 빈 화면이 된다. `AppNavHost.navigateBack()`
   (루트 가드)을 쓴다.
 - **백그라운드에서 모델을 로드하지 않는다** — onStop/onTrimMemory 가 즉시 3.6GB 를 해제한다.
-  백그라운드성 추론은 전부 "엔진 Ready 편승" 패턴(EpisodeSummarizeScheduler,
-  MorningBriefingGenerator 전례). oneShot 부수 추론은 반드시 `oneShot = true`
+  백그라운드성 추론은 엔진 Ready 뒤 시작 단계(`StartupCoordinator` — 채팅을 열기 전)나 입력이 멎은 조용한 창
+  (`InputActivity`)에서만 시작한다(0.41.7, ADR-027 보충). oneShot 부수 추론은 반드시 `oneShot = true`
   (빼면 채팅 KV 파괴 — ADR-010·014).
 
 ---
@@ -137,7 +133,6 @@
   - **Key Flow**: 주요 동작 흐름
 
 ### ② 인라인 주석 (`//`)
-- 코드가 *어떻게(How)* 동작하는지는 타입 시스템과 변수명으로 나타내고 주석을 생략한다.
 - **왜(Why)** 이렇게 작성했는지에 대한 비즈니스 이유, 프레임워크 제약사항, 우회(Workaround) 로직에만 주석을 남긴다 (`// [WHY] ...`).
 - **경위는 주석이 아니라 CHANGELOG·ADR 에** 둔다 — 주석은 이유 한두 문장 + 참조(`ADR-0xx`, `exp00`)로 끝낸다. "예전에는 …였다",
   실험 점수표, 날짜별 디버깅 이야기는 쓰지 않는다. **바뀔 수 있는 수치는 숫자를 베끼지 말고 기준 상수·테스트를 링크**한다
@@ -148,21 +143,16 @@
 
 ## 4. Kotlin & Android 개발 가이드라인
 
+> 번호는 코드·문서가 `§4-6` 처럼 가리키므로 고정한다. 4-3(불변성)은 일반 관례라 빼고, 4-5(`AnimatedContent` 버튼)는 `docs/DESIGN.md` Motion 으로 옮겼다(2026-11-09).
+
 1. **AGP 9.0+ 라이브러리 모듈 수칙**:
    - 신규 모듈 생성 시 `build.gradle.kts`에 `id("org.jetbrains.kotlin.android")`를 **절대 재선언하지 않는다** (AGP 9.0+ 내장 플러그인 충돌 방지).
-2. **Strict Type & Null Safety**:
-   - `Any` 및 강제 언패킹(`!!`) 사용을 금지한다. `?` 연산자, `let`, `runCatching`, `elvis(?:)` 연산자를 활용한다.
-3. **불변성(Immutability) 지향**:
-   - `var` 대신 `val`을 사용하고, `MutableList`를 외부로 노출할 때는 `List` 또는 Immutable Collection 인터페이스로 래핑한다.
-4. **비동기(Coroutines/Flow) 및 Hilt DI**:
-   - Blocking 코드가 메인 스레드나 Coroutine 내부에서 실행되지 않도록 Dispatcher 분리(`Dispatchers.IO`)를 확인한다.
-   - 클래스 분리/생성 시 Hilt DI 모듈(`@Provides`, `@Binds` 등)의 객체 등록 여부를 함께 체크한다.
+2. **`Any` 및 강제 언패킹(`!!`) 사용을 금지한다.**
+4. **Hilt 상주 컴포넌트**:
    - `@Singleton` 이 아무에게도 주입되지 않으면 인스턴스화되지 않는다 — 백그라운드 상주
      컴포넌트는 `KosmosApp` 에 `@Inject lateinit var` 로 eager 주입한다 (briefingGenerator 전례).
    - `@EntryPoint` 는 프레임워크가 인스턴스화해 `@AndroidEntryPoint` 를 못 쓰는 컴포넌트에서만
      쓰고(GlanceAppWidget 전례, 0.22.0), 필요한 의존성만 노출하는 전용 인터페이스로 좁게 연다.
-5. `AnimatedContent` 안의 버튼은 크기·`clip` 제약을 최상위 modifier 에 두고 내부 아이콘은 `fillMaxSize()` —
-   안쪽에 두면 전환 중 레이아웃이 깨진다.
 6. **UI 색상은 `KosmosTheme.colors` 토큰만** 사용한다 — 하드코딩 `Color(...)` 금지. 라이트/다크
    팔레트가 토큰째 바뀌므로 토큰만 쓰면 테마 대응이 자동이다. **UI 는 `docs/DESIGN.md`(v3)를 따른다** —
    이모지·글자 기호 아이콘 금지(Phosphor 만), 글자 크기는 `AppTypography` 단계만(직접 `fontSize` 금지).
@@ -177,4 +167,6 @@
 
 ## 5. 사용자와 소통 (사용자 결정)
 - **사용자에게 보내는 모든 텍스트는 한국어**로 쓴다 — 요약·표·질문은 물론 긴 작업 중 진행 안내 한 줄까지. 프롬프트·툴 출력·
-  코드가 영어라 응답이 영어로 새는 일이 있었다(2026-10-01). 코드 식별자와 커밋 메시지 규칙(§1)은 그대로다.
+  코드가 영어라 응답이 영어로 새는 일이 있었다(2026-10-01, 긴 adb·도구 작업 중 11-05·11-06 재발). 코드 식별자와 커밋 메시지 규칙(§1)은 그대로다.
+- **내부 약어·코드명**(마일스톤 번호, 실험 번호, 대안 이름 등)은 처음 쓸 때 한 줄로 풀어 쓴다 — 기록에서 "그게 뭐야?"가 반복됐다(약 7회).
+- 사용자가 **"추측이어도 된다"고 하면 새로 실험·측정하지 않는다**(기록 3회) — 모델 입력을 바꾸는 일의 실측(§2-⑤)은 예외다.

@@ -10,6 +10,7 @@
 | 확장 로드맵(이전) | [expand.md](expand.md) | 0.20~0.37 의 확장 트랙(A·B·C) |
 | 요구사항 | [PRD.md](PRD.md) | 목표·비목표·인수 기준 |
 | 디자인 | [DESIGN.md](DESIGN.md) · [design/](design) | UI 기준(v3) · 설계 문서·디자인 점검 |
+| 테스트 | [testing-notes.md](testing-notes.md) | Robolectric·Compose 테스트 작성 요령(AGENTS §2-② 에서 옮김) |
 | 실기기 확인 | [checklists/device_gate.md](checklists/device_gate.md) | 테스트가 못 잡는 항목의 회차별 확인 · [v0](checklists/v0_acceptance.md)·[v1](checklists/v1_acceptance.md) 인수 기준 |
 | 작업 규칙 | [../AGENTS.md](../AGENTS.md) · [agent_workflow_guide.md](agent_workflow_guide.md) | AI 에이전트 작업 규칙과 워크플로 |
 | 문제 해결 | [trouble_shooting.md](trouble_shooting.md) | 빌드·Robolectric·네이티브 문제 |
