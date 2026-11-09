@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.41.6 · 2026-11-06. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.41.7 · 2026-11-09. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 KOSMOS is an AI assistant that runs entirely on your phone, with no server. Ask in plain language (Korean or English) and it creates calendar events,
 reminders and notes, and answers by searching your past conversations, notes and the documents you registered. It always asks for your confirmation before saving.
@@ -29,7 +29,8 @@ You can also open the project in Android Studio (JDK 17+) and run it.
 - On the first screen, tap the download button (모델 내려받기) to fetch about 3.6 GB over Wi-Fi. It resumes after interruptions and keeps going in the
   background. You can download again later from Settings › AI model (설정 › AI 모델).
 - To install it manually, copy `gemma-4-E4B-it.litertlm` to `Android/data/com.kosmos.app/files/models/`.
-- Waking the model takes about 10 seconds (splash screen). The app unloads the model when you leave it, to free memory, and wakes it again when you return.
+- Waking the model takes about 10 seconds (splash screen). After a break, the chat opens once it has tidied up your last conversation, prepared today's briefing and readied the conversation — the splash screen shows what it is doing.
+- The app unloads the model when you leave it, to free memory, and wakes it again when you return — meanwhile you can read the conversation, but **the input box is locked** and it and the status pill show text such as "Waking up AI engine…" (typing during this stutters the screen).
 
 ## 4. Permissions
 Requested only when needed. Everything else keeps working if you decline.
@@ -41,7 +42,7 @@ Requested only when needed. Everything else keeps working if you decline.
 | Notifications · Alarms & reminders | Ringing reminders on time, restoring them after a reboot |
 
 ## 5. Using it
-**One continuous conversation** — there is no "new chat" button. After 30 minutes of inactivity, the earlier part is summarized into a searchable memory by topic.
+**One continuous conversation** — there is no "new chat" button. After 30 minutes of inactivity, the earlier part is summarized into a searchable memory by topic, and the assistant remembers it through that summary — if you come back and ask it to continue its previous answer exactly, it may ask you once to clarify.
 
 | Say | What happens |
 |---|---|
@@ -80,7 +81,7 @@ Requested only when needed. Everything else keeps working if you decline.
 
 ## 7. Good to know
 - **Short conversational memory** — it directly remembers only the last few turns and finds the rest by searching past conversations and notes. Ask it to remember important things.
-- **Memory search matches the same words by default** — without the meaning search model, Korean notes are found with Korean queries and English notes with the same English words. Download it in **Settings › Meaning search model** and tap "Prepare meaning search for memories" once: notes and past chats are then found even when worded differently or asked in another language. New memories are prepared automatically shortly after each reply.
+- **Memory search matches the same words by default** — without the meaning search model, Korean notes are found with Korean queries and English notes with the same English words. Download it in **Settings › Meaning search model** and tap "Prepare meaning search for memories" once: notes and past chats are then found even when worded differently or asked in another language. New memories are prepared automatically shortly after each reply. Version 0.41.7 rebuilds what was prepared to make meaning search more accurate, so after updating tap "Prepare meaning search for memories" and **Prepare meaning search** in the library once more.
 - **Right after switching languages, a few replies may follow the previous language** — if you switch from Korean to English mid-conversation, replies or event titles can stay in Korean until the earlier turns drop out of the recent history. Keep talking in the new language and it settles.
 - **It can be wrong** — it is a small model. A confirmation sheet always appears before saving, so check the content.
 - **When the device is hot** (battery around 43°C or more) background work such as memory cleanup and briefings is postponed.
