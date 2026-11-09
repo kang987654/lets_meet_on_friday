@@ -99,13 +99,16 @@ internal object RuntimeDiagnostics {
      *
      * @param cause `first`·`stale`·`session` 또는 [com.kosmos.app.domain.modelrunner.ConversationResetEvent.Reason] 이름
      * @param previousTokens 버린 대화의 KV 토큰 수 — 판정이 읽지 않았으면 null
+     * @param createMs 대화 생성에 걸린 시간 — 앞부분 미리 읽기를 켜면 프리필이 여기로 옮겨 온다(0.41.9 M2 실측용, 생성 직후 KV 와 함께 본다)
      */
     @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
-    fun logConversationCreated(prompt: ChatPrompt, created: Conversation, cause: String, previousTokens: Int?) {
+    fun logConversationCreated(prompt: ChatPrompt, created: Conversation, cause: String, previousTokens: Int?, createMs: Long) {
         if (!BuildConfig.DEBUG) return
+        val kvAfterCreate = runCatching { created.getTokenCount() }.getOrNull()
         Log.d(
             TAG,
-            "conversation created: cause=$cause, previousKv=${previousTokens ?: "-"}, tools=${prompt.enabledTools}, " +
+            "conversation created: cause=$cause, previousKv=${previousTokens ?: "-"}, createMs=$createMs, kvAfterCreate=${kvAfterCreate ?: "-"}, " +
+                "history=${prompt.history.size}, tools=${prompt.enabledTools}, " +
                 "providers=${KosmosToolDeclarations.providersFor(prompt.enabledTools).size}"
         )
         runCatching { created.renderPrefaceIntoString() }

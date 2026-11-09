@@ -75,6 +75,16 @@ class MtpModeTest {
         assertNull(oneShotConversationConfig(prompt.copy(oneShot = true)).speculativeDecodingConfig)
     }
 
+    @Test
+    fun `대화 설정에 생각 모드 끔이 실리고 앞부분 미리 읽기는 넘길 때만 켜진다`() {
+        // [WHY] 앞부분 미리 읽기는 앞부분을 대화 설정의 생각 모드로 렌더링한다 — send 와 같은 끔이 설정에도 있어야 한다(0.41.9 M2).
+        val chat = chatConversationConfig(prompt)
+        assertEquals(false, chat.thinkingConfig?.enableThinking)
+        assertEquals(false, oneShotConversationConfig(prompt.copy(oneShot = true)).thinkingConfig?.enableThinking)
+        assertEquals(false, chat.prefillPrefaceOnInit)
+        assertEquals(true, chatConversationConfig(prompt, prefillPreface = true).prefillPrefaceOnInit)
+    }
+
     private fun writeDebug(text: String) {
         File(temp.root, MtpMode.DEBUG_FILE_NAME).writeText(text)
     }

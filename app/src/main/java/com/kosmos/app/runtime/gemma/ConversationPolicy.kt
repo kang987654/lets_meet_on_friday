@@ -5,6 +5,7 @@ import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.SpeculativeDecodingConfig
+import com.google.ai.edge.litertlm.ThinkingConfig
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ChatPrompt
@@ -88,14 +89,26 @@ internal fun conversationResetThreshold(contextBudgetTokens: Int): Int =
 internal val GREEDY_SAMPLER = SamplerConfig(temperature = 1.0, topK = 1, topP = 0.95)
 
 /**
+ * 생각 모드를 끕니다 — 대화 설정과 매 send 에 같은 값을 싣는다.
+ *
+ * [WHY] 생각 모드만 켜면 툴 호출이 4/4 → 2/4 로 떨어졌다(exp24, 일정 등록 쪽). 켜져도 출력에 `<|think|>` 마커가
+ * 나오지 않아 응답으로는 켜졌는지 알 수 없으므로, 키 이름 맵이 아니라 타입 있는 `ThinkingConfig` 로 명시한다.
+ * [WHY] 대화 설정에도 싣는다(0.41.9) — 앞부분 미리 읽기(`prefillPrefaceOnInit`)를 켜면 엔진이 앞부분을 **대화 설정의** 생각 모드로
+ * 렌더링한다(LiteRT-LM `conversation.cc`). 비워 두면 앞부분과 send 의 템플릿이 어긋날 수 있다.
+ */
+internal val THINKING_OFF = ThinkingConfig(enableThinking = false)
+
+/**
  * 채팅 대화 설정 — 히스토리·툴 선언을 싣는다.
  *
  * @param speculative 추측 디코딩(MTP) 설정 — GPU 엔진일 때만 [MtpMode.toConfig], 아니면 null(미지정, 0.41.1).
+ * @param prefillPreface 대화를 만들 때 앞부분(시스템 지시·기록·툴 선언)을 바로 프리필할지 — 기본은 꺼짐(첫 send 가 읽는다, 0.41.9 M2 실측 전).
  * [WHY] few-shot 시범은 싣지 않는다 — 툴 호출의 진짜 원인은 지침 거리였고 턴 리마인더가 해결한다(ADR-017, exp35 11/11).
  */
 internal fun chatConversationConfig(
     prompt: ChatPrompt,
-    speculative: SpeculativeDecodingConfig? = null
+    speculative: SpeculativeDecodingConfig? = null,
+    prefillPreface: Boolean = false
 ): ConversationConfig = ConversationConfig(
     systemInstruction = Contents.of(prompt.systemInstruction),
     initialMessages = prompt.history.map {
@@ -108,6 +121,8 @@ internal fun chatConversationConfig(
     // 승인 다이얼로그(PRD F4)를 거쳐야 하므로 자동 실행을 쓸 수 없다.
     automaticToolCalling = false,
     samplerConfig = GREEDY_SAMPLER,
+    prefillPrefaceOnInit = prefillPreface,
+    thinkingConfig = THINKING_OFF,
     speculativeDecodingConfig = speculative
 )
 
@@ -123,5 +138,6 @@ internal fun oneShotConversationConfig(
     systemInstruction = Contents.of(prompt.systemInstruction),
     automaticToolCalling = false,
     samplerConfig = GREEDY_SAMPLER,
+    thinkingConfig = THINKING_OFF,
     speculativeDecodingConfig = speculative
 )

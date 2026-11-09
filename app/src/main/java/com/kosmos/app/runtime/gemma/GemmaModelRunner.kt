@@ -98,14 +98,6 @@ class GemmaModelRunner @Inject constructor(
 ) : ModelRunner {
 
     companion object {
-        /**
-         * 생각 모드를 끕니다.
-         *
-         * [WHY] 생각 모드만 켜면 툴 호출이 4/4 → 2/4 로 떨어졌다(exp24, 일정 등록 쪽). 켜져도 출력에 `<|think|>` 마커가
-         * 나오지 않아 응답으로는 켜졌는지 알 수 없으므로, 키 이름 맵이 아니라 타입 있는 `ThinkingConfig` 로 명시한다.
-         */
-        private val THINKING_OFF = com.google.ai.edge.litertlm.ThinkingConfig(enableThinking = false)
-
         // [WHY] 방출 지점(getOrCreateConversation)이 suspend 가 아니라 tryEmit 이 수신자 유무와
         // 무관하게 성공할 여유가 필요하다. 넘쳐 유실되면 catch-up 이 DB 상태로 복원한다.
         private const val RESET_EVENT_BUFFER = 16
@@ -660,6 +652,7 @@ class GemmaModelRunner @Inject constructor(
         // 비었다(0.8.0 실기기). 켠 상태에서 자릿수가 깨지지 않는 것도 확인했다(exp15·exp22 36/36).
         // `ConversationConfig` 필드가 아니라 생성 시점에만 읽히는 전역이다.
         ExperimentalFlags.enableConversationConstrainedDecoding = prompt.enabledTools.isNotEmpty()
+        val createStartedAt = System.currentTimeMillis()
         val newConversation = try {
             currentEngine.createConversation(chatConversationConfig(prompt, speculative))
         } finally {
@@ -670,7 +663,7 @@ class GemmaModelRunner @Inject constructor(
             stale -> "stale"
             else -> (decision as? ConversationDecision.Recreate)?.resetReason?.name ?: "session"
         }
-        RuntimeDiagnostics.logConversationCreated(prompt, newConversation, cause, observedTokens)
+        RuntimeDiagnostics.logConversationCreated(prompt, newConversation, cause, observedTokens, System.currentTimeMillis() - createStartedAt)
         conversation = newConversation
         cachedKey = ConversationKey.of(prompt)
         return newConversation
