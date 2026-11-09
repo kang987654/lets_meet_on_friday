@@ -57,7 +57,9 @@ class PromptFixtureExportTest {
             ),
             userInput = USER_INPUT,
             availableTools = ALL_TOOLS,
-            systemRole = SYSTEM_ROLE
+            systemRole = SYSTEM_ROLE,
+            today = FIXED_TODAY,
+            now = FIXED_NOW
         )
 
         // 표류 감시 — 아래 단언이 깨지면 프롬프트가 바뀐 것이고, 픽스처를 다시 내보내야 한다.
@@ -93,7 +95,9 @@ class PromptFixtureExportTest {
             ),
             userInput = USER_INPUT,
             availableTools = ALL_TOOLS,
-            systemRole = SYSTEM_ROLE
+            systemRole = SYSTEM_ROLE,
+            today = FIXED_TODAY,
+            now = FIXED_NOW
         )
         assertTrue("영어 날짜 블록이 시스템 지시에 있어야 한다", promptEn.systemInstruction.contains("[System Data] Today="))
         assertTrue("영어 다음주 월요일 파생값이 있어야 한다", promptEn.systemInstruction.contains("Next Monday="))
@@ -123,7 +127,7 @@ class PromptFixtureExportTest {
             webSearchEnabled = true,
             docSearchEnabled = true
         )
-        val prompt = PromptAssembler().assembleWithTools(context, USER_INPUT, ALL_TOOLS + DOC_TOOL, SYSTEM_ROLE)
+        val prompt = PromptAssembler().assembleWithTools(context, USER_INPUT, ALL_TOOLS + DOC_TOOL, SYSTEM_ROLE, today = FIXED_TODAY, now = FIXED_NOW)
         assertTrue("문서 검색 트리거가 `search_documents` 를 지목해야 한다", prompt.systemInstruction.contains("`search_documents`"))
         val base = PromptAssembler().assembleWithTools(context.copy(docSearchEnabled = false), USER_INPUT, ALL_TOOLS, SYSTEM_ROLE)
         assertTrue("꺼짐 지시에는 문서 검색이 없어야 한다", !base.systemInstruction.contains("search_documents"))
@@ -335,5 +339,10 @@ class PromptFixtureExportTest {
         const val USER_INPUT = "(사용자 발화는 실험에서 주입한다)"
 
         const val FIXTURE_DIR = "../scratch/lab/fixtures"
+
+        // [WHY] 픽스처의 날짜·`[Now]` 를 고정한다 — 벽시계로 내보내면 테스트를 돌린 시각마다 턴 리마인더가 바뀌어 회귀 세트 결과가
+        // 시각 탓에 갈렸다(0.41.7: 17:28 실패, 10:53 통과). 회귀 세트는 날짜를 픽스처에서 읽으므로 날짜는 아무 날이나 되고, 시각은 기준값과 같은 10:53.
+        val FIXED_TODAY: java.time.LocalDate = java.time.LocalDate.of(2026, 11, 9)
+        val FIXED_NOW: java.time.LocalTime = java.time.LocalTime.of(10, 53)
     }
 }
