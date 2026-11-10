@@ -19,8 +19,9 @@ android {
         // 최신(37)으로 맞췄다(2026-08-14). targetSdk 는 런타임 동작 규칙을 바꾸므로 상향 시
         // 실기기 확인이 짝이다 — 이번 확인 대상: 전경 다운로드 알림, 오디오 녹음, 캘린더 동기화.
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        // [WHY] 앱 버전은 CHANGELOG 회차 버전과 같다(AGENTS §1 버전 규칙) — versionCode 는 0.A.B → A*1000+B(늘 증가해야 덮어 설치된다).
+        versionCode = 41009
+        versionName = "0.41.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
