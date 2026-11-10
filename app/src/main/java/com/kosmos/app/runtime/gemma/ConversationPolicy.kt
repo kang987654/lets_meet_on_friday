@@ -102,7 +102,7 @@ internal val THINKING_OFF = ThinkingConfig(enableThinking = false)
  * 채팅 대화 설정 — 히스토리·툴 선언을 싣는다.
  *
  * @param speculative 추측 디코딩(MTP) 설정 — GPU 엔진일 때만 [MtpMode.toConfig], 아니면 null(미지정, 0.41.1).
- * @param prefillPreface 대화를 만들 때 앞부분(시스템 지시·기록·툴 선언)을 바로 프리필할지 — 기본은 꺼짐(첫 send 가 읽는다, 0.41.9 M2 실측 전).
+ * @param prefillPreface 대화를 만들 때 앞부분(시스템 지시·기록·툴 선언)을 바로 프리필할지 — 앱은 켜지 않는다(첫 send 가 읽는다) — 휴대폰 실측에서 답이 한 번 깨져 쓰지 않기로 했고, 다음 라이브러리에서 다시 재려고 둔다(ADR-030 보충 0.41.9).
  * [WHY] few-shot 시범은 싣지 않는다 — 툴 호출의 진짜 원인은 지침 거리였고 턴 리마인더가 해결한다(ADR-017, exp35 11/11).
  */
 internal fun chatConversationConfig(
