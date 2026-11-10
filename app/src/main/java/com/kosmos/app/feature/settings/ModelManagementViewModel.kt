@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kosmos.app.core.common.CurrentLanguage
 import com.kosmos.app.core.mapper.ErrorMessages
+import com.kosmos.app.domain.modelrunner.ModelLoadManager
+import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.domain.tool.ModelDownloadStatus
 import com.kosmos.app.domain.usecase.DownloadModelUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -43,7 +45,7 @@ sealed class DownloadState {
  *
  * ### Architecture Context
  * - **Layer**: UI (ViewModel)
- * - **Dependencies**: [DownloadModelUseCase]
+ * - **Dependencies**: [DownloadModelUseCase], [ModelLoadManager](설치 여부)
  *
  * ### Key Flow
  * 1. [DownloadModelUseCase.status]를 UI 상태로 매핑해 노출합니다.
@@ -58,6 +60,7 @@ sealed class DownloadState {
 @HiltViewModel
 class ModelManagementViewModel @Inject constructor(
     private val downloadModelUseCase: DownloadModelUseCase,
+    modelLoadManager: ModelLoadManager,
     private val currentLanguage: CurrentLanguage = CurrentLanguage.KO
 ) : ViewModel() {
 
@@ -67,6 +70,16 @@ class ModelManagementViewModel @Inject constructor(
     val downloadState: StateFlow<DownloadState> = downloadModelUseCase.status
         .map { it.toUiState() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadState.Idle)
+
+    /**
+     * 기본 모델 파일이 이미 있는지 — 있으면 화면이 "설치됨"과 확인을 거치는 "다시 받기"를 보인다.
+     *
+     * [WHY] 화면이 다운로드 진행 상태만 보고 "내려받기"를 늘 그려, 설치된 상태에서 누르면 3.6GB 를 처음부터 다시 받았다(0.41.10 M2).
+     * 파일 확인의 단일 출처는 런타임의 로드 상태다(설정 화면의 "준비됨"과 같은 값).
+     */
+    val modelInstalled: StateFlow<Boolean> = modelLoadManager.loadState
+        .map { it.isModelInstalled() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), modelLoadManager.loadState.value.isModelInstalled())
 
     fun downloadModel(url: String) = downloadModelUseCase.enqueue(url)
 
@@ -96,3 +109,7 @@ class ModelManagementViewModel @Inject constructor(
         is ModelDownloadStatus.Cancelled -> DownloadState.Idle
     }
 }
+
+/** 엔진이 읽을 모델 파일이 있는 상태 — 로드 중·준비됨 포함. 파일을 찾기 전(Loading)·없음·오류는 아니다. */
+internal fun ModelLoadState.isModelInstalled(): Boolean =
+    this is ModelLoadState.FileFound || this is ModelLoadState.InitializingEngine || this is ModelLoadState.Ready

@@ -484,6 +484,10 @@
     <string name="model_mgmt_title">Model Management</string>
     <string name="model_mgmt_default_section">Default Model</string>
     <string name="model_mgmt_default_spec">LiteRT-LM optimized, approx. 3.6GB</string>
+    <string name="model_mgmt_installed">Installed — no need to download it again.</string>
+    <string name="model_mgmt_redownload">Download again</string>
+    <string name="model_mgmt_redownload_title">Download the model again?</string>
+    <string name="model_mgmt_redownload_body">It\'s already installed. Downloading again fetches about 3.6GB from the start. Only needed if the model won\'t open properly.</string>
     <string name="model_mgmt_custom_url_section">Download from Custom URL</string>
     <string name="model_mgmt_embedding_section">Meaning Search Model (Optional)</string>
     <string name="model_mgmt_embedding_desc">Finds documents and memories that mean the same thing even when worded differently or asked in another language. About %1$d MB, downloaded over Wi-Fi.</string>

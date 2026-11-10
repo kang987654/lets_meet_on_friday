@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.41.7 · 2026-11-09. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.41.10 · 2026-11-10. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 KOSMOS is an AI assistant that runs entirely on your phone, with no server. Ask in plain language (Korean or English) and it creates calendar events,
 reminders and notes, and answers by searching your past conversations, notes and the documents you registered. It always asks for your confirmation before saving.
@@ -99,7 +99,7 @@ Requested only when needed. Everything else keeps working if you decline.
 ## 9. Troubleshooting
 | Symptom | Try |
 |---|---|
-| Model missing / failed to load | Download again from Settings › AI model |
+| Model missing / failed to load | Download from Settings › AI model — if it is already installed you see "Installed" and **Download again**, which asks once more (fetches about 3.6GB from the start) |
 | Download stuck | Check Wi-Fi — it does not download over mobile data |
 | Reminder did not ring | Check the Notifications and "Alarms & reminders" permissions |
 | Event missing from the device calendar | Check the Calendar permission (the event is still saved in the app) |

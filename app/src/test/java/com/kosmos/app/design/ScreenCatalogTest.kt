@@ -909,7 +909,7 @@ class ScreenCatalogTest {
         val useCase = io.mockk.mockk<DownloadModelUseCase>(relaxed = true) {
             io.mockk.every { status } returns kotlinx.coroutines.flow.flowOf(ModelDownloadStatus.Idle)
         }
-        val vm = ModelManagementViewModel(useCase)
+        val vm = ModelManagementViewModel(useCase, io.mockk.mockk(relaxed = true) { io.mockk.every { loadState } returns kotlinx.coroutines.flow.MutableStateFlow(ModelLoadState.NotFound("")) })
         shoot("24-model-management") { ModelManagementScreen(viewModel = vm, onBack = {}) }
     }
 

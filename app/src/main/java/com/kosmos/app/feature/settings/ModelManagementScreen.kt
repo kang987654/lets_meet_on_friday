@@ -33,6 +33,8 @@ fun ModelManagementScreen(
     onBack: () -> Unit
 ) {
     val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
+    val modelInstalled by viewModel.modelInstalled.collectAsStateWithLifecycle()
+    var confirmRedownload by remember { mutableStateOf(false) }
     var customUrl by remember { mutableStateOf("") }
 
     val defaultModelUrl = Constants.DEFAULT_MODEL_DOWNLOAD_URL
@@ -98,7 +100,18 @@ fun ModelManagementScreen(
                         color = KosmosTheme.colors.textMuted
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    KosmosButton(stringResource(R.string.common_download), { startDownload(defaultModelUrl) }, Modifier.fillMaxWidth(), accent = true)
+                    // [WHY] 설치돼 있으면 "설치됨" + 확인을 거치는 "다시 받기" — 늘 "내려받기"였던 버튼이 3.6GB 를 처음부터 다시 받았다(0.41.10 M2, 사용자 결정 (가)).
+                    // 파일이 깨졌을 때 다시 받는 길은 남긴다.
+                    if (modelInstalled) {
+                        Text(
+                            stringResource(R.string.model_mgmt_installed),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = KosmosTheme.colors.textSecondary
+                        )
+                        KosmosButton(stringResource(R.string.model_mgmt_redownload), { confirmRedownload = true }, Modifier.fillMaxWidth())
+                    } else {
+                        KosmosButton(stringResource(R.string.common_download), { startDownload(defaultModelUrl) }, Modifier.fillMaxWidth(), accent = true)
+                    }
                 }
             }
 
@@ -117,6 +130,30 @@ fun ModelManagementScreen(
                 }
             }
         }
+    }
+
+    if (confirmRedownload) {
+        AlertDialog(
+            onDismissRequest = { confirmRedownload = false },
+            title = { Text(stringResource(R.string.model_mgmt_redownload_title)) },
+            text = { Text(stringResource(R.string.model_mgmt_redownload_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRedownload = false
+                    startDownload(defaultModelUrl)
+                }) {
+                    Text(stringResource(R.string.model_mgmt_redownload), color = KosmosTheme.colors.brandText)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRedownload = false }) {
+                    Text(stringResource(R.string.common_cancel), color = KosmosTheme.colors.textSecondary)
+                }
+            },
+            containerColor = KosmosTheme.colors.surface,
+            titleContentColor = KosmosTheme.colors.textPrimary,
+            textContentColor = KosmosTheme.colors.textSecondary
+        )
     }
 
     when (val state = downloadState) {
