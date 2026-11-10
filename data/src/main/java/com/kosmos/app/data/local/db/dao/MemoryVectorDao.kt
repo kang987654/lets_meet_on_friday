@@ -22,8 +22,6 @@ interface MemoryVectorDao {
     @Query("DELETE FROM memory_vector WHERE kind = :kind AND refId = :refId")
     suspend fun delete(kind: String, refId: String)
 
-    @Query("DELETE FROM memory_vector WHERE kind = :kind")
-    suspend fun deleteKind(kind: String)
 
     @Query("DELETE FROM memory_vector")
     suspend fun deleteAll()

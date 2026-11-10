@@ -122,11 +122,6 @@ class AppLanguageHolder @Inject constructor(
         updateResolvedLanguage(resolved, notifyChange = true)
     }
 
-    /** 테스트나 명시적 언어 지정이 필요한 곳에서 현재 언어를 직접 설정합니다. */
-    fun setLanguageForTest(language: AppLanguage) {
-        _language.value = language
-    }
-
     private fun syncFromSystem(notifyChange: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val opt = readOptionFromLocaleManager()

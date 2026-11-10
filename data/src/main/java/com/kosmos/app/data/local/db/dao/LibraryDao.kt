@@ -50,9 +50,6 @@ interface LibraryDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertChunks(chunks: List<LibraryChunkEntity>): List<Long>
 
-    @Query("SELECT * FROM library_chunk WHERE documentId = :documentId ORDER BY idx")
-    suspend fun chunksOf(documentId: String): List<LibraryChunkEntity>
-
     @Query("SELECT * FROM library_chunk WHERE rowId IN (:rowIds)")
     suspend fun chunksByRowId(rowIds: List<Long>): List<LibraryChunkEntity>
 

@@ -30,9 +30,6 @@ object NotificationAccess {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
             context.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() != false
 
-    fun deniedMessage(context: Context): String =
-        context.getString(R.string.notif_permission_denied_message)
-
     /** 정확한 알람 허용 화면 — 승인 시트의 "설정에서 켜기"(0.38.2 M8). API 31 미만은 늘 정확해서 부르지 않는다. */
     fun exactAlarmSettingsIntent(context: Context): android.content.Intent =
         android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, android.net.Uri.parse("package:${context.packageName}"))

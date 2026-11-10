@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.kosmos.app.assistant.briefing.MorningBriefingGenerator
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.data.local.prefs.SettingsDataStore
 import com.kosmos.app.domain.memory.TaskRepository
@@ -23,7 +24,7 @@ import kotlinx.coroutines.flow.first
  * - **Dependencies**: [GetTodayScheduleUseCase], [TaskRepository], [BriefingNotifier]
  *
  * [WHY] **추론이 없다** — 로컬 DB 숫자("일정 N건 · 할 일 M건")만 읽는다. 브리핑 본문은
- * 앱이 열려 엔진 Ready 가 됐을 때 [MorningBriefingGenerator] 가 생성한다. 백그라운드
+ * 앱이 열려 엔진 Ready 가 된 뒤 시작 단계([com.kosmos.app.assistant.startup.StartupCoordinator])에서 [MorningBriefingGenerator] 가 생성한다. 백그라운드
  * 모델 로드는 수명주기(onStop close)와 충돌해 기각된 방향이다. 추론이 없으므로 전경
  * 승격(setForeground)도 불필요하다.
  */
