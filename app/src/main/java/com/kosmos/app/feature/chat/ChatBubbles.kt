@@ -42,7 +42,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
-import com.halilibo.richtext.commonmark.Markdown
+import com.halilibo.richtext.commonmark.CommonmarkAstNodeParser
+import com.halilibo.richtext.markdown.BasicMarkdown
+import com.halilibo.richtext.ui.RichTextScope
 import com.halilibo.richtext.ui.material3.RichText
 import com.kosmos.app.assistant.orchestrator.AttachedDocumentBlock
 import com.kosmos.app.ui.component.kosmosSurface
@@ -262,7 +264,7 @@ fun ChatBubbleAssistant(
                         value = MaterialTheme.typography.bodyLarge.copy(color = KosmosTheme.colors.textPrimary)
                     ) {
                         RichText {
-                            Markdown(content = text)
+                            SyncMarkdown(text)
                         }
                     }
                 }
@@ -481,3 +483,16 @@ internal fun AttachmentThumbnail(uri: Uri, sizeDp: Int = 48) {
 
 /** 사용자 말풍선 모양 — 오른쪽 아래 모서리만 뾰족하다. */
 private val UserBubbleShape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 4.dp, bottomStart = 18.dp)
+
+/**
+ * 마크다운을 **같은 프레임에** 파싱해 그립니다 — 라이브러리의 `Markdown` 은 `produceState(null)` 로 파싱해 첫 프레임이 비어 있다.
+ *
+ * [WHY] 긴 답 말풍선이 처음 그려질 때 169px(빈 말풍선)였다가 다음 프레임에 4,500px 로 커져, 원문 이동이 정렬한 뒤 reverseLayout 목록이
+ * 바닥 기준으로 자리를 지키며 목표를 화면 위로 밀어냈다(0.41.11 휴대폰 단계 로그). 파싱은 어차피 메인 스레드(produceState 도 같은 디스패처)라 비용은 같다.
+ */
+@Composable
+internal fun RichTextScope.SyncMarkdown(content: String) {
+    val parser = remember { CommonmarkAstNodeParser() }
+    val ast = remember(content) { parser.parse(content) }
+    BasicMarkdown(astNode = ast)
+}

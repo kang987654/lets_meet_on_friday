@@ -22,7 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
-import com.halilibo.richtext.commonmark.Markdown
 import com.halilibo.richtext.ui.material3.RichText
 import com.kosmos.app.R
 import com.kosmos.app.ui.component.kosmosSurface
@@ -76,7 +75,7 @@ fun BriefingCard(
                 value = MaterialTheme.typography.bodyMedium.copy(color = KosmosTheme.colors.textPrimary)
             ) {
                 RichText {
-                    Markdown(content = text)
+                    SyncMarkdown(text)
                 }
             }
         }

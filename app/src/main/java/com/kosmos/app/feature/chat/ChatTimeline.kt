@@ -268,20 +268,25 @@ private fun isJumpTarget(message: ChatMessage, older: ChatMessage?, highlightSta
 /**
  * 목록의 [index] 로 이동해 그 항목 윗변을 화면 윗변에 맞춥니다 — 정렬 전에 [loadAround] 로 목표와 그 아래(더 최신) 이웃이 채워지길 기다린다.
  *
- * [WHY] 목표 하나만 채워진 채 정렬하면 그 아래 자리표시자(40dp)가 화면에 들어온 뒤에야 로드돼 실제 높이로 커지고, reverseLayout 목록은
- * 바닥 쪽 첫 항목을 기준으로 자리를 지켜 목표가 화면 위로 밀려났다 — 다음 대화의 긴 답에 내려앉았다(0.41.9 휴대폰, 0.41.10 M3).
- * [WHY] `scrollToItem` 직후의 `layoutInfo` 는 아직 이전 배치일 수 있어 한 프레임 뒤에 잰다. 정렬 뒤 한 번 더 재서 남은 높이 변화를 따라잡는다.
+ * [WHY] 목표와 아래 이웃이 채워지기 전에 정렬하면, 이웃이 실제 높이로 커질 때 reverseLayout 목록이 바닥 쪽 첫 항목을 기준으로 자리를 지켜
+ * 목표가 화면 위로 밀려났다 — 다음 대화의 긴 답에 내려앉았다(0.41.9 휴대폰, 0.41.10 M3, 0.41.11 휴대폰 진단으로 바로잡음).
  *
  * @param loadAround 목표·이웃이 채워지면 true(시간 안에 안 오면 false — 그때는 바닥 정렬로 둔다, 이동 자체는 이미 끝났다)
  */
 internal suspend fun scrollToTimelineTarget(listState: LazyListState, index: Int, loadAround: suspend () -> Boolean) {
     listState.scrollToItem(index)
     if (!loadAround()) return
-    listState.scrollToItem(index)
+    // [WHY] 채워진 데이터가 실제 높이로 그려지는 것은 다음 프레임이다 — 그 전에 이동하면 커진 이웃(긴 답 4,541px)이 바닥 기준 칸과 목표 사이에서
+    // 자라 목표가 화면 위로 밀려났다(0.41.11 휴대폰 진단). 높이가 반영된 뒤에 이동·정렬한다.
     withFrameNanos { }
-    alignItemTop(listState, index)
-    withFrameNanos { }
-    alignItemTop(listState, index)
+    repeat(2) {
+        listState.scrollToItem(index)
+        withFrameNanos { }
+        alignItemTop(listState, index)
+        withFrameNanos { }
+        // 남은 높이 변화로 목표가 다시 밀렸으면 한 번 더 잡는다.
+        if (listState.layoutInfo.visibleItemsInfo.any { it.index == index }) return
+    }
 }
 
 /** 점프 목표 아래(더 최신)로 화면 한 장을 채울 만큼 미리 채울 이웃 수 — 짧은 말풍선(약 100dp)도 화면을 덮는다. */
