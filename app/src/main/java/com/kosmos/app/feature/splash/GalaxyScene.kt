@@ -68,8 +68,10 @@ internal object GalaxyScene {
      *
      * [WHY] 안팎 속도 차이를 줄였다(0.41.8) — 차이만큼 팔이 감겨, 엔진 로딩에 시작 단계(지난 대화 정리 등)까지 붙으면 나선이 너무 촘촘해졌다(사용자 지적).
      * 우리 별이 있는 중간(r 0.5)의 속도는 거의 그대로다(0.47 → 0.45), 안(r 0.12)·밖(r 1) 차이는 0.67 → 0.38.
+     * [WHY] 전체를 0.6배로 늦췄다(0.41.12, 사용자 지적) — 시작 단계(지난 대화 요약 + 불러오기)까지 붙어 로딩이 길어지면 회전이 많이 쌓였다.
+     * 같은 비율이라 팔이 감기는 속도도 함께 0.6배(중간 0.45 → 0.27 rad/s, 안팎 차이 0.38 → 0.23).
      */
-    internal fun omega(r: Float) = 0.5f / (0.6f + r)
+    internal fun omega(r: Float) = 0.3f / (0.6f + r)
 
     fun center(size: Size) = Offset(size.width / 2, size.height * 0.36f)
     private fun radius(size: Size) = size.width * 0.46f
