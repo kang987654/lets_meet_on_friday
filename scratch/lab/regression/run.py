@@ -33,7 +33,8 @@ SYS_ON = K.fixture("system_instruction.txt")
 _WIKI_LINE = next(l for l in SYS_ON.splitlines() if "search_wikipedia" in l) + "\n"
 SYS_OFF = SYS_ON.replace(_WIKI_LINE, "")  # 실기기 기본(웹 검색 꺼짐)
 TOOLS_OFF = [t for t in K.ALL_TOOLS if t.__name__ != "search_wikipedia"]
-TODAY, TOMORROW, NEXT_MON = re.search(r"오늘=(\S+) \(\w+\), 내일=(\S+), 모레=\S+, 다음주 월요일=(\S+)", SYS_ON).groups()
+# 날짜 칸만 잡는다 — 0.41.11 M2 에서 줄 끝에 ", 요일별=…" 이 붙자 \S+ 가 쉼표까지 먹어 기대값이 "2026-11-16," 이 됐다.
+TODAY, TOMORROW, NEXT_MON = re.search(r"오늘=([\d-]+) \(\w+\), 내일=([\d-]+), 모레=[\d-]+, 다음주 월요일=([\d-]+)", SYS_ON).groups()
 
 # --- 앱 문구 (원문: BaseAgent·MemoSaveIntent·실행기 — 바뀌면 같이) ---
 MEMO_REJECTED = "메모에는 남기지 않았어요."

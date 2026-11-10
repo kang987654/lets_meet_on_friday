@@ -53,7 +53,8 @@ object Constants {
     // [WHY] 프리필 예산(설정 슬라이더)의 범위와 기본값. 상한은 천장에서 툴 결과 몫을 뺀 값 아래다 — 툴 결과는 재설정 검사 없이
     // 턴 중간에 KV 로 들어가므로(ADR-020) 예산이 천장에 붙으면 툴 회신 턴이 엔진 용량을 넘는다. 하한은 오버헤드 예약을 늘릴
     // 여지(툴 추가)를 남기는 값이다(0.37.0 사용자 결정). 관계는 `TokenBudgetInvariantTest` 가 지킨다.
-    const val MIN_CONTEXT_TOKENS = 2000
+    // [WHY] 2,000 → 2,100(0.41.11 M2, 사용자 결정) — 예약을 1,450 으로 올리자 하한 예산에서 문서 검색을 켜면 대화 기록 자리가 최소치 아래였다. 저장값은 범위로 맞춰진다.
+    const val MIN_CONTEXT_TOKENS = 2100
     const val MAX_CONTEXT_TOKENS = 2800
     const val DEFAULT_CONTEXT_TOKENS = 2500
 
@@ -70,8 +71,9 @@ object Constants {
      * [WHY] 1,450 → 1,500(0.38.6 M4, 사용자 결정) — 역할 줄 +12 로 여유가 1 이 되어, 날짜 문자열 흔들림(±1~2)과 다음 수정에 대비한다.
      * 히스토리 몫이 다시 50 줄어든다(기본 1,050 → 1,000).
      * [WHY] 1,500 → 1,400(0.39.3 M2, 사용자 결정: 줄인 고정 몫은 대화 기록에) — 설명·문단 축약으로 실측 −108. 히스토리 몫 기본 1,000 → 1,100.
+     * [WHY] 1,400 → 1,450(0.41.11 M2, 사용자 결정) — 날짜 줄의 요일별 날짜·일정 규칙 한 문장으로 실측 +77(TokenBudgetInvariantTest.MEASURED_OVERHEAD). 히스토리 몫이 50 줄어든다.
      */
-    const val PREFILL_OVERHEAD_TOKENS = 1400
+    const val PREFILL_OVERHEAD_TOKENS = 1450
 
     // [WHY] 오버헤드 예약 후에도 히스토리에 남겨야 하는 최소 예산(대략 2~3턴). 재설정 하한과 첨부 문서 상한의 기준이다.
     const val MIN_HISTORY_TOKENS = 300

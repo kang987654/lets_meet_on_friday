@@ -147,6 +147,15 @@ class PromptAssemblerTest {
     }
 
     @Test
+    fun `다가오는 엿새의 날짜와 요일을 준다 — 요일만 말한 일정용(0·41·11 M2)`() {
+        // 2026-11-12 는 목요일 — "금요일"은 내일, "수요일"은 다음 주(11-18)여야 한다(exp88).
+        val instruction = prompt(today = java.time.LocalDate.of(2026, 11, 12)).systemInstruction
+
+        assertTrue(instruction, instruction.contains("요일별=11-13(금) 11-14(토) 11-15(일) 11-16(월) 11-17(화) 11-18(수)"))
+        assertTrue(instruction.contains("never ask for end_time or memo"))
+    }
+
+    @Test
     fun `상대 날짜를 되묻지 말라는 지시가 있고 예전의 추측 금지 문구는 없다`() {
         // [WHY] "If you lack mandatory information … DO NOT guess. Ask the user first." 가
         // 일정 등록을 막는 주범이었다(PC 실험: 4케이스 중 3 실패 → 교체 후 4/4). 이 회귀가

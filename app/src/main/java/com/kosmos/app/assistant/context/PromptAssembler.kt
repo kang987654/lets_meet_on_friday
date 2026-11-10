@@ -198,16 +198,24 @@ class PromptAssembler @Inject constructor() {
         // [WHY] 한국어에서 주는 월요일에 시작하므로 `next(MONDAY)` 가 곧 "다음주 월요일"이다
         // (오늘이 월요일이면 7일 뒤, 토·일요일이면 이틀·하루 뒤 — 모두 의도와 맞는다).
         val nextMonday = today.with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.MONDAY))
+        // [WHY] 다가오는 엿새의 날짜·요일 — 요일만 말하면("금요일 저녁 7시") 날짜를 못 정하거나 지난 금요일로 넣었다. 붙이면 요일 일정 22문항 15 → 19
+        // (exp88 W1, 오늘 월·목 두 번, 0.41.11 M2). 월-일만 쓴다 — 연도까지 쓰면 +30토큰에 1문항 차이라 기각(사용자 결정).
+        val dayFormat = java.time.format.DateTimeFormatter.ofPattern("MM-dd")
+        val weekdayLocale = if (language == AppLanguage.EN) java.util.Locale.ENGLISH else java.util.Locale.KOREAN
+        val comingDays = (1L..6L).joinToString(" ") { offset ->
+            val day = today.plusDays(offset)
+            "${day.format(dayFormat)}(${day.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, weekdayLocale)})"
+        }
         return buildString {
             if (language == AppLanguage.EN) {
                 append(
                     "[System Data] Today=${today.format(date)} ($weekday), Tomorrow=${today.plusDays(1).format(date)}, " +
-                        "Day after tomorrow=${today.plusDays(2).format(date)}, Next Monday=${nextMonday.format(date)}"
+                        "Day after tomorrow=${today.plusDays(2).format(date)}, Next Monday=${nextMonday.format(date)}, Coming days=$comingDays"
                 )
             } else {
                 append(
                     "[System Data] 오늘=${today.format(date)} ($weekday), 내일=${today.plusDays(1).format(date)}, " +
-                        "모레=${today.plusDays(2).format(date)}, 다음주 월요일=${nextMonday.format(date)}"
+                        "모레=${today.plusDays(2).format(date)}, 다음주 월요일=${nextMonday.format(date)}, 요일별=$comingDays"
                 )
             }
         }
@@ -254,11 +262,12 @@ class PromptAssembler @Inject constructor() {
                     appendLine("- The user asks about something they told you earlier: \"뭐였지\", \"뭐라고 했지\", \"내가 알려준\", \"기억나\", \"저장한 거\": you MUST call `search_memory` with a short noun keyword. This is a LOOKUP, never call `add_memory` for it.")
                 }
             }
+            // [WHY] 끝 문장 — 시각을 답해도 제목·종료 시각을 또 물어 일정이 안 들어갔다(exp87: 이어서 추가 4/8 → 6/8, 선언 설명을 고친 판은 4/8). 0.41.11 M2.
             if (availableTools.contains(ToolNames.ADD_SCHEDULE)) {
                 if (en) {
-                    appendLine("- The user asks to add an appointment, reservation, or event: \"schedule\", \"appointment\", \"meeting\", \"book\", \"add to calendar\": you MUST call `add_schedule`.")
+                    appendLine("- The user asks to add an appointment, reservation, or event: \"schedule\", \"appointment\", \"meeting\", \"book\", \"add to calendar\": you MUST call `add_schedule`. Take the title from the user's words and never ask for end_time or memo.")
                 } else {
-                    appendLine("- The user asks to add an appointment, reservation, or event: \"예약\", \"약속\", \"일정 잡아줘\", \"일정 추가\", \"~하기로 했어\": you MUST call `add_schedule`.")
+                    appendLine("- The user asks to add an appointment, reservation, or event: \"예약\", \"약속\", \"일정 잡아줘\", \"일정 추가\", \"~하기로 했어\": you MUST call `add_schedule`. Take the title from the user's words and never ask for end_time or memo.")
                 }
             }
             if (availableTools.contains(ToolNames.GET_SCHEDULE)) {

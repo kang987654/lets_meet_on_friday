@@ -236,15 +236,17 @@ class TokenBudgetInvariantTest {
          * 선언 템플릿이 더해진다) = 1,337. 예약은 같은 회차에 1,400 → 1,450(사용자 결정). → +12(역할 줄 "…who also chats, recommends and gives advice…",
          * `scratch/lab/exp58c_checks.py` 2026-10-23 — token_count 1,418 → 1,430, tokenize +12) = 1,349. 예약 1,450 → 1,500(사용자 결정, 0.38.6 M4). → +16(add_memory 트리거 "사실만 말하면 확인 + 메모해 둘까요?",
          * `scratch/lab/exp62f_overhead.py` 2026-10-26 — token_count 1,430 → 1,446, tokenize +16) = 1,365 → −108(일정 조회·상대 날짜·일정 예시·기억 검색 설명 축약,
-         * `scratch/lab/exp68c_overhead.py` 2026-10-30 — 출력 상한 1 로 잰 token_count 1,430 → 1,322, tokenize −108) = **1,257**. 예약 1,500 → 1,400(사용자 결정, 0.39.3 M2).
+         * `scratch/lab/exp68c_overhead.py` 2026-10-30 — 출력 상한 1 로 잰 token_count 1,430 → 1,322, tokenize −108) = 1,257. 예약 1,500 → 1,400(사용자 결정, 0.39.3 M2). → +77(날짜 줄 요일별 날짜 + 일정 규칙 한 문장, `scratch/lab/exp88_weekday_line.py` W1 2026-11-10 —
+         * 시스템 지시 tokenize 532 → 609) = **1,334**. 예약 1,400 → 1,450(사용자 결정, 0.41.11 M2).
          * 프로필 블록은 여기 없고 [Constants.PROFILE_MAX_TOKENS] 상한으로 따로 계상된다.
          */
-        const val MEASURED_OVERHEAD = 1257
+        const val MEASURED_OVERHEAD = 1334
 
         /**
          * 영어 시스템 지시(`system_instruction_en.txt`) + 툴 7종 선언 실측(`scratch/lab/exp72_english_mode.py` 2026-11-02):
-         * 첫 턴 KV(출력 상한 1) 1,322(KO) → 1,288(EN, −34), `engine.tokenize` 시스템 지시 568(KO) → 535(EN, −33) → 1,257 − 33 = **1,224**.
+         * 첫 턴 KV(출력 상한 1) 1,322(KO) → 1,288(EN, −34), `engine.tokenize` 시스템 지시 568(KO) → 535(EN, −33) → 1,257 − 33 = 1,224.
+         * → +76(요일별 날짜 + 일정 규칙 한 문장, exp88 W1 — 시스템 지시 tokenize 503 → 579) = **1,300** (0.41.11 M2).
          */
-        const val MEASURED_OVERHEAD_EN = 1224
+        const val MEASURED_OVERHEAD_EN = 1300
     }
 }
