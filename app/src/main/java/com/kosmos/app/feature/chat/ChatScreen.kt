@@ -27,8 +27,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -71,6 +73,7 @@ import com.kosmos.app.ui.theme.LocalChatTextScale
 import com.kosmos.app.ui.theme.currentAppLanguage
 import com.kosmos.app.ui.theme.scaled
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -463,7 +466,7 @@ fun ChatScreen(
                         ) {
                             if (uiState.streamingText != null || uiState.streamingThinking != null) {
                                 item(key = "streaming") {
-                                    ChatBubbleAssistant(text = uiState.streamingText ?: "", thinkingProcess = uiState.streamingThinking)
+                                    ChatBubbleAssistant(text = rememberStreamingText(uiState.streamingText ?: ""), thinkingProcess = uiState.streamingThinking)
                                 }
                             }
 
@@ -592,3 +595,24 @@ fun ChatScreen(
 
 /** 원문 이동 후 대상이 로드되길 기다리는 상한 — 넘으면 바닥 정렬로 둔다. */
 private const val JUMP_LOAD_WAIT_MS = 1_000L
+
+/**
+ * 스트리밍 말풍선에 보일 글 — 토큰마다가 아니라 [STREAM_RENDER_INTERVAL_MS] 에 한 번 최신 글로 바꾼다.
+ *
+ * [WHY] 말풍선은 마크다운이라 글이 바뀔 때마다 전체를 다시 파싱·배치한다 — 토큰마다 바꾸면 긴 답일수록 메인 스레드가 밀려
+ * 스트리밍 중 프레임이 잦게 늦었다(0.41.9 휴대폰 gfxinfo, CHANGELOG). 마지막 글은 늦어도 한 간격 안에 반드시 보인다(conflate).
+ */
+@Composable
+private fun rememberStreamingText(text: String): String {
+    val latest by rememberUpdatedState(text)
+    val shown by produceState(text) {
+        snapshotFlow { latest }.conflate().collect {
+            value = it
+            delay(STREAM_RENDER_INTERVAL_MS)
+        }
+    }
+    return shown
+}
+
+/** 스트리밍 말풍선 갱신 간격 — 초당 20번이면 글이 늘어나는 모습은 그대로 매끄럽다. */
+private const val STREAM_RENDER_INTERVAL_MS = 50L
