@@ -80,7 +80,7 @@ class _SaveWord:
 
 SAVE_WORD = _SaveWord()
 SAVE_ASK = re.compile(
-    r"(메모|저장|기억)[^.?!\n]{0,8}(둘까|드릴까|할까)|"
+    r"(메모|저장|기억)[^.?!\n]{0,8}(둘까|드릴까|할까|(두면|하면|놓으면)\s*(좋을까|될까|어떨까))|"
     r"(would\s+you\s+like(\s+me)?\s+to|should\s+i|shall\s+i|do\s+you\s+want(\s+me)?\s+to|want\s+me\s+to)\s+(save|note|remember|keep|write\s+down)",
     re.I,
 )

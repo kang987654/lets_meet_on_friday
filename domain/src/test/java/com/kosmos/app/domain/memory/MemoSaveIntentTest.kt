@@ -151,4 +151,16 @@ class MemoSaveIntentTest {
             MemoSaveIntent.withoutClaim("I've saved that for you!", AppLanguage.EN)
         )
     }
+
+    @Test
+    fun `조건형 저장 물음도 물음으로 잡고 그 뒤 응이면 막지 않는다(0·41·10 M1)`() {
+        val asked = "알겠습니다. 다음 주부터 판교로 출근하시는군요. 혹시 이 내용을 제가 기억해 두면 좋을까요?"
+        assertTrue(MemoSaveIntent.asksSave(asked))
+        assertTrue(MemoSaveIntent.asksSave("메모해 두면 어떨까요?"))
+        assertTrue(MemoSaveIntent.asksSave("이 번호를 저장하면 될까요?"))
+        assertFalse(MemoSaveIntent.shouldBlock("응", asked))
+        // 물음이 아닌 문장은 그대로 아니다.
+        assertFalse(MemoSaveIntent.asksSave("기억해 두면 좋아요."))
+        assertFalse(MemoSaveIntent.asksSave("저장하면 안 될까 봐 걱정이에요."))
+    }
 }

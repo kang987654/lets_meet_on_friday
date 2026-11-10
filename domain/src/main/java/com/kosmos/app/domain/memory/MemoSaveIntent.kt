@@ -32,8 +32,9 @@ object MemoSaveIntent {
         RegexOption.IGNORE_CASE
     )
 
+    // [WHY] "기억해 두면 좋을까요?"처럼 조건형으로도 묻는다 — 둘까/드릴까/할까만 보면 이 물음 뒤 "응"에 저장 시트가 안 열렸다(0.41.9 회귀 세트 fact, 0.41.10 M1).
     private val SAVE_ASK = Regex(
-        "(메모|저장|기억)[^.?!\\n]{0,8}(둘까|드릴까|할까)|" +
+        "(메모|저장|기억)[^.?!\\n]{0,8}(둘까|드릴까|할까|(두면|하면|놓으면)\\s*(좋을까|될까|어떨까))|" +
             "(would\\s+you\\s+like(\\s+me)?\\s+to|should\\s+i|shall\\s+i|do\\s+you\\s+want(\\s+me)?\\s+to|want\\s+me\\s+to)\\s+(save|note|remember|keep|write\\s+down)",
         RegexOption.IGNORE_CASE
     )
