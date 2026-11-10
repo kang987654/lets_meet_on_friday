@@ -10,11 +10,9 @@
   "fails": []
  },
  "fact": {
-  "pass": 17,
+  "pass": 18,
   "total": 18,
-  "fails": [
-   "h3 주차는 지하 2층 C-14에 했어"
-  ]
+  "fails": []
  },
  "yes": {
   "pass": 12,
@@ -39,11 +37,9 @@
   "fails": []
  },
  "repeat": {
-  "pass": 3,
+  "pass": 4,
   "total": 4,
-  "fails": [
-   "송장번호 다시 알려줘"
-  ]
+  "fails": []
  },
  "iso": {
   "pass": 6,
@@ -54,7 +50,7 @@
   "pass": 19,
   "total": 20,
   "fails": [
-   "일상 왜 와이파이가 왜 안 돼?"
+   "일상 왜 요즘 왜 못 자는 걸까?"
   ]
  },
  "optional": {
