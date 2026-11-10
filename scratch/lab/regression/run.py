@@ -39,6 +39,16 @@ TODAY, TOMORROW, NEXT_MON = re.search(r"오늘=(\S+) \(\w+\), 내일=(\S+), 모�
 MEMO_REJECTED = "메모에는 남기지 않았어요."
 REPEAT_NOT_SAVE = "저장하지 않았습니다. 사용자는 앞에서 말한 내용을 다시 듣고 싶어 합니다. 그 값을 답하고, 저장했다고 말하지 마세요."
 ASK_FIRST = "아직 저장하지 않았습니다. 저장하기 전에 \"메모해 둘까요?\"라고 물어보세요."
+# 원문: domain/agent/ScheduleTimeIntent(0.41.11 M1) — 날짜·시각 없는 일정 추가는 막는다(사용자 말·바로 앞 비서 말 둘 다 없을 때).
+SCHEDULE_TIME = re.compile(
+    r"\d+\s*(시|분|시간)|몇\s*시|(한|두|세|네|다섯|여섯|일곱|여덟|아홉|열|열한|열두)\s*시|"
+    r"오전|오후|아침|점심|저녁|밤|새벽|정오|자정|지금|이따|오늘|내일|모레|글피|어제|요일|주말|"
+    r"(다음|이번|담)\s*(주|달)|\d+\s*월|\d+\s*일|\d{1,2}:\d{2}|"
+    r"\b(today|tomorrow|tonight|morning|noon|afternoon|evening|night|now|am|pm|o'?clock|weekend|"
+    r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|next\s+(week|month))\b|\d+\s*(am|pm)\b",
+    re.I,
+)
+SCHEDULE_NO_TIME = "실행하지 않았습니다. 사용자의 말에 날짜나 시각이 없으니 일정 요청이 아닙니다. 일정 이야기는 꺼내지 말고, 알려 준 내용을 확인한 뒤 \"메모해 둘까요?\"라고 물어보세요. 일정을 잡아 달라는 말이었다면 언제인지만 물어보세요."
 SEARCH_EMPTY = "저장된 기억이 하나도 없습니다. 사용자가 이 대화에서 이미 말한 내용이 있으면 그것으로 답하고, 없으면 저장된 것이 없다고 답하세요. 추측하지 마세요."
 HIT_TAIL = "\n이 목록에 질문의 답이 없으면, 사용자가 이 대화에서 이미 말한 내용으로 답하세요."
 
@@ -243,6 +253,8 @@ def turn(history, user, sysm=SYS_OFF, tools=None, search_body=None, why=False):
                 body, ok = {"status": "success", "data": data}, True
             elif name == "add_memory":
                 body, ok = {"status": "success", "message": "기억에 저장했어요."}, True
+            elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
+                body, ok = {"status": "error", "message": SCHEDULE_NO_TIME}, False
             elif name == "add_schedule":
                 body, ok = {"status": "success", "message": "일정이 성공적으로 추가되었습니다."}, True
             elif name == "add_reminder":

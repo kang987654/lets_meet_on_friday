@@ -50,6 +50,18 @@ class GuardStagesTest {
         assertNull(ToolCallGuards.check(ToolNames.SEARCH_MEMORY, all, "사물함 번호 뭐였지?", null, guardFact = true))
     }
 
+    @Test
+    fun `날짜·시각 없는 말의 일정 추가는 막고, 시각을 말했거나 시각을 물은 뒤의 응은 통과한다(0·41·11 M1)`() {
+        val schedule = listOf(ToolNames.ADD_SCHEDULE)
+        val block = ToolCallGuards.check(ToolNames.ADD_SCHEDULE, schedule, "주차는 지하 2층 C-14에 했어", null, guardFact = true)
+
+        assertFalse(block!!.outcome.executed)
+        assertTrue(block.outcome.resultJson.contains("메모해 둘까요?"))
+        assertNull(ToolCallGuards.check(ToolNames.ADD_SCHEDULE, schedule, "내일 3시", "언제로 예약해 드릴까요?", guardFact = true))
+        assertNull(ToolCallGuards.check(ToolNames.ADD_SCHEDULE, schedule, "응", "내일 오후 3시로 치과 예약을 잡을까요?", guardFact = true))
+        assertNull("앱이 부른 경로는 보지 않는다", ToolCallGuards.check(ToolNames.ADD_SCHEDULE, schedule, "", null, guardFact = false))
+    }
+
     private fun finish(reply: String, user: String, previous: MemoSaveIntent.PreviousTurn, carried: String? = null, executed: Boolean = false) =
         runBlocking { ReplyFinisher.finish(reply, user, { previous }, carried, anyExecuted = executed, memoCalled = false, memoAllowed = true) }
 

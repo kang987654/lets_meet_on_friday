@@ -199,7 +199,7 @@ abstract class BaseAgent(
                     request.sessionId,
                     allowedTools,
                     request.message,
-                    previousAssistant = if (call.name == ToolNames.ADD_MEMORY) previousTurn().assistant else null,
+                    previousAssistant = if (call.name == ToolNames.ADD_MEMORY || call.name == ToolNames.ADD_SCHEDULE) previousTurn().assistant else null,
                     language = language
                 )
                 anyExecuted = anyExecuted || outcome.executed

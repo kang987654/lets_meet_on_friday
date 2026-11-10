@@ -2,6 +2,7 @@ package com.kosmos.app.assistant.agent
 
 import com.kosmos.app.assistant.tool.ToolResultJson
 import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.domain.agent.ScheduleTimeIntent
 import com.kosmos.app.domain.memory.MemoSaveIntent
 import com.kosmos.app.domain.memory.RepeatRequest
 import com.kosmos.app.domain.tool.ToolNames
@@ -14,7 +15,7 @@ import com.kosmos.app.domain.tool.ToolNames
  * - **Layer**: Assistant Agent — [BaseAgent] 의 툴 루프가 실행기 조회·승인 전에 부른다. 순수 판정이라 의존성이 없다.
  *
  * ### Key Flow
- * allowlist → 되묻기에 불린 메모 저장 → 저장 부탁 없는 메모 저장(사실 저장 가드). 장치 목록과 각각의 근거는 ADR-030.
+ * allowlist → 되묻기에 불린 메모 저장 → 저장 부탁 없는 메모 저장(사실 저장 가드) → 날짜·시각 없는 일정 추가(일정 가드). 장치 목록과 각각의 근거는 ADR-030.
  */
 internal object ToolCallGuards {
 
@@ -52,6 +53,12 @@ internal object ToolCallGuards {
         // [WHY] 저장 낱말 없이 사실만 말한 턴의 메모 저장은 막고 먼저 묻게 한다 — 대화 기록에 끌린 호출이라 프롬프트로는 못 막았다(exp64, 0.38.9 결정 1).
         if (guardFact && name == ToolNames.ADD_MEMORY && MemoSaveIntent.shouldBlock(userText, previousAssistant)) {
             return Block(ToolOutcome(ToolResultJson.error(MemoSaveIntent.askFirst(language)), executed = false, factBlocked = true))
+        }
+
+        // [WHY] 사용자 말(과 바로 앞 비서 말)에 날짜·시각이 없는 일정 추가는 막는다 — 앞 기록에 끌려 사실을 지금 시각 일정으로 만들었다(exp86b, 0.41.11 M1).
+        // 앱이 부른 경로(userText 빈 값)는 사용자 말이 없으니 보지 않는다.
+        if (guardFact && name == ToolNames.ADD_SCHEDULE && userText.isNotBlank() && ScheduleTimeIntent.shouldBlock(userText, previousAssistant)) {
+            return Block(ToolOutcome(ToolResultJson.error(ScheduleTimeIntent.noTime(language)), executed = false))
         }
         return null
     }
