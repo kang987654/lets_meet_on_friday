@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.41.10 · 2026-11-10. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.41.12 · 2026-11-10. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 KOSMOS is an AI assistant that runs entirely on your phone, with no server. Ask in plain language (Korean or English) and it creates calendar events,
 reminders and notes, and answers by searching your past conversations, notes and the documents you registered. It always asks for your confirmation before saving.
@@ -47,9 +47,11 @@ Requested only when needed. Everything else keeps working if you decline.
 | Say | What happens |
 |---|---|
 | "Schedule a team meeting next Monday at 10 AM" / "다음 주 월요일 10시에 팀 회의 잡아줘" | A confirmation sheet → tap **Add** to save it to the app and the device calendar |
+| "Add dinner with friends on Friday at 7 PM" / "금요일 저녁 7시에 저녁 약속 잡아줘" | A weekday alone is enough — the sheet shows the coming Friday; check the date before adding |
+| "Book a dentist appointment" (no time) / "치과 예약 잡아줘" | It asks when → answer like "tomorrow at 3 PM" and the confirmation sheet appears |
 | "Remind me in 30 minutes to drink water" / "30분 뒤에 물 마시라고 알려줘" | A reminder confirmation sheet → it rings on time |
 | "Remember that my bike PIN is 4821" / "내 자전거 비밀번호 4821이야 기억해줘" | A note confirmation sheet |
-| "My locker number is 214" (stating a fact, no request to save) | It does not save; it asks "Would you like me to save this as a note?" → reply "Yes" to get the confirmation sheet; say anything else and nothing is saved |
+| "My locker number is 214" (stating a fact, no request to save) | It does not save; it asks "Would you like me to save this as a note?" → reply "Yes" to get the confirmation sheet; say anything else and nothing is saved. Something with no date or time is never turned into an event |
 | "What was my bike PIN?" / "자전거 비밀번호 뭐였지?" | It searches notes and past conversations and shows the source as a card. A new value you just said in this conversation wins over a saved note |
 | "What's on my schedule today?" / "오늘 일정 뭐 있어?" | Shows both app events and device calendar events |
 | (with document search on) "돈을 빌려주고 오래 안 받으면 언제 못 받게 돼?" | Searches your library documents, answers, and attaches the document and article it found as a **source card**. Tap the card to open the document at that spot |
