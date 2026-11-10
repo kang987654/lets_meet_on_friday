@@ -23,6 +23,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
@@ -263,6 +264,32 @@ private fun isJumpTarget(message: ChatMessage, older: ChatMessage?, highlightSta
     return message.createdAt >= highlightStartAt &&
         (older == null || older.createdAt < highlightStartAt)
 }
+
+/**
+ * 목록의 [index] 로 이동해 그 항목 윗변을 화면 윗변에 맞춥니다 — 정렬 전에 [loadAround] 로 목표와 그 아래(더 최신) 이웃이 채워지길 기다린다.
+ *
+ * [WHY] 목표 하나만 채워진 채 정렬하면 그 아래 자리표시자(40dp)가 화면에 들어온 뒤에야 로드돼 실제 높이로 커지고, reverseLayout 목록은
+ * 바닥 쪽 첫 항목을 기준으로 자리를 지켜 목표가 화면 위로 밀려났다 — 다음 대화의 긴 답에 내려앉았다(0.41.9 휴대폰, 0.41.10 M3).
+ * [WHY] `scrollToItem` 직후의 `layoutInfo` 는 아직 이전 배치일 수 있어 한 프레임 뒤에 잰다. 정렬 뒤 한 번 더 재서 남은 높이 변화를 따라잡는다.
+ *
+ * @param loadAround 목표·이웃이 채워지면 true(시간 안에 안 오면 false — 그때는 바닥 정렬로 둔다, 이동 자체는 이미 끝났다)
+ */
+internal suspend fun scrollToTimelineTarget(listState: LazyListState, index: Int, loadAround: suspend () -> Boolean) {
+    listState.scrollToItem(index)
+    if (!loadAround()) return
+    listState.scrollToItem(index)
+    withFrameNanos { }
+    alignItemTop(listState, index)
+    withFrameNanos { }
+    alignItemTop(listState, index)
+}
+
+/** 점프 목표 아래(더 최신)로 화면 한 장을 채울 만큼 미리 채울 이웃 수 — 짧은 말풍선(약 100dp)도 화면을 덮는다. */
+internal const val JUMP_NEIGHBORS = 12
+
+/** 점프 전에 채워져 있어야 할 페이징 인덱스 — 목표와 그 아래(인덱스가 작은 쪽) 이웃. */
+internal fun jumpLoadRange(pagedIndex: Int, neighbors: Int = JUMP_NEIGHBORS): IntRange =
+    (pagedIndex - neighbors).coerceAtLeast(0)..pagedIndex
 
 /**
  * [index] 항목의 윗변을 목록 화면 윗변에 맞춥니다 — 원문 대화가 처음부터 읽히게(0.36.2 사용자 요청).

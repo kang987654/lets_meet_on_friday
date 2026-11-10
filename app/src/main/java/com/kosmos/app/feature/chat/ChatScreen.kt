@@ -197,16 +197,16 @@ fun ChatScreen(
         val index = target.coerceIn(0, maxOf(0, lastIndex))
         userScrolledAway = true
         highlightStartAt = startAt
-        listState.scrollToItem(index)
-        // [WHY] 자리표시자인 채로 정렬하면 내용이 채워지며 높이가 바뀌어 원문 앞부분이 화면 위로 잘린다 — 대상이 로드될 때까지
-        // 잠깐 기다린 뒤 다시 잡는다. 시간 안에 안 오면 바닥 정렬 그대로 둔다(이동 자체는 이미 끝났다).
+        // [WHY] 자리표시자인 채로 정렬하면 내용이 채워지며 높이가 바뀌어 원문 앞부분이 화면 위로 잘린다 — 대상과 그 아래(더 최신) 이웃이
+        // 로드될 때까지 잠깐 기다린 뒤 잡는다(scrollToTimelineTarget [WHY]). 이웃은 아직 화면 밖이라 접근해서 로드를 부른다.
         val pagedIndex = index - headerCount - liveTail.size
-        val loaded = pagedIndex < 0 || withTimeoutOrNull(JUMP_LOAD_WAIT_MS) {
-            snapshotFlow { history.peek(pagedIndex) }.first { it != null }
-        } != null
-        if (loaded) {
-            if (pagedIndex >= 0) listState.scrollToItem(index)
-            alignItemTop(listState, index)
+        scrollToTimelineTarget(listState, index) {
+            if (pagedIndex < 0) return@scrollToTimelineTarget true
+            val range = jumpLoadRange(pagedIndex)
+            history[range.first]
+            withTimeoutOrNull(JUMP_LOAD_WAIT_MS) {
+                snapshotFlow { range.all { history.peek(it) != null } }.first { it }
+            } != null
         }
     }
 
