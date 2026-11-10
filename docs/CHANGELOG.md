@@ -1,3 +1,12 @@
+## [0.41.12] - 2026-11-10
+> **작은 정리** — 그래프 도구 점검 후속, 은하 회전 속도(계획서 없음). 앱 버전 0.41.12 · 41012.
+- **[Removed] 미사용 코드 5건 (`771bb99`)** — 그래프 도구(codebase-memory-mcp) 점검(외부 정리본)을 grep 으로 대조해 호출자 0 이 확인된 것만: `LibraryDao.chunksOf`·`MemoryVectorDao.deleteKind`·
+  `NotificationAccess.deniedMessage`·`AppLanguageHolder.setLanguageForTest`·`KosmosSpacing`(`Spacing.kt` 파일). `BriefingNotificationWorker` KDoc 의 깨진 `[MorningBriefingGenerator]` 링크(import 없음)를 고치고 생성 주체를 시작 단계로 바로잡음.
+  대조에서 기각: 기억 `searchByTags` "프로덕션 호출 0"(틀림 — `SearchMemoryToolExecutor` 가 씀), `ContextBuilder` KDoc `[recentConversations]` "없는 이름"(틀림 — 실제 프로퍼티), `FloatBytes.decode`(마이그레이션의 `encode` 와 짝, 테스트 단언 변경이 필요해 보류), 얇은 UseCase·작은 판정 파일(의도한 설계).
+- **[Note] 그래프 도구 시험 평가** — 진짜 미사용 5건을 빠르게 찾았지만, 사람이 검증했다는 정리본에도 틀린 결론 2건이 남았다 — AGENTS §2-① "(시험 중)" 줄의 "호출자 0 은 직접 읽어 확인" 규칙이 필요하다는 근거. 줄은 그대로 둔다.
+- **[Changed] 은하 회전 0.6배 (`f25897f`, 사용자 지적)** — 시작 단계(지난 대화 요약 + 불러오기)까지 붙어 로딩이 길어지면 회전이 많이 쌓였다. `omega` 를 전체 0.6배(중간 0.45 → 0.27 rad/s, 한 바퀴 약 14 → 23초) — 같은 비율이라 팔이 감기는 속도도 0.6배. 화면 기준 이미지 34(은하, 라이트·다크) 재기록(사용자 확인).
+- **[QA/Test]** 게이트 녹색, 테스트 1,022건 그대로.
+
 ## [0.41.11] - 2026-11-10
 > **일정 툴 행동** — 사실을 지금 시각 일정으로 만드는 오인, 시각을 답해도 또 되묻기, 요일만 말한 일정(계획서 `docs/plans/0.41.11-schedule-behavior.md`). 요약의 "요청했다"는 0.41.9 exp85 결론대로 제외(사용자 결정).
 - **[Changed] 앱 버전 (M0, `4a6dd60`)** — 0.41.11 · 41011.
