@@ -62,6 +62,8 @@ abstract class BaseAgent(
     /** 이 에이전트가 현재 컨텍스트에서 사용할 수 있는 툴 이름 목록 (프롬프트 노출 + 실행 시점 강제에 공용). */
     protected abstract fun availableTools(context: ContextBuilder.Context): List<String>
 
+    protected open val nowProvider: () -> Long = System::currentTimeMillis
+
     protected suspend fun executeToolLoop(
         request: ChatRequest,
         initialPrompt: ChatPrompt,
@@ -389,7 +391,17 @@ abstract class BaseAgent(
     ): ToolOutcome {
         val en = language == AppLanguage.EN
         // [WHY] 가드는 실행기 조회보다 먼저다 — allowlist 밖 이름은 실행기가 있든 없든 막혀야 한다.
-        ToolCallGuards.check(call.name, allowedTools, userText, previousAssistant, guardFact, language)?.let { block ->
+        val rawStartTime = if (call.name == ToolNames.ADD_SCHEDULE) runCatching { call.args.optString("start_time") }.getOrNull() else null
+        ToolCallGuards.check(
+            name = call.name,
+            allowedTools = allowedTools,
+            userText = userText,
+            previousAssistant = previousAssistant,
+            guardFact = guardFact,
+            language = language,
+            startTime = rawStartTime,
+            now = nowProvider()
+        )?.let { block ->
             block.auditError?.let { auditTrailService.logError(sessionId, it) }
             return block.outcome
         }

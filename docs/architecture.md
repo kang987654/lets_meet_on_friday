@@ -2091,6 +2091,7 @@ zip(`ZipFile`, 캐시 복사) + SAX + `PdfRenderer` — 전부 플랫폼 내장�
 | 기억 충돌 핵심 주제 문장 필터 | `RecallConflict` | exp70, 0.39.6 M1 | 핵심 주제가 요약 문장에 안 적히면 `(과거 대화)` 다른 값 안내만 생략(메모 값은 그대로 답함) | — |
 | 영어 모드 행동 가드 확장 | `MemoSaveIntent`·`RepeatRequest`·`RefusalTurns`·`RecallConflict` | exp72, 0.40.0 M2a | `"Do you remember...?"` 조회 의문문·`"I wrote a note"` 일상 서술을 저장 부탁에서 제외 | — |
 | 일정 가드(날짜·시각 없는 일정 추가) | `ScheduleTimeIntent` → `ToolCallGuards` | exp86·86c, 0.41.11 M1(사용자 결정 (가)) | 날짜·시각 표현을 놓치면 정상 일정 요청이 막힘 → 모델이 언제인지 되물음(바로 앞 비서 말에 시각이 있으면 통과) | 툴 결과 67토큰 |
+| 요일 날짜 가드(단일 요일과 `start_time` 요일 불일치) | `ScheduleWeekdayIntent` → `ToolCallGuards` | exp88·89, 0.41.13 M1 | 어느 주인지는 판정하지 않음(요일만 같으면 통과). 불일치 시 막고 가장 가까운 그 요일 날짜를 알려 확인 뒤 바른 날짜로 다시 부르게 함 | 툴 결과 KO 27·EN 18토큰 |
 
 - **결정**:
   1. **장치를 더하는 순서** — 프롬프트 후보를 먼저 재고, 효과가 없을 때만 앱이 판정한다. 판정이 틀려도 "한 번 더 묻기"나 "그대로 진행" 쪽으로 깨지게 만든다. 장치마다 회귀 세트에 문항을 둔다

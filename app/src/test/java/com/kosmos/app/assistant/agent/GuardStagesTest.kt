@@ -1,7 +1,10 @@
 package com.kosmos.app.assistant.agent
 
+import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.domain.memory.MemoSaveIntent
 import com.kosmos.app.domain.tool.ToolNames
+import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -60,6 +63,55 @@ class GuardStagesTest {
         assertNull(ToolCallGuards.check(ToolNames.ADD_SCHEDULE, schedule, "내일 3시", "언제로 예약해 드릴까요?", guardFact = true))
         assertNull(ToolCallGuards.check(ToolNames.ADD_SCHEDULE, schedule, "응", "내일 오후 3시로 치과 예약을 잡을까요?", guardFact = true))
         assertNull("앱이 부른 경로는 보지 않는다", ToolCallGuards.check(ToolNames.ADD_SCHEDULE, schedule, "", null, guardFact = false))
+    }
+
+    @Test
+    fun `사용자 말의 요일과 start_time 요일이 다르면 막고 바른 날짜를 알린다(0·41·13 M1)`() {
+        val schedule = listOf(ToolNames.ADD_SCHEDULE)
+        val utc = ZoneOffset.UTC
+        val thuNow = LocalDate.of(2026, 11, 12).atTime(10, 53).toInstant(utc).toEpochMilli()
+
+        val blockedKo = ToolCallGuards.check(
+            name = ToolNames.ADD_SCHEDULE,
+            allowedTools = schedule,
+            userText = "수요일 오전 11시",
+            previousAssistant = "언제로 예약해 드릴까요?",
+            guardFact = true,
+            language = AppLanguage.KO,
+            startTime = "2026-11-12T11:00:00",
+            now = thuNow,
+            zoneId = utc
+        )
+        assertFalse(blockedKo!!.outcome.executed)
+        assertTrue(blockedKo.outcome.resultJson.contains("수요일은 11월 18일입니다"))
+
+        val blockedEn = ToolCallGuards.check(
+            name = ToolNames.ADD_SCHEDULE,
+            allowedTools = schedule,
+            userText = "Wednesday at 11am",
+            previousAssistant = "When should I book it?",
+            guardFact = true,
+            language = AppLanguage.EN,
+            startTime = "2026-11-12T11:00:00",
+            now = thuNow,
+            zoneId = utc
+        )
+        assertFalse(blockedEn!!.outcome.executed)
+        assertTrue(blockedEn.outcome.resultJson.contains("Wednesday is Nov 18"))
+
+        assertNull(
+            ToolCallGuards.check(
+                name = ToolNames.ADD_SCHEDULE,
+                allowedTools = schedule,
+                userText = "수요일 오전 11시",
+                previousAssistant = "언제로 예약해 드릴까요?",
+                guardFact = true,
+                language = AppLanguage.KO,
+                startTime = "2026-11-18T11:00:00",
+                now = thuNow,
+                zoneId = utc
+            )
+        )
     }
 
     private fun finish(reply: String, user: String, previous: MemoSaveIntent.PreviousTurn, carried: String? = null, executed: Boolean = false) =

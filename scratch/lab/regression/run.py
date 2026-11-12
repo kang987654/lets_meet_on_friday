@@ -13,6 +13,7 @@
 흔들림: 같은 날 두 번 돌려도 세트당 ±1 이 움직였다(0.39.0 M0 — 거절 따라 하기 9→10, ISO 6→5). 날짜가 시스템 지시에 들어가므로 날이 바뀌어도 흔들린다.
 그래서 점수 하나로 판정하지 말고, 새로 깨진 항목의 답을 사람이 읽어 행동이 실제로 나빠졌는지 본다.
 """
+import datetime as dt
 import json
 import pathlib
 import re
@@ -50,6 +51,43 @@ SCHEDULE_TIME = re.compile(
     re.I,
 )
 SCHEDULE_NO_TIME = "실행하지 않았습니다. 사용자의 말에 날짜나 시각이 없으니 일정 요청이 아닙니다. 일정 이야기는 꺼내지 말고, 알려 준 내용을 확인한 뒤 \"메모해 둘까요?\"라고 물어보세요. 일정을 잡아 달라는 말이었다면 언제인지만 물어보세요."
+SCHEDULE_NO_TIME_EN = "Not executed. The user's message has no date or time, so it is not a scheduling request. Do not bring up the schedule; confirm what they told you and ask \"Would you like me to save this as a note?\". If they did ask to schedule something, ask only when it should be."
+# 원문: domain/agent/ScheduleWeekdayIntent(0.41.13 M1) — 단일 요일과 start_time 날짜 요일이 다르면 막는다.
+KO_WD_RE = re.compile(r"([월화수목금토일])(?:요일|욜)")
+EN_WD_RE = re.compile(r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.I)
+_KO_WD_CHARS = "월화수목금토일"
+_EN_WD_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+_EN_MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def _today_from_sys(sysm: str) -> dt.date:
+    m = re.search(r"(?:오늘|Today)=([\d-]+)", sysm)
+    return dt.date.fromisoformat(m.group(1)) if m else dt.date.fromisoformat(TODAY)
+
+
+def weekday_mismatch_guidance(user: str, start_time: str | None, sysm: str, en: bool = False) -> str | None:
+    if not user or not user.strip() or not start_time:
+        return None
+    found = {_KO_WD_CHARS.index(m.group(1)) for m in KO_WD_RE.finditer(user)}
+    found |= {[x.lower() for x in _EN_WD_NAMES].index(m.group(1).lower()) for m in EN_WD_RE.finditer(user)}
+    if len(found) != 1:
+        return None
+    want_wd = next(iter(found))
+    m_iso = re.match(r"^(\d{4}-\d{2}-\d{2})", str(start_time).strip())
+    if not m_iso:
+        return None
+    try:
+        parsed = dt.date.fromisoformat(m_iso.group(1))
+    except ValueError:
+        return None
+    if parsed.weekday() == want_wd:
+        return None
+    today = _today_from_sys(sysm)
+    delta = ((want_wd - today.weekday()) % 7) or 7
+    nearest = today + dt.timedelta(days=delta)
+    if en:
+        return f"Not executed. {_EN_WD_NAMES[want_wd]} is {_EN_MONTHS[nearest.month]} {nearest.day}. Add the event again with that date."
+    return f"실행하지 않았습니다. {_KO_WD_CHARS[want_wd]}요일은 {nearest.month}월 {nearest.day}일입니다. 그 날짜로 다시 추가하세요."
 SEARCH_EMPTY = "저장된 기억이 하나도 없습니다. 사용자가 이 대화에서 이미 말한 내용이 있으면 그것으로 답하고, 없으면 저장된 것이 없다고 답하세요. 추측하지 마세요."
 HIT_TAIL = "\n이 목록에 질문의 답이 없으면, 사용자가 이 대화에서 이미 말한 내용으로 답하세요."
 
@@ -256,6 +294,8 @@ def turn(history, user, sysm=SYS_OFF, tools=None, search_body=None, why=False):
                 body, ok = {"status": "success", "message": "기억에 저장했어요."}, True
             elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_TIME}, False
+            elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=False)):
+                body, ok = {"status": "error", "message": wd_err}, False
             elif name == "add_schedule":
                 body, ok = {"status": "success", "message": "일정이 성공적으로 추가되었습니다."}, True
             elif name == "add_reminder":
@@ -559,6 +599,12 @@ def turn_en(history, user, sysm=SYS_EN_OFF, tools=None, why=False):
                 body, ok = {"status": "error", "message": ASK_FIRST_EN}, False
             elif name == "add_memory":
                 body, ok = {"status": "success", "message": "Saved to memory."}, True
+            elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
+                body, ok = {"status": "error", "message": SCHEDULE_NO_TIME_EN}, False
+            elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=True)):
+                body, ok = {"status": "error", "message": wd_err}, False
+            elif name == "add_schedule":
+                body, ok = {"status": "success", "message": "Event added."}, True
             else:
                 body, ok = {"status": "success", "data": "None"}, True
             (executed.append((name, args)) if ok else blocked.append(name))
@@ -606,9 +652,61 @@ def set_guard_en():
     return out
 
 
+def _sys_for_date(today: dt.date, en: bool) -> str:
+    base = SYS_EN_OFF if en else SYS_OFF
+    old_line = next(l for l in base.splitlines() if l.startswith("[System Data] "))
+    nm = today + dt.timedelta(days=(7 - today.weekday()) or 7)
+    wd = today.strftime("%A")
+    days = [today + dt.timedelta(i) for i in range(1, 7)]
+    if en:
+        en_short = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        coming = " ".join(f"{d.strftime('%m-%d')}({en_short[d.weekday()]})" for d in days)
+        new_line = (f"[System Data] Today={today.isoformat()} ({wd}), Tomorrow={(today + dt.timedelta(1)).isoformat()}, "
+                    f"Day after tomorrow={(today + dt.timedelta(2)).isoformat()}, Next Monday={nm.isoformat()}, Coming days={coming}")
+    else:
+        coming = " ".join(f"{d.strftime('%m-%d')}({_KO_WD_CHARS[d.weekday()]})" for d in days)
+        new_line = (f"[System Data] 오늘={today.isoformat()} ({wd}), 내일={(today + dt.timedelta(1)).isoformat()}, "
+                    f"모레={(today + dt.timedelta(2)).isoformat()}, 다음주 월요일={nm.isoformat()}, 요일별={coming}")
+    return base.replace(old_line, new_line)
+
+
+def set_weekday():
+    """두 턴 요일 일정(0.41.13 M1) — 요일 불일치 add_schedule 실행이 0건이고, 곧장 또는 확인('응'/'Yes') 뒤 바른 날짜로 들어가야 통과."""
+    mon, thu = dt.date(2026, 11, 9), dt.date(2026, 11, 12)
+    cases = [
+        ("wd_ko_금_회식", mon, "회식 일정 잡아줘", "금요일 저녁 7시", False, "2026-11-13T19:00"),
+        ("wd_ko_토_운동", mon, "운동 일정 추가해줘", "토요일 아침 8시", False, "2026-11-14T08:00"),
+        ("wd_ko_화_회의", mon, "팀 회의 일정 잡아줘", "화요일 오후 3시", False, "2026-11-10T15:00"),
+        ("wd_ko_수_치과_목", thu, "치과 예약 잡아줘", "수요일 오전 11시", False, "2026-11-18T11:00"),
+        ("wd_ko_수_검진_목", thu, "건강검진 예약 넣어줘", "수요일 아침 9시", False, "2026-11-18T09:00"),
+        ("wd_en_wed_dentist_thu", thu, "Book a dentist appointment", "Wednesday at 11am", True, "2026-11-18T11:00"),
+    ]
+    out = []
+    for tag, today, u1, u2, en, want_prefix in cases:
+        sysm = _sys_for_date(today, en)
+        runner = turn_en if en else turn
+        ans1, ex1, bl1, _ = runner(None, u1, sysm=sysm)
+        hist = [M("user", u1), M("model", ans1)]
+        ans2, ex2, bl2, _ = runner(hist, u2, sysm=sysm)
+        sched2 = [a for n, a in ex2 if n == "add_schedule"]
+        if sched2:
+            st = str(sched2[-1].get("start_time", ""))
+            ok = st.startswith(want_prefix)
+            out.append((tag, ok, f"2턴실행={st} bl2={bl2}"))
+        else:
+            # 요일 가드가 오늘 날짜 호출을 막고 바른 날짜로 확인을 물은 경로 → 사용자 긍정('응'/'Yes') 뒤 바른 날짜 호출 확인
+            hist3 = hist + [M("user", u2), M("model", ans2)]
+            ans3, ex3, bl3, _ = runner(hist3, "Yes" if en else "응", sysm=sysm)
+            sched3 = [a for n, a in ex3 if n == "add_schedule"]
+            st3 = str(sched3[-1].get("start_time", "")) if sched3 else ""
+            ok = bool(sched3) and st3.startswith(want_prefix)
+            out.append((tag, ok, f"2턴막힘={bl2} -> 3턴실행={st3 or 'NO_CALL'} | {ans2[:45]}"))
+    return out
+
+
 SETS = {"smoke": set_smoke, "save": set_save, "fact": set_fact, "yes": set_yes, "drift": set_drift,
         "why": set_why, "newval": set_newval, "repeat": set_repeat, "iso": set_iso, "overlap": set_overlap,
-        "optional": set_optional, "smoke_en": set_smoke_en, "guard_en": set_guard_en}
+        "optional": set_optional, "smoke_en": set_smoke_en, "guard_en": set_guard_en, "weekday": set_weekday}
 
 
 def main():

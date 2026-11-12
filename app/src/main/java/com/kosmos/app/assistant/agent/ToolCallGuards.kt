@@ -3,9 +3,11 @@ package com.kosmos.app.assistant.agent
 import com.kosmos.app.assistant.tool.ToolResultJson
 import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.domain.agent.ScheduleTimeIntent
+import com.kosmos.app.domain.agent.ScheduleWeekdayIntent
 import com.kosmos.app.domain.memory.MemoSaveIntent
 import com.kosmos.app.domain.memory.RepeatRequest
 import com.kosmos.app.domain.tool.ToolNames
+import java.time.ZoneId
 
 /**
  * [ToolCallGuards]
@@ -15,7 +17,7 @@ import com.kosmos.app.domain.tool.ToolNames
  * - **Layer**: Assistant Agent — [BaseAgent] 의 툴 루프가 실행기 조회·승인 전에 부른다. 순수 판정이라 의존성이 없다.
  *
  * ### Key Flow
- * allowlist → 되묻기에 불린 메모 저장 → 저장 부탁 없는 메모 저장(사실 저장 가드) → 날짜·시각 없는 일정 추가(일정 가드). 장치 목록과 각각의 근거는 ADR-030.
+ * allowlist → 되묻기에 불린 메모 저장 → 저장 부탁 없는 메모 저장(사실 저장 가드) → 날짜·시각 없는 일정 추가(일정 가드) → 요일과 날짜가 다른 일정 추가(요일 날짜 가드). 장치 목록과 각각의 근거는 ADR-030.
  */
 internal object ToolCallGuards {
 
@@ -28,7 +30,10 @@ internal object ToolCallGuards {
         userText: String,
         previousAssistant: String?,
         guardFact: Boolean,
-        language: AppLanguage = AppLanguage.KO
+        language: AppLanguage = AppLanguage.KO,
+        startTime: String? = null,
+        now: Long = System.currentTimeMillis(),
+        zoneId: ZoneId = ZoneId.systemDefault()
     ): Block? {
         val en = language == AppLanguage.EN
         // [WHY] allowlist가 프롬프트 텍스트에만 있으면 모델(또는 주입된 문서)이 임의 툴을 호출해도
@@ -59,6 +64,13 @@ internal object ToolCallGuards {
         // 앱이 부른 경로(userText 빈 값)는 사용자 말이 없으니 보지 않는다.
         if (guardFact && name == ToolNames.ADD_SCHEDULE && userText.isNotBlank() && ScheduleTimeIntent.shouldBlock(userText, previousAssistant)) {
             return Block(ToolOutcome(ToolResultJson.error(ScheduleTimeIntent.noTime(language)), executed = false))
+        }
+
+        // [WHY] 이번 턴 사용자 말의 단일 요일과 start_time 날짜 요일이 다르면 승인 시트 전에 막고 바른 날짜를 알려 준다(exp88·89, 0.41.13 M1).
+        if (guardFact && name == ToolNames.ADD_SCHEDULE && userText.isNotBlank()) {
+            ScheduleWeekdayIntent.mismatchGuidance(userText, startTime, now, zoneId, language)?.let { msg ->
+                return Block(ToolOutcome(ToolResultJson.error(msg), executed = false))
+            }
         }
         return null
     }
