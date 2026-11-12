@@ -67,5 +67,10 @@
   "pass": 4,
   "total": 4,
   "fails": []
+ },
+ "weekday": {
+  "pass": 6,
+  "total": 6,
+  "fails": []
  }
 }
