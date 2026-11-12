@@ -83,7 +83,7 @@ def weekday_mismatch_guidance(user: str, start_time: str | None, sysm: str, en: 
     if parsed.weekday() == want_wd:
         return None
     today = _today_from_sys(sysm)
-    delta = ((want_wd - today.weekday()) % 7) or 7
+    delta = (want_wd - today.weekday()) % 7
     nearest = today + dt.timedelta(days=delta)
     if en:
         return f"Not executed. {_EN_WD_NAMES[want_wd]} is {_EN_MONTHS[nearest.month]} {nearest.day}. Add the event again with that date."

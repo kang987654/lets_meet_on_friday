@@ -84,7 +84,7 @@ object ScheduleWeekdayIntent {
         zoneId: ZoneId = ZoneId.systemDefault(),
         language: AppLanguage = AppLanguage.KO
     ): String {
-        val nearest = today.with(TemporalAdjusters.next(wanted))
+        val nearest = today.with(TemporalAdjusters.nextOrSame(wanted))
         val nearestEpochMs = nearest.atStartOfDay(zoneId).toInstant().toEpochMilli()
         val monthDay = IsoDateTimeParser.monthDayKorean(nearestEpochMs, zoneId, language)
         return if (language == AppLanguage.EN) {
