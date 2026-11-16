@@ -61,7 +61,7 @@ class MemoryVectorRepositoryTest {
     @Before
     fun setUp() = runBlocking {
         val db = dbRule.db
-        vectors = MemoryVectorRepositoryImpl(db.memoryVectorDao())
+        vectors = MemoryVectorRepositoryImpl(db, db.memoryVectorDao())
         notes = KnowledgeRepositoryImpl(db.knowledgeDao(), db.memoryVectorDao())
         episodes = EpisodeRepositoryImpl(db.episodeDao(), db.memoryVectorDao())
         notes.save(note("k1", "자전거 비밀번호 4821", listOf("자전거", "비밀번호"))).ok()
@@ -93,6 +93,29 @@ class MemoryVectorRepositoryTest {
         assertEquals(3, embedAll("m2"))
         assertEquals(0, vectors.vectors("m1").ok().size)
         assertTrue(vectors.status("m2").ok().ready)
+    }
+
+    @Test
+    fun `임베딩 중에 고치거나 지운 메모는 끝난 묶음이 옛 벡터를 넣지 않는다(R1·0·41·16)`() = runBlocking {
+        embedAll()
+        notes.save(note("k1", "자전거 비밀번호 1234", listOf("자전거"))).ok()
+        notes.save(note("k2", "와이파이 sky7788")).ok()
+        val read = vectors.pending("m1", 10).ok() // 임베더가 읽은 글
+        assertEquals(2, read.size)
+
+        notes.save(note("k1", "자전거 비밀번호 4821", listOf("자전거"))).ok() // 임베딩하는 사이에 고침
+        notes.delete("k2").ok() // 지움
+        vectors.saveIfCurrent("m1", read.map { it to v }).ok()
+
+        val saved = vectors.vectors("m1").ok()
+        assertFalse("옛 글의 벡터가 남지 않는다", MemoryVectorKey.note("k1") in saved)
+        assertFalse("지운 메모의 벡터가 남지 않는다", MemoryVectorKey.note("k2") in saved)
+        val next = vectors.pending("m1", 10).ok().single()
+        assertEquals("다음 준비가 새 글로 만든다", MemoryVectorKey.note("k1"), next.key)
+        assertTrue(next.input.contains("4821"))
+
+        vectors.saveIfCurrent("m1", listOf(next to v)).ok()
+        assertTrue("바뀌지 않았으면 그대로 저장한다", MemoryVectorKey.note("k1") in vectors.vectors("m1").ok())
     }
 
     @Test

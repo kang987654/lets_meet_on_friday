@@ -119,6 +119,16 @@ class LibraryVectorRepositoryTest {
     }
 
     @Test
+    fun `임베딩 중에 다시 색인한 문서의 없어진 조각 벡터는 넣지 않는다(0·41·16 M1)`() = runBlocking {
+        val read = repo.chunksNeedingVectors(embedder.modelId, "d2", 100).ok() // 임베더가 읽은 조각
+        add("d2", "형법", listOf("제1조(범죄의 성립) 범죄의 성립은 행위 시의 법률에 따른다.")) // 그 사이 다시 색인 — 새 행 id
+        repo.saveVectors(embedder.modelId, read.map { it to Int8Vector.quantize(embedder.vector(it.input)) }).ok()
+
+        dbRule.db.query("SELECT COUNT(*) FROM library_vector", null).use { it.moveToFirst(); assertEquals("옛 조각의 벡터가 남지 않는다", 0, it.getInt(0)) }
+        assertEquals("새 조각은 아직 만들 대상", 1, repo.chunksNeedingVectors(embedder.modelId, "d2", 100).ok().size)
+    }
+
+    @Test
     fun `다시 색인하면 그 문서 벡터가, 다른 모델로 저장하면 옛 모델 벡터가, 초기화하면 전부 지워진다`() = runBlocking {
         embedAll()
         add("d2", "형법", listOf("제1조(범죄의 성립) 범죄의 성립은 행위 시의 법률에 따른다."))

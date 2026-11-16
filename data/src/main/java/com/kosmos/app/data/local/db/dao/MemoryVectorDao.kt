@@ -44,6 +44,12 @@ interface MemoryVectorDao {
     )
     suspend fun notesWithoutVector(modelId: String, limit: Int): List<KnowledgeEntity>
 
+    @Query("SELECT * FROM knowledge_note WHERE id = :id")
+    suspend fun note(id: String): KnowledgeEntity?
+
+    @Query("SELECT * FROM episode WHERE id = :id AND status = 'SUMMARIZED'")
+    suspend fun summarizedEpisode(id: String): EpisodeEntity?
+
     @Query(
         "SELECT * FROM episode e WHERE e.status = 'SUMMARIZED' AND NOT EXISTS " +
             "(SELECT 1 FROM memory_vector v WHERE v.kind = 'episode' AND v.refId = e.id AND v.modelId = :modelId) ORDER BY e.createdAt DESC LIMIT :limit"

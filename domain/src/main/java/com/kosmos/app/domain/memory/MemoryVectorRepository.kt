@@ -25,6 +25,15 @@ interface MemoryVectorRepository {
     /** 저장 — 다른 모델로 만든 벡터는 함께 지운다(모델 교체). */
     suspend fun save(modelId: String, vectors: List<Pair<MemoryVectorKey, Int8Vector>>): AppResult<Unit>
 
+    /**
+     * 임베딩에 쓴 글이 **지금도** 그 대상의 글일 때만 저장합니다 — 다르거나 대상이 없으면 그 벡터는 넣지 않아 다음 준비 때 새 글로 다시 만들어진다.
+     *
+     * [WHY] 임베딩하는 몇 초 사이에 메모를 고치면 저장소가 벡터를 지운 뒤 끝난 묶음이 옛 글의 벡터를 다시 넣어, "벡터 있음"으로 보여 뜻 검색이 옛 내용으로 굳었다(R1, 0.41.16 M1).
+     * 기본 구현은 대조 없이 [save] — 테스트 가짜용.
+     */
+    suspend fun saveIfCurrent(modelId: String, vectors: List<Pair<MemoryVectorInput, Int8Vector>>): AppResult<Unit> =
+        save(modelId, vectors.map { (input, v) -> input.key to v })
+
     suspend fun vectors(modelId: String): AppResult<Map<MemoryVectorKey, Int8Vector>>
 
     /**

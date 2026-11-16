@@ -2,7 +2,10 @@ package com.kosmos.app.data.local.repository
 
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Tags
+import androidx.room.withTransaction
+import com.kosmos.app.data.local.db.KosmosDatabase
 import com.kosmos.app.data.local.db.dao.MemoryVectorDao
+import com.kosmos.app.data.local.db.entity.KnowledgeEntity
 import com.kosmos.app.data.local.db.entity.MemoryVectorEntity
 import com.kosmos.app.domain.library.Int8Vector
 import com.kosmos.app.domain.memory.MemoryEmbedding
@@ -21,6 +24,7 @@ import javax.inject.Inject
  * - **Layer**: Data (Repository) — [MemoryVectorDao]. 입력 글자는 도메인 [MemoryEmbedding](exp80 형식).
  */
 class MemoryVectorRepositoryImpl @Inject constructor(
+    private val db: KosmosDatabase,
     private val dao: MemoryVectorDao
 ) : MemoryVectorRepository {
 
@@ -29,10 +33,7 @@ class MemoryVectorRepositoryImpl @Inject constructor(
     }
 
     override suspend fun pending(modelId: String, limit: Int): AppResult<List<MemoryVectorInput>> = dbRead(TABLE, "pending") {
-        val notes = dao.notesWithoutVector(modelId, limit).map { e ->
-            val note = KnowledgeNote(id = e.id, content = e.content, tags = Tags.decode(e.tags), createdAt = e.createdAt, updatedAt = e.updatedAt)
-            MemoryVectorInput(MemoryVectorKey.note(e.id), MemoryEmbedding.noteInput(note))
-        }
+        val notes = dao.notesWithoutVector(modelId, limit).map { e -> MemoryVectorInput(MemoryVectorKey.note(e.id), noteInput(e)) }
         val rest = limit - notes.size
         val episodes = if (rest <= 0) emptyList() else dao.episodesWithoutVector(modelId, rest).map { e ->
             MemoryVectorInput(MemoryVectorKey.episode(e.id), MemoryEmbedding.episodeInput(e.toDomain()))
@@ -44,6 +45,25 @@ class MemoryVectorRepositoryImpl @Inject constructor(
         dao.deleteNotOf(modelId)
         dao.insert(vectors.map { (key, v) -> MemoryVectorEntity(key.kind.code, key.refId, modelId, v.toBytes()) })
     }
+
+    override suspend fun saveIfCurrent(modelId: String, vectors: List<Pair<MemoryVectorInput, Int8Vector>>): AppResult<Unit> =
+        dbWrite(TABLE, "saveIfCurrent") {
+            db.withTransaction {
+                val current = vectors.filter { (input, _) -> currentInput(input.key) == input.input }
+                dao.deleteNotOf(modelId)
+                dao.insert(current.map { (input, v) -> MemoryVectorEntity(input.key.kind.code, input.key.refId, modelId, v.toBytes()) })
+            }
+        }
+
+    /** 대상의 지금 임베딩 입력 — 지워졌거나(요약 전으로 돌아간 대화 포함) 없으면 null. */
+    private suspend fun currentInput(key: MemoryVectorKey): String? = when (key.kind) {
+        MemoryVectorKey.Kind.NOTE -> dao.note(key.refId)?.let { noteInput(it) }
+        MemoryVectorKey.Kind.EPISODE -> dao.summarizedEpisode(key.refId)?.let { MemoryEmbedding.episodeInput(it.toDomain()) }
+    }
+
+    private fun noteInput(e: KnowledgeEntity): String = MemoryEmbedding.noteInput(
+        KnowledgeNote(id = e.id, content = e.content, tags = Tags.decode(e.tags), createdAt = e.createdAt, updatedAt = e.updatedAt)
+    )
 
     override suspend fun vectors(modelId: String): AppResult<Map<MemoryVectorKey, Int8Vector>> = dbRead(TABLE, "vectors") {
         dao.vectorsOf(modelId).mapNotNull { e ->

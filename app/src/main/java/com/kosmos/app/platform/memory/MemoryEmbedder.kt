@@ -164,7 +164,7 @@ class MemoryEmbedder @Inject constructor(
             val vectors = embedder.embedDocuments(batch.map { it.input }) ?: return failed("임베딩 실패")
             currentCoroutineContext().ensureActive()
             if (vectors.size != batch.size) return failed("임베딩 수 불일치")
-            if (repository.save(embedder.modelId, batch.zip(vectors) { input, v -> input.key to Int8Vector.quantize(v) }) is AppResult.Failure) {
+            if (repository.saveIfCurrent(embedder.modelId, batch.zip(vectors) { input, v -> input to Int8Vector.quantize(v) }) is AppResult.Failure) {
                 return failed("벡터 저장 실패")
             }
             done += batch.size

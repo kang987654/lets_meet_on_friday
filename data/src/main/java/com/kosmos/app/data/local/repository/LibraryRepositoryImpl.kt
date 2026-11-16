@@ -145,7 +145,10 @@ class LibraryRepositoryImpl @Inject constructor(
             db.withTransaction {
                 // [WHY] 모델이 바뀌었으면 옛 좌표계 벡터를 먼저 버린다 — 섞이면 순위가 무의미하다.
                 dao.deleteVectorsNotOf(modelId)
-                dao.insertVectors(vectors.map { (input, v) -> LibraryVectorEntity(input.chunkRowId, input.documentId, modelId, v.toBytes()) })
+                // [WHY] 임베딩하는 사이에 문서를 다시 색인하거나 지우면 조각이 새 행 id 로 바뀐다 — 없어진 조각의 벡터를 넣으면 뜻 점수 상위 자리를 차지했다가
+                // 결과에서 빠져 결과 수가 줄었다(R1 과 같은 결, 0.41.16 M1). 지금 있는 조각의 것만 넣는다.
+                val alive = dao.chunksByRowId(vectors.map { it.first.chunkRowId }).mapTo(HashSet()) { it.rowId }
+                dao.insertVectors(vectors.filter { it.first.chunkRowId in alive }.map { (input, v) -> LibraryVectorEntity(input.chunkRowId, input.documentId, modelId, v.toBytes()) })
             }
         }
 
