@@ -281,6 +281,7 @@ def turn(history, user, sysm=SYS_OFF, tools=None, search_body=None, why=False):
     """앱의 한 턴 — 돌려주는 값: 답, 실행된 툴 [(이름, 인자)], 가드가 막은 툴 [이름], 첫 호출(가드 전)."""
     tools = tools if tools is not None else TOOLS_OFF
     prev_model = next((m["content"] for m in reversed(history or []) if m["role"] == "model"), None)
+    prev_user = next((m["content"] for m in reversed(history or []) if m["role"] == "user"), None)
     hist = model_history((history or []) + [M("user", user)])[:-1] if not why else history
     executed, blocked, first = [], [], None
     with open_conversation(hist, tools, sysm) as conv:
@@ -303,7 +304,7 @@ def turn(history, user, sysm=SYS_OFF, tools=None, search_body=None, why=False):
                 body, ok = {"status": "success", "message": "기억에 저장했어요."}, True
             elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_TIME}, False
-            elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)):
+            elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)) and not (prev_user and SCHEDULE_CLOCK.search(prev_user)):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK}, False
             elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=False)):
                 body, ok = {"status": "error", "message": wd_err}, False
@@ -593,6 +594,7 @@ REPEAT_NOT_SAVE_EN = "Not saved. The user is asking to hear what they told you e
 def turn_en(history, user, sysm=SYS_EN_OFF, tools=None, why=False):
     tools = tools if tools is not None else TOOLS_OFF
     prev_model = next((m["content"] for m in reversed(history or []) if m["role"] == "model"), None)
+    prev_user = next((m["content"] for m in reversed(history or []) if m["role"] == "user"), None)
     hist = model_history((history or []) + [M("user", user)])[:-1] if not why else history
     executed, blocked, first = [], [], None
     with open_conversation(hist, tools, sysm) as conv:
@@ -612,7 +614,7 @@ def turn_en(history, user, sysm=SYS_EN_OFF, tools=None, why=False):
                 body, ok = {"status": "success", "message": "Saved to memory."}, True
             elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_TIME_EN}, False
-            elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)):
+            elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)) and not (prev_user and SCHEDULE_CLOCK.search(prev_user)):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK_EN}, False
             elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=True)):
                 body, ok = {"status": "error", "message": wd_err}, False

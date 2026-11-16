@@ -40,6 +40,8 @@ class ScheduleTimeIntentTest {
         ).forEach { assertFalse(it, ScheduleTimeIntent.needsClock(it, null)) }
         assertFalse("앞 비서 말에 몇 시가 있으면 '응'도 통과", ScheduleTimeIntent.needsClock("응", "내일 저녁 7시로 잡을까요?"))
         assertTrue("앞 비서가 몇 시인지 물은 것은 시각이 아니다", ScheduleTimeIntent.needsClock("내일", "몇 시에 잡을까요?"))
+        assertFalse("요일 가드가 날짜만 되물은 뒤의 'Yes' — 시각은 앞 사용자 말에", ScheduleTimeIntent.needsClock("Yes", "Wednesday is Nov 18. Confirm?", "Wednesday at 11am"))
+        assertTrue("앞 사용자 말에도 없으면 막는다", ScheduleTimeIntent.needsClock("내일", "몇 시에 잡을까요?", "아침 운동 일정 추가해줘"))
     }
 
     @Test

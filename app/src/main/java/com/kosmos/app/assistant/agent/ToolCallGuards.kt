@@ -31,6 +31,7 @@ internal object ToolCallGuards {
         previousAssistant: String?,
         guardFact: Boolean,
         language: AppLanguage = AppLanguage.KO,
+        previousUser: String? = null,
         startTime: String? = null,
         now: Long = System.currentTimeMillis(),
         zoneId: ZoneId = ZoneId.systemDefault()
@@ -66,7 +67,7 @@ internal object ToolCallGuards {
             return Block(ToolOutcome(ToolResultJson.error(ScheduleTimeIntent.noTime(language)), executed = false))
         }
         // [WHY] 날짜·시간대 낱말만 있고 몇 시가 없으면 시각을 지어내지 말고 묻게 한다(0.41.15 M2, exp89·92).
-        if (guardFact && name == ToolNames.ADD_SCHEDULE && userText.isNotBlank() && ScheduleTimeIntent.needsClock(userText, previousAssistant)) {
+        if (guardFact && name == ToolNames.ADD_SCHEDULE && userText.isNotBlank() && ScheduleTimeIntent.needsClock(userText, previousAssistant, previousUser)) {
             return Block(ToolOutcome(ToolResultJson.error(ScheduleTimeIntent.noClock(language)), executed = false))
         }
 

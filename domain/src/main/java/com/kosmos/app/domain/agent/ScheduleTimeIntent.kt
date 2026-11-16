@@ -38,8 +38,11 @@ object ScheduleTimeIntent {
      *
      * [WHY] 시간대 낱말만 있으면 모델이 오늘 날짜에 시각을 지어냈다("아침 운동 일정 추가해줘" → 오늘 10:53, exp89 1-A 26/28). 사용자 결정 (가): 몇 시가 없으면 묻는다.
      * 낱말도 없으면 [shouldBlock] 이 먼저 사실 문장으로 막는다.
+     * [WHY] 바로 앞 사용자 말도 본다 — "Wednesday at 11am" 뒤 요일 가드가 날짜만 되묻고("Wednesday is Nov 18, confirm?") 사용자가 "Yes"라 하면
+     * 시각은 그 앞 사용자 말에만 있다(회귀 세트 weekday 6 → 5, 0.41.15 M3).
      */
-    fun needsClock(userText: String, previousAssistant: String?): Boolean = !hasClock(userText) && !hasClock(previousAssistant)
+    fun needsClock(userText: String, previousAssistant: String?, previousUser: String? = null): Boolean =
+        !hasClock(userText) && !hasClock(previousAssistant) && !hasClock(previousUser)
 
     /** 이번 턴 사용자 말과 바로 앞 비서 말 어디에도 날짜·시각이 없으면 막는다. */
     fun shouldBlock(userText: String, previousAssistant: String?): Boolean = !hasTime(userText) && !hasTime(previousAssistant)

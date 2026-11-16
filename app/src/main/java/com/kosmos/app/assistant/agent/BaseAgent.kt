@@ -202,6 +202,7 @@ abstract class BaseAgent(
                     allowedTools,
                     request.message,
                     previousAssistant = if (call.name == ToolNames.ADD_MEMORY || call.name == ToolNames.ADD_SCHEDULE) previousTurn().assistant else null,
+                    previousUser = if (call.name == ToolNames.ADD_SCHEDULE) previousTurn().user else null,
                     language = language
                 )
                 anyExecuted = anyExecuted || outcome.executed
@@ -386,6 +387,7 @@ abstract class BaseAgent(
         allowedTools: List<String>,
         userText: String,
         previousAssistant: String? = null,
+        previousUser: String? = null,
         guardFact: Boolean = true,
         language: AppLanguage = AppLanguage.KO
     ): ToolOutcome {
@@ -397,6 +399,7 @@ abstract class BaseAgent(
             allowedTools = allowedTools,
             userText = userText,
             previousAssistant = previousAssistant,
+            previousUser = previousUser,
             guardFact = guardFact,
             language = language,
             startTime = rawStartTime,
