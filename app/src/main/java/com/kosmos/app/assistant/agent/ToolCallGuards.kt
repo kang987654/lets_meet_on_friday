@@ -65,6 +65,10 @@ internal object ToolCallGuards {
         if (guardFact && name == ToolNames.ADD_SCHEDULE && userText.isNotBlank() && ScheduleTimeIntent.shouldBlock(userText, previousAssistant)) {
             return Block(ToolOutcome(ToolResultJson.error(ScheduleTimeIntent.noTime(language)), executed = false))
         }
+        // [WHY] 날짜·시간대 낱말만 있고 몇 시가 없으면 시각을 지어내지 말고 묻게 한다(0.41.15 M2, exp89·92).
+        if (guardFact && name == ToolNames.ADD_SCHEDULE && userText.isNotBlank() && ScheduleTimeIntent.needsClock(userText, previousAssistant)) {
+            return Block(ToolOutcome(ToolResultJson.error(ScheduleTimeIntent.noClock(language)), executed = false))
+        }
 
         // [WHY] 이번 턴 사용자 말의 단일 요일과 start_time 날짜 요일이 다르면 승인 시트 전에 막고 바른 날짜를 알려 준다(exp88·89, 0.41.13 M1).
         if (guardFact && name == ToolNames.ADD_SCHEDULE && userText.isNotBlank()) {

@@ -52,6 +52,14 @@ SCHEDULE_TIME = re.compile(
 )
 SCHEDULE_NO_TIME = "실행하지 않았습니다. 사용자의 말에 날짜나 시각이 없으니 일정 요청이 아닙니다. 일정 이야기는 꺼내지 말고, 알려 준 내용을 확인한 뒤 \"메모해 둘까요?\"라고 물어보세요. 일정을 잡아 달라는 말이었다면 언제인지만 물어보세요."
 SCHEDULE_NO_TIME_EN = "Not executed. The user's message has no date or time, so it is not a scheduling request. Do not bring up the schedule; confirm what they told you and ask \"Would you like me to save this as a note?\". If they did ask to schedule something, ask only when it should be."
+# 원문: domain/agent/ScheduleTimeIntent.CLOCK·NO_CLOCK(0.41.15 M2) — 날짜·시간대 낱말만 있고 몇 시가 없으면 묻게 막는다.
+SCHEDULE_CLOCK = re.compile(
+    r"\d+\s*시(?!간)|\d+\s*(분|시간)\s*(뒤|후)|\d{1,2}:\d{2}|(한|두|세|네|다섯|여섯|일곱|여덟|아홉|열|열한|열두)\s*시(?!간)|정오|자정|지금|"
+    r"\b\d{1,2}\s*(am|pm|a\.m\.|p\.m\.)|\b(noon|midnight|now)\b|o'?clock|\bin\s+\d+\s+(minutes?|hours?)\b",
+    re.I,
+)
+SCHEDULE_NO_CLOCK = "실행하지 않았습니다. 몇 시인지 정해지지 않았습니다. 일정을 몇 시에 잡을지 사용자에게 물어보세요."
+SCHEDULE_NO_CLOCK_EN = "Not executed. No clock time was given. Ask the user what time to schedule it."
 # 원문: domain/agent/ScheduleWeekdayIntent(0.41.13 M1) — 단일 요일과 start_time 날짜 요일이 다르면 막는다.
 KO_WD_RE = re.compile(r"([월화수목금토일])(?:요일|욜)")
 EN_WD_RE = re.compile(r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.I)
@@ -295,6 +303,8 @@ def turn(history, user, sysm=SYS_OFF, tools=None, search_body=None, why=False):
                 body, ok = {"status": "success", "message": "기억에 저장했어요."}, True
             elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_TIME}, False
+            elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)):
+                body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK}, False
             elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=False)):
                 body, ok = {"status": "error", "message": wd_err}, False
             elif name == "add_schedule":
@@ -602,6 +612,8 @@ def turn_en(history, user, sysm=SYS_EN_OFF, tools=None, why=False):
                 body, ok = {"status": "success", "message": "Saved to memory."}, True
             elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_TIME_EN}, False
+            elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)):
+                body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK_EN}, False
             elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=True)):
                 body, ok = {"status": "error", "message": wd_err}, False
             elif name == "add_schedule":
@@ -671,6 +683,24 @@ def _sys_for_date(today: dt.date, en: bool) -> str:
     return base.replace(old_line, new_line)
 
 
+def set_clock():
+    """몇 시 없는 일정(0.41.15 M2) — 1턴은 넣지 않고 몇 시인지 묻고, 시각을 답하면 그 시각으로 넣어야 통과(exp92 문항 일부)."""
+    cases = [("아침 운동 일정 추가해줘", "내일 아침 7시", f"{TOMORROW}T07:00", False), ("오후 회의 일정 잡아줘", "3시", f"{TODAY}T15:00", False),
+             ("금요일 오후에 치과 예약 넣어줘", "2시", "2026-11-13T14:00", False), ("점심 약속 일정 추가해줘", "12시 반", f"{TODAY}T12:30", False),
+             ("Schedule a meeting tomorrow afternoon", "3pm", f"{TOMORROW}T15:00", True)]
+    out = []
+    for u1, u2, want, en in cases:
+        runner = turn_en if en else turn
+        ans1, ex1, bl1, _ = runner(None, u1)
+        if any(n == "add_schedule" for n, _ in ex1):
+            out.append((u1, False, f"1턴에 넣음 {ex1}"))
+            continue
+        ans2, ex2, bl2, _ = runner([M("user", u1), M("model", ans1)], u2)
+        st = next((str(a.get("start_time", "")) for n, a in ex2 if n == "add_schedule"), "")
+        out.append((u1, st.startswith(want), f"막힘 {bl1} | {ans1[:40]} -> {st or ans2[:40]}"))
+    return out
+
+
 def set_weekday():
     """두 턴 요일 일정(0.41.13 M1) — 요일 불일치 add_schedule 실행이 0건이고, 곧장 또는 확인('응'/'Yes') 뒤 바른 날짜로 들어가야 통과."""
     mon, thu = dt.date(2026, 11, 9), dt.date(2026, 11, 12)
@@ -707,7 +737,7 @@ def set_weekday():
 
 SETS = {"smoke": set_smoke, "save": set_save, "fact": set_fact, "yes": set_yes, "drift": set_drift,
         "why": set_why, "newval": set_newval, "repeat": set_repeat, "iso": set_iso, "overlap": set_overlap,
-        "optional": set_optional, "smoke_en": set_smoke_en, "guard_en": set_guard_en, "weekday": set_weekday}
+        "optional": set_optional, "smoke_en": set_smoke_en, "guard_en": set_guard_en, "weekday": set_weekday, "clock": set_clock}
 
 
 def main():

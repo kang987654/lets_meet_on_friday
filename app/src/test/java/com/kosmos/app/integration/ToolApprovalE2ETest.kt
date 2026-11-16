@@ -222,7 +222,7 @@ class ToolApprovalE2ETest {
             viewModel.uiState.value.sessionId.isNotEmpty()
         }
         
-        viewModel.sendMessage("내일 점심 약속 잡아줘, 취소할거야")
+        viewModel.sendMessage("내일 점심 12시 약속 잡아줘, 취소할거야")
         
         waitForIdleWithPolling(5000) {
             approvalCoordinator.pendingRequest.value != null

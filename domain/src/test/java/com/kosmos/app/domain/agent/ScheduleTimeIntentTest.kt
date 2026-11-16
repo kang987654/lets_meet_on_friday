@@ -27,6 +27,22 @@ class ScheduleTimeIntentTest {
     }
 
     @Test
+    fun `날짜·시간대 낱말만 있으면 몇 시를 묻게 막는다(0·41·15 M2)`() {
+        listOf("아침 운동 일정 추가해줘", "저녁 약속 일정 넣어줘", "내일 저녁 미용실 예약 잡아줘", "금요일 오후에 치과 예약", "다음주 화요일 회의", "3시간짜리 워크숍 내일",
+            "Add dinner with friends tonight", "Schedule a meeting tomorrow afternoon"
+        ).forEach { assertTrue(it, ScheduleTimeIntent.needsClock(it, null)) }
+    }
+
+    @Test
+    fun `몇 시가 있으면 통과한다 — 숫자·한글 수·HH_MM·정오·n분 뒤·am pm`() {
+        listOf("내일 아침 7시", "저녁 7시 반", "세 시에 미팅", "14:30 회의", "정오에 점심 약속", "30분 뒤 회의", "2시간 후에 통화", "지금 회의 잡아줘",
+            "7pm", "Meeting tomorrow at 3 pm", "at noon", "in 30 minutes", "at 5 o'clock"
+        ).forEach { assertFalse(it, ScheduleTimeIntent.needsClock(it, null)) }
+        assertFalse("앞 비서 말에 몇 시가 있으면 '응'도 통과", ScheduleTimeIntent.needsClock("응", "내일 저녁 7시로 잡을까요?"))
+        assertTrue("앞 비서가 몇 시인지 물은 것은 시각이 아니다", ScheduleTimeIntent.needsClock("내일", "몇 시에 잡을까요?"))
+    }
+
+    @Test
     fun `앞 비서 말에 시각이 있으면 막지 않는다`() {
         assertTrue(ScheduleTimeIntent.shouldBlock("응", "메모해 둘까요?"))
         assertFalse(ScheduleTimeIntent.shouldBlock("응", "내일 오후 3시로 잡을까요?"))

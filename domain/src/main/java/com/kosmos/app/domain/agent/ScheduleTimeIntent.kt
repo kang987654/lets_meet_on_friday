@@ -19,7 +19,27 @@ object ScheduleTimeIntent {
         RegexOption.IGNORE_CASE
     )
 
+    /**
+     * 시계 시각 — 숫자·한글 수 + 시, `HH:MM`, 정오·자정, n분·n시간 뒤, am/pm (0.41.15 M2).
+     * [WHY] "시간"은 길이라 빼고(`(?!간)`), "n시간 뒤"는 정해진 시각이라 따로 잡는다.
+     */
+    private val CLOCK = Regex(
+        "\\d+\\s*시(?!간)|\\d+\\s*(분|시간)\\s*(뒤|후)|\\d{1,2}:\\d{2}|(한|두|세|네|다섯|여섯|일곱|여덟|아홉|열|열한|열두)\\s*시(?!간)|정오|자정|지금|" +
+            "\\b\\d{1,2}\\s*(am|pm|a\\.m\\.|p\\.m\\.)|\\b(noon|midnight|now)\\b|o'?clock|\\bin\\s+\\d+\\s+(minutes?|hours?)\\b",
+        RegexOption.IGNORE_CASE
+    )
+
     fun hasTime(text: String?): Boolean = text != null && TIME_WORDS.containsMatchIn(text)
+
+    fun hasClock(text: String?): Boolean = text != null && CLOCK.containsMatchIn(text)
+
+    /**
+     * 날짜·시간대 낱말("아침", "내일", "금요일")은 있지만 이번 턴 사용자 말과 바로 앞 비서 말 어디에도 시계 시각이 없으면 `true` — 몇 시인지 묻게 막는다.
+     *
+     * [WHY] 시간대 낱말만 있으면 모델이 오늘 날짜에 시각을 지어냈다("아침 운동 일정 추가해줘" → 오늘 10:53, exp89 1-A 26/28). 사용자 결정 (가): 몇 시가 없으면 묻는다.
+     * 낱말도 없으면 [shouldBlock] 이 먼저 사실 문장으로 막는다.
+     */
+    fun needsClock(userText: String, previousAssistant: String?): Boolean = !hasClock(userText) && !hasClock(previousAssistant)
 
     /** 이번 턴 사용자 말과 바로 앞 비서 말 어디에도 날짜·시각이 없으면 막는다. */
     fun shouldBlock(userText: String, previousAssistant: String?): Boolean = !hasTime(userText) && !hasTime(previousAssistant)
@@ -29,4 +49,10 @@ object ScheduleTimeIntent {
     const val NO_TIME_EN = "Not executed. The user's message has no date or time, so it is not a scheduling request. Do not bring up the schedule; confirm what they told you and ask \"Would you like me to save this as a note?\". If they did ask to schedule something, ask only when it should be."
 
     fun noTime(language: AppLanguage = AppLanguage.KO): String = if (language == AppLanguage.EN) NO_TIME_EN else NO_TIME
+
+    // exp92 K2 실측 원문(막은 뒤 16/16 몇 시인지 묻고, 시각을 답하면 16/16 그 시각으로 넣음 — KO 30·EN 18토큰).
+    const val NO_CLOCK = "실행하지 않았습니다. 몇 시인지 정해지지 않았습니다. 일정을 몇 시에 잡을지 사용자에게 물어보세요."
+    const val NO_CLOCK_EN = "Not executed. No clock time was given. Ask the user what time to schedule it."
+
+    fun noClock(language: AppLanguage = AppLanguage.KO): String = if (language == AppLanguage.EN) NO_CLOCK_EN else NO_CLOCK
 }
