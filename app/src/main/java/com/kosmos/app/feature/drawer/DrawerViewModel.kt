@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 import com.kosmos.app.domain.memory.ProfileSuggestionRepository
@@ -83,6 +85,8 @@ class DrawerViewModel @Inject constructor(
         .debounce(300)
         .combine(searchRefresh) { q, _ -> q }
         .map { q -> search(q) }
+        // [WHY] 바이그램 점수·최대 500건 뜻 점수 계산을 메인 스레드에서 하지 않는다(0.41.14 M3).
+        .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     internal suspend fun search(q: String): List<Episode>? {

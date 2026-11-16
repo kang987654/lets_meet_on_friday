@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -148,11 +149,15 @@ class ChatExtrasViewModel @Inject constructor(
         MessageResult.Kind.DOC_SOURCE -> flow { emit(ResultCardMapper.docSource(context, result.meta)) }
     }
 
+    private var summaryJob: Job? = null
+
     private suspend fun noteOf(id: String) = (knowledgeRepository.getById(id) as? AppResult.Success)?.data
 
     /** 요약 타일을 다시 센다. 시각 판정은 [now] 기준(AGENTS §2-④). */
     fun refreshSummary(now: Long = System.currentTimeMillis(), zone: ZoneId = ZoneId.systemDefault()) {
-        viewModelScope.launch {
+        // [WHY] 채팅 화면이 새로 그려질 때(앱 시작, 다른 화면에서 돌아옴) 메시지 수 감시와 화면 재개가 함께 불러 같은 조회(DB 3번·기기 캘린더 1번)가 두 번 돌았다 — 앞 것을 취소한다(0.41.14 D3).
+        summaryJob?.cancel()
+        summaryJob = viewModelScope.launch {
             val lang = currentLang
             val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
             val next = (taskRepository.getActiveReminders() as? AppResult.Success)?.data.orEmpty()

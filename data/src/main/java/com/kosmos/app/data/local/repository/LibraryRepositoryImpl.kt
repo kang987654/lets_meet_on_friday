@@ -55,6 +55,8 @@ class LibraryRepositoryImpl @Inject constructor(
     override suspend fun replaceChunks(documentId: String, chunks: List<LibraryChunk>, charCount: Int): AppResult<Unit> =
         dbWrite(TABLE, "replaceChunks") {
             db.withTransaction {
+                // [WHY] 색인(파싱 수십 초) 도중 사용자가 문서를 지웠으면 끝난 색인을 버린다 — 넣으면 목록에 없는 조각·색인이 남아 지울 방법이 없었다(0.41.14 M3).
+                if (dao.document(documentId) == null) return@withTransaction
                 dao.deleteVectorsOf(documentId)
                 dao.deleteFtsOf(documentId)
                 dao.deleteChunksOf(documentId)

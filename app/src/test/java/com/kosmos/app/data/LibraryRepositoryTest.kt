@@ -93,6 +93,17 @@ class LibraryRepositoryTest {
     }
 
     @Test
+    fun `색인 중에 지운 문서는 끝난 색인이 조각을 다시 넣지 않는다(0·41·14 M3)`() = runBlocking {
+        repo.upsert(doc("gone", "지운 문서")).ok()
+        repo.remove("gone").ok()
+        val chunks = LibraryChunker.chunk("지운 문서", LibraryChunker.fromPlain("제1조(목적) 이 문서는 이미 지워졌다."))
+        repo.replaceChunks("gone", chunks, 20).ok()
+
+        dbRule.db.query("SELECT COUNT(*) FROM library_chunk WHERE documentId = 'gone'", null).use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+        assertTrue(documents().none { it.id == "gone" })
+    }
+
+    @Test
     fun `다시 넣으면 앞 조각과 색인을 바꾸고 지우면 문서와 조각과 색인이 모두 사라진다`() = runBlocking {
         add("d2", "형법", listOf("제1조(범죄의 성립과 처벌) 범죄의 성립과 처벌은 행위 시의 법률에 따른다."))
         assertEquals(1, documents().single { it.id == "d2" }.chunkCount)

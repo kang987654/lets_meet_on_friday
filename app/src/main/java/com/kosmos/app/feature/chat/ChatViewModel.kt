@@ -31,6 +31,7 @@ import kotlinx.collections.immutable.toImmutableList
 import java.util.UUID
 import com.kosmos.app.core.common.AppError
 import com.kosmos.app.platform.share.SharedInput
+import com.kosmos.app.platform.document.readBytesUpTo
 import com.kosmos.app.core.mapper.ErrorMessages
 import com.kosmos.app.domain.model.ProfileSuggestion
 import javax.inject.Inject
@@ -416,16 +417,23 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun extractImageBytes(uri: Uri): ByteArray? {
+    /**
+     * 첨부 이미지를 상한([Constants.MAX_IMAGE_SIZE_BYTES])까지만 읽습니다 — 넘으면 [AppError.ImageTooLarge], 못 읽으면 [AppError.UnsupportedImageFormat].
+     *
+     * [WHY] 예전에는 끝까지 읽은 뒤에야 관문(`ImageInputAdapter`)이 크기를 봐, 크기 칸이 없는 공유·피커 경로에서 큰 스트림이 힙을 다 채울 수 있었다(0.41.14 M3).
+     */
+    private fun extractImageBytes(uri: Uri): AppResult<ByteArray> {
+        val failed = AppResult.Failure(AppError.UnsupportedImageFormat("첨부 이미지를 읽지 못했어요"))
         return try {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                inputStream.readBytes()
+            val stream = context.contentResolver.openInputStream(uri) ?: return failed
+            stream.use { input ->
+                readBytesUpTo(input, Constants.MAX_IMAGE_SIZE_BYTES)?.let { AppResult.Success(it) }
+                    ?: AppResult.Failure(AppError.ImageTooLarge(Constants.MAX_IMAGE_SIZE_BYTES + 1L))
             }
         } catch (e: Exception) {
-            // [WHY] printStackTrace 가 아니라 로그다 — 이 파일에서 유일한 규약 위반이었다.
-            // null 의 의미(읽기 실패)는 호출자가 턴 중단으로 처리한다.
+            // [WHY] 실패(읽기 실패)는 호출자가 턴 중단으로 처리한다.
             android.util.Log.w("ChatViewModel", "첨부 이미지 읽기 실패: ${uri}", e)
-            null
+            failed
         }
     }
 
@@ -467,21 +475,22 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 // [WHY] 최대 10MB 이미지 전체 읽기는 메인 스레드 ANR 위험이 있어 IO에서 수행한다.
-                val imageBytes = if (currentSharedInput is SharedInput.Image) {
+                val imageRead = if (currentSharedInput is SharedInput.Image) {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                         extractImageBytes(currentSharedInput.uri)
                     }
                 } else null
+                val imageBytes = (imageRead as? AppResult.Success)?.data
 
                 // [WHY] 이미지 첨부 턴인데 읽기가 실패하면 **턴을 중단한다.** 예전에는 null 이면
                 // 이미지 없이 그대로 진행했다 — 말풍선은 📷 "첨부된 이미지" 를 표시하는데 모델은
                 // 텍스트만 받아, 사용자는 모델이 이미지를 보고 답했다고 오해했다(성공처럼 보이는
                 // 실패). 낙관적 말풍선을 걷어내고 오류를 알린다.
-                if (currentSharedInput is SharedInput.Image && imageBytes == null) {
+                if (imageRead is AppResult.Failure) {
                     _uiState.update { state ->
                         state.copy(
                             messages = state.messages.filterNot { it.id == tempUserMessage.id }.toImmutableList(),
-                            error = AppError.UnsupportedImageFormat("첨부 이미지를 읽지 못했어요")
+                            error = imageRead.error
                         )
                     }
                     return@launch
