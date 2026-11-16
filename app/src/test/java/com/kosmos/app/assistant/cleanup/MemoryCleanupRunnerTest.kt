@@ -186,6 +186,23 @@ class MemoryCleanupRunnerTest {
     }
 
     @Test
+    fun `적용 중 앱이 백그라운드로 가면 못 한 건을 모델 판단이 아니라 중단으로 남긴다(0·41·14 D1)`() = runBlocking {
+        givenHappyPath()
+        val p1 = EpisodeMergeProposal(listOf(episode("a"), episode("b")))
+        val p2 = EpisodeMergeProposal(listOf(episode("c"), episode("d")))
+        coEvery { planEpisodes(any(), any()) } returns AppResult.Success(listOf(p1, p2))
+        val r = runner()
+        // 첫 건을 합친 뒤 앱 onStop 이 cancel() 을 부르고, 엔진이 내려가 둘째 건은 실패한 상황.
+        coEvery { applyEpisodes(any(), any()) } coAnswers { r.cancel(); 1 }
+        r.start()
+        awaitState(r) { it is MemoryCleanupRunner.State.Review }
+
+        r.apply(emptyList(), listOf(p1, p2))
+
+        assertEquals(MemoryCleanupRunner.State.Done(reviewNote, 0, episodesMerged = 1, episodesSkipped = 1, interrupted = true), r.state.value)
+    }
+
+    @Test
     fun `대화 통합 적용은 자동 요약과 같은 잠금 안에서 돈다`() = runBlocking {
         givenHappyPath()
         val p1 = EpisodeMergeProposal(listOf(episode("a"), episode("b")))

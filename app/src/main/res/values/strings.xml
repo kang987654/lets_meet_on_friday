@@ -326,6 +326,7 @@
     <string name="cleanup_done_merged_count">&#160;기억 %1$d건을 합쳤어요.</string>
     <string name="cleanup_done_merged_none">&#160;합친 기억은 없어요.</string>
     <string name="cleanup_done_episodes_merged">&#160;이어지는 대화 %1$d건을 하나로 합쳤어요.</string>
+    <string name="cleanup_done_episodes_interrupted">&#160;앱을 나가서 정리가 중간에 멈췄어요 — 남은 %1$d건은 그대로예요. 다시 정리하면 다시 볼 수 있어요.</string>
     <string name="cleanup_done_episodes_skipped">&#160;%1$d건은 다시 요약해 보니 다른 주제라 그대로 뒀어요.</string>
 
     <!-- Document Home & Viewer -->

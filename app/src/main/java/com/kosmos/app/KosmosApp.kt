@@ -16,6 +16,7 @@ import com.kosmos.app.core.config.AppLanguageHolder
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.platform.speech.SpeechOutput
 import kotlinx.coroutines.launch
+import com.kosmos.app.widget.WidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import com.kosmos.app.runtime.embedding.EmbeddingGemmaRunner
@@ -67,6 +68,9 @@ class KosmosApp : Application(), Configuration.Provider {
     @Inject
     lateinit var memoryEmbedder: MemoryEmbedder
 
+    @Inject
+    lateinit var widgetRefresher: WidgetRefresher
+
     /**
      * [WHY] @HiltWorker 로 만든 Worker 에 의존성을 주입하려면 WorkManager 의 기본 초기화를
      * 매니페스트에서 제거하고(WorkManagerInitializer node:remove) HiltWorkerFactory 를 물려야 한다.
@@ -88,6 +92,8 @@ class KosmosApp : Application(), Configuration.Provider {
         episodeSummarizeScheduler.start()
         // [WHY] 엔진 Ready 뒤의 요약·브리핑·미리 준비는 시작 단계 하나가 순서대로 돌린다(0.41.7 M2) — 각자 Ready 를 구독하면 채팅이 열린 뒤 GPU 를 다퉜다.
         startupCoordinator.start()
+        // [WHY] 백업 복원 뒤 재시작이면 위젯을 새 DB 로 한 번 그린다(0.41.14 D2, WidgetRefresher.refreshOnNextStart).
+        CoroutineScope(Dispatchers.IO).launch { widgetRefresher.refreshIfPending() }
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
             // [WHY] 전경 진입 warmUp 은 0.34.0 에서 MainActivity 단위(ModelWarmUpObserver)로 옮겼다 —
             // 문서 뷰어(별도 Activity)만 열 때 모델을 올리지 않기 위해서다. 해제는 앱 전체가 백그라운드일

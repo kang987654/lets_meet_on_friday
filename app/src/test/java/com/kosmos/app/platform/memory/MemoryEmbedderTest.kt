@@ -9,6 +9,8 @@ import com.kosmos.app.domain.memory.MemoryVectorInput
 import com.kosmos.app.domain.memory.MemoryVectorKey
 import com.kosmos.app.domain.memory.MemoryVectorRepository
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -177,6 +179,25 @@ class MemoryEmbedderTest {
         embedder.prepareNewNow()
 
         assertEquals("돌아올 때 이미 만들어져 있다", 21, repo.vectors.size)
+    }
+
+    @Test
+    fun `요약 뒤 만들기도 백그라운드로 가면 멈추고 기다리던 쪽은 돌아온다(0·41·14 M2)`() = runBlocking {
+        val (repo, fake, embedder) = setUp()
+        embedder.prepareAll()
+        waitUntil { repo.vectors.size == 20 }
+        withTimeout(5_000) { embedder.state.first { it == MemoryEmbedder.State.Idle } }
+
+        (1..20).forEach { repo.add("s$it") }
+        fake.gate = CompletableDeferred()
+        val caller = launch(Dispatchers.Default) { embedder.prepareNewNow() }
+        withTimeout(5_000) { embedder.state.first { it is MemoryEmbedder.State.Running } }
+        embedder.onBackground()
+        fake.gate?.complete(Unit)
+        withTimeout(5_000) { caller.join() }
+        delay(200)
+
+        assertEquals("멈춘 묶음과 그 뒤 묶음은 저장하지 않는다", 20, repo.vectors.size)
     }
 
     @Test

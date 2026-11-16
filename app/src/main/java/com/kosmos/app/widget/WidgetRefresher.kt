@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.glance.appwidget.updateAll
 import com.kosmos.app.core.logging.AppLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,10 +22,21 @@ import javax.inject.Singleton
  */
 interface WidgetRefresher {
     suspend fun refresh()
+
+    /**
+     * 다음 앱 시작 때 한 번 다시 그리라고 표시합니다 — 백업 복원 직후용.
+     *
+     * [WHY] 복원은 DB 파일을 통째로 바꾸지만 앱이 살아 있는 동안 위젯은 같은 프로세스의 옛 DB 연결로 읽어, 바로 [refresh] 해도 복원 전 내용이 그려졌다.
+     * 재시작한 프로세스는 새 DB 를 연다 — 그때 [refreshIfPending] 이 그린다(0.41.14 D2).
+     */
+    fun refreshOnNextStart() {}
+
+    /** [refreshOnNextStart] 표시가 있으면 한 번 다시 그리고 표시를 지웁니다 — 앱 시작 때. */
+    suspend fun refreshIfPending() {}
 }
 
 @Singleton
-class GlanceWidgetRefresher @Inject constructor(
+open class GlanceWidgetRefresher @Inject constructor(
     @param:ApplicationContext private val context: Context
 ) : WidgetRefresher {
 
@@ -34,7 +46,21 @@ class GlanceWidgetRefresher @Inject constructor(
             .onFailure { AppLogger.w(TAG, "위젯 갱신 실패(기능은 정상): ${it.message}") }
     }
 
+    private val pendingMarker get() = File(context.noBackupFilesDir, PENDING_MARKER)
+
+    override fun refreshOnNextStart() {
+        runCatching { pendingMarker.createNewFile() }
+            .onFailure { AppLogger.w(TAG, "위젯 갱신 표시 실패: ${it.message}") }
+    }
+
+    override suspend fun refreshIfPending() {
+        if (!pendingMarker.exists()) return
+        pendingMarker.delete()
+        refresh()
+    }
+
     private companion object {
         const val TAG = "GlanceWidgetRefresher"
+        const val PENDING_MARKER = "widget_refresh_pending"
     }
 }

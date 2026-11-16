@@ -327,9 +327,9 @@ class MemoryViewModel @Inject constructor(
         viewModelScope.launch {
             val next = when (val result = importMemoryUseCase(uri.toString())) {
                 is AppResult.Success -> {
-                    // [WHY] DB 파일이 통째로 교체됐다 — 위젯이 30분 주기까지 옛 데이터를
-                    // 보여주지 않도록 즉시 갱신한다(위젯은 새 DB 를 읽는다).
-                    widgetRefresher.refresh()
+                    // [WHY] DB 파일이 통째로 교체됐다 — 지금 갱신하면 위젯이 같은 프로세스의 옛 DB 연결로 읽는다.
+                    // 재시작한 앱이 시작할 때 한 번 그리게 표시만 남긴다(30분 주기를 기다리지 않게, 0.41.14 D2).
+                    widgetRefresher.refreshOnNextStart()
                     BackupState.ImportSucceeded
                 }
                 is AppResult.Failure -> BackupState.Failed(ErrorMessages.userMessage(result.error, currentLang))

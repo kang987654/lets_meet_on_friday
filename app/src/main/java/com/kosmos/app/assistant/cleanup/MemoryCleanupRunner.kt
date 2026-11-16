@@ -79,13 +79,16 @@ class MemoryCleanupRunner @Inject constructor(
             val merged: Int,
             val episodesMerged: Int = 0,
             /** 체크했지만 재요약이 두 주제로 갈려(또는 실패해) 합치지 않은 대화 묶음 수. */
-            val episodesSkipped: Int = 0
+            val episodesSkipped: Int = 0,
+            /** 적용 중 앱이 백그라운드로 가 엔진이 내려갔다 — [episodesSkipped] 는 모델 판단이 아니라 못 한 건이다(0.41.14 M2 D1). */
+            val interrupted: Boolean = false
         ) : State
         data class Blocked(val reason: String) : State
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
+    @Volatile private var applyInterrupted = false
 
     private val _state = MutableStateFlow<State>(State.Idle)
     val state: StateFlow<State> = _state.asStateFlow()
@@ -164,12 +167,13 @@ class MemoryCleanupRunner @Inject constructor(
      */
     suspend fun apply(selected: List<MergeProposal>, selectedEpisodes: List<EpisodeMergeProposal> = emptyList()) {
         val review = _state.value as? State.Review ?: return
+        applyInterrupted = false
         _state.value = State.Applying
         val merged = if (selected.isEmpty()) 0 else applyMerge(selected)
         val episodesMerged = if (selectedEpisodes.isEmpty()) 0 else gate.mutex.withLock {
             modelRunner.deferRestore { applyEpisodeMerge(selectedEpisodes) }
         }
-        _state.value = State.Done(review.weeklyReview, merged, episodesMerged, selectedEpisodes.size - episodesMerged)
+        _state.value = State.Done(review.weeklyReview, merged, episodesMerged, selectedEpisodes.size - episodesMerged, interrupted = applyInterrupted)
     }
 
     /**
@@ -187,6 +191,11 @@ class MemoryCleanupRunner @Inject constructor(
     fun cancel() {
         job?.cancel()
         job = null
+        // [WHY] 적용 중이면 엔진이 내려가 남은 대화 합치기가 실패한다 — 그 실패를 "다른 주제라 그대로 둠"으로 보이지 않게 표시만 하고, 끝난 건수는 [apply] 가 결과로 남긴다(각 건은 따로 저장).
+        if (_state.value is State.Applying) {
+            applyInterrupted = true
+            return
+        }
         if (_state.value !is State.Done) _state.value = State.Idle
     }
 

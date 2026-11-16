@@ -127,8 +127,12 @@ fun MemoryCleanupScreen(
                         stringResource(R.string.cleanup_done_episodes_merged, s.episodesMerged)
                     } else ""
                     // [WHY] 체크했는데 안 합쳐진 이유를 숨기지 않는다 — 재요약이 두 주제로 갈리면 합치지 않는다(exp44 갈린 점).
+                    // [WHY] 앱을 나가 멈췄으면 못 한 건이지 모델 판단이 아니다 — 다른 문구로(0.41.14 D1).
                     val episodesSkippedMsg = if (s.episodesSkipped > 0) {
-                        stringResource(R.string.cleanup_done_episodes_skipped, s.episodesSkipped)
+                        stringResource(
+                            if (s.interrupted) R.string.cleanup_done_episodes_interrupted else R.string.cleanup_done_episodes_skipped,
+                            s.episodesSkipped
+                        )
                     } else ""
                     Notice(
                         message = reviewMsg + mergedMsg + episodesMergedMsg + episodesSkippedMsg,

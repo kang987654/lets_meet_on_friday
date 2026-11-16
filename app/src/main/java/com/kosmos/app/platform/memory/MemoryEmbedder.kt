@@ -103,7 +103,12 @@ class MemoryEmbedder @Inject constructor(
         if (job?.isActive == true) return
         val status = (repository.status(embedder.modelId) as? AppResult.Success)?.data ?: return
         if (status.embedded == 0 || status.pending == 0) return
-        drain()
+        // [WHY] 호출자 코루틴에서 직접 돌리면 [onBackground]·[onUserActivity] 가 멈추지 못해, 백그라운드에서 다음 묶음이 임베딩 엔진을 다시 올렸다(AGENTS §2-⑥, 0.41.14 M2).
+        // 관리 작업으로 띄우고 끝날(또는 멈출) 때까지 기다린다.
+        val launched = synchronized(this) {
+            if (job?.isActive == true) null else scope.launch { drain() }.also { job = it }
+        }
+        launched?.join()
     }
 
     /** 채팅이 시작됐다 — 하던 일과 기다리던 일을 멈춘다. */

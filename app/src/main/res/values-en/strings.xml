@@ -323,6 +323,7 @@
     <string name="cleanup_done_merged_count">&#160;Merged %1$d memories.</string>
     <string name="cleanup_done_merged_none">&#160;No memories merged.</string>
     <string name="cleanup_done_episodes_merged">&#160;Merged %1$d related conversations into one.</string>
+    <string name="cleanup_done_episodes_interrupted">&#160;Cleanup stopped because you left the app — %1$d were left as they were. Run cleanup again to review them.</string>
     <string name="cleanup_done_episodes_skipped">&#160;Kept %1$d separate because re-summarization showed different topics.</string>
 
     <!-- Document Home & Viewer -->
