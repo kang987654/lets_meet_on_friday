@@ -119,7 +119,7 @@ class AssistantOrchestrator @Inject constructor(
         // 세션 내내 지속되는 프롬프트 인젝션 경로가 된다. USER 역할의 구분된 블록으로 저장한다.
         val documentText = request.documentText
         if (documentText != null) {
-            val documentBlock = AttachedDocumentBlock.wrap(documentText)
+            val documentBlock = AttachedDocumentBlock.wrap(documentText, currentLanguage.current)
             val saveDocResult = messageWriter.save(request.sessionId, ChatMessage.Role.USER, documentBlock, InputType.TEXT, episodeId = episodeId, now = now)
             if (saveDocResult is AppResult.Failure) {
                 return AgentResult.Error(saveDocResult.error)

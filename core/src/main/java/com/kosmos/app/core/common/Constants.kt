@@ -106,8 +106,9 @@ object Constants {
      * [WHY] 문서 메시지가 다음 턴에도 슬라이딩 윈도우에 남으려면 추정 토큰이 [MIN_HISTORY_TOKENS] 이하여야 한다.
      * 메시지 오버헤드·래퍼(약 25토큰)를 빼고 비ASCII 계수(1.2자/토큰, exp26)로 환산하면 ≈318자 — 여유를 두고 300.
      * 이보다 길면 다음 턴부터 문서가 슬라이딩 윈도우에서 통째로 탈락한다. 긴 문서 요약은 expand.md D1 경로다.
+     * [WHY] 0.42.0 머리말에 자료 경고가 붙어(exp93b C, 래퍼가 약 11토큰 늘었다) 300자면 추정 305토큰 — 290 으로 줄였다(사용자 결정). `TokenBudgetInvariantTest` 가 지킨다.
      */
-    const val MAX_ATTACHED_DOC_CHARS = 300
+    const val MAX_ATTACHED_DOC_CHARS = 290
 
     /**
      * 추론 무활동 타임아웃(ms) — 이 시간 동안 토큰이 하나도 오지 않으면 생성을 끊습니다(PRD EC1).

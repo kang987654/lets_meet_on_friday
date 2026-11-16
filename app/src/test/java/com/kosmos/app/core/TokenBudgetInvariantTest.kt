@@ -1,5 +1,6 @@
 package com.kosmos.app.core
 
+import com.kosmos.app.assistant.orchestrator.AttachedDocumentBlock
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.agent.ToolKvBudget
 import org.junit.Assert.assertEquals
@@ -181,10 +182,10 @@ class TokenBudgetInvariantTest {
         // 물으면 모델이 문서를 본 적 없는 상태가 된다(MVP 감사 A3). 캡 상수만 보지 않고 실제
         // 저장 형태(래퍼 포함)를 추정기에 넣어 확인한다 — 래퍼가 자라면 여기서 걸린다.
         val tokenizer = GemmaTokenizer()
-        val storedForm = "[Attached Document]\n\"\"\"\n" +
-            "첨부된 문서 내용(document.txt):\n" +
-            "가".repeat(Constants.MAX_ATTACHED_DOC_CHARS) +
-            "\n\"\"\""
+        // [WHY] 실제 조립 함수로 만든다 — 0.42.0 자료 표지가 예산에 들어가야 한다(손으로 적은 형식은 바뀐 것을 못 본다).
+        val storedForm = AttachedDocumentBlock.wrap(
+            "첨부된 문서 내용(document.txt):\n" + "가".repeat(Constants.MAX_ATTACHED_DOC_CHARS)
+        )
         // 슬라이딩 윈도우가 메시지마다 더하는 태그 오버헤드 10 을 포함한다 (ContextBuilder).
         val estimated = tokenizer.sizeInTokens(storedForm) + 10
         assertTrue(

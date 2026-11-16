@@ -1,5 +1,6 @@
 package com.kosmos.app.assistant.tool
 
+import com.kosmos.app.assistant.context.DataMarker
 import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
@@ -309,7 +310,8 @@ class SearchMemoryToolExecutor internal constructor(
         // [WHY] 결과가 있어도 질문의 답이 아닐 수 있다 — 관계없는 지난 대화가 약하게 걸리면 모델이 바로 앞에서 들은 값을 두고 "찾지 못했어요"라고 했다(실기기 T7).
         // 빈 결과와 같은 안내를 끝에 붙인다(exp60: 대화 속 답 4/6 → 5/6, 관련 결과·충돌 판정은 그대로).
         val tail = if (en) HIT_TAIL_EN else HIT_TAIL
-        val body = lines.joinToString("\n") + tail
+        // [WHY] 결과 목록만 자료 표지로 감싼다 — 메모 본문 속 지시를 따랐다(exp93 V2). 안내(tail·guide)와 방금 대화 줄은 감싸지 않는다(0.42.0 M1).
+        val body = DataMarker.wrap(lines.joinToString("\n"), if (en) AppLanguage.EN else AppLanguage.KO) + tail
         // [WHY] 화면 근거(회수 칩·기억 카드)에는 질의 낱말이 충분히 겹친 지난 대화만 — "회의실"이 "팀 회의" 요약에 겹침 0.5 로 걸려 관계없는 대화가
         // 근거 카드가 됐다(실기기 T7, 0.38.7 M2). 모델 입력(본문)은 그대로라 실측 대상이 아니다.
         val shown = kept.filter { it.episodeId == null || BigramMatcher.bestTermOverlap(terms, it.scoreText) >= SHOWN_EPISODE_OVERLAP }
