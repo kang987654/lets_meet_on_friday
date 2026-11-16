@@ -207,7 +207,9 @@ object Constants {
      */
     const val BIGRAM_MIN_TERM_OVERLAP = 0.5
     const val MAX_INPUT_CHARS = 8192
-    const val MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+    // [WHY] 원본 바이트를 힙에 올린 뒤 1024px 로 줄여 디코딩한다 — 상한은 끝없는 공유 스트림·힙 한도 방어용이지 해상도 정책이 아니다.
+    // 10MB 는 50·200MP 사진을 거부해 50MB 로 올렸다(0.41.14, 사용자 결정).
+    const val MAX_IMAGE_SIZE_BYTES = 50 * 1024 * 1024
     const val MAX_IMAGE_DIMENSION_PX = 1024
     const val THERMAL_WARNING_CELSIUS = 43f
     const val THERMAL_SHUTDOWN_CELSIUS = 48f

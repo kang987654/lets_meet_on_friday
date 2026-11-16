@@ -30,7 +30,7 @@ object ErrorMessages {
         ErrorCode.INPUT_TOO_LONG -> "입력이 너무 길어요. 조금 줄여서 다시 보내 주세요."
         ErrorCode.INVALID_INPUT -> "입력을 확인해 주세요."
 
-        ErrorCode.IMAGE_TOO_LARGE -> "이미지가 너무 커요. 10MB 이하 파일을 첨부해 주세요."
+        ErrorCode.IMAGE_TOO_LARGE -> "이미지가 너무 커요. 50MB 이하 파일을 첨부해 주세요."
         ErrorCode.UNSUPPORTED_IMAGE_FORMAT -> "지원하지 않는 파일 형식이에요."
 
         ErrorCode.PERMISSION_DENIED_CALENDAR -> "캘린더 권한이 없어 기기 캘린더에는 저장하지 못했어요. 설정에서 권한을 허용해 주세요."
@@ -67,7 +67,7 @@ object ErrorMessages {
         ErrorCode.INPUT_TOO_LONG -> "Your input is too long. Please shorten it and try again."
         ErrorCode.INVALID_INPUT -> "Please check your input."
 
-        ErrorCode.IMAGE_TOO_LARGE -> "The image is too large. Please attach a file under 10 MB."
+        ErrorCode.IMAGE_TOO_LARGE -> "The image is too large. Please attach a file under 50 MB."
         ErrorCode.UNSUPPORTED_IMAGE_FORMAT -> "Unsupported file format."
 
         ErrorCode.PERMISSION_DENIED_CALENDAR -> "Calendar permission is off, so the event couldn't be saved to your device calendar. Please allow access in Settings."
