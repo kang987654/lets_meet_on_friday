@@ -8,6 +8,9 @@ import com.kosmos.app.domain.search.BigramMatcher
  *
  * [WHY] 모델은 같은 질문에 대한 자기 앞 답을 되풀이했다 — 방금 새 값을 말해도, 검색 결과가 그 값을 맨 위에 보여도 앞에서 틀리게 한 답("134예요")을
  * 따랐다(실기기 0.39.3 M4c, exp69b 2/2). 검색 결과 문구로는 못 고쳤고(exp69c 네 판 모두 2/6), 앞 답을 빼면 6/6.
+ *
+ * [WHY] 앞 질문과 지금 질문 **사이에 질문이 아닌 사용자 말**(값을 바꾸는 진술)이 있을 때만 뺀다(0.41.15 M1, exp90·91) — 값이 그대로인 단순 반복에서 빼면
+ * 기록이 비어 검색 없이 "정보가 없어요"로 거절하거나, 앞의 개인정보형 거절이 바로 앞 답 자리로 올라와 따라 했고, 방금 말한 값을 잊었다.
  */
 object RepeatedQuestions {
     private val QUESTION = Regex("뭐|어디|몇|언제|누구|무슨|어떤|기억나|\\?|\\b(what|where|when|who|which|how|do\\s+you\\s+remember)\\b", RegexOption.IGNORE_CASE)
@@ -20,7 +23,7 @@ object RepeatedQuestions {
     fun same(a: String, b: String): Boolean =
         isQuestion(a) && isQuestion(b) && BigramMatcher.containment(a, b) >= MIN_CONTAINMENT
 
-    /** 시간순 기록 — 가장 최근 사용자 말(지금 질문)과 같은 앞 질문과 그 바로 뒤 비서 답을 뺀다. 뺄 것이 없으면 그대로. */
+    /** 시간순 기록 — 가장 최근 사용자 말(지금 질문)과 같은 앞 질문과 그 바로 뒤 비서 답을, 그 사이에 진술이 있을 때만 뺀다. 뺄 것이 없으면 그대로. */
     fun forModel(messages: List<ChatMessage>): List<ChatMessage> {
         val currentAt = messages.indexOfLast { it.role == ChatMessage.Role.USER }
         if (currentAt < 0) return messages
@@ -28,7 +31,8 @@ object RepeatedQuestions {
         val drop = mutableSetOf<Int>()
         for (i in 0 until currentAt) {
             val m = messages[i]
-            if (m.role == ChatMessage.Role.USER && same(m.content, current)) {
+            val statedBetween = (i + 1 until currentAt).any { j -> messages[j].role == ChatMessage.Role.USER && !isQuestion(messages[j].content) }
+            if (m.role == ChatMessage.Role.USER && statedBetween && same(m.content, current)) {
                 drop += i
                 if (i + 1 < currentAt && messages[i + 1].role == ChatMessage.Role.ASSISTANT) drop += i + 1
             }

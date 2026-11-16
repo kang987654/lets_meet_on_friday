@@ -225,13 +225,14 @@ def same_question(a, b):
 
 
 def repeated_drop(history):
-    """RepeatedQuestions.forModel(0.39.3 M4d) — 마지막 사용자 말과 같은 앞 질문과 그 답을 뺀다."""
+    """RepeatedQuestions.forModel(0.39.3 M4d, 0.41.15 M1) — 마지막 사용자 말과 같은 앞 질문과 그 답을, 그 사이에 질문이 아닌 사용자 말(값 진술)이 있을 때만 뺀다."""
     at = max((i for i, m in enumerate(history) if m["role"] == "user"), default=-1)
     if at < 0:
         return history
     drop = set()
     for i in range(at):
-        if history[i]["role"] == "user" and same_question(history[i]["content"], history[at]["content"]):
+        stated_between = any(history[j]["role"] == "user" and not QUESTION.search(history[j]["content"]) for j in range(i + 1, at))
+        if history[i]["role"] == "user" and stated_between and same_question(history[i]["content"], history[at]["content"]):
             drop.add(i)
             if i + 1 < at and history[i + 1]["role"] == "model":
                 drop.add(i + 1)

@@ -34,4 +34,23 @@ class RepeatedQuestionsTest {
         val other = messages.dropLast(1) + msg(ChatMessage.Role.USER, "점심 메뉴 추천해 줘", 5)
         assertEquals(other, RepeatedQuestions.forModel(other))
     }
+
+    @Test
+    fun `값을 바꾸는 말 없이 같은 질문만 반복하면 앞 질문과 답을 남긴다(0·41·15 M1)`() {
+        val plain = listOf(
+            msg(ChatMessage.Role.USER, "내 생일이 언제야?", 1),
+            msg(ChatMessage.Role.ASSISTANT, "생일은 3월 5일이에요.", 2),
+            msg(ChatMessage.Role.USER, "내 생일이 언제야?", 3)
+        )
+        assertEquals("빼면 기록이 비어 검색 없이 거절했다(exp90)", plain, RepeatedQuestions.forModel(plain))
+
+        val otherQuestionBetween = listOf(
+            msg(ChatMessage.Role.USER, "사물함 번호 몇 번이야?", 1),
+            msg(ChatMessage.Role.ASSISTANT, "214번이에요.", 2),
+            msg(ChatMessage.Role.USER, "주차 어디에 했지?", 3),
+            msg(ChatMessage.Role.ASSISTANT, "지하 2층 C-14예요.", 4),
+            msg(ChatMessage.Role.USER, "사물함 번호 몇 번이야?", 5)
+        )
+        assertEquals("사이에 다른 질문만 있으면 값이 바뀐 것이 아니다", otherQuestionBetween, RepeatedQuestions.forModel(otherQuestionBetween))
+    }
 }
