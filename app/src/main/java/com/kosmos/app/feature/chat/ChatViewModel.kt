@@ -404,17 +404,9 @@ class ChatViewModel @Inject constructor(
      */
     private fun loadMessages() {
         viewModelScope.launch {
-            val result = conversationRepository.getRecentBySession(
-                sessionId,
-                Constants.CHAT_TIMELINE_PAGE_SIZE
-            )
-            when (result) {
+            when (val result = loadLiveTail(conversationRepository, sessionId, timelineAnchor)) {
                 is AppResult.Success -> _uiState.update { state ->
-                    state.copy(
-                        messages = result.data
-                            .filter { it.createdAt >= timelineAnchor }
-                            .toImmutableList()
-                    )
+                    state.copy(messages = result.data.toImmutableList())
                 }
                 // [WHY] 예전에는 Failure 분기가 없어 DB 읽기가 실패하면 **아무 안내 없이 빈
                 // 화면**으로 열렸다 — 저장된 대화가 있는데도 사라진 것처럼 보인다. 스낵바가
@@ -731,5 +723,19 @@ class ChatViewModel @Inject constructor(
         private const val KEY_SESSION_ID = "chat_session_id"
         private const val STATUS_REFRESH_BUSY_MS = 2_000L
         private const val STATUS_REFRESH_IDLE_MS = 5_000L
+    }
+}
+
+/**
+ * 라이브 테일 — 이 세션에서 [anchor] 이후 생긴 메시지 **전부**를 시간순으로 읽습니다.
+ *
+ * [WHY] 예전에는 최근 [Constants.CHAT_TIMELINE_PAGE_SIZE] 건만 읽어, 한 화면 세션에서 그보다 많이 쌓인 뒤 음성 턴·브리핑으로 다시 읽으면
+ * 앵커 뒤 ~ 최근 n건 앞이 목록에서 빠졌다(앵커 앞은 [ChatViewModel.historyPaging] 몫이라 어디에도 없었다, 0.41.14 M1). 앵커 뒤 개수만큼 읽는다.
+ */
+internal suspend fun loadLiveTail(repository: ConversationRepository, sessionId: String, anchor: Long): AppResult<List<ChatMessage>> {
+    val afterAnchor = (repository.countNewerThan(anchor) as? AppResult.Success)?.data ?: 0
+    return when (val result = repository.getRecentBySession(sessionId, maxOf(Constants.CHAT_TIMELINE_PAGE_SIZE, afterAnchor))) {
+        is AppResult.Success -> AppResult.Success(result.data.filter { it.createdAt >= anchor })
+        is AppResult.Failure -> result
     }
 }
