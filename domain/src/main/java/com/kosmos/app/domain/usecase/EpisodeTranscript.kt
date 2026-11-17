@@ -1,6 +1,7 @@
 package com.kosmos.app.domain.usecase
 
 import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.domain.agent.RejectionReplies
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.tool.Tokenizer
 
@@ -22,14 +23,15 @@ internal fun buildEpisodeTranscript(
 ): String {
     val en = lang == AppLanguage.EN
     val lines = StringBuilder()
+    val userLabel = if (en) "User" else "사용자"
     for (m in messages) {
-        val label = when {
-            m.role == ChatMessage.Role.USER && en -> "User"
-            m.role == ChatMessage.Role.USER -> "사용자"
-            en -> "Assistant"
-            else -> "비서"
+        // [WHY] 승인 거절 고정 문장은 사용자 쪽 "취소함" 줄로 바꾼다 — 비서 줄로 두면 요약이 실패로 썼다(exp96 0/9 → 9/9, [RejectionReplies]).
+        val cancel = if (m.role != ChatMessage.Role.USER) RejectionReplies.cancelLine(m.content) else null
+        val line = when {
+            cancel != null -> "$userLabel: $cancel\n"
+            m.role == ChatMessage.Role.USER -> "$userLabel: ${m.content}\n"
+            else -> "${if (en) "Assistant" else "비서"}: ${m.content}\n"
         }
-        val line = "$label: ${m.content}\n"
         if (tokenizer.sizeInTokens(lines.toString() + line) > maxTokens) break
         lines.append(line)
     }

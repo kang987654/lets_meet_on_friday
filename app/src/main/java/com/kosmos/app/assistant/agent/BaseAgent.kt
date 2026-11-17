@@ -6,6 +6,7 @@ import com.kosmos.app.assistant.context.ContextBuilder
 import com.kosmos.app.assistant.context.ToolParser
 import com.kosmos.app.assistant.orchestrator.AssistantMessageWriter
 import com.kosmos.app.domain.agent.ChatRequest
+import com.kosmos.app.domain.agent.RejectionReplies
 import com.kosmos.app.domain.agent.StreamUpdate
 import com.kosmos.app.assistant.tool.ToolArguments
 import com.kosmos.app.assistant.tool.ToolRegistry
@@ -437,24 +438,10 @@ abstract class BaseAgent(
      * 승인 거절(시간 초과 포함) 때 화면에 남는 답 — 모델이 쓰지 않는다.
      *
      * [WHY] 모델 회신 문구로는 다섯 판(exp38d·e, exp49, exp56 R0~R4)을 재도 거짓 성공·오류로 바꿈·앞 턴 따라 하기 중 하나가 남았다.
+     * 문장은 요약 전사가 알아보도록 [RejectionReplies] 한 곳에 둔다(0.42.3 M1).
      */
-    private fun rejectionReply(toolName: String, language: AppLanguage = AppLanguage.KO): String {
-        if (language == AppLanguage.EN) {
-            return when (toolName) {
-                ToolNames.ADD_SCHEDULE -> "I didn't add the event."
-                ToolNames.ADD_REMINDER -> "I didn't set the reminder."
-                ToolNames.ADD_MEMORY -> "I didn't save that as a note."
-                else -> "I didn't run the request."
-            }
-        }
-        return when (toolName) {
-            ToolNames.ADD_SCHEDULE -> "일정을 추가하지 않았어요."
-            ToolNames.ADD_REMINDER -> "알림을 등록하지 않았어요."
-            // [WHY] "저장하지 않았어요"는 다음 턴에 "그 정보는 없다"로 읽혀, 바로 앞에서 들은 값을 "찾지 못했어요"라고 했다(실기기 T7, exp60 2/6 → 5/6).
-            ToolNames.ADD_MEMORY -> "메모에는 남기지 않았어요."
-            else -> "요청을 실행하지 않았어요."
-        }
-    }
+    private fun rejectionReply(toolName: String, language: AppLanguage = AppLanguage.KO): String =
+        RejectionReplies.reply(toolName, language)
 
     /** 툴 결과 JSON 에서 meta.episodeIds 를 뽑습니다. 형식이 어긋나면 빈 목록 — 칩이 안 뜰 뿐이다. */
     private fun extractEpisodeIds(resultJson: String): List<String> = runCatching {
