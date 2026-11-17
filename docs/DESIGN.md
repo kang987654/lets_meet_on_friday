@@ -148,7 +148,8 @@ icons:
 - **목록은 카드 더미가 아니라 행** — 한 묶음(`surface` + `border` + `rounded.md`) 안에 행을 hairline 으로 나눈다. 행 높이는 내용 + 세로 12, 행 끝 동작은 48dp 아이콘 버튼.
   구현: `ui/component/KosmosList.kt` — `KosmosListGroup`(묶음), `KosmosListRow`(앞 아이콘·제목·보조 줄 + `Tag`·끝 동작, 구분선은 들여씀), `SectionHeader`, `EmptyState`, `DeleteIconButton`, `showUndo`.
   페이징 목록처럼 행이 따로 그려지면 `Modifier.groupItem(groupPosition(i, n))` 로 묶음 조각을 그린다.
-- **화면 문법(0.38.3)** — 섹션 제목(`SectionHeader`) → 묶음 → 묶음 아래 각주(`caption` textMuted, 경고면 같은 자리에 `warningText`). 설정·모델 관리·활동 기록·메모·할 일·문서 홈·드로어가 이 문법이다.
+- **화면 문법(0.38.3, 0.42.2 각주 위치 변경)** — 섹션 제목(`SectionHeader`) → 묶음. 묶음 **뒤에 붙는 각주·경고는 묶음 안 맨 아래**(`KosmosListCaption`, 경고는 `warning = true` → warningText, 행과는 들여쓴 구분선). 페이징 목록은 각주도 `groupItem` 조각으로. 묶음 **앞의 구역 소개·고르는 법 안내는 제목 아래 글**(bodySmall textMuted) — 묶음 안 맨 위에 두면 문서가 없을 때 안내만 든 상자가 버튼처럼 보였다(0.42.2 사용자 확인). 비교 캡처 `docs/design/footnote-0.42.2/`.
+  설정·모델 관리·활동 기록·메모·할 일·문서 홈·드로어가 이 문법이다.
   행의 보조 정보는 가운뎃점으로 잇지 않는다 — 날짜는 글자, 분류는 `Tag` 면, 나열은 쉼표.
   **가운뎃점 기준(0.38.4 사용자 결정)**: 세 항목 이상 이어지는 정보 줄(`a · b · c`)과 긴 나열은 쓰지 않는다. 짧은 두 항목 라벨("알림 · 취소함")과 붙여 쓴 국어 나열("메모·할 일")은 괜찮다. 화면 문구에 줄표(—)는 쓰지 않는다(문장을 나누거나 쉼표).
 - **카드는 결과에만** — 알림·일정·기억처럼 "처리된 결과"가 카드다. 설정 섹션·메모 하나하나를 카드로 감싸지 않는다.

@@ -52,6 +52,7 @@ import com.kosmos.app.ui.component.KosmosTopBar
 import com.kosmos.app.ui.component.SectionHeader
 import com.kosmos.app.ui.component.rememberToday
 import com.kosmos.app.platform.document.LibraryEmbedder
+import com.kosmos.app.ui.component.KosmosListCaption
 import com.kosmos.app.ui.component.KosmosListGroup
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
@@ -179,21 +180,17 @@ fun DocumentHomeScreen(
                 }
             } else {
                 item { SectionHeader(stringResource(R.string.doc_home_section_recent), Modifier.padding(top = 16.dp)) }
+                // [WHY] 각주는 묶음의 마지막 조각(0.42.2 D4) — 행 수 + 각주 1 로 위치를 매긴다.
                 itemsIndexed(recent, key = { _, document -> document.uri }) { index, document ->
                     RecentRow(
                         document = document,
-                        position = groupPosition(index, recent.size),
+                        position = groupPosition(index, recent.size + 1),
                         onClick = { viewModel.open(document) },
                         onRemove = { hide(document) }
                     )
                 }
                 item {
-                    Text(
-                        stringResource(R.string.doc_home_recent_footnote),
-                        color = colors.textMuted,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 16.dp, top = 8.dp)
-                    )
+                    KosmosListCaption(stringResource(R.string.doc_home_recent_footnote), Modifier.groupItem(GroupPosition.Last))
                 }
             }
         }
@@ -210,6 +207,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.libraryItems(
     onPrepareSemantic: () -> Unit
 ) {
     item { SectionHeader(stringResource(R.string.doc_home_section_library), Modifier.padding(top = 16.dp)) }
+    // [WHY] 구역 소개는 제목 아래 글 — 묶음 안 맨 위에 두니 문서가 없을 때 안내만 든 상자가 버튼처럼 보였다(0.42.2 D4 사용자 확인).
     item {
         Text(
             stringResource(R.string.doc_home_library_hint),
@@ -218,8 +216,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.libraryItems(
             modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
         )
     }
+    // [WHY] 각주는 묶음의 마지막 조각(0.42.2 D4) — 행 + 각주 1 로 위치를 매긴다.
     itemsIndexed(items, key = { _, item -> "library:" + item.document.id }) { index, item ->
-        LibraryRow(item, groupPosition(index, items.size), onClick = { onClick(item) }, onRemove = { onRemove(item) })
+        LibraryRow(item, groupPosition(index, items.size + 1), onClick = { onClick(item) }, onRemove = { onRemove(item) })
+    }
+    if (items.isNotEmpty()) {
+        item { KosmosListCaption(stringResource(R.string.doc_library_footnote), Modifier.groupItem(GroupPosition.Last)) }
     }
     if (semantic.installed && (semantic.work != LibraryEmbedder.State.Idle || semantic.pendingDocuments > 0)) {
         item(key = "library:semantic") {
@@ -228,14 +230,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.libraryItems(
     }
     item {
         KosmosButton(stringResource(R.string.doc_home_library_add), onAdd, Modifier.fillMaxWidth().padding(top = 8.dp))
-        if (items.isNotEmpty()) {
-            Text(
-                stringResource(R.string.doc_library_footnote),
-                color = KosmosTheme.colors.textMuted,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 16.dp, top = 8.dp)
-            )
-        }
     }
 }
 

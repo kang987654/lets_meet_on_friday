@@ -27,7 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
@@ -39,6 +39,7 @@ import com.kosmos.app.domain.modelrunner.ModelLoadState
 import com.kosmos.app.ui.component.IconSize
 import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.component.KosmosIcon
+import com.kosmos.app.ui.component.KosmosListCaption
 import com.kosmos.app.ui.component.KosmosListGroup
 import com.kosmos.app.ui.component.KosmosListRow
 import com.kosmos.app.ui.component.SectionHeader
@@ -47,7 +48,7 @@ import com.kosmos.app.ui.theme.KosmosTheme
 import com.kosmos.app.ui.theme.currentAppLanguage
 
 /**
- * 설정 한 섹션 — 섹션 제목 + 목록 묶음 + 묶음 아래 각주(Apple·Intercom 설정 문법, 0.38.3 M3).
+ * 설정 한 섹션 — 섹션 제목 + 목록 묶음, 각주는 묶음 안 맨 아래(0.42.2 D4 — 0.38.3 의 "묶음 아래 각주"에서 바꿈).
  *
  * @param warning 각주 자리의 경고(권한 거부 등) — 각주보다 먼저, 경고색으로.
  */
@@ -59,14 +60,13 @@ internal fun Section(
     content: @Composable ColumnScope.() -> Unit
 ) {
     SectionHeader(title, Modifier.padding(top = 16.dp))
-    KosmosListGroup(content = content)
-    warning?.let { Footnote(it, KosmosTheme.colors.warningText) }
-    footnote?.let { Footnote(it, KosmosTheme.colors.textMuted) }
+    KosmosListGroup {
+        content()
+        if (warning != null || footnote != null) HorizontalDivider(Modifier.padding(start = 16.dp), color = KosmosTheme.colors.border)
+        warning?.let { KosmosListCaption(it, warning = true) }
+        footnote?.let { KosmosListCaption(it) }
+    }
 }
-
-@Composable
-private fun Footnote(text: String, color: Color) =
-    Text(text, style = MaterialTheme.typography.bodySmall, color = color, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
 
 /** 묶음 안 세그먼트 위의 작은 이름표. */
 @Composable

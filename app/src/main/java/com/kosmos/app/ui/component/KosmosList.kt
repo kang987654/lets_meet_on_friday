@@ -93,6 +93,22 @@ fun KosmosListRow(
     }
 }
 
+/**
+ * 묶음 안 설명 — 묶음 맨 위(안내)나 맨 아래(각주)에 둔다. 경고는 [warning] 으로 경고색.
+ *
+ * [WHY] 설명이 묶음 밖 아래에 있으면 어느 묶음 것인지 흐렸고, 모델 칸처럼 안에 둔 곳과 섞여 있었다(0.42.2 D4, 사용자 결정) — 묶음 안으로 통일.
+ */
+@Composable
+fun KosmosListCaption(text: String, modifier: Modifier = Modifier, warning: Boolean = false) {
+    val colors = KosmosTheme.colors
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = if (warning) colors.warningText else colors.textMuted,
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
+    )
+}
+
 /** 행 안의 태그 — 가라앉은 작은 면(모서리 6). */
 @Composable
 fun Tag(text: String, modifier: Modifier = Modifier) {
