@@ -49,4 +49,11 @@ class ScheduleTimeIntentTest {
         assertTrue(ScheduleTimeIntent.shouldBlock("응", "메모해 둘까요?"))
         assertFalse(ScheduleTimeIntent.shouldBlock("응", "내일 오후 3시로 잡을까요?"))
     }
+
+    @Test
+    fun `앞 사용자 말의 시각은 짧은 긍정일 때만 쓴다 — 다른 요청의 시각은 새지 않는다`() {
+        // 0.42.2 휴대폰 확인: 앞 요청 "금요일 오후 3시 치과" 뒤 새 요청이 그 시각으로 통과해 00:00 시트가 떴다.
+        assertTrue(ScheduleTimeIntent.needsClock("목요일에 미용실 예약 잡아줘", "일정을 추가하지 않았어요.", "금요일 오후 3시에 치과 예약 잡아줘"))
+        assertFalse(ScheduleTimeIntent.needsClock("응", "목요일은 11월 19일이에요. 맞나요?", "목요일 오전 11시 미용실 예약해줘"))
+    }
 }

@@ -312,7 +312,7 @@ def turn(history, user, sysm=SYS_OFF, tools=None, search_body=None, why=False):
                 body, ok = {"status": "success", "message": "기억에 저장했어요."}, True
             elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_TIME}, False
-            elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)) and not (prev_user and SCHEDULE_CLOCK.search(prev_user)):
+            elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)) and not (is_yes(user) and prev_user and SCHEDULE_CLOCK.search(prev_user)):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK}, False
             elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=False)):
                 body, ok = {"status": "error", "message": wd_err}, False
@@ -622,7 +622,7 @@ def turn_en(history, user, sysm=SYS_EN_OFF, tools=None, why=False):
                 body, ok = {"status": "success", "message": "Saved to memory."}, True
             elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_TIME_EN}, False
-            elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)) and not (prev_user and SCHEDULE_CLOCK.search(prev_user)):
+            elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)) and not (is_yes(user) and prev_user and SCHEDULE_CLOCK.search(prev_user)):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK_EN}, False
             elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=True)):
                 body, ok = {"status": "error", "message": wd_err}, False

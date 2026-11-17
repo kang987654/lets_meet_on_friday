@@ -1,6 +1,7 @@
 package com.kosmos.app.domain.agent
 
 import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.domain.memory.MemoSaveIntent
 
 /**
  * 일정 추가가 날짜·시각을 근거로 하는지 판정합니다 — 근거 없는 `add_schedule` 은 실행(승인 시트) 전에 막는다 (0.41.11 M1, ADR-030 장치 목록).
@@ -40,9 +41,10 @@ object ScheduleTimeIntent {
      * 낱말도 없으면 [shouldBlock] 이 먼저 사실 문장으로 막는다.
      * [WHY] 바로 앞 사용자 말도 본다 — "Wednesday at 11am" 뒤 요일 가드가 날짜만 되묻고("Wednesday is Nov 18, confirm?") 사용자가 "Yes"라 하면
      * 시각은 그 앞 사용자 말에만 있다(회귀 세트 weekday 6 → 5, 0.41.15 M3).
+     * [WHY] 앞 사용자 말은 이번 말이 짧은 긍정일 때만 본다 — "금요일 오후 3시 치과" 뒤 새 요청 "목요일에 미용실 예약"이 앞 요청의 시각으로 통과해 00:00 시트가 떴다(0.42.2 휴대폰 확인).
      */
     fun needsClock(userText: String, previousAssistant: String?, previousUser: String? = null): Boolean =
-        !hasClock(userText) && !hasClock(previousAssistant) && !hasClock(previousUser)
+        !hasClock(userText) && !hasClock(previousAssistant) && !(MemoSaveIntent.isYes(userText) && hasClock(previousUser))
 
     /** 이번 턴 사용자 말과 바로 앞 비서 말 어디에도 날짜·시각이 없으면 막는다. */
     fun shouldBlock(userText: String, previousAssistant: String?): Boolean = !hasTime(userText) && !hasTime(previousAssistant)
