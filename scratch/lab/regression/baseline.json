@@ -20,11 +20,9 @@
   "fails": []
  },
  "drift": {
-  "pass": 11,
+  "pass": 12,
   "total": 12,
-  "fails": [
-   "긴 김치찌개 끓이는 법 알려줘"
-  ]
+  "fails": []
  },
  "why": {
   "pass": 8,
@@ -37,9 +35,11 @@
   "fails": []
  },
  "repeat": {
-  "pass": 4,
+  "pass": 3,
   "total": 4,
-  "fails": []
+  "fails": [
+   "송장번호 다시 알려줘"
+  ]
  },
  "iso": {
   "pass": 6,
@@ -82,7 +82,7 @@
   "pass": 4,
   "total": 5,
   "fails": [
-   "기억 덧붙임"
+   "문서 영어 12월3일"
   ]
  }
 }
