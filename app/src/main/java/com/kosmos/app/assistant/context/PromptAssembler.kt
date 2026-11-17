@@ -245,36 +245,38 @@ class PromptAssembler @Inject constructor() {
                     "promising without calling is a failure."
             )
             // [WHY] 규칙마다 실제 한국어/영어 트리거 표현을 박는다 — 일반 규칙만으로는 호출로 이어지지 않았다(0.8.5, exp72).
+            // [WHY] 0.42.1 압축(exp95 A): 줄마다 "you MUST call" 을 빼고(위 공통 문장이 강제) 낱말 목록을 대표만 — 앞부분 1,210 → 1,152, 툴 선택 틀림 6/64 → 2/64.
+            // 일정 조회 줄의 "약속 언제였지"·일정 추가 줄의 "기억해 둬" 는 헷갈리던 선택(exp94) 을 고친 구절. 요일별 날짜 줄 빼기(B)는 요일 날짜 6/8 → 2/8 이라 기각.
             if (availableTools.contains(ToolNames.ADD_MEMORY)) {
                 // [WHY] 저장 낱말 없이 사실만 말하면 확인 + "메모해 둘까요?" — 예전 "shares a fact … to keep" 은 저장 호출 5/8·툴 없는 "기억해 둘게요" 약속·
                 // "그런 기능은 없어요" 거절이 섞였다(exp62 B, 0.38.8 결정 1). 이 판은 물어봄 7/8·저장 호출 0/8, "응" → 저장 4/4(exp62e F1, exp72).
                 if (en) {
-                    appendLine("- The user asks you to remember something: \"remember\", \"save this\", \"make a note\", \"keep in mind\", \"don't forget\": you MUST call `add_memory`. If the user only shares a fact, confirm it and ask \"Would you like me to save this as a note?\" — never say you will remember it.")
+                    appendLine("- Remember requests (\"remember\", \"save this\", \"make a note\", \"don't forget\"): call `add_memory`. If the user only shares a fact, confirm it and ask \"Would you like me to save this as a note?\" — never say you will remember it.")
                 } else {
-                    appendLine("- The user asks you to remember something: \"기억해\", \"기억해줘\", \"저장해줘\", \"메모해줘\", \"잊지 마\": you MUST call `add_memory`. If the user only shares a fact, confirm it and ask \"메모해 둘까요?\" — never say you will remember it.")
+                    appendLine("- Remember requests (\"기억해줘\", \"저장해줘\", \"메모해줘\", \"잊지 마\"): call `add_memory`. If the user only shares a fact, confirm it and ask \"메모해 둘까요?\" — never say you will remember it.")
                 }
             }
             // [WHY] 회상은 저장과 트리거 표현이 비슷해 `add_memory` 로 새기 쉽다 — 조회 방향을 규칙에서 못 박는다.
             if (availableTools.contains(ToolNames.SEARCH_MEMORY)) {
                 if (en) {
-                    appendLine("- The user asks about something they told you earlier: \"what was\", \"what did I say\", \"do you remember\", \"my saved\": you MUST call `search_memory` with a short noun keyword. This is a LOOKUP, never call `add_memory` for it.")
+                    appendLine("- Questions about what the user told you (\"what was\", \"what did I say\", \"do you remember\"): call `search_memory` with a short noun keyword. A lookup — never call `add_memory` for it.")
                 } else {
-                    appendLine("- The user asks about something they told you earlier: \"뭐였지\", \"뭐라고 했지\", \"내가 알려준\", \"기억나\", \"저장한 거\": you MUST call `search_memory` with a short noun keyword. This is a LOOKUP, never call `add_memory` for it.")
+                    appendLine("- Questions about what the user told you (\"뭐였지\", \"내가 알려준\", \"기억나\"): call `search_memory` with a short noun keyword. A lookup — never call `add_memory` for it.")
                 }
             }
             // [WHY] 끝 문장 — 시각을 답해도 제목·종료 시각을 또 물어 일정이 안 들어갔다(exp87: 이어서 추가 4/8 → 6/8, 선언 설명을 고친 판은 4/8). 0.41.11 M2.
             if (availableTools.contains(ToolNames.ADD_SCHEDULE)) {
                 if (en) {
-                    appendLine("- The user asks to add an appointment, reservation, or event: \"schedule\", \"appointment\", \"meeting\", \"book\", \"add to calendar\": you MUST call `add_schedule`. Take the title from the user's words and never ask for end_time or memo.")
+                    appendLine("- Adding an appointment, reservation, or event (\"schedule\", \"appointment\", \"book\", \"add to calendar\"), even if they say \"remember\": call `add_schedule`. Take the title from the user's words; never ask for end_time or memo.")
                 } else {
-                    appendLine("- The user asks to add an appointment, reservation, or event: \"예약\", \"약속\", \"일정 잡아줘\", \"일정 추가\", \"~하기로 했어\": you MUST call `add_schedule`. Take the title from the user's words and never ask for end_time or memo.")
+                    appendLine("- Adding an appointment, reservation, or event (\"예약\", \"약속\", \"일정 잡아줘\", \"~하기로 했어\"), even if they say \"기억해 둬\": call `add_schedule`. Take the title from the user's words; never ask for end_time or memo.")
                 }
             }
             if (availableTools.contains(ToolNames.GET_SCHEDULE)) {
                 if (en) {
-                    appendLine("- The user asks what is on their calendar: \"today's schedule\", \"tomorrow's schedule\", \"what's on my calendar\": you MUST call `get_schedule`.")
+                    appendLine("- Calendar questions, including when an appointment or reservation is (\"today's schedule\", \"when is my appointment\"): call `get_schedule`.")
                 } else {
-                    appendLine("- The user asks what is on their calendar: \"오늘 일정\", \"내일 일정\", \"스케줄 뭐 있어\": you MUST call `get_schedule`.")
+                    appendLine("- Calendar questions, including when an appointment or reservation is (\"오늘 일정\", \"약속 언제였지\", \"치과 몇 시였지\"): call `get_schedule`.")
                 }
             }
             if (availableTools.contains(ToolNames.SEARCH_WIKIPEDIA)) {
@@ -286,17 +288,17 @@ class PromptAssembler @Inject constructor() {
             }
             if (availableTools.contains(ToolNames.ADD_REMINDER)) {
                 if (en) {
-                    appendLine("- The user asks to be reminded at a specific time: \"remind me at\", \"set a reminder\": you MUST call `add_reminder`.")
+                    appendLine("- Reminders at a time (\"remind me at\", \"set a reminder\"): call `add_reminder`.")
                 } else {
-                    appendLine("- The user asks to be reminded at a specific time: \"3시에 알려줘\", \"리마인드\": you MUST call `add_reminder`.")
+                    appendLine("- Reminders at a time (\"3시에 알려줘\", \"리마인드\"): call `add_reminder`.")
                 }
             }
             // [WHY] exp45b·exp56 L 원문 — 등록 규칙 바로 뒤라 "알려줘"(등록)와 "알림 뭐 있어"(조회)가 나란히 갈린다.
             if (availableTools.contains(ToolNames.LIST_REMINDERS)) {
                 if (en) {
-                    appendLine("- The user asks which reminders are set: \"what reminders\", \"my reminders\": you MUST call `list_reminders`.")
+                    appendLine("- Listing reminders (\"my reminders\"): call `list_reminders`.")
                 } else {
-                    appendLine("- The user asks which reminders are set: \"알림 뭐 있어\", \"리마인더 목록\": you MUST call `list_reminders`.")
+                    appendLine("- Listing reminders (\"알림 뭐 있어\"): call `list_reminders`.")
                 }
             }
             // [WHY] 문서 검색 토글이 켜졌을 때만 붙는 강한 트리거(0.41.2 Q1 = B). exp79 Bn+a1: 되묻기 금지 + 등록 문서 이름이 바꿔 말한 질문 호출 16/20 → 19/20,

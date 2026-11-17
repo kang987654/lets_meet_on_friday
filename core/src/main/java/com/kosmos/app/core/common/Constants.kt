@@ -72,8 +72,9 @@ object Constants {
      * 히스토리 몫이 다시 50 줄어든다(기본 1,050 → 1,000).
      * [WHY] 1,500 → 1,400(0.39.3 M2, 사용자 결정: 줄인 고정 몫은 대화 기록에) — 설명·문단 축약으로 실측 −108. 히스토리 몫 기본 1,000 → 1,100.
      * [WHY] 1,400 → 1,450(0.41.11 M2, 사용자 결정) — 날짜 줄의 요일별 날짜·일정 규칙 한 문장으로 실측 +77(TokenBudgetInvariantTest.MEASURED_OVERHEAD). 히스토리 몫이 50 줄어든다.
+     * [WHY] 1,450 → 1,400(0.42.1, 사용자 결정 D2: 줄인 고정 몫은 대화 기록에) — 트리거 규칙 압축으로 실측 −54(exp95·95b). 히스토리 몫이 50 는다.
      */
-    const val PREFILL_OVERHEAD_TOKENS = 1450
+    const val PREFILL_OVERHEAD_TOKENS = 1400
 
     // [WHY] 오버헤드 예약 후에도 히스토리에 남겨야 하는 최소 예산(대략 2~3턴). 재설정 하한과 첨부 문서 상한의 기준이다.
     const val MIN_HISTORY_TOKENS = 300
