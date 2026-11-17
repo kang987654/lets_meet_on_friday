@@ -12,7 +12,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kosmos.app.ui.component.KosmosBottomSheet
 import com.kosmos.app.R
 import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.ui.component.KosmosButton
@@ -63,7 +63,7 @@ fun EpisodeSheet(
     var editing by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(
+    KosmosBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = KosmosTheme.colors.surface,
         dragHandle = { BottomSheetDefaults.DragHandle() }

@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.animation.core.Animatable
@@ -36,6 +35,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.kosmos.app.ui.component.KosmosBottomSheet
 import com.kosmos.app.assistant.approval.ApprovalCoordinator
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -206,7 +206,7 @@ fun ApprovalSheetLayout(
             }
         }
     }
-    ModalBottomSheet(
+    KosmosBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = KosmosShapes.sheet,

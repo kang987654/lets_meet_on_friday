@@ -12,10 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
+import com.kosmos.app.ui.component.KosmosBottomSheet
 import com.kosmos.app.R
 import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.component.showUndo
@@ -68,7 +68,7 @@ fun ProfileSheet(
     val resources = androidx.compose.ui.platform.LocalResources.current
     val colors = KosmosTheme.colors
 
-    ModalBottomSheet(
+    KosmosBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = colors.surface,
         dragHandle = { BottomSheetDefaults.DragHandle() }

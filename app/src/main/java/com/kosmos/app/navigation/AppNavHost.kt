@@ -59,7 +59,6 @@ fun AppNavHost(
     }
 
     // [WHY] 전환을 정하지 않으면 내비게이션 기본(페이드 700ms)이라 두 화면이 겹쳐 비쳤다 — 공유 축 250ms(0.38.4 M3, 사용자 선택 B).
-    // pop 쪽을 따로 주면 시스템 예측 뒤로(끌기)가 같은 움직임을 따라간다.
     val nav = Motion.NavTransitions(
         androidx.compose.ui.platform.LocalDensity.current,
         rememberReducedMotion()
@@ -72,7 +71,10 @@ fun AppNavHost(
         enterTransition = { if (initialState.destination.route == AppDestination.Splash.route) androidx.compose.animation.EnterTransition.None else nav.enter() },
         exitTransition = { if (initialState.destination.route == AppDestination.Splash.route) androidx.compose.animation.ExitTransition.None else nav.exit() },
         popEnterTransition = { nav.popEnter() },
-        popExitTransition = { nav.popExit() }
+        popExitTransition = { nav.popExit() },
+        // [WHY] 예측 뒤로가기는 pop 과 따로 정한다 — 비워 두면 라이브러리 기본(scaleOut 0.7, navigation 2.10 `DefaultNavTransitions`)이라 화면이 줄며 사라졌다(0.42.2 사용자 녹화).
+        predictivePopEnterTransition = { nav.popEnter() },
+        predictivePopExitTransition = { nav.popExit() }
     ) {
         composable(route = AppDestination.Splash.route) {
             SplashScreen(

@@ -41,6 +41,7 @@ import com.kosmos.app.core.mapper.ErrorMessages
 import com.kosmos.app.feature.splash.SplashAnchor
 import com.kosmos.app.runtime.metrics.DeviceStatus
 import com.kosmos.app.ui.component.IconSize
+import com.kosmos.app.ui.component.KosmosBottomSheet
 import com.kosmos.app.ui.component.KosmosButton
 import com.kosmos.app.ui.component.KosmosIcon
 import com.kosmos.app.ui.component.StarGlyph
@@ -173,7 +174,7 @@ fun StatusDetailSheet(
     onDismiss: () -> Unit,
     onRetry: () -> Unit = {}
 ) {
-    androidx.compose.material3.ModalBottomSheet(
+    KosmosBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = KosmosTheme.colors.surface,
         dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() }
