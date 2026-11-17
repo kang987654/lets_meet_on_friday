@@ -5,6 +5,11 @@ import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.audit.AuditTrailService
 import com.kosmos.app.domain.memory.EpisodeRepository
 import com.kosmos.app.domain.memory.KnowledgeRepository
+import com.kosmos.app.domain.memory.MemoryVectorKey
+import com.kosmos.app.domain.memory.MemoryVectorRepository
+import com.kosmos.app.domain.library.EmbedderProvider
+import com.kosmos.app.domain.library.Int8Vector
+import com.kosmos.app.domain.library.TextEmbedder
 import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.domain.model.EpisodeStatus
 import com.kosmos.app.domain.model.KnowledgeNote
@@ -14,6 +19,7 @@ import com.kosmos.app.domain.modelrunner.ModelTurn
 import com.kosmos.app.domain.tool.Tokenizer
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
@@ -30,6 +36,8 @@ import java.time.ZoneId
  * 수동 기억 정리(0.30.0) 도메인 — 병합 가드(exp42 함정), 판정→제안, 적용 순서, 주간 회고 창·교체를 고정합니다.
  */
 class MemoryCleanupUseCasesTest {
+    private val noVectors: MemoryVectorRepository = mockk()
+    private val noEmbedder = EmbedderProvider { null }
 
     private fun note(id: String, content: String, source: String = KnowledgeNote.SOURCE_MANUAL, createdAt: Long = 0L) =
         KnowledgeNote(id = id, content = content, createdAt = createdAt, updatedAt = createdAt, source = source)
@@ -113,12 +121,33 @@ class MemoryCleanupUseCasesTest {
             if ("와이파이" in input) "판정: 같음\n합친 문장: 집 와이파이 비밀번호는 kosmos123이다." else "판정: 다름\n합친 문장: 없음"
         }
 
-        val proposals = (PlanMemoryMergeUseCase(repo, runner)() as AppResult.Success).data
+        val proposals = (PlanMemoryMergeUseCase(repo, runner, noVectors, noEmbedder)() as AppResult.Success).data
 
         assertEquals(listOf("a+b"), proposals.map { it.key })
         assertEquals("집 와이파이 비밀번호는 kosmos123", proposals.single().mergedContent)
         assertTrue("운동화는 어떤 후보에도 들지 않는다", prompts.none { "운동화" in it })
         assertTrue(prompts.all { it.startsWith("기억들:\n- ") })
+    }
+
+    @Test
+    fun `뜻 검색 모델이 있으면 바꿔 말한 중복도 후보가 되고 숫자가 다르면 여전히 빠진다`() = runTest {
+        // 0.42.3 M3(exp98): 글자 겹침으로는 안 잡히는 "직장이 판교임" ↔ "회사는 판교에 있음" 을 저장된 벡터의 코사인으로 더한다.
+        coEvery { repo.getNotes(any(), any()) } returns AppResult.Success(
+            listOf(note("a", "회사는 판교에 있음"), note("b", "직장이 판교임"), note("c", "사물함 214번"), note("d", "사물함 215번"))
+        )
+        val same = Int8Vector(byteArrayOf(100, 0), 0.01f)
+        val vectorRepo = mockk<MemoryVectorRepository>()
+        coEvery { vectorRepo.vectorsFor("emb", any()) } returns AppResult.Success(
+            listOf("a", "b", "c", "d").associate { MemoryVectorKey.note(it) to same }
+        )
+        val embedder = mockk<TextEmbedder> { every { modelId } returns "emb" }
+        val runner = model { "판정: 같음\n합친 문장: 회사는 판교에 있음" }
+
+        assertTrue("글자 규칙만으로는 후보가 아니다", !MemoryMergeGuard.isCandidate("회사는 판교에 있음", "직장이 판교임"))
+        val proposals = (PlanMemoryMergeUseCase(repo, runner, vectorRepo, EmbedderProvider { embedder })() as AppResult.Success).data
+
+        assertEquals(listOf("a+b"), proposals.map { it.key })
+        assertTrue("번호가 다른 사물함 쌍은 뜻이 같아도 모델에 보내지 않는다", prompts.none { "215" in it })
     }
 
     @Test
@@ -128,7 +157,7 @@ class MemoryCleanupUseCasesTest {
         )
         val runner = model { "판정: 같음\n합친 문장: 자전거 자물쇠 비밀번호" }
 
-        val proposals = (PlanMemoryMergeUseCase(repo, runner)() as AppResult.Success).data
+        val proposals = (PlanMemoryMergeUseCase(repo, runner, noVectors, noEmbedder)() as AppResult.Success).data
 
         assertTrue(proposals.isEmpty())
     }
@@ -144,7 +173,7 @@ class MemoryCleanupUseCasesTest {
         )
         val runner = model { "판정: 같음\n합친 문장: 자전거 자물쇠 비밀번호는 4821이다." }
 
-        val proposals = (PlanMemoryMergeUseCase(repo, runner)() as AppResult.Success).data
+        val proposals = (PlanMemoryMergeUseCase(repo, runner, noVectors, noEmbedder)() as AppResult.Success).data
 
         assertEquals(listOf("a+b+c"), proposals.map { it.key })
         assertEquals("쌍 3번 + 묶음 1번", 4, prompts.size)

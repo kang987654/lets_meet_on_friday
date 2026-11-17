@@ -69,6 +69,14 @@ class Int8Vector(val values: ByteArray, val scale: Float) {
         return sum * scale
     }
 
+    /** 저장된 벡터끼리의 내적(둘 다 정규화돼 있으면 코사인) — 차원이 다르면 0. */
+    fun dot(other: Int8Vector): Float {
+        if (other.values.size != values.size) return 0f
+        var sum = 0L
+        for (i in values.indices) sum += values[i] * other.values[i]
+        return sum * scale * other.scale
+    }
+
     /** 저장 형식 — 앞 4바이트 척도(float, 빅 엔디언) + 원소 바이트. */
     fun toBytes(): ByteArray {
         val bits = scale.toRawBits()

@@ -27,11 +27,26 @@ object MemoryMergeGuard {
         return BigramMatcher.containment(digits.replace(a, ""), digits.replace(b, "")) >= MIN_TEXT_OVERLAP
     }
 
-    /** 노트 목록에서 후보 쌍(인덱스)을 냅니다. */
-    fun candidatePairs(notes: List<KnowledgeNote>): List<Pair<Int, Int>> =
+    /**
+     * 뜻 후보의 코사인 하한 — exp98(합성 메모 40개): 지금 규칙 ∪ (숫자 같음 ∧ 코사인 ≥ 0.90)이 바꿔 말한 중복 6 → 9/10, 비슷하지만 다른 쌍은 6 그대로,
+     * 판정할 쌍은 +3 정도. 0.80 이면 중복 10/10 이지만 다른 쌍이 10 으로 늘었다(0.42.3 M3).
+     */
+    const val MIN_SEMANTIC_SIMILARITY = 0.90
+
+    /**
+     * 노트 목록에서 후보 쌍(인덱스)을 냅니다.
+     *
+     * @param similarity 두 노트의 뜻 유사도(코사인), 벡터가 없으면 null — 주면 숫자 집합이 같고 [MIN_SEMANTIC_SIMILARITY] 이상인 쌍도 후보에 더한다.
+     *   [WHY] 글자 겹침만으로는 "직장이 판교임" ↔ "회사는 판교에 있음" 같은 바꿔 말한 중복이 빠졌다. 숫자 조건은 그대로 — 번호가 다르면 다른 사실이다.
+     */
+    fun candidatePairs(notes: List<KnowledgeNote>, similarity: ((Int, Int) -> Double?)? = null): List<Pair<Int, Int>> =
         notes.indices.flatMap { i ->
             (i + 1 until notes.size).mapNotNull { j ->
-                if (isCandidate(notes[i].content, notes[j].content)) i to j else null
+                val a = notes[i].content
+                val b = notes[j].content
+                val semantic = similarity != null && numbersIn(a) == numbersIn(b) &&
+                    (similarity(i, j) ?: 0.0) >= MIN_SEMANTIC_SIMILARITY
+                if (semantic || isCandidate(a, b)) i to j else null
             }
         }
 

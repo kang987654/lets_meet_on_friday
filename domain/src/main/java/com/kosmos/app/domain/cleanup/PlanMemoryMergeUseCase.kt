@@ -2,7 +2,10 @@ package com.kosmos.app.domain.cleanup
 
 import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
+import com.kosmos.app.domain.library.EmbedderProvider
 import com.kosmos.app.domain.memory.KnowledgeRepository
+import com.kosmos.app.domain.memory.MemoryVectorKey
+import com.kosmos.app.domain.memory.MemoryVectorRepository
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelRunner
@@ -18,7 +21,8 @@ import javax.inject.Inject
  * - **Dependencies**: [KnowledgeRepository], [ModelRunner](oneShot 판정), [MemoryMergeGuard](결정적 가드)
  *
  * ### Key Flow
- * 1. 노트를 읽어 [MemoryMergeGuard.candidatePairs] 로 후보 쌍을 낸다(숫자 일치 + 본문 겹침 ≥ 0.3).
+ * 1. 노트를 읽어 [MemoryMergeGuard.candidatePairs] 로 후보 쌍을 낸다(숫자 일치 + 본문 겹침 ≥ 0.3). 뜻 검색 모델이 있으면 저장된 메모 벡터로
+ *    숫자 일치 + 코사인 ≥ [MemoryMergeGuard.MIN_SEMANTIC_SIMILARITY] 인 쌍도 더한다(0.42.3 M3 — 임베딩을 새로 돌리지 않고 저장된 벡터만 읽는다).
  * 2. 쌍마다 oneShot 판정("같음/다름 + 합친 문장", exp42 v1 원문). "같음" 간선으로 묶는다.
  * 3. 3개 이상 묶음은 전체로 한 번 더 판정해 합친 문장을 얻는다. 합친 문장이 원문 숫자를 잃으면 버린다.
  *
@@ -26,7 +30,9 @@ import javax.inject.Inject
  */
 class PlanMemoryMergeUseCase @Inject constructor(
     private val knowledgeRepository: KnowledgeRepository,
-    private val modelRunner: ModelRunner
+    private val modelRunner: ModelRunner,
+    private val vectorRepository: MemoryVectorRepository,
+    private val embedders: EmbedderProvider
 ) {
 
     /**
@@ -39,7 +45,7 @@ class PlanMemoryMergeUseCase @Inject constructor(
             is AppResult.Success -> loaded.data
             is AppResult.Failure -> return AppResult.Failure(loaded.error)
         }
-        val pairs = MemoryMergeGuard.candidatePairs(notes)
+        val pairs = MemoryMergeGuard.candidatePairs(notes, semanticSimilarity(notes))
         onProgress(0, pairs.size)
 
         val parent = IntArray(notes.size) { it }
@@ -62,6 +68,20 @@ class PlanMemoryMergeUseCase @Inject constructor(
             proposalFor(members.sorted(), pairMerged, notes)
         }
         return AppResult.Success(proposals)
+    }
+
+    /** 저장된 메모 벡터의 코사인 — 모델이 없거나 벡터를 못 읽으면 null(글자 규칙만). 벡터가 없는 노트는 쌍마다 null. */
+    private suspend fun semanticSimilarity(notes: List<KnowledgeNote>): ((Int, Int) -> Double?)? {
+        val modelId = embedders.current()?.modelId ?: return null
+        val keys = notes.map { MemoryVectorKey.note(it.id) }
+        val stored = (vectorRepository.vectorsFor(modelId, keys) as? AppResult.Success)?.data ?: return null
+        if (stored.isEmpty()) return null
+        val byIndex = keys.map { stored[it] }
+        return { i, j ->
+            val a = byIndex[i]
+            val b = byIndex[j]
+            if (a == null || b == null) null else a.dot(b).toDouble()
+        }
     }
 
     private suspend fun proposalFor(
