@@ -19,8 +19,8 @@ BACKUP = os.path.join(tempfile.gettempdir(), "kosmos_latency_instr_bak")
 L = 'android.util.Log.i("KOSMOS_M1", '
 FILES = {
     "app/src/main/java/com/kosmos/app/assistant/orchestrator/AssistantOrchestrator.kt": [
-        ("    suspend fun processRequest(request: ChatRequest): AgentResult {\n",
-         "    suspend fun processRequest(request: ChatRequest): AgentResult {\n        " + L + '"request")\n'),
+        ("    override suspend fun processRequest(request: ChatRequest): AgentResult {\n",
+         "    override suspend fun processRequest(request: ChatRequest): AgentResult {\n        " + L + '"request")\n'),
     ],
     "app/src/main/java/com/kosmos/app/runtime/gemma/GemmaModelRunner.kt": [
         ("    ): AppResult<ModelTurn> = withContext(llmDispatcher) {\n        if (loadState.value !is ModelLoadState.Ready) {",
@@ -32,8 +32,8 @@ FILES = {
         ("                                if (token.isNotEmpty()) {\n                                    onToken.invoke(token)",
          "                                if (token.isNotEmpty()) {\n                                    if (tokenCount == 0) " + L
          + '"first token")\n                                    onToken.invoke(token)'),
-        ("        val newConversation = try {\n            currentEngine.createConversation(chatConversationConfig(prompt))",
-         "        " + L + '"create conversation")\n        val newConversation = try {\n            currentEngine.createConversation(chatConversationConfig(prompt))'),
+        ("        val newConversation = try {\n            currentEngine.createConversation(chatConversationConfig(prompt, speculative))",
+         "        " + L + '"create conversation")\n        val newConversation = try {\n            currentEngine.createConversation(chatConversationConfig(prompt, speculative))'),
     ],
 }
 
