@@ -6,6 +6,8 @@ import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ChatPrompt
+import com.kosmos.app.domain.modelrunner.BrokenOutput
+import com.kosmos.app.domain.modelrunner.OneShotLimits
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.tool.Tokenizer
 import com.kosmos.app.domain.util.ContentLanguage
@@ -59,12 +61,14 @@ class ExtractFactsUseCase @Inject constructor(
             systemInstruction = if (en) SYSTEM_INSTRUCTION_EN else SYSTEM_INSTRUCTION,
             history = emptyList(),
             currentInput = (if (en) USER_PREFIX_EN else USER_PREFIX) + transcript,
-            oneShot = true
+            oneShot = true,
+            maxOutputTokens = OneShotLimits.EXTRACT
         )
 
         return when (val result = modelRunner.generate(prompt)) {
             is AppResult.Success -> {
-                val facts = parse(result.data.text)
+                // [WHY] 깨진 출력은 형식 이탈과 같이 — 사실로 저장하지 않는다(0.42.4).
+                val facts = if (BrokenOutput.looksBroken(result.data.text, lang)) null else parse(result.data.text)
                 if (facts == null) {
                     // [WHY] 라벨 줄이 하나도 없으면 형식 이탈이다. 요약과 달리 재시도 대상은
                     // 아니지만(호출자가 로그만 남긴다) 빈 성공과 구분해 감사에 남긴다.

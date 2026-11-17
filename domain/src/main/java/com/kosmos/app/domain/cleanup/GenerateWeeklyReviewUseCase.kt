@@ -1,5 +1,6 @@
 package com.kosmos.app.domain.cleanup
 
+import com.kosmos.app.core.common.AppError
 import com.kosmos.app.core.common.AppLanguage
 import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.domain.memory.EpisodeRepository
@@ -7,6 +8,8 @@ import com.kosmos.app.domain.memory.KnowledgeRepository
 import com.kosmos.app.domain.model.EpisodeStatus
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.modelrunner.ChatPrompt
+import com.kosmos.app.domain.modelrunner.BrokenOutput
+import com.kosmos.app.domain.modelrunner.OneShotLimits
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.tool.Tokenizer
 import com.kosmos.app.domain.util.IsoDateTimeParser
@@ -82,13 +85,16 @@ class GenerateWeeklyReviewUseCase @Inject constructor(
             history = emptyList(),
             // [WHY] 시간순으로 다시 세운다 — 예산 컷은 최신부터 담았으므로.
             currentInput = inputPrefix + kept.reversed().joinToString("\n"),
-            oneShot = true
+            oneShot = true,
+            maxOutputTokens = OneShotLimits.REVIEW
         )
         val text = when (val result = modelRunner.generate(prompt)) {
             is AppResult.Success -> result.data.text.trim()
             is AppResult.Failure -> return AppResult.Failure(result.error)
         }
         if (text.isBlank()) return AppResult.Success(null)
+        // [WHY] 깨진 글자는 저장하지 않고 실패로 — 휴대폰에서 깨진 회고가 기억으로 저장됐다(0.42.4).
+        if (BrokenOutput.looksBroken(text, lang)) return AppResult.Failure(AppError.ModelInferenceError("회고 출력이 깨졌어요"))
 
         val week = weekKey(now, zoneId)
         val tag = if (en) TAG_EN else TAG

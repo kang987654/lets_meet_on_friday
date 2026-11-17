@@ -8,6 +8,7 @@ import com.kosmos.app.domain.memory.MemoryVectorKey
 import com.kosmos.app.domain.memory.MemoryVectorRepository
 import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.modelrunner.ChatPrompt
+import com.kosmos.app.domain.modelrunner.OneShotLimits
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.util.ContentLanguage
 import javax.inject.Inject
@@ -110,7 +111,8 @@ class PlanMemoryMergeUseCase @Inject constructor(
             systemInstruction = if (en) JUDGE_SYSTEM_EN else JUDGE_SYSTEM,
             history = emptyList(),
             currentInput = inputPrefix + contents.joinToString("\n") { "- $it" },
-            oneShot = true
+            oneShot = true,
+            maxOutputTokens = OneShotLimits.JUDGE
         )
         val text = (modelRunner.generate(prompt) as? AppResult.Success)?.data?.text ?: return null
         val verdict = VERDICT.find(text)?.groupValues?.get(1)?.lowercase() ?: return null

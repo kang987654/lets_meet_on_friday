@@ -6,6 +6,8 @@ import com.kosmos.app.core.common.AppResult
 import com.kosmos.app.core.common.Constants
 import com.kosmos.app.domain.model.ChatMessage
 import com.kosmos.app.domain.modelrunner.ChatPrompt
+import com.kosmos.app.domain.modelrunner.BrokenOutput
+import com.kosmos.app.domain.modelrunner.OneShotLimits
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.tool.Tokenizer
 import com.kosmos.app.domain.util.ContentLanguage
@@ -54,13 +56,17 @@ class SummarizeEpisodeUseCase @Inject constructor(
             systemInstruction = if (en) SYSTEM_INSTRUCTION_EN else SYSTEM_INSTRUCTION,
             history = emptyList(),
             currentInput = if (en) "Summarize the following conversation.\n\n$transcript" else "다음 대화를 요약하세요.\n\n$transcript",
-            oneShot = true
+            oneShot = true,
+            maxOutputTokens = OneShotLimits.SUMMARY
         )
 
         return when (val result = modelRunner.generate(prompt)) {
             is AppResult.Success -> {
                 val docs = parse(result.data.text)
-                if (docs.isEmpty()) {
+                // [WHY] 깨진 요약은 실패로 — 재시도 계상에 들어간다(0.42.4).
+                if (docs.any { BrokenOutput.looksBroken(it.summary, lang) }) {
+                    AppResult.Failure(AppError.ModelInferenceError("에피소드 요약 출력이 깨졌어요"))
+                } else if (docs.isEmpty()) {
                     // [WHY] 파싱 실패를 Failure 로 올려야 스케줄러의 재시도 카운트에 계상된다 —
                     // 빈 목록 성공으로 내리면 요약 없는 에피소드가 SUMMARIZED 로 오기록된다.
                     AppResult.Failure(AppError.ModelInferenceError("에피소드 요약 형식 파싱 실패"))

@@ -366,7 +366,7 @@ class GemmaModelRunner @Inject constructor(
                     // 예외로 끝날 수 있고, 그것을 바깥 catch 로 흘리면 Timeout 이 아니라 일반
                     // 추론 오류로 둔갑한다. 비스트리밍은 토큰 신호가 없어 무활동 = 총시간이다.
                     val sendResult = runCatching {
-                        currentConversation.sendMessage(outgoing, thinkingConfig = THINKING_OFF)
+                        currentConversation.sendMessage(outgoing, thinkingConfig = THINKING_OFF, maxOutputToken = prompt.maxOutputTokens)
                     }
                     userCancelled = cancellation.end(currentConversation)
                     if (watchdog.timedOut) {

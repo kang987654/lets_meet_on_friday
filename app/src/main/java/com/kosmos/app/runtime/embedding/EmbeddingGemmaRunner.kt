@@ -74,6 +74,11 @@ class EmbeddingGemmaRunner @Inject constructor(
                     // [WHY] 입력이 모델 길이를 넘으면 실패할 수 있다(Kotlin API 에는 파이썬의 TRUNCATE 옵션이 없다) — 글자로 미리 자른다.
                     current.computeEmbeddingBatch(inputs.map { listOf(InputData.Text(it.take(MAX_INPUT_CHARS))) }, OPTIONS)
                         .map { it.embedding.normalized() }
+                }.recoverCatching { batchError ->
+                    // [WHY] 글자당 토큰이 많은 글(영문·숫자 뒤섞임)은 700자가 512토큰을 넘어 묶음째 실패했다 — 긴 메모 하나가 뜻 검색 준비 전체를 막았다(0.42.4).
+                    // 하나씩 다시, 넘치는 입력은 반씩 줄여 다시.
+                    Log.w(TAG, "묶음 임베딩 실패 — 하나씩 다시(n=${inputs.size}): ${batchError.message}")
+                    inputs.map { input -> embedShrinking(current, input) }
                 }.onSuccess {
                     if (BuildConfig.DEBUG) {
                         val ms = (System.nanoTime() - start) / 1_000_000
@@ -112,6 +117,16 @@ class EmbeddingGemmaRunner @Inject constructor(
         }
     }.onFailure { Log.e(TAG, "임베딩 엔진 초기화 실패(backend=$candidate)", it) }.getOrNull()
 
+    private fun embedShrinking(engine: EmbeddingEngine, input: String): FloatArray {
+        var limit = MAX_INPUT_CHARS
+        while (true) {
+            val attempt = runCatching { engine.computeEmbeddingBatch(listOf(listOf(InputData.Text(input.take(limit)))), OPTIONS).single().embedding.normalized() }
+            attempt.getOrNull()?.let { return it }
+            if (limit <= MIN_INPUT_CHARS) throw attempt.exceptionOrNull() ?: IllegalStateException("임베딩 실패")
+            limit /= 2
+        }
+    }
+
     /** 엔진을 내린다 — 앱 백그라운드. 진행 중인 호출이 있으면 그 뒤에 닫힌다. */
     suspend fun release() {
         mutex.withLock {
@@ -125,6 +140,8 @@ class EmbeddingGemmaRunner @Inject constructor(
 
         /** 조각 본문 상한(LibraryChunker 500자) + 제목 — 한국어는 글자당 1토큰 안팎이라 512 토큰 안에 든다. */
         const val MAX_INPUT_CHARS = 700
+        /** 넘치는 입력을 반씩 줄여 다시 시도할 때의 하한. */
+        const val MIN_INPUT_CHARS = 80
         const val MAX_INPUT_TOKENS = 512
         val OPTIONS = EmbeddingOptions(normalize = true)
     }
@@ -151,7 +168,9 @@ enum class EmbeddingBackend {
     GPU;
 
     companion object {
-        val DEFAULT: EmbeddingBackend = GPU
+        // [WHY] CPU 로 바꿨다(0.42.4 M1, 휴대폰 SM-S938N) — 임베딩 엔진이 GPU 에 함께 올라와 있으면 채팅 밖 추론(회고·판정)이 깨진 글자를 엔진 한도까지 냈다.
+        // 같은 순서에서 임베딩만 CPU 로 두면 정상(회고 99토큰, 정리 17초) / GPU 면 다시 폭주(정리 242초). 대가: 조각당 43 → 83ms(0.41.2 실측).
+        val DEFAULT: EmbeddingBackend = CPU
         const val DEBUG_FILE_NAME = "debug_embed.txt"
 
         fun parse(text: String?): EmbeddingBackend? = text?.trim()?.uppercase()?.let { key -> entries.firstOrNull { it.name == key } }

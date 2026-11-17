@@ -34,5 +34,11 @@ data class ChatPrompt(
      * 1000 으로 내려도 살아 있는 대화의 KV 는 8000 토큰까지 자랐다 — 설정이 메모리에
      * 아무 영향을 주지 못했다. 예산을 여기 실어 임계값을 설정과 이어 붙인다.
      */
-    val contextBudgetTokens: Int = Constants.DEFAULT_CONTEXT_TOKENS
+    val contextBudgetTokens: Int = Constants.DEFAULT_CONTEXT_TOKENS,
+    /**
+     * 출력 토큰 상한 — oneShot(부수 계산)만 쓴다. null 이면 엔진 한도까지.
+     *
+     * [WHY] 휴대폰에서 회고·판정이 깨진 글자를 엔진 한도(약 3,800토큰, 2분)까지 냈다(0.42.4). 정상 출력은 회고 약 100·판정 3토큰이라 몇 배로 막는다.
+     */
+    val maxOutputTokens: Int? = null
 )

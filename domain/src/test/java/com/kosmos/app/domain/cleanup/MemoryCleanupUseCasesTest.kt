@@ -16,6 +16,7 @@ import com.kosmos.app.domain.model.KnowledgeNote
 import com.kosmos.app.domain.modelrunner.ChatPrompt
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.modelrunner.ModelTurn
+import com.kosmos.app.domain.modelrunner.OneShotLimits
 import com.kosmos.app.domain.tool.Tokenizer
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -268,5 +269,20 @@ class MemoryCleanupUseCasesTest {
         assertEquals("weekly-review-2026-W40", note?.id)
         assertEquals(listOf(GenerateWeeklyReviewUseCase.TAG, "2026-W40"), note?.tags)
         assertEquals(KnowledgeNote.SOURCE_AUTO, note?.source)
+    }
+    @Test
+    fun `깨진 회고는 저장하지 않고 실패로 돌려주며 출력 상한을 싣는다`() = runTest {
+        // 0.42.4: 휴대폰에서 깨진 회고가 엔진 한도까지 나와 기억으로 저장됐다.
+        coEvery { episodes.getByStatus(EpisodeStatus.SUMMARIZED) } returns AppResult.Success(listOf(episode("a", now - 1 * day, "치과 예약")))
+        val sent = slot<ChatPrompt>()
+        val runner = mockk<ModelRunner> {
+            coEvery { generate(capture(sent)) } returns AppResult.Success(ModelTurn("cist(파 21.dinizadi 62.c,gr6000001020stx'a00w60100g*66012w+usagi asami", emptyList()))
+        }
+
+        val result = GenerateWeeklyReviewUseCase(episodes, repo, runner, tokenizer)(now, utc)
+
+        assertTrue(result is AppResult.Failure)
+        coVerify(exactly = 0) { repo.save(any()) }
+        assertEquals(OneShotLimits.REVIEW, sent.captured.maxOutputTokens)
     }
 }

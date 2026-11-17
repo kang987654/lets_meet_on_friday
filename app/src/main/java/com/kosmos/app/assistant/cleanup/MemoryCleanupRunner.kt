@@ -70,7 +70,9 @@ class MemoryCleanupRunner @Inject constructor(
         data class Review(
             val weeklyReview: KnowledgeNote?,
             val proposals: List<MergeProposal>,
-            val episodeProposals: List<EpisodeMergeProposal> = emptyList()
+            val episodeProposals: List<EpisodeMergeProposal> = emptyList(),
+            /** 회고 추론이 실패했다 — "정리된 대화가 없음"과 다르게 보인다(0.42.4). */
+            val reviewFailed: Boolean = false
         ) : State
         /** 체크한 것을 적용하는 중 — 에피소드 통합은 재요약 추론이 있어 수십 초 걸린다. */
         data object Applying : State
@@ -113,6 +115,7 @@ class MemoryCleanupRunner @Inject constructor(
                     } else {
                         generateWeeklyReview()
                     }
+                    val reviewFailed = reviewResult is AppResult.Failure
                     val review = when (reviewResult) {
                         is AppResult.Success -> reviewResult.data
                         is AppResult.Failure -> {
@@ -154,7 +157,7 @@ class MemoryCleanupRunner @Inject constructor(
                         }
                     }
                     if (isActive) {
-                        _state.value = State.Review(review, proposals, episodeProposals)
+                        _state.value = State.Review(review, proposals, episodeProposals, reviewFailed)
                     }
                 }
             }

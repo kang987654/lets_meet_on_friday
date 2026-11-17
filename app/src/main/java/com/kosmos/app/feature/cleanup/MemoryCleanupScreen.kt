@@ -106,6 +106,7 @@ fun MemoryCleanupScreen(
                 )
                 is MemoryCleanupRunner.State.Review -> ReviewContent(
                     review = s.weeklyReview,
+                    reviewFailed = s.reviewFailed,
                     proposals = s.proposals,
                     checked = checked,
                     onToggle = viewModel::toggle,
@@ -184,6 +185,7 @@ private fun Notice(message: String, action: String, onAction: () -> Unit) {
 @Composable
 private fun ReviewContent(
     review: KnowledgeNote?,
+    reviewFailed: Boolean = false,
     proposals: List<MergeProposal>,
     checked: Set<String>,
     onToggle: (MergeProposal) -> Unit,
@@ -197,7 +199,7 @@ private fun ReviewContent(
     SectionHeader(stringResource(R.string.cleanup_section_weekly_review))
     Card {
         Text(
-            review?.content ?: stringResource(R.string.cleanup_empty_weekly_review),
+            review?.content ?: stringResource(if (reviewFailed) R.string.cleanup_weekly_review_failed else R.string.cleanup_empty_weekly_review),
             color = if (review != null) KosmosTheme.colors.textPrimary else KosmosTheme.colors.textMuted,
             style = MaterialTheme.typography.bodyMedium
         )

@@ -309,6 +309,7 @@
     <string name="cleanup_running_apply">Applying selected items… Re-summarizing merged conversations.</string>
     <string name="cleanup_section_weekly_review">Weekly review</string>
     <string name="cleanup_empty_weekly_review">No summarized conversations from the past 7 days to review.</string>
+    <string name="cleanup_weekly_review_failed">Could not write the weekly review. It will be tried again next time.</string>
     <string name="cleanup_section_note_merges">Memories to merge</string>
     <string name="cleanup_empty_note_merges">No overlapping memories found.</string>
     <string name="cleanup_note_merges_guide">Select only what you want to merge. Unchecked memories stay as they are.</string>

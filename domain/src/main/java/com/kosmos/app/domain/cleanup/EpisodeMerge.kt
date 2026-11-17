@@ -8,6 +8,7 @@ import com.kosmos.app.domain.memory.EpisodeRepository
 import com.kosmos.app.domain.model.Episode
 import com.kosmos.app.domain.model.EpisodeStatus
 import com.kosmos.app.domain.modelrunner.ChatPrompt
+import com.kosmos.app.domain.modelrunner.OneShotLimits
 import com.kosmos.app.domain.modelrunner.ModelRunner
 import com.kosmos.app.domain.search.BigramMatcher
 import com.kosmos.app.domain.usecase.SummarizeEpisodeUseCase
@@ -91,7 +92,8 @@ class PlanEpisodeMergeUseCase @Inject constructor(
             systemInstruction = if (en) JUDGE_SYSTEM_EN else JUDGE_SYSTEM,
             history = emptyList(),
             currentInput = input,
-            oneShot = true
+            oneShot = true,
+            maxOutputTokens = OneShotLimits.JUDGE
         )
         val text = (modelRunner.generate(prompt) as? AppResult.Success)?.data?.text ?: return false
         val verdict = VERDICT.find(text)?.groupValues?.get(1)?.lowercase() ?: return false
