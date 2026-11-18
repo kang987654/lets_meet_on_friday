@@ -1,6 +1,6 @@
 """채팅 한 턴 보내기 (0.39.0 M3) — 입력이 비면 보내고, 승인 시트가 뜨면 처리하고, 답이 끝나면 맨 아래 줄들을 출력한다.
 
-사용: python device/turn.py "문장" [approve|reject|leave] [--serial=<id>] [--timeout=150]
+사용: python device/turn.py "문장" [approve|reject|leave|approve,reject…(시트 순서대로)] [--serial=<id>] [--timeout=150]
   approve/reject: 승인 시트가 뜨면 바로 누른다(시트는 1분이 지나면 저절로 취소되므로 기다리지 않는다).
   leave: 시트를 그대로 둔다(사람이 보게).
 끝 상태 코드: 0 답 받음 · 2 시간 초과 · 3 adb 문제(연결·허용 확인).
@@ -33,12 +33,17 @@ def main():
         A.adb("shell", f"am start -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT '{quoted}' -n {A.PKG}/.MainActivity")
         time.sleep(1.5)
         A.tap_text("Send")
-        t0, handled = time.time(), False
+        # 0.42.7: 한 차례의 여러 쓰기는 시트가 연달아 뜬다 — 시트마다 처리한다. action 은 "approve,reject" 처럼 시트 순서대로(마지막 것을 되풀이).
+        actions = action.split(",")
+        t0, sheets, last = time.time(), 0, 0.0
         while time.time() - t0 < limit:
             time.sleep(2)
             lines = A.texts()
-            if not handled and any(m in l for l in lines for m in SHEET_MARKS):
-                print("[승인 시트]", lines[-8:], flush=True)
+            if time.time() - last > 3 and any(m in l for l in lines for m in SHEET_MARKS):
+                action = actions[min(sheets, len(actions) - 1)]
+                sheets += 1
+                last = time.time()
+                print(f"[승인 시트 {sheets} → {action}]", lines[-8:], flush=True)
                 if action == "approve":
                     for k in ("등록하기", "추가하기", "저장하기", "Add", "Set", "Save"):
                         if A.tap_text(k):
@@ -47,7 +52,6 @@ def main():
                     for k in ("취소", "Cancel"):
                         if A.tap_text(k):
                             break
-                handled = True
                 continue
             if idle(lines) and time.time() - t0 > 5:
                 print(f"[{time.time() - t0:.0f}초]", flush=True)

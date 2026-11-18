@@ -73,7 +73,8 @@ def _today_from_sys(sysm: str) -> dt.date:
     return dt.date.fromisoformat(m.group(1)) if m else dt.date.fromisoformat(TODAY)
 
 
-PAST_DATE_WORD = re.compile(r"오늘|어제|그저께|아까|방금|\d+\s*월|\d+\s*일|\b(today|yesterday|earlier)\b", re.I)
+PAST_DATE_WORD = re.compile(r"오늘|어제|그저께|아까|방금|내일|모레|글피|[월화수목금토일]요일|주말|(다음|이번|담)\s*(주|달)|\d+\s*월|\d+\s*일|"
+                            r"\b(today|yesterday|earlier|tomorrow|tonight|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next\s+(week|month))\b", re.I)
 
 
 def past_guidance(user: str, start_time: str | None, sysm: str, en: bool = False) -> str | None:

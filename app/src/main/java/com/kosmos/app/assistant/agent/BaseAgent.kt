@@ -424,7 +424,14 @@ abstract class BaseAgent(
     ): ToolOutcome {
         val en = language == AppLanguage.EN
         // [WHY] 가드는 실행기 조회보다 먼저다 — allowlist 밖 이름은 실행기가 있든 없든 막혀야 한다.
-        val rawStartTime = if (call.name == ToolNames.ADD_SCHEDULE) runCatching { call.args.optString("start_time") }.getOrNull() else null
+        // [WHY] 인자 이름은 `startTime` — 런타임이 모델의 snake_case 키를 실행기에 닿기 전에 camelCase 로 되돌린다(`KosmosToolDeclarations.camelArgName`).
+        // `start_time` 으로 꺼내 휴대폰에서는 늘 null 이라 요일 가드(0.41.13)·지난 시각 가드(0.42.5)가 한 번도 돌지 않았다(0.42.7 휴대폰 임시 로그로 확인 —
+        // 실험실 흉내는 snake 키를, JVM 테스트는 시각을 직접 넣어 못 잡았다). 실행기([ToolArguments.requireIsoDateTime])처럼 공백 구분도 'T' 로.
+        val rawStartTime = if (call.name == ToolNames.ADD_SCHEDULE) {
+            runCatching { (call.args.optString("startTime") ?: call.args.optString("start_time"))?.trim()?.replace(' ', 'T') }.getOrNull()
+        } else {
+            null
+        }
         ToolCallGuards.check(
             name = call.name,
             allowedTools = allowedTools,

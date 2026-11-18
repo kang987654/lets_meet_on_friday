@@ -15,7 +15,12 @@ import java.time.format.DateTimeFormatter
  * 사용자가 "오늘"·"어제"·날짜를 말했으면 지난 일을 기록하려는 것이라 막지 않는다. 날짜만 있는 종일 일정도 보지 않는다.
  */
 object SchedulePastIntent {
-    private val DATE_WORD = Regex("오늘|어제|그저께|아까|방금|\\d+\\s*월|\\d+\\s*일|\\b(today|yesterday|earlier)\\b", RegexOption.IGNORE_CASE)
+    // [WHY] 날짜를 말했으면 그 날짜를 믿는다 — "내일·모레·요일·다음 주"가 빠져 있어 "다음주 월요일 10시"까지 막았다(0.42.7, 실기기에서 가드가 처음 돈 뒤 테스트가 잡음).
+    private val DATE_WORD = Regex(
+        "오늘|어제|그저께|아까|방금|내일|모레|글피|[월화수목금토일]요일|주말|(다음|이번|담)\\s*(주|달)|\\d+\\s*월|\\d+\\s*일|" +
+            "\\b(today|yesterday|earlier|tomorrow|tonight|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next\\s+(week|month))\\b",
+        RegexOption.IGNORE_CASE
+    )
     private val HM = DateTimeFormatter.ofPattern("HH:mm")
 
     /** 시작 시각이 지났고 사용자가 날짜를 말하지 않았으면 모델에게 돌려줄 문구, 아니면 null. 시각 판정은 [now]·[zoneId] 인자(AGENTS §2-④). */

@@ -185,7 +185,8 @@ class BaseAgentStreamTest {
         calls: List<ModelToolCall>,
         approvals: List<Boolean>,
         requests: MutableList<com.kosmos.app.assistant.approval.ApprovalRequest>,
-        executed: MutableList<String>
+        executed: MutableList<String>,
+        userMessage: String = "2099년 1월 5일 오후 3시 치과, 5시 팀 미팅 둘 다 잡아줘"
     ): Harness {
         val executor: ToolExecutor = mockk {
             every { name } returns "AddSchedule"
@@ -210,13 +211,25 @@ class BaseAgentStreamTest {
         coEvery { audit.logToolCall(any(), any(), any(), any()) } answers { toolCallLog += ToolCallRecord(arg(1), arg(2), arg(3)) }
         val agent = TestAgent(runner, registry, audit, mockk(relaxed = true), coordinator, allowedTools = listOf("AddSchedule"))
         // [WHY] 일정 가드가 보는 사용자 말 — 날짜·시각이 있어야 통과한다.
-        val request = ChatRequest(sessionId = "s1", message = "2099년 1월 5일 오후 3시 치과, 5시 팀 미팅 둘 다 잡아줘", onStream = { updates += it })
+        val request = ChatRequest(sessionId = "s1", message = userMessage, onStream = { updates += it })
         val result = runBlocking { agent.execute(request, mockk(relaxed = true)) }
         return Harness(result, updates, runner.receivedPrompts, audit, emptyList(), toolCallLog)
     }
 
     private fun schedule(title: String, hour: Int) =
         toolCall("AddSchedule", mapOf("title" to title, "start_time" to "2099-01-05T%02d:00:00".format(hour), "end_time" to "2099-01-05T%02d:00:00".format(hour + 1)))
+
+    @Test
+    fun `런타임 모양(startTime)으로 온 지난 시각 일정은 실행 전에 막힌다`() {
+        // [WHY] 런타임은 인자 키를 camelCase(startTime)로 넘긴다 — `start_time` 으로 꺼내 휴대폰에서 요일·지난 시각 가드가 한 번도 돌지 않았다(0.42.7 휴대폰).
+        val requests = mutableListOf<com.kosmos.app.assistant.approval.ApprovalRequest>()
+        val executed = mutableListOf<String>()
+        val past = toolCall("AddSchedule", mapOf("title" to "회의", "startTime" to "2020-01-06T09:00:00", "endTime" to "2020-01-06T10:00:00"))
+        val harness = runScheduleCalls(listOf(past), listOf(true), requests, executed, userMessage = "9시에 회의 넣어줘")
+
+        assertTrue("지난 시각인데 승인 시트까지 갔다", requests.isEmpty() && executed.isEmpty())
+        assertTrue(harness.prompts[1].toolResponse!!.resultJson.contains("이미 지났습니다"))
+    }
 
     @Test
     fun `한 차례에 낸 쓰기 호출을 차례로 모두 실행하고 시트에 순번을 보이며 결과를 묶어 돌려준다`() {
