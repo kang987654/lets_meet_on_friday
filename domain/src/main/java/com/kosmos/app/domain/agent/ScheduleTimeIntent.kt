@@ -44,10 +44,21 @@ object ScheduleTimeIntent {
      * [WHY] 앞 사용자 말은 이번 말이 짧은 긍정일 때만 본다 — "금요일 오후 3시 치과" 뒤 새 요청 "목요일에 미용실 예약"이 앞 요청의 시각으로 통과해 00:00 시트가 떴다(0.42.2 휴대폰 확인).
      */
     fun needsClock(userText: String, previousAssistant: String?, previousUser: String? = null): Boolean =
-        !hasClock(userText) && !hasClock(previousAssistant) && !(MemoSaveIntent.isYes(userText) && hasClock(previousUser))
+        !hasClock(userText) && !(isReply(userText) && hasClock(previousAssistant)) && !(MemoSaveIntent.isYes(userText) && hasClock(previousUser))
 
-    /** 이번 턴 사용자 말과 바로 앞 비서 말 어디에도 날짜·시각이 없으면 막는다. */
-    fun shouldBlock(userText: String, previousAssistant: String?): Boolean = !hasTime(userText) && !hasTime(previousAssistant)
+    /** 이번 턴 사용자 말과 바로 앞 비서 말 어디에도 날짜·시각이 없으면 막는다. 앞 비서 말은 이번 말이 새 일정 요청이 아닐 때만 본다([isReply]). */
+    fun shouldBlock(userText: String, previousAssistant: String?): Boolean = !hasTime(userText) && !(isReply(userText) && hasTime(previousAssistant))
+
+    /**
+     * 이번 말이 앞 비서 말에 대한 대답인가 — 일정을 가리키는 낱말("일정"·"예약"·"약속"·"회의"·"미팅")이 들어 있으면 새 요청으로 본다.
+     *
+     * [WHY] 앞 비서 말의 시각은 "내일 3시로 잡을까요?" 뒤의 "응"·"좋아, 그렇게 해줘"를 위해 본다. 새 요청에까지 쓰면 다른 일의 시각에 끌려 통과했다 —
+     * 앞 비서 말 "…오늘 오전 7시부터 8시까지로 확정해서 등록해 드릴까요?" 뒤 "헬스 일정 잡아줘"(시각 없음)가 오늘 13:40 시트(0.42.7 휴대폰).
+     * 짧은 긍정만 인정하면 "좋아, 그렇게 해줘" 같은 승낙이 막혀, 새 요청을 가려내는 쪽으로 좁혔다.
+     */
+    fun isReply(userText: String): Boolean = !NEW_REQUEST.containsMatchIn(userText)
+
+    private val NEW_REQUEST = Regex("일정|예약|약속|회의|미팅|스케줄|\\b(schedule|appointment|meeting|reservation|event)\\b", RegexOption.IGNORE_CASE)
 
     // exp86c G2 실측 원문(막은 뒤 답이 일정 이야기 없이 "메모해 둘까요?"만 물음, 67토큰).
     const val NO_TIME = "실행하지 않았습니다. 사용자의 말에 날짜나 시각이 없으니 일정 요청이 아닙니다. 일정 이야기는 꺼내지 말고, 알려 준 내용을 확인한 뒤 \"메모해 둘까요?\"라고 물어보세요. 일정을 잡아 달라는 말이었다면 언제인지만 물어보세요."

@@ -73,6 +73,7 @@ def _today_from_sys(sysm: str) -> dt.date:
     return dt.date.fromisoformat(m.group(1)) if m else dt.date.fromisoformat(TODAY)
 
 
+NEW_REQUEST = re.compile(r"일정|예약|약속|회의|미팅|스케줄|\b(schedule|appointment|meeting|reservation|event)\b", re.I)  # ScheduleTimeIntent.isReply 흉내(0.42.7)
 PAST_DATE_WORD = re.compile(r"오늘|어제|그저께|아까|방금|내일|모레|글피|[월화수목금토일]요일|주말|(다음|이번|담)\s*(주|달)|\d+\s*월|\d+\s*일|"
                             r"\b(today|yesterday|earlier|tomorrow|tonight|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next\s+(week|month))\b", re.I)
 
@@ -337,9 +338,9 @@ def turn(history, user, sysm=SYS_OFF, tools=None, search_body=None, why=False):
                     body, ok = {"status": "success", "data": data}, True
                 elif name == "add_memory":
                     body, ok = {"status": "success", "message": "기억에 저장했어요."}, True
-                elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
+                elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and not NEW_REQUEST.search(user) and SCHEDULE_TIME.search(prev_model)):
                     body, ok = {"status": "error", "message": SCHEDULE_NO_TIME}, False
-                elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)) and not (is_yes(user) and prev_user and SCHEDULE_CLOCK.search(prev_user)):
+                elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and not NEW_REQUEST.search(user) and SCHEDULE_CLOCK.search(prev_model)) and not (is_yes(user) and prev_user and SCHEDULE_CLOCK.search(prev_user)):
                     body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK}, False
                 elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=False)):
                     body, ok = {"status": "error", "message": wd_err}, False
@@ -657,9 +658,9 @@ def turn_en(history, user, sysm=SYS_EN_OFF, tools=None, why=False):
                     body, ok = {"status": "error", "message": ASK_FIRST_EN}, False
                 elif name == "add_memory":
                     body, ok = {"status": "success", "message": "Saved to memory."}, True
-                elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
+                elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and not NEW_REQUEST.search(user) and SCHEDULE_TIME.search(prev_model)):
                     body, ok = {"status": "error", "message": SCHEDULE_NO_TIME_EN}, False
-                elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)) and not (is_yes(user) and prev_user and SCHEDULE_CLOCK.search(prev_user)):
+                elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and not NEW_REQUEST.search(user) and SCHEDULE_CLOCK.search(prev_model)) and not (is_yes(user) and prev_user and SCHEDULE_CLOCK.search(prev_user)):
                     body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK_EN}, False
                 elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=True)):
                     body, ok = {"status": "error", "message": wd_err}, False

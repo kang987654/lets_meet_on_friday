@@ -56,4 +56,14 @@ class ScheduleTimeIntentTest {
         assertTrue(ScheduleTimeIntent.needsClock("목요일에 미용실 예약 잡아줘", "일정을 추가하지 않았어요.", "금요일 오후 3시에 치과 예약 잡아줘"))
         assertFalse(ScheduleTimeIntent.needsClock("응", "목요일은 11월 19일이에요. 맞나요?", "목요일 오전 11시 미용실 예약해줘"))
     }
+
+    @Test
+    fun `새 일정 요청에는 앞 비서 말의 다른 일 시각을 쓰지 않고 승낙에는 쓴다`() {
+        // 0.42.7 휴대폰: 앞 비서 말 "…오늘 오전 7시부터 8시까지로 확정해서 등록해 드릴까요?" 뒤 "헬스 일정 잡아줘"가 시각 없이 통과했다.
+        val prev = "혹시 '아침 운동' 일정을 오늘 오전 7시부터 8시까지로 확정해서 등록해 드릴까요?"
+        assertTrue(ScheduleTimeIntent.needsClock("헬스 일정 잡아줘", prev))
+        assertTrue(ScheduleTimeIntent.shouldBlock("치과 예약 잡아줘", prev))
+        assertFalse("승낙은 앞 비서 말의 시각을 쓴다", ScheduleTimeIntent.needsClock("좋아, 그렇게 해줘", prev))
+        assertFalse(ScheduleTimeIntent.needsClock("응", prev))
+    }
 }
