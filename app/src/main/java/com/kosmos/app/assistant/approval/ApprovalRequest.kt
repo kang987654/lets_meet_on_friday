@@ -9,6 +9,7 @@ import com.kosmos.app.domain.model.CalendarDraft
  * @property calendarDraft 캘린더 쓰기 승인 — 화면이 이 시점에 캘린더 권한을 요청하는 신호다. 시트 표시는 [preview] 가 맡는다(0.38.2 M5).
  * @property showsNotification 승인하면 나중에 알림이 떠야 하는 액션(리마인더) — 화면이 알림 권한을 이 시점에 요청한다(0.36.0 D4).
  * @property preview 공통 승인 시트가 구조화해 보일 내용(무엇을 · 언제 · 메모). null 이면 [title]·[description] 만 보인다.
+ * @property position 한 번에 여러 쓰기가 실행될 때 이 시트의 순번(1부터)과 전체 수 — 시트가 "1/2"처럼 보인다(0.42.7). 하나면 null.
  */
 data class ApprovalRequest(
     val sessionId: String,
@@ -16,7 +17,8 @@ data class ApprovalRequest(
     val description: String,
     val calendarDraft: CalendarDraft? = null,
     val showsNotification: Boolean = false,
-    val preview: ApprovalPreview? = null
+    val preview: ApprovalPreview? = null,
+    val position: Pair<Int, Int>? = null
 )
 
 /**

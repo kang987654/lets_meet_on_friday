@@ -321,34 +321,42 @@ def turn(history, user, sysm=SYS_OFF, tools=None, search_body=None, why=False):
             calls = res.get("tool_calls") or []
             if not calls:
                 break
-            fn = calls[0]["function"]
-            name, args = fn["name"], fn.get("arguments") or {}
-            first = first or fn
-            if name == "add_memory" and REPEAT.search(user) and not REPEAT_SAVE.search(user):
-                body, ok = {"status": "error", "message": REPEAT_NOT_SAVE}, False
-            elif name == "add_memory" and not SAVE_WORD.search(user) and not (prev_model and SAVE_ASK.search(prev_model) and is_yes(user)):
-                body, ok = {"status": "error", "message": ASK_FIRST}, False
-            elif name == "search_memory":
-                data = search_body if search_body is not None else current_lines(history, args.get("keyword")) + SEARCH_EMPTY
-                body, ok = {"status": "success", "data": data}, True
-            elif name == "add_memory":
-                body, ok = {"status": "success", "message": "기억에 저장했어요."}, True
-            elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
-                body, ok = {"status": "error", "message": SCHEDULE_NO_TIME}, False
-            elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)) and not (is_yes(user) and prev_user and SCHEDULE_CLOCK.search(prev_user)):
-                body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK}, False
-            elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=False)):
-                body, ok = {"status": "error", "message": wd_err}, False
-            elif name == "add_schedule" and (past_err := past_guidance(user, args.get("start_time"), sysm, en=False)):
-                body, ok = {"status": "error", "message": past_err}, False
-            elif name == "add_schedule":
-                body, ok = {"status": "success", "message": "일정이 성공적으로 추가되었습니다."}, True
-            elif name == "add_reminder":
-                body, ok = {"status": "success", "message": f"리마인더 등록: '{args.get('content', '')}' 알림"}, True
+            # 앱 BaseAgent 와 같이 한 차례의 호출을 3개까지 차례로 실행하고, 여럿이면 결과를 묶어 돌려준다(0.42.7).
+            bodies = []
+            for c in calls[:3]:
+                fn = c["function"]
+                name, args = fn["name"], fn.get("arguments") or {}
+                first = first or fn
+                if name == "add_memory" and REPEAT.search(user) and not REPEAT_SAVE.search(user):
+                    body, ok = {"status": "error", "message": REPEAT_NOT_SAVE}, False
+                elif name == "add_memory" and not SAVE_WORD.search(user) and not (prev_model and SAVE_ASK.search(prev_model) and is_yes(user)):
+                    body, ok = {"status": "error", "message": ASK_FIRST}, False
+                elif name == "search_memory":
+                    data = search_body if search_body is not None else current_lines(history, args.get("keyword")) + SEARCH_EMPTY
+                    body, ok = {"status": "success", "data": data}, True
+                elif name == "add_memory":
+                    body, ok = {"status": "success", "message": "기억에 저장했어요."}, True
+                elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
+                    body, ok = {"status": "error", "message": SCHEDULE_NO_TIME}, False
+                elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)) and not (is_yes(user) and prev_user and SCHEDULE_CLOCK.search(prev_user)):
+                    body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK}, False
+                elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=False)):
+                    body, ok = {"status": "error", "message": wd_err}, False
+                elif name == "add_schedule" and (past_err := past_guidance(user, args.get("start_time"), sysm, en=False)):
+                    body, ok = {"status": "error", "message": past_err}, False
+                elif name == "add_schedule":
+                    body, ok = {"status": "success", "message": "일정이 성공적으로 추가되었습니다."}, True
+                elif name == "add_reminder":
+                    body, ok = {"status": "success", "message": f"리마인더 등록: '{args.get('content', '')}' 알림"}, True
+                else:
+                    body, ok = {"status": "success", "data": "없음"}, True
+                (executed.append((name, args)) if ok else blocked.append(name))
+                bodies.append((name, body))
+            if len(bodies) == 1:
+                res = conv.send_message(K.tool_response_message(bodies[0][0], json.dumps(bodies[0][1], ensure_ascii=False)))
             else:
-                body, ok = {"status": "success", "data": "없음"}, True
-            (executed.append((name, args)) if ok else blocked.append(name))
-            res = conv.send_message(K.tool_response_message(name, json.dumps(body, ensure_ascii=False)))
+                combined = {"status": "success" if all(b.get("status") == "success" for _, b in bodies) else "partial", "results": [{"call": n, **b} for n, b in bodies]}
+                res = conv.send_message(K.tool_response_message(bodies[0][0], json.dumps(combined, ensure_ascii=False)))
         return text_of(res), executed, blocked, first
 
 
@@ -636,29 +644,37 @@ def turn_en(history, user, sysm=SYS_EN_OFF, tools=None, why=False):
             calls = res.get("tool_calls") or []
             if not calls:
                 break
-            fn = calls[0]["function"]
-            name, args = fn["name"], fn.get("arguments") or {}
-            first = first or fn
-            if name == "add_memory" and REPEAT.search(user) and not REPEAT_SAVE.search(user):
-                body, ok = {"status": "error", "message": REPEAT_NOT_SAVE_EN}, False
-            elif name == "add_memory" and not SAVE_WORD.search(user) and not (prev_model and SAVE_ASK.search(prev_model) and is_yes(user)):
-                body, ok = {"status": "error", "message": ASK_FIRST_EN}, False
-            elif name == "add_memory":
-                body, ok = {"status": "success", "message": "Saved to memory."}, True
-            elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
-                body, ok = {"status": "error", "message": SCHEDULE_NO_TIME_EN}, False
-            elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)) and not (is_yes(user) and prev_user and SCHEDULE_CLOCK.search(prev_user)):
-                body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK_EN}, False
-            elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=True)):
-                body, ok = {"status": "error", "message": wd_err}, False
-            elif name == "add_schedule" and (past_err := past_guidance(user, args.get("start_time"), sysm, en=True)):
-                body, ok = {"status": "error", "message": past_err}, False
-            elif name == "add_schedule":
-                body, ok = {"status": "success", "message": "Event added."}, True
+            # 앱 BaseAgent 와 같이 한 차례의 호출을 3개까지 차례로 실행하고, 여럿이면 결과를 묶어 돌려준다(0.42.7).
+            bodies = []
+            for c in calls[:3]:
+                fn = c["function"]
+                name, args = fn["name"], fn.get("arguments") or {}
+                first = first or fn
+                if name == "add_memory" and REPEAT.search(user) and not REPEAT_SAVE.search(user):
+                    body, ok = {"status": "error", "message": REPEAT_NOT_SAVE_EN}, False
+                elif name == "add_memory" and not SAVE_WORD.search(user) and not (prev_model and SAVE_ASK.search(prev_model) and is_yes(user)):
+                    body, ok = {"status": "error", "message": ASK_FIRST_EN}, False
+                elif name == "add_memory":
+                    body, ok = {"status": "success", "message": "Saved to memory."}, True
+                elif name == "add_schedule" and not SCHEDULE_TIME.search(user) and not (prev_model and SCHEDULE_TIME.search(prev_model)):
+                    body, ok = {"status": "error", "message": SCHEDULE_NO_TIME_EN}, False
+                elif name == "add_schedule" and not SCHEDULE_CLOCK.search(user) and not (prev_model and SCHEDULE_CLOCK.search(prev_model)) and not (is_yes(user) and prev_user and SCHEDULE_CLOCK.search(prev_user)):
+                    body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK_EN}, False
+                elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=True)):
+                    body, ok = {"status": "error", "message": wd_err}, False
+                elif name == "add_schedule" and (past_err := past_guidance(user, args.get("start_time"), sysm, en=True)):
+                    body, ok = {"status": "error", "message": past_err}, False
+                elif name == "add_schedule":
+                    body, ok = {"status": "success", "message": "Event added."}, True
+                else:
+                    body, ok = {"status": "success", "data": "None"}, True
+                (executed.append((name, args)) if ok else blocked.append(name))
+                bodies.append((name, body))
+            if len(bodies) == 1:
+                res = conv.send_message(K.tool_response_message(bodies[0][0], json.dumps(bodies[0][1], ensure_ascii=False)))
             else:
-                body, ok = {"status": "success", "data": "None"}, True
-            (executed.append((name, args)) if ok else blocked.append(name))
-            res = conv.send_message(K.tool_response_message(name, json.dumps(body, ensure_ascii=False)))
+                combined = {"status": "success" if all(b.get("status") == "success" for _, b in bodies) else "partial", "results": [{"call": n, **b} for n, b in bodies]}
+                res = conv.send_message(K.tool_response_message(bodies[0][0], json.dumps(combined, ensure_ascii=False)))
         return text_of(res), executed, blocked, first
 
 

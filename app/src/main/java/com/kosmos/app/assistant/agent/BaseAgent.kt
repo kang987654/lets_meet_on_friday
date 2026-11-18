@@ -184,90 +184,115 @@ abstract class BaseAgent(
                         language = language
                     )
                 }
-                val call = turn.toolCalls.first() // 병렬 처리 방지
-                // [WHY] 두 번째 툴부터는 실제로 찬 KV 를 재서, 결과를 얹으면 천장을 넘을 때 실행 **전에** 멈춘다(0.41.6 M2, ADR-020 보충) —
-                // 첫 툴은 예산 불변식이 보장한다. 부수효과(일정 추가 등)가 일어나기 전이라 "실행됐는데 답이 깨짐"이 없고,
-                // 회신 없는 툴 호출이 남은 대화는 다음 턴에 DB 기록으로 다시 만든다(상한 경로와 같은 처리). 안내는 앱 문장이라 모델 입력이 아니다.
-                if (loopCount >= 2 && !ToolKvBudget.fits(modelRunner.currentKvTokens(), Constants.TOOL_RESULT_MAX_TOKENS, Constants.PREFILL_CEILING_TOKENS)) {
+                // [WHY] 한 번에 낸 호출을 **차례로** 실행한다(0.42.7, exp103 — 사용자 결정) — 첫 호출만 실행하던 "병렬 처리 방지"는 근거 측정 없이 들어온 정책이었고,
+                // "치과, 팀 미팅 둘 다 잡아줘"에 모델이 바르게 낸 두 번째 호출을 버려 "둘 다 잡았어요"(거짓 완료)가 됐다(0.42.6 exp101 6/6).
+                // 하나씩(동시 실행 없음) 가드·승인 시트를 따로 거친다: 정답 4/12 → 12/12, 거짓 완료 8 → 0. [MAX_CALLS_PER_STEP] 를 넘는 호출은 감사에만 남긴다.
+                val calls = turn.toolCalls.take(MAX_CALLS_PER_STEP)
+                val dropped = turn.toolCalls.drop(MAX_CALLS_PER_STEP)
+                val writeTotal = calls.count { it.name in WRITE_TOOLS }
+                var writeIndex = 0
+                val results = mutableListOf<Pair<String, ToolOutcome>>()
+                val subjects = mutableListOf<String>()
+                var kvStopped = false
+                for ((index, call) in calls.withIndex()) {
+                    // [WHY] 두 번째 툴부터는 실제로 찬 KV 를 재서, 결과를 얹으면 천장을 넘을 때 실행 **전에** 멈춘다(0.41.6 M2, ADR-020 보충) —
+                    // 첫 툴은 예산 불변식이 보장한다. 부수효과(일정 추가 등)가 일어나기 전이라 "실행됐는데 답이 깨짐"이 없고,
+                    // 회신 없는 툴 호출이 남은 대화는 다음 턴에 DB 기록으로 다시 만든다(상한 경로와 같은 처리). 안내는 앱 문장이라 모델 입력이 아니다.
+                    if ((loopCount >= 2 || index >= 1) && !ToolKvBudget.fits(modelRunner.currentKvTokens(), Constants.TOOL_RESULT_MAX_TOKENS, Constants.PREFILL_CEILING_TOKENS)) {
+                        auditTrailService.logError(request.sessionId, "Tool skipped: KV budget (${call.name})")
+                        kvStopped = true
+                        break
+                    }
+                    val args = ToolArguments.of(call.args)
+                    // [WHY] 쓰기가 여럿이면 시트에 "1/2"처럼 순번을 보인다(사용자 결정) — 하나 더 남았음을 알 수 있게.
+                    val position = if (call.name in WRITE_TOOLS && writeTotal > 1) (++writeIndex) to writeTotal else null
+                    val outcome = executeToolInner(
+                        ToolParser.ToolCallData(call.name, args),
+                        request.sessionId,
+                        allowedTools,
+                        request.message,
+                        previousAssistant = if (call.name == ToolNames.ADD_MEMORY || call.name == ToolNames.ADD_SCHEDULE) previousTurn().assistant else null,
+                        previousUser = if (call.name == ToolNames.ADD_SCHEDULE) previousTurn().user else null,
+                        language = language,
+                        position = position
+                    )
+                    results += call.name to outcome
+                    subjects += args.optString("title")?.takeIf { it.isNotBlank() } ?: args.optString("content")?.takeIf { it.isNotBlank() } ?: call.name
+                    anyExecuted = anyExecuted || outcome.executed
+                    if (call.name == ToolNames.ADD_MEMORY) {
+                        if (outcome.factBlocked) {
+                            args.optString("content")?.takeIf { it.isNotBlank() }?.let { pendingMemos.put(request.sessionId, it) }
+                        } else {
+                            memoCalled = true
+                        }
+                    }
+                    // [WHY] 감사 기록을 여기서 남긴다 — 이 지점만이 "어떤 툴이 실제로 실행되고
+                    // 무엇을 돌려줬는가"를 안다. 승인 기록만으로는 승인이 필요 없는 툴(일정 조회,
+                    // 웹 검색)의 실행이 감사에서 통째로 빠진다.
+                    //
+                    // [WHY] 상한을 넘어 버린 호출을 무음으로 버리지 않는다 — 버려진 사실이 어디에도 남지 않으면
+                    // "왜 그 일이 안 됐는가"를 나중에 추적할 방법이 없다.
+                    auditTrailService.logToolCall(
+                        sessionId = request.sessionId,
+                        toolName = call.name,
+                        resultJson = outcome.resultJson,
+                        note = if (index > 0 || dropped.isEmpty()) null
+                        else "같은 차례의 추가 호출 ${dropped.size}건 미실행(상한 $MAX_CALLS_PER_STEP): ${dropped.map { it.name }}"
+                    )
+                    // [WHY] 웹 검색은 유일한 네트워크 egress 다. `SEARCH_USED` 감사 타입과
+                    // 포맷터가 이미 있었지만 호출하는 곳이 없어, 프라이버시상 가장 기록이 필요한
+                    // 동작이 감사 로그에 남지 않았다.
+                    if (call.name == ToolNames.SEARCH_WIKIPEDIA) {
+                        // [WHY] 뱃지 기준은 executed 가 아니라 **succeeded** 다. 위키 네트워크 실패는
+                        // 예외가 아니라 오류 JSON 으로 돌아오므로(executed=true), 예전 기준으로는
+                        // 실패한 검색에도 "참고했어요" 뱃지가 붙었다. 감사 기록은 executed 기준을
+                        // 유지한다 — 네트워크 시도 자체가 프라이버시상 기록할 사건이다.
+                        if (outcome.executed) {
+                            auditTrailService.logSearchEvent(
+                                request.sessionId,
+                                args.optString("topic") ?: ""
+                            )
+                        }
+                        if (outcome.succeeded) {
+                            searchUsed = true
+                        } else if (call.name in allowedTools) {
+                            // [WHY] allowlist 밖(토글 OFF)이면 '실패'가 아니라 '허용하지 않음'이다.
+                            // 그 경우까지 "웹 검색 보강 실패"를 띄우면 사용자가 스스로 끈 것을
+                            // 오류로 오해한다. 허용됐는데 실패한 경우만 알린다.
+                            searchFailed = true
+                        }
+                    }
+                    // [WHY] SearchMemory 의 meta.episodeIds 는 회수 칩의 출처다 — 여기서 뽑아 두고,
+                    // **모델에 되돌리기 전에 meta 를 제거**한다. 남겨 보내면 프롬프트 토큰을 낭비하고
+                    // 모델이 id 를 답변에 에코하거나 형식을 모방할 재료가 된다 (ADR-022).
+                    if (call.name == ToolNames.SEARCH_MEMORY && outcome.succeeded) {
+                        recallEpisodeIds += extractEpisodeIds(outcome.resultJson)
+                    }
+                    // [WHY] 결과 카드(0.38.2)의 대상 — 마지막으로 성공한 툴의 것. meta 와 함께 모델 입력에서 떼어 낸다.
+                    if (outcome.succeeded) extractResult(outcome.resultJson)?.let { messageResult = it }
+                }
+                if (kvStopped && results.isEmpty()) {
                     modelRunner.invalidateConversation()
-                    auditTrailService.logError(request.sessionId, "Tool skipped: KV budget (${call.name})")
                     val reply = if (language == AppLanguage.EN) KV_FULL_REPLY_EN else KV_FULL_REPLY
                     request.onStream?.invoke(StreamUpdate(reply, null))
                     parsedResult = ToolParser.parseStream(reply)
                     break
                 }
-                val args = ToolArguments.of(call.args)
-                val outcome = executeToolInner(
-                    ToolParser.ToolCallData(call.name, args),
-                    request.sessionId,
-                    allowedTools,
-                    request.message,
-                    previousAssistant = if (call.name == ToolNames.ADD_MEMORY || call.name == ToolNames.ADD_SCHEDULE) previousTurn().assistant else null,
-                    previousUser = if (call.name == ToolNames.ADD_SCHEDULE) previousTurn().user else null,
-                    language = language
-                )
-                anyExecuted = anyExecuted || outcome.executed
-                if (call.name == ToolNames.ADD_MEMORY) {
-                    if (outcome.factBlocked) {
-                        args.optString("content")?.takeIf { it.isNotBlank() }?.let { pendingMemos.put(request.sessionId, it) }
-                    } else {
-                        memoCalled = true
-                    }
-                }
-                // [WHY] 감사 기록을 여기서 남긴다 — 이 지점만이 "어떤 툴이 실제로 실행되고
-                // 무엇을 돌려줬는가"를 안다. 승인 기록만으로는 승인이 필요 없는 툴(일정 조회,
-                // 웹 검색)의 실행이 감사에서 통째로 빠진다.
-                //
-                // [WHY] 추가 호출을 무음으로 버리지 않는다. 첫 호출만 실행하는 것은 의도한
-                // 정책이지만(병렬 실행 방지), 버려진 사실이 어디에도 남지 않으면 "왜 두 번째
-                // 일이 안 됐는가"를 나중에 추적할 방법이 없다.
-                val dropped = turn.toolCalls.drop(1)
-                auditTrailService.logToolCall(
-                    sessionId = request.sessionId,
-                    toolName = call.name,
-                    resultJson = outcome.resultJson,
-                    note = if (dropped.isEmpty()) null
-                    else "같은 턴의 추가 호출 ${dropped.size}건 미실행: ${dropped.map { it.name }}"
-                )
-                // [WHY] 웹 검색은 유일한 네트워크 egress 다. `SEARCH_USED` 감사 타입과
-                // 포맷터가 이미 있었지만 호출하는 곳이 없어, 프라이버시상 가장 기록이 필요한
-                // 동작이 감사 로그에 남지 않았다.
-                if (call.name == ToolNames.SEARCH_WIKIPEDIA) {
-                    // [WHY] 뱃지 기준은 executed 가 아니라 **succeeded** 다. 위키 네트워크 실패는
-                    // 예외가 아니라 오류 JSON 으로 돌아오므로(executed=true), 예전 기준으로는
-                    // 실패한 검색에도 "참고했어요" 뱃지가 붙었다. 감사 기록은 executed 기준을
-                    // 유지한다 — 네트워크 시도 자체가 프라이버시상 기록할 사건이다.
-                    if (outcome.executed) {
-                        auditTrailService.logSearchEvent(
-                            request.sessionId,
-                            args.optString("topic") ?: ""
-                        )
-                    }
-                    if (outcome.succeeded) {
-                        searchUsed = true
-                    } else if (call.name in allowedTools) {
-                        // [WHY] allowlist 밖(토글 OFF)이면 '실패'가 아니라 '허용하지 않음'이다.
-                        // 그 경우까지 "웹 검색 보강 실패"를 띄우면 사용자가 스스로 끈 것을
-                        // 오류로 오해한다. 허용됐는데 실패한 경우만 알린다.
-                        searchFailed = true
-                    }
-                }
-                // [WHY] SearchMemory 의 meta.episodeIds 는 회수 칩의 출처다 — 여기서 뽑아 두고,
-                // **모델에 되돌리기 전에 meta 를 제거**한다. 남겨 보내면 프롬프트 토큰을 낭비하고
-                // 모델이 id 를 답변에 에코하거나 형식을 모방할 재료가 된다 (ADR-022).
-                if (call.name == ToolNames.SEARCH_MEMORY && outcome.succeeded) {
-                    recallEpisodeIds += extractEpisodeIds(outcome.resultJson)
-                }
-                // [WHY] 결과 카드(0.38.2)의 대상 — 마지막으로 성공한 툴의 것. meta 와 함께 모델 입력에서 떼어 낸다.
-                if (outcome.succeeded) extractResult(outcome.resultJson)?.let { messageResult = it }
 
                 // [WHY] 승인 거절은 모델을 다시 부르지 않고 고정 문장으로 턴을 끝낸다(0.38.6 M4 사용자 결정) — 모델에게 거절을 돌려주면
                 // 바로 앞 턴의 답을 따라 하거나("일정을 추가해도 될까요?"), 지시문을 읊거나("저장하지 않았다고 말씀드릴게요"), 거절을 오류로
                 // 말했다(실기기 10-23, exp56). 살아 있는 대화에는 회신 없는 툴 호출이 남으므로 다음 사용자 턴에 DB 히스토리로 다시 만든다.
-                if (outcome.rejected) {
+                // 여럿 중 일부만 거절했으면 무엇을 했고 무엇을 안 했는지 앱 문장으로(0.42.7 사용자 결정 (가)).
+                val rejected = results.indices.filter { results[it].second.rejected }
+                if (rejected.isNotEmpty() || kvStopped) {
                     anyExecuted = true
                     modelRunner.invalidateConversation()
-                    val reply = rejectionReply(call.name, language)
+                    val doneWrites = results.indices.filter { results[it].second.succeeded && results[it].first in WRITE_TOOLS }
+                    val reply = when {
+                        rejected.isNotEmpty() && doneWrites.isEmpty() -> rejectionReply(results[rejected.first()].first, language)
+                        rejected.isNotEmpty() -> partialReply(doneWrites.map { subjects[it] }, rejected.map { subjects[it] }, language)
+                        else -> if (language == AppLanguage.EN) KV_FULL_REPLY_EN else KV_FULL_REPLY
+                    }
                     request.onStream?.invoke(StreamUpdate(reply, null))
                     parsedResult = ToolParser.parseStream(reply)
                     break
@@ -275,10 +300,14 @@ abstract class BaseAgent(
 
                 // [WHY] Conversation은 stateful이라 직전 입력/출력이 이미 컨텍스트에 있다.
                 // 툴 결과만 전용 응답 타입으로 되돌린다 — 이전에는 `<tool_response>` 텍스트를
-                // 사용자 턴으로 위장해 보냈다.
+                // 사용자 턴으로 위장해 보냈다. 호출이 하나면 그 결과 그대로(바이트 불변), 여럿이면 묶어서(exp103 형식).
                 prompt = prompt.copy(
                     currentInput = "",
-                    toolResponse = ToolResponseInput(call.name, stripMeta(outcome.resultJson))
+                    toolResponse = if (results.size == 1) {
+                        ToolResponseInput(results[0].first, stripMeta(results[0].second.resultJson))
+                    } else {
+                        ToolResponseInput(results[0].first, combinedResults(results))
+                    }
                 )
                 continue
             }
@@ -390,7 +419,8 @@ abstract class BaseAgent(
         previousAssistant: String? = null,
         previousUser: String? = null,
         guardFact: Boolean = true,
-        language: AppLanguage = AppLanguage.KO
+        language: AppLanguage = AppLanguage.KO,
+        position: Pair<Int, Int>? = null
     ): ToolOutcome {
         val en = language == AppLanguage.EN
         // [WHY] 가드는 실행기 조회보다 먼저다 — allowlist 밖 이름은 실행기가 있든 없든 막혀야 한다.
@@ -419,7 +449,7 @@ abstract class BaseAgent(
         return try {
             val actionType = executor.actionType
             if (actionType != null && ApprovalRules.requiresApproval(actionType)) {
-                val approvalRequest = executor.buildApprovalRequest(call.args, sessionId)
+                val approvalRequest = executor.buildApprovalRequest(call.args, sessionId).let { if (position != null) it.copy(position = position) else it }
                 val approved = approvalCoordinator.requireApproval(approvalRequest)
                 if (!approved) {
                     auditTrailService.logApprovalRejected(sessionId, "${call.name}: ${approvalRequest.description}")
@@ -432,6 +462,27 @@ abstract class BaseAgent(
             auditTrailService.logError(sessionId, "Invalid tool argument: ${call.name}.${e.field} (${e.reason})")
             ToolOutcome(toolArgumentErrorJson(call.name, e, language), executed = false)
         }
+    }
+
+    /** 여럿 중 일부만 거절한 턴의 답 — 무엇을 했고 무엇을 안 했는지(0.42.7). 조사를 피하려 대상은 따옴표로 묶는다. */
+    private fun partialReply(done: List<String>, notDone: List<String>, language: AppLanguage): String {
+        val d = done.joinToString(", ") { "'$it'" }
+        val n = notDone.joinToString(", ") { "'$it'" }
+        return if (language == AppLanguage.EN) "Added: $d. Not added: $n." else "추가했어요: $d. 추가하지 않았어요: $n."
+    }
+
+    /** 한 차례에 실행한 여러 호출의 결과를 하나로 — `{"status", "results":[{"call", …각 결과}]}`(exp103 에서 잰 형식). meta 는 뗀다. */
+    private fun combinedResults(results: List<Pair<String, ToolOutcome>>): String {
+        val list = org.json.JSONArray()
+        for ((name, outcome) in results) {
+            val item = org.json.JSONObject().put("call", name)
+            runCatching { org.json.JSONObject(stripMeta(outcome.resultJson)) }.getOrNull()?.let { parsed ->
+                parsed.keys().forEach { key -> item.put(key, parsed.get(key)) }
+            }
+            list.put(item)
+        }
+        val status = if (results.all { it.second.succeeded }) "success" else "partial"
+        return org.json.JSONObject().put("status", status).put("results", list).toString()
     }
 
     /**
@@ -506,6 +557,9 @@ abstract class BaseAgent(
         // → 최종 답변(3). 줄이면 그 프로토콜이 조용히 끊긴다. 인자 오류 자가수정도 이 상한을
         // 공유한다(BAD_FORMAT 재시도).
         const val MAX_TOOL_LOOP_COUNT = 3
+        /** 모델이 한 번에 낸 호출 중 차례로 실행할 개수 상한(0.42.7, 사용자 결정) — 폭주한 모델이 승인 시트를 끝없이 띄우지 않게. */
+        const val MAX_CALLS_PER_STEP = 3
+        private val WRITE_TOOLS = setOf(ToolNames.ADD_SCHEDULE, ToolNames.ADD_REMINDER, ToolNames.ADD_MEMORY)
 
         // 앞 턴(비서 말·그 앞 사용자 말)을 찾을 때 읽는 최근 메시지 수 — 지금 턴의 사용자 메시지·문서 블록을 넘고도 남는다.
         const val PREVIOUS_TURN_SCAN = 6

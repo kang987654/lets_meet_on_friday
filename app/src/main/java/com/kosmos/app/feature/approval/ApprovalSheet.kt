@@ -297,7 +297,10 @@ fun ApprovalSheet(
     val context = LocalContext.current
     val today = rememberToday()
     val lang = currentAppLanguage()
-    ApprovalSheetLayout(ApprovalSheetContent.of(context, request, today, lang = lang), onApprove, onReject, footnote = footnote, timeoutKey = timeoutKey, onFootnoteAction = onFootnoteAction)
+    val base = ApprovalSheetContent.of(context, request, today, lang = lang)
+    // [WHY] 한 번에 여러 개를 실행하면 시트가 차례로 뜬다 — 몇 번째인지 보여 하나 더 남았음을 알린다(0.42.7, 사용자 결정).
+    val content = request.position?.let { (index, total) -> base.copy(label = "${base.label} $index/$total") } ?: base
+    ApprovalSheetLayout(content, onApprove, onReject, footnote = footnote, timeoutKey = timeoutKey, onFootnoteAction = onFootnoteAction)
 }
 
 /**

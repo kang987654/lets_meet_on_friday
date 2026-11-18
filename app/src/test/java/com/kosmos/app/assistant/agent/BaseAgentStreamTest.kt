@@ -163,9 +163,10 @@ class BaseAgentStreamTest {
     }
 
     @Test
-    fun `무시된 추가 툴 호출이 감사 기록에 남는다`() {
-        // [WHY] 첫 호출만 실행하는 것은 의도한 정책이지만, 버려진 사실이 어디에도 없으면
-        // "왜 두 번째 일이 안 됐는가"를 추적할 방법이 없다.
+    fun `한 차례의 여러 호출이 각각 감사 기록에 남는다`() {
+        // [WHY] 0.42.7 부터 한 차례의 호출을 차례로 모두 실행한다(첫 호출만 실행하던 정책 폐기, 사용자 확인으로 단언 변경) —
+        // 실행된 것과 막힌 것이 각각 기록돼야 "왜 그 일이 안 됐는가"를 추적할 수 있다. 상한을 넘어 버린 호출의 기록은
+        // `한 차례의 호출이 상한을 넘으면 …` 테스트가 맡는다.
         val harness = runAgent(
             ModelTurn("", listOf(toolCall("GetSchedule"), toolCall("AddMemory"))),
             ModelTurn("완료."),
@@ -173,9 +174,84 @@ class BaseAgentStreamTest {
             toolRegistry = registryWith("GetSchedule", """{"status":"success"}""")
         )
 
-        val note = harness.toolCallLog.single().note
-        assertNotNull("무시된 호출이 기록되지 않았다", note)
-        assertTrue("기록에 무시된 툴 이름이 없다: $note", note!!.contains("AddMemory"))
+        assertEquals(listOf("GetSchedule", "AddMemory"), harness.toolCallLog.map { it.tool })
+        assertTrue("허용 목록 밖 호출이 막힌 결과로 남지 않았다", harness.toolCallLog[1].resultJson.contains("error"))
+    }
+
+    // --- 한 차례의 여러 호출 (0.42.7) ---
+
+    /** 승인이 필요한 일정 추가 실행기 — 승인 요청을 [requests] 에 받아 두고, [approvals] 순서대로 승인/거절한다. */
+    private fun runScheduleCalls(
+        calls: List<ModelToolCall>,
+        approvals: List<Boolean>,
+        requests: MutableList<com.kosmos.app.assistant.approval.ApprovalRequest>,
+        executed: MutableList<String>
+    ): Harness {
+        val executor: ToolExecutor = mockk {
+            every { name } returns "AddSchedule"
+            every { actionType } returns com.kosmos.app.core.security.ApprovalRules.ActionType.CALENDAR_WRITE
+            every { buildApprovalRequest(any(), any()) } answers {
+                com.kosmos.app.assistant.approval.ApprovalRequest("s1", "일정 추가", firstArg<com.kosmos.app.assistant.tool.ToolArguments>().optString("title") ?: "")
+            }
+            coEvery { execute(any(), any()) } answers {
+                executed += firstArg<com.kosmos.app.assistant.tool.ToolArguments>().optString("title") ?: ""
+                """{"status":"success","message":"추가했어요."}"""
+            }
+        }
+        val registry: ToolRegistry = mockk { every { getExecutor("AddSchedule") } returns executor }
+        val answers = approvals.iterator()
+        val coordinator: ApprovalCoordinator = mockk {
+            coEvery { requireApproval(any()) } answers { requests += firstArg<com.kosmos.app.assistant.approval.ApprovalRequest>(); answers.next() }
+        }
+        val updates = mutableListOf<StreamUpdate>()
+        val runner = ChunkedModelRunner(listOf(ModelTurn("", calls), ModelTurn("둘 다 잡았어요.")))
+        val audit: AuditTrailService = mockk(relaxed = true)
+        val toolCallLog = mutableListOf<ToolCallRecord>()
+        coEvery { audit.logToolCall(any(), any(), any(), any()) } answers { toolCallLog += ToolCallRecord(arg(1), arg(2), arg(3)) }
+        val agent = TestAgent(runner, registry, audit, mockk(relaxed = true), coordinator, allowedTools = listOf("AddSchedule"))
+        // [WHY] 일정 가드가 보는 사용자 말 — 날짜·시각이 있어야 통과한다.
+        val request = ChatRequest(sessionId = "s1", message = "2099년 1월 5일 오후 3시 치과, 5시 팀 미팅 둘 다 잡아줘", onStream = { updates += it })
+        val result = runBlocking { agent.execute(request, mockk(relaxed = true)) }
+        return Harness(result, updates, runner.receivedPrompts, audit, emptyList(), toolCallLog)
+    }
+
+    private fun schedule(title: String, hour: Int) =
+        toolCall("AddSchedule", mapOf("title" to title, "start_time" to "2099-01-05T%02d:00:00".format(hour), "end_time" to "2099-01-05T%02d:00:00".format(hour + 1)))
+
+    @Test
+    fun `한 차례에 낸 쓰기 호출을 차례로 모두 실행하고 시트에 순번을 보이며 결과를 묶어 돌려준다`() {
+        // [WHY] 첫 호출만 실행하던 정책이 "둘 다 잡아줘"의 두 번째를 버려 거짓 완료가 됐다(0.42.6 exp101 6/6 → exp103 차례로 실행 12/12).
+        val requests = mutableListOf<com.kosmos.app.assistant.approval.ApprovalRequest>()
+        val executed = mutableListOf<String>()
+        val harness = runScheduleCalls(listOf(schedule("치과", 15), schedule("팀 미팅", 17)), listOf(true, true), requests, executed)
+
+        assertEquals(listOf("치과", "팀 미팅"), executed)
+        assertEquals(listOf(1 to 2, 2 to 2), requests.map { it.position })
+        val response = harness.prompts[1].toolResponse!!.resultJson
+        assertTrue("결과가 묶이지 않았다: $response", response.contains("\"results\"") && response.indexOf("AddSchedule") != response.lastIndexOf("AddSchedule"))
+    }
+
+    @Test
+    fun `여럿 중 일부만 거절하면 모델을 다시 부르지 않고 한 것과 안 한 것을 앱 문장으로 답한다`() {
+        val requests = mutableListOf<com.kosmos.app.assistant.approval.ApprovalRequest>()
+        val executed = mutableListOf<String>()
+        val harness = runScheduleCalls(listOf(schedule("치과", 15), schedule("팀 미팅", 17)), listOf(true, false), requests, executed)
+
+        assertEquals(listOf("치과"), executed)
+        assertEquals("추가했어요: '치과'. 추가하지 않았어요: '팀 미팅'.", (harness.result as AgentResult.Text).content)
+        assertEquals("거절 뒤 모델을 다시 부르면 안 된다", 1, harness.prompts.size)
+    }
+
+    @Test
+    fun `한 차례의 호출이 상한을 넘으면 넘는 것은 실행하지 않고 감사 기록에 남긴다`() {
+        val requests = mutableListOf<com.kosmos.app.assistant.approval.ApprovalRequest>()
+        val executed = mutableListOf<String>()
+        val four = listOf(schedule("가", 9), schedule("나", 11), schedule("다", 13), schedule("라", 15))
+        val harness = runScheduleCalls(four, listOf(true, true, true), requests, executed)
+
+        assertEquals(listOf("가", "나", "다"), executed)
+        val note = harness.toolCallLog.first().note
+        assertTrue("버린 호출이 기록되지 않았다: $note", note != null && note.contains("1건"))
     }
 
     @Test
