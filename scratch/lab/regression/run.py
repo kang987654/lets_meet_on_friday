@@ -73,6 +73,29 @@ def _today_from_sys(sysm: str) -> dt.date:
     return dt.date.fromisoformat(m.group(1)) if m else dt.date.fromisoformat(TODAY)
 
 
+PAST_DATE_WORD = re.compile(r"오늘|어제|그저께|아까|방금|\d+\s*월|\d+\s*일|\b(today|yesterday|earlier)\b", re.I)
+
+
+def past_guidance(user: str, start_time: str | None, sysm: str, en: bool = False) -> str | None:
+    """SchedulePastIntent.pastGuidance 흉내(0.42.5 M1) — 지금 = 시스템 지시의 오늘 + 턴 리마인더의 [Now] 시각."""
+    if not start_time or len(str(start_time)) <= 10:
+        return None
+    m = re.search(r"\[Now\] (\d{1,2}):(\d{2})", K.fixture("turn_reminder.txt"))
+    if not m:
+        return None
+    now = dt.datetime.combine(_today_from_sys(sysm), dt.time(int(m.group(1)), int(m.group(2))))
+    try:
+        st = dt.datetime.fromisoformat(str(start_time)[:19])
+    except ValueError:
+        return None
+    if st >= now or PAST_DATE_WORD.search(user):
+        return None
+    hm = st.strftime("%H:%M")
+    if en:
+        return f"Not executed. {hm} today has already passed. Ask the user whether they mean tomorrow at {hm}."
+    return f"실행하지 않았습니다. 오늘 {hm}은 이미 지났습니다. 내일 {hm}인지 사용자에게 물어보세요."
+
+
 def weekday_mismatch_guidance(user: str, start_time: str | None, sysm: str, en: bool = False) -> str | None:
     if not user or not user.strip() or not start_time:
         return None
@@ -316,6 +339,8 @@ def turn(history, user, sysm=SYS_OFF, tools=None, search_body=None, why=False):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK}, False
             elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=False)):
                 body, ok = {"status": "error", "message": wd_err}, False
+            elif name == "add_schedule" and (past_err := past_guidance(user, args.get("start_time"), sysm, en=False)):
+                body, ok = {"status": "error", "message": past_err}, False
             elif name == "add_schedule":
                 body, ok = {"status": "success", "message": "일정이 성공적으로 추가되었습니다."}, True
             elif name == "add_reminder":
@@ -626,6 +651,8 @@ def turn_en(history, user, sysm=SYS_EN_OFF, tools=None, why=False):
                 body, ok = {"status": "error", "message": SCHEDULE_NO_CLOCK_EN}, False
             elif name == "add_schedule" and (wd_err := weekday_mismatch_guidance(user, args.get("start_time"), sysm, en=True)):
                 body, ok = {"status": "error", "message": wd_err}, False
+            elif name == "add_schedule" and (past_err := past_guidance(user, args.get("start_time"), sysm, en=True)):
+                body, ok = {"status": "error", "message": past_err}, False
             elif name == "add_schedule":
                 body, ok = {"status": "success", "message": "Event added."}, True
             else:

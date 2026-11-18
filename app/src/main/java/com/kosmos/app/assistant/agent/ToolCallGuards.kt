@@ -2,6 +2,7 @@ package com.kosmos.app.assistant.agent
 
 import com.kosmos.app.assistant.tool.ToolResultJson
 import com.kosmos.app.core.common.AppLanguage
+import com.kosmos.app.domain.agent.SchedulePastIntent
 import com.kosmos.app.domain.agent.ScheduleTimeIntent
 import com.kosmos.app.domain.agent.ScheduleWeekdayIntent
 import com.kosmos.app.domain.memory.MemoSaveIntent
@@ -74,6 +75,10 @@ internal object ToolCallGuards {
         // [WHY] 이번 턴 사용자 말의 단일 요일과 start_time 날짜 요일이 다르면 승인 시트 전에 막고 바른 날짜를 알려 준다(exp88·89, 0.41.13 M1).
         if (guardFact && name == ToolNames.ADD_SCHEDULE && userText.isNotBlank()) {
             ScheduleWeekdayIntent.mismatchGuidance(userText, startTime, now, zoneId, language)?.let { msg ->
+                return Block(ToolOutcome(ToolResultJson.error(msg), executed = false))
+            }
+            // [WHY] 날짜 없이 말한 시각이 오늘 이미 지났으면 막고 내일인지 묻게 한다(0.42.5 M1, exp99 0/12 → 12/12).
+            SchedulePastIntent.pastGuidance(userText, startTime, now, zoneId, language)?.let { msg ->
                 return Block(ToolOutcome(ToolResultJson.error(msg), executed = false))
             }
         }
