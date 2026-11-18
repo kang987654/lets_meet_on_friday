@@ -74,6 +74,39 @@ internal object RuntimeDiagnostics {
         }
     }
 
+    /** 이번 턴이 생성한 토큰 수 — 벤치마크 정보를 못 읽으면 null(벤치마크는 디버그 빌드만 켠다 — 릴리스는 [com.kosmos.app.domain.modelrunner.BrokenOutput] 검사만 남는다). */
+    @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
+    fun decodedTokens(conversation: Conversation): Int? =
+        runCatching { conversation.getBenchmarkInfo().lastDecodeTokenCount }.getOrNull()
+
+    /**
+     * 채팅 밖 추론이 출력 상한에 닿았을 때의 상태를 남긴다 — 로그 한 줄 + (디버그 빌드) 앱 외부 파일 폴더의 [RUNAWAY_FILE_NAME] 에 덧붙임.
+     *
+     * [WHY] 11-17 휴대폰에서 회고·판정이 깨진 글자를 한도까지 냈지만 다음 날 재현되지 않아 단서가 없었다(CHANGELOG 0.42.4).
+     * 재발한 순간의 조건(임베딩 엔진 백엔드·MTP·속도·남은 메모리·엔진을 올린 뒤 지난 시간)을 기기에 남겨 adb 없이 생겨도 나중에 읽는다.
+     */
+    @OptIn(com.google.ai.edge.litertlm.ExperimentalApi::class)
+    fun recordRunaway(context: android.content.Context, prompt: ChatPrompt, conversation: Conversation, mtp: String?, engineAgeMs: Long, text: String) {
+        val bench = runCatching { conversation.getBenchmarkInfo() }.getOrNull()
+        val memory = android.app.ActivityManager.MemoryInfo().also {
+            (context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager)?.getMemoryInfo(it)
+        }
+        val line = "runaway: session=${prompt.sessionId}, cap=${prompt.maxOutputTokens}, " +
+            "decode=${bench?.lastDecodeTokenCount}tok@${bench?.lastDecodeTokensPerSecond?.let { "%.1f".format(it) }}/s, prefill=${bench?.lastPrefillTokenCount}tok, " +
+            "mtp=$mtp, embedding=${com.kosmos.app.runtime.embedding.EmbeddingEngineState.loadedBackend ?: "none"}, engineAgeMs=$engineAgeMs, " +
+            "availMemMb=${memory.availMem / (1024 * 1024)}, head=${text.take(60).replace('\n', ' ')}"
+        Log.w(TAG, line)
+        if (!BuildConfig.DEBUG) return
+        runCatching {
+            val file = java.io.File(context.getExternalFilesDir(null) ?: return, RUNAWAY_FILE_NAME)
+            val kept = if (file.isFile) file.readLines().takeLast(RUNAWAY_KEEP_LINES - 1) else emptyList()
+            file.writeText((kept + "${java.time.Instant.now()} $line").joinToString("\n") + "\n")
+        }
+    }
+
+    const val RUNAWAY_FILE_NAME = "diag_runaway.txt"
+    private const val RUNAWAY_KEEP_LINES = 30
+
     /**
      * [WHY] 툴 호출 여부는 실기기에서만 확인할 수 있고 감사 로그에는 시스템 지시가 남지 않는다.
      * enabledTools 를 함께 남겨야 toolCalls=[] 가 "선언 안 됨"인지 "모델이 거부"인지 구분된다.

@@ -120,6 +120,8 @@ class GemmaModelRunner @Inject constructor(
     private var conversation: Conversation? = null
     // [WHY] 엔진을 올릴 때 한 번 정한다 — GPU 엔진만 값이 있다([MtpMode.resolve], 0.41.1). 엔진과 수명이 같다.
     private var speculative: SpeculativeDecodingConfig? = null
+    // 엔진을 올린 시각 — 폭주 진단 기록에 "올린 뒤 얼마나 지났나"를 남긴다(0.42.4).
+    @Volatile private var engineReadyAt: Long = 0L
     private var cachedKey: ConversationKey? = null
 
     // [WHY] 화면에서 고친 사실(알림 미룸 등)은 DB 히스토리에만 있다 — 살아 있는 대화를 재사용하면 모델이 옛 값을 안다(0.38.2 M4, 사용자 결정).
@@ -384,6 +386,14 @@ class GemmaModelRunner @Inject constructor(
                     if (!prompt.oneShot) RuntimeDiagnostics.logKvUsage("턴 종료", currentConversation)
                     RuntimeDiagnostics.logBenchmark(prompt, currentConversation)
 
+                    // [WHY] 출력 상한에 닿은 채팅 밖 추론은 실패로 — 정상 출력의 몇 배라 닿았다면 폭주다([OneShotLimits], 0.42.4). 그 순간의 상태를 남긴다.
+                    val cap = prompt.maxOutputTokens
+                    val decoded = RuntimeDiagnostics.decodedTokens(currentConversation)
+                    if (cap != null && decoded != null && decoded >= cap - 1) {
+                        RuntimeDiagnostics.recordRunaway(context, prompt, currentConversation, speculative?.toString(), System.currentTimeMillis() - engineReadyAt, messageText)
+                        return@withLock AppResult.Failure(AppError.ModelInferenceError("출력이 상한(${cap}토큰)에 닿았어요"))
+                    }
+
                     // [WHY] 텍스트가 비어도 툴 호출만 온 턴은 정상이다 — 모델이 말 없이 곧바로
                     // 툴을 부르는 경우가 흔하다. 둘 다 비었을 때만 실패로 본다.
                     if (messageText.isNotEmpty() || toolCalls.isNotEmpty()) {
@@ -600,6 +610,7 @@ class GemmaModelRunner @Inject constructor(
                 engine = gpuEngine
                 val mtp = MtpMode.resolve(gpu = true, debug = BuildConfig.DEBUG, debugDir = context.getExternalFilesDir(null))
                 speculative = mtp?.toConfig()
+                engineReadyAt = System.currentTimeMillis()
                 Log.d("GemmaModelRunner", "Engine initialized with GPU backend (mtp=$mtp)")
             } catch (e: Exception) {
                 Log.e("GemmaModelRunner", "Failed to initialize GPU backend, falling back to CPU", e)

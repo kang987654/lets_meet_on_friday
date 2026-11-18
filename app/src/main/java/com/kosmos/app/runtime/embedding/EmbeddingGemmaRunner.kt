@@ -96,6 +96,7 @@ class EmbeddingGemmaRunner @Inject constructor(
         val opened = EmbeddingBackend.openWithFallback(primary) { candidate -> open(file, candidate) } ?: return null
         backend = opened.first
         engine = opened.second
+        EmbeddingEngineState.loadedBackend = opened.first.name
         return opened.second
     }
 
@@ -132,6 +133,7 @@ class EmbeddingGemmaRunner @Inject constructor(
         mutex.withLock {
             engine?.let { runCatching { it.close() } }
             engine = null
+            EmbeddingEngineState.loadedBackend = null
         }
     }
 
@@ -145,6 +147,12 @@ class EmbeddingGemmaRunner @Inject constructor(
         const val MAX_INPUT_TOKENS = 512
         val OPTIONS = EmbeddingOptions(normalize = true)
     }
+}
+
+/** 임베딩 엔진이 지금 올라와 있는 백엔드 이름(없으면 null) — 채팅 밖 추론이 폭주했을 때 진단 기록에 함께 남긴다(0.42.4). */
+object EmbeddingEngineState {
+    @Volatile
+    var loadedBackend: String? = null
 }
 
 /**
@@ -168,9 +176,9 @@ enum class EmbeddingBackend {
     GPU;
 
     companion object {
-        // [WHY] CPU 로 바꿨다(0.42.4 M1, 휴대폰 SM-S938N) — 임베딩 엔진이 GPU 에 함께 올라와 있으면 채팅 밖 추론(회고·판정)이 깨진 글자를 엔진 한도까지 냈다.
-        // 같은 순서에서 임베딩만 CPU 로 두면 정상(회고 99토큰, 정리 17초) / GPU 면 다시 폭주(정리 242초). 대가: 조각당 43 → 83ms(0.41.2 실측).
-        val DEFAULT: EmbeddingBackend = CPU
+        // [WHY] GPU 유지(0.42.4, 사용자 결정) — 11-17 휴대폰에서 임베딩이 GPU 일 때만 채팅 밖 추론이 폭주했으나(3/3, CPU 1/1 정상) 11-18 같은 조건에서 재현되지 않았다(0/3).
+        // 원인 미상이라 속도를 지키고, 재발은 출력 상한·[RuntimeDiagnostics.recordRunaway] 기록으로 잡는다. 재발하면 `debug_embed.txt` = CPU 로 갈라 본다.
+        val DEFAULT: EmbeddingBackend = GPU
         const val DEBUG_FILE_NAME = "debug_embed.txt"
 
         fun parse(text: String?): EmbeddingBackend? = text?.trim()?.uppercase()?.let { key -> entries.firstOrNull { it.name == key } }
