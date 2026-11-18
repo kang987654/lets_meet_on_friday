@@ -40,6 +40,12 @@ class EmbeddingBackendTest {
     }
 
     @Test
+    fun `기본값은 CPU 다 — GPU 임베딩과 채팅 엔진이 같이 있으면 채팅 출력이 깨졌다(0·42·8)`() {
+        assertEquals(EmbeddingBackend.CPU, EmbeddingBackend.DEFAULT)
+        assertEquals(EmbeddingBackend.CPU, EmbeddingBackend.resolve(debug = false, debugDir = null))
+    }
+
+    @Test
     fun `GPU 가 실패하면 CPU 로 한 번 더 열고 CPU 도 실패하면 null`() {
         val tried = mutableListOf<EmbeddingBackend>()
         val opened = EmbeddingBackend.openWithFallback(EmbeddingBackend.GPU) { tried += it; if (it == EmbeddingBackend.CPU) "cpu-engine" else null }

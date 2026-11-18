@@ -35,7 +35,7 @@ import javax.inject.Singleton
  * 3. [release] — 앱이 백그라운드로 가면(KosmosApp onStop·onTrimMemory) 내린다. 다음 호출이 다시 올린다.
  *
  * [WHY] 백그라운드에서 올리지 않는다(AGENTS §2-⑥) — 호출하는 쪽(검색 툴·사용자가 시작한 벡터 만들기)이 전경에서만 부른다.
- * [WHY] 기본 백엔드는 [EmbeddingBackend.DEFAULT] — 휴대폰 실측(0.41.2 M2)으로 정한다. 디버그 빌드는 앱 외부 파일 폴더의
+ * [WHY] 기본 백엔드는 [EmbeddingBackend.DEFAULT] — 휴대폰 실측(0.41.2 M2 속도, 0.42.8 출력 깨짐)으로 정한다. 디버그 빌드는 앱 외부 파일 폴더의
  * [EmbeddingBackend.DEBUG_FILE_NAME] 으로 바꾼다.
  */
 @Singleton
@@ -167,8 +167,8 @@ internal fun activationFor(candidate: EmbeddingBackend): ActivationDataType? =
 /**
  * 임베딩 엔진 백엔드 — 휴대폰 실측(0.41.2 M2)으로 기본값을 정한다.
  *
- * [WHY] 기본은 GPU(0.41.2 Q3 사용자 결정) — S25 Ultra 실측 민법 1,136조각에서 GPU 43ms/개·엔진 2.5초, CPU 83ms/개·7.5초.
- * 채팅 GPU 와의 겹침은 LibraryEmbedder 가 채팅 중 멈추고 늦게 이어 가는 것으로 피한다.
+ * [WHY] 기본은 [DEFAULT] 를 본다 — 0.41.2 에 속도로 GPU 를 골랐다가 0.42.8 에 채팅 출력 깨짐으로 CPU 로 바꿨다(ADR 보충 0.42.8).
+ * 문서 벡터 만들기는 LibraryEmbedder 가 채팅 중 멈추고 늦게 이어 간다(GPU 를 다시 쓸 때의 겹침 회피 — CPU 에서도 해롭지 않다).
  * [WHY] NPU 는 넣지 않는다 — Qualcomm NPU 는 앱에 QNN 라이브러리를 함께 실어야 하고 LiteRT-LM 공식 예제에도 쓰임이 없다(별도 조사 회차 몫).
  */
 enum class EmbeddingBackend {
@@ -176,9 +176,9 @@ enum class EmbeddingBackend {
     GPU;
 
     companion object {
-        // [WHY] GPU 유지(0.42.4, 사용자 결정) — 11-17 휴대폰에서 임베딩이 GPU 일 때만 채팅 밖 추론이 폭주했으나(3/3, CPU 1/1 정상) 11-18 같은 조건에서 재현되지 않았다(0/3).
-        // 원인 미상이라 속도를 지키고, 재발은 출력 상한·[RuntimeDiagnostics.recordRunaway] 기록으로 잡는다. 재발하면 `debug_embed.txt` = CPU 로 갈라 본다.
-        val DEFAULT: EmbeddingBackend = GPU
+        // [WHY] CPU(0.42.8, 사용자 결정) — 임베딩 엔진이 GPU 에 같이 있으면 채팅 엔진 출력이 깨진 글자로 폭주하는 일이 휴대폰에서 되풀이됐고(채팅 답까지),
+        // CPU 로 두면 사라졌다. 대가는 조각당 몇 ms·검색 품질 사실상 같음(ADR 보충 0.42.8). GPU 는 디버그 파일로만 다시 갈라 본다.
+        val DEFAULT: EmbeddingBackend = CPU
         const val DEBUG_FILE_NAME = "debug_embed.txt"
 
         fun parse(text: String?): EmbeddingBackend? = text?.trim()?.uppercase()?.let { key -> entries.firstOrNull { it.name == key } }
