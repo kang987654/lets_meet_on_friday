@@ -1,7 +1,7 @@
 [한국어](USER_GUIDE.md) | **English**
 
 # KOSMOS User Guide
-> Based on app 0.42.5 · 2026-11-18. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
+> Based on app 0.42.7 · 2026-11-18. Kept in sync with the Korean guide — if they differ, the Korean guide is authoritative.
 
 KOSMOS is an AI assistant that runs entirely on your phone, with no server. Ask in plain language (Korean or English) and it creates calendar events,
 reminders and notes, and answers by searching your past conversations, notes and the documents you registered. It always asks for your confirmation before saving.
@@ -51,6 +51,7 @@ Requested only when needed. Everything else keeps working if you decline.
 | "Book a dentist appointment" (no time) / "치과 예약 잡아줘" | It asks when → answer like "tomorrow at 3 PM" and the confirmation sheet appears |
 | "Add dinner with friends tonight" (no clock time) / "저녁 약속 일정 넣어줘" | Words like tonight, morning or tomorrow alone are not enough — it asks what time → answer like "7 PM" and the confirmation sheet appears |
 | "Add a meeting at 9am" (a time that has already passed) | If the time you give without a date has already passed today, it asks "tomorrow at 9:00?" → say "Yes" and the confirmation sheet uses tomorrow. To log something that already happened, say the date, e.g. "this morning at 9" with "today" |
+| "Schedule a dentist at 3pm and a team meeting at 5pm tomorrow" | Confirmation sheets appear one after another ("1/2", "2/2" next to the sheet name), up to three at once. If you cancel some, it tells you what was added and what was not |
 | "Remind me in 30 minutes to drink water" / "30분 뒤에 물 마시라고 알려줘" | A reminder confirmation sheet → it rings on time |
 | "Remember that my bike PIN is 4821" / "내 자전거 비밀번호 4821이야 기억해줘" | A note confirmation sheet |
 | "My locker number is 214" (stating a fact, no request to save) | It does not save; it asks "Would you like me to save this as a note?" → reply "Yes" to get the confirmation sheet; say anything else and nothing is saved. Something with no date or time is never turned into an event |
