@@ -98,6 +98,19 @@ def past_guidance(user: str, start_time: str | None, sysm: str, en: bool = False
     return f"실행하지 않았습니다. 오늘 {hm}은 이미 지났습니다. 내일 {hm}인지 사용자에게 물어보세요."
 
 
+def reminder_past(time_arg, sysm: str) -> bool:
+    """AddReminderToolExecutor 의 지난 시각 되돌림 흉내(승인 전, BaseAgent PAST 문구) — exp104 에서 C2 가 지금 시각을 넣었다(0.42.9)."""
+    m = re.search(r"\[Now\] (\d{1,2}):(\d{2})", K.fixture("turn_reminder.txt"))
+    try:
+        st = dt.datetime.fromisoformat(str(time_arg)[:19])
+    except ValueError:
+        return False
+    return bool(m) and st <= dt.datetime.combine(_today_from_sys(sysm), dt.time(int(m.group(1)), int(m.group(2))))
+
+
+REMINDER_PAST = "이미 지난 시각입니다. 미래의 시각으로 다시 호출하세요."
+
+
 def weekday_mismatch_guidance(user: str, start_time: str | None, sysm: str, en: bool = False) -> str | None:
     if not user or not user.strip() or not start_time:
         return None
@@ -348,6 +361,8 @@ def turn(history, user, sysm=SYS_OFF, tools=None, search_body=None, why=False):
                     body, ok = {"status": "error", "message": past_err}, False
                 elif name == "add_schedule":
                     body, ok = {"status": "success", "message": "일정이 성공적으로 추가되었습니다."}, True
+                elif name == "add_reminder" and reminder_past(args.get("time"), sysm):
+                    body, ok = {"status": "error", "message": REMINDER_PAST}, False
                 elif name == "add_reminder":
                     body, ok = {"status": "success", "message": f"리마인더 등록: '{args.get('content', '')}' 알림"}, True
                 else:
@@ -785,6 +800,22 @@ def set_clock():
     return out
 
 
+def set_remind_mem():
+    """기억 → 알림(0.42.9, exp104 문항 일부) — 메모에 적힌 일의 시각으로 알림을 맞추거나(정답), 못 하면 묻는다(지어낸 시각 알림 0건이어야 통과)."""
+    memo = "- 병원 예약은 11월 12일 오후 2시 [병원, 예약]\n- 팀 회의는 11월 10일 오전 10시 [회의]\n- 치과 예약은 11월 13일 오후 3시 30분 [치과, 예약]"
+    cases = [("rm_알려준_병원", "내가 알려준 병원 예약 시간에 알림 맞춰줘", "2026-11-12T14:00"),
+             ("rm_회의_10분전", "메모해 둔 회의 시간 10분 전에 알려줘", "2026-11-10T09:50"),
+             ("rm_치과_1시간전", "내가 말한 치과 예약 1시간 전에 알려줘", "2026-11-13T14:30"),
+             ("rm_치과_이틀전", "치과 예약 이틀 전에 알림 맞춰줘", "2026-11-11T15:30")]
+    out = []
+    for tag, user, want in cases:
+        ans, ex, bl, first = turn(None, user, search_body=memo)
+        rem = [str(a.get("time", "")) for n, a in ex if n == "add_reminder"]
+        ok = (rem and all(t.startswith(want) for t in rem)) or (not rem and "search_memory" in [n for n, _ in ex])
+        out.append((tag, bool(ok) and bool(rem), f"{[n for n, _ in ex]} 알림 {rem} 막힘 {bl} | {ans[:50]}"))
+    return out
+
+
 def set_weekday():
     """두 턴 요일 일정(0.41.13 M1) — 요일 불일치 add_schedule 실행이 0건이고, 곧장 또는 확인('응'/'Yes') 뒤 바른 날짜로 들어가야 통과."""
     mon, thu = dt.date(2026, 11, 9), dt.date(2026, 11, 12)
@@ -821,7 +852,7 @@ def set_weekday():
 
 SETS = {"smoke": set_smoke, "save": set_save, "fact": set_fact, "yes": set_yes, "drift": set_drift,
         "why": set_why, "newval": set_newval, "repeat": set_repeat, "iso": set_iso, "overlap": set_overlap,
-        "optional": set_optional, "smoke_en": set_smoke_en, "guard_en": set_guard_en, "weekday": set_weekday, "clock": set_clock, "inject": set_inject}
+        "optional": set_optional, "smoke_en": set_smoke_en, "guard_en": set_guard_en, "weekday": set_weekday, "clock": set_clock, "inject": set_inject, "remind_mem": set_remind_mem}
 
 
 def main():
