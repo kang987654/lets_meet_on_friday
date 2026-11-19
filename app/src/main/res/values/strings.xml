@@ -293,7 +293,7 @@
     <string name="memory_backup_restore_done_body">복원한 데이터를 쓰려면 앱을 다시 시작해야 해요.</string>
     <string name="memory_backup_failed_title">백업 처리 실패</string>
     <string name="memory_empty_notes">아직 저장한 메모가 없어요.\n채팅에서 \"기억해 줘\"라고 말하면 여기 쌓여요.</string>
-    <string name="memory_empty_tasks">남은 할 일이 없어요.\n아래에 적거나 채팅에서 \"장보기 할 일 추가해 줘\"라고 말해 보세요.</string>
+    <string name="memory_empty_tasks">남은 할 일이 없어요.\n아래 칸에 적어 추가하세요.</string>
     <string name="memory_note_auto_tag">자동</string>
     <string name="memory_note_deleted_snackbar">메모를 지웠어요.</string>
     <string name="memory_task_deleted_snackbar">할 일을 지웠어요.</string>
